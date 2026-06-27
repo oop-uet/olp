@@ -11,6 +11,7 @@ interface Instructor {
   username: string
   email: string
   role: string
+  fullName?: string | null
 }
 
 interface Section {
@@ -60,16 +61,8 @@ export function SectionManagerPage() {
 
   const fetchInstructors = useCallback(async () => {
     try {
-      const response = await api.get('/api/admin/sections')
-      // Extract instructors from loaded sections (no dedicated users endpoint)
-      const instructorMap = new Map<string, Instructor>()
-      const sectionData = response.data as Section[]
-      sectionData.forEach((section) => {
-        if (section.instructor) {
-          instructorMap.set(section.instructor.id, section.instructor)
-        }
-      })
-      setInstructors(Array.from(instructorMap.values()))
+      const response = await api.get('/api/admin/users', { params: { role: 'instructor' } })
+      setInstructors(response.data)
     } catch {
       // Silently handle - instructor list is optional for the form
     }
@@ -190,6 +183,7 @@ export function SectionManagerPage() {
     imported: number;
     skipped: Array<{ row: number; studentId?: string; reason: string }>;
     total: number;
+    instructor: { id: string; name: string; matched: boolean } | null;
   } | null>(null)
 
   async function handleRosterImport() {
@@ -283,6 +277,20 @@ export function SectionManagerPage() {
               <ul className="mt-2 space-y-1 text-xs text-success-700">
                 <li>Lớp: <strong>{rosterResult.section.name}</strong> ({rosterResult.section.semester})</li>
                 <li>Đã nhập: <strong>{rosterResult.imported}</strong> / {rosterResult.total} sinh viên</li>
+                {rosterResult.instructor && (
+                  <li className="flex flex-wrap items-center gap-2">
+                    <span>
+                      Giảng viên: <strong>{rosterResult.instructor.name}</strong>
+                    </span>
+                    {rosterResult.instructor.matched ? (
+                      <span className="badge-green">đã khớp</span>
+                    ) : (
+                      <span className="badge-yellow">
+                        dùng mặc định (không tìm thấy trong hệ thống)
+                      </span>
+                    )}
+                  </li>
+                )}
                 {rosterResult.skipped.length > 0 && (
                   <li className="text-warning-700">
                     Bỏ qua: {rosterResult.skipped.length} (
@@ -365,7 +373,7 @@ export function SectionManagerPage() {
                   <option value="">-- Chưa có giảng viên --</option>
                   {instructors.map((instructor) => (
                     <option key={instructor.id} value={instructor.id}>
-                      {instructor.username} ({instructor.email})
+                      {instructor.fullName || instructor.username} ({instructor.email})
                     </option>
                   ))}
                 </select>
@@ -441,7 +449,7 @@ export function SectionManagerPage() {
                   <td className="px-5 py-3.5">
                     {section.instructor ? (
                       <span className="text-sm text-gray-700">
-                        {section.instructor.username}
+                        {section.instructor.fullName || section.instructor.username}
                       </span>
                     ) : instructors.length > 0 ? (
                       <select
@@ -456,7 +464,7 @@ export function SectionManagerPage() {
                         <option value="">Phân công giảng viên...</option>
                         {instructors.map((instructor) => (
                           <option key={instructor.id} value={instructor.id}>
-                            {instructor.username}
+                            {instructor.fullName || instructor.username}
                           </option>
                         ))}
                       </select>

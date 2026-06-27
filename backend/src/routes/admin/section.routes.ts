@@ -12,6 +12,7 @@ import {
   unassignExercise,
   isSectionError,
 } from "../../services/section.service.js";
+import { assignToSection, isExerciseError } from "../../services/exercise.service.js";
 
 // ─── Zod Schemas ─────────────────────────────────────────────────────────────
 
@@ -195,6 +196,34 @@ router.delete("/:id/exercises/:exerciseId", async (req: Request, res: Response) 
   try {
     const result = await unassignExercise(req.params.id, req.params.exerciseId);
     res.status(200).json(result);
+  } catch {
+    res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } });
+  }
+});
+
+/**
+ * POST /api/admin/sections/:id/assign-exercise
+ * Assign an exercise to a section. Body: { exercise_id, deadline?, is_assessment? }
+ */
+router.post("/:id/assign-exercise", async (req: Request, res: Response) => {
+  try {
+    const { exercise_id, deadline, is_assessment } = req.body;
+    if (!exercise_id) {
+      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "exercise_id là bắt buộc." } });
+      return;
+    }
+    const result = await assignToSection(exercise_id, {
+      section_id: req.params.id,
+      deadline,
+      is_assessment,
+    });
+    if (isExerciseError(result)) {
+      const code = result.error.code;
+      const status = code === "NOT_FOUND" ? 404 : code === "ALREADY_ASSIGNED" ? 409 : 400;
+      res.status(status).json({ error: result.error });
+      return;
+    }
+    res.status(201).json(result);
   } catch {
     res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } });
   }

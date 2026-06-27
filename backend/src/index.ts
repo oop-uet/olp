@@ -6,6 +6,7 @@ import configRoutes from './routes/admin/config.routes.js';
 import importRoutes from './routes/admin/import.routes.js';
 import rosterRoutes from './routes/admin/roster.routes.js';
 import userRoutes from './routes/admin/user.routes.js';
+import adminExerciseRoutes from './routes/admin/exercise.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import { exerciseTestCaseRouter, testCaseRouter } from './routes/instructor/testcase.routes.js';
 import exerciseRoutes from './routes/instructor/exercise.routes.js';
@@ -40,6 +41,7 @@ app.use('/api/admin/sections', authMiddleware(), requireRole('admin'), sectionRo
 app.use('/api/admin/sections', authMiddleware(), requireRole('admin'), importRoutes);
 app.use('/api/admin', authMiddleware(), requireRole('admin'), rosterRoutes);
 app.use('/api/admin/users', authMiddleware(), requireRole('admin'), userRoutes);
+app.use('/api/admin/exercises', authMiddleware(), requireRole('admin'), adminExerciseRoutes);
 app.use('/api/admin/config', authMiddleware(), requireRole('admin'), configRoutes);
 app.use('/api/admin', adminRoutes);
 

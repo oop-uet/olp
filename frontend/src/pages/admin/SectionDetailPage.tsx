@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../../lib/api'
-import { PageLoader, SectionIcon, StudentsIcon, ExerciseIcon } from '../../components/ui'
+import { PageLoader, Spinner, SectionIcon, StudentsIcon, ExerciseIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -49,6 +49,13 @@ interface SectionDetail {
   exerciseCount: number
 }
 
+interface AvailableExercise {
+  id: string
+  title: string
+  difficulty: string
+  oopTags?: string[] | string
+}
+
 function formatDateTime(value: string | null): string {
   if (!value) return '—'
   const date = new Date(value)
@@ -76,6 +83,14 @@ export function SectionDetailPage() {
   const [detail, setDetail] = useState<SectionDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [busyKey, setBusyKey] = useState<string | null>(null)
+
+  // ─── Assign exercise state ─────────────────────────────────────────────
+  const [showAssignForm, setShowAssignForm] = useState(false)
+  const [availableExercises, setAvailableExercises] = useState<AvailableExercise[]>([])
+  const [assignExerciseId, setAssignExerciseId] = useState('')
+  const [assignDeadline, setAssignDeadline] = useState('')
+  const [assignIsAssessment, setAssignIsAssessment] = useState(false)
+  const [assignSubmitting, setAssignSubmitting] = useState(false)
 
   const fetchDetail = useCallback(async () => {
     if (!id) return
@@ -128,6 +143,47 @@ export function SectionDetailPage() {
       toast.error(err.response?.data?.error?.message || 'Không thể gỡ bài tập.')
     } finally {
       setBusyKey(null)
+    }
+  }
+
+  // ─── Assign exercise handlers ──────────────────────────────────────────
+
+  async function toggleAssignForm() {
+    if (showAssignForm) {
+      setShowAssignForm(false)
+      return
+    }
+    setShowAssignForm(true)
+    setAssignExerciseId('')
+    setAssignDeadline('')
+    setAssignIsAssessment(false)
+    try {
+      const response = await api.get('/api/admin/exercises')
+      setAvailableExercises(response.data)
+    } catch (err: any) {
+      toast.error(
+        err.response?.data?.error?.message || 'Không thể tải danh sách bài tập.'
+      )
+    }
+  }
+
+  async function handleAssignExercise(e: React.FormEvent) {
+    e.preventDefault()
+    if (!id || !assignExerciseId) return
+    setAssignSubmitting(true)
+    try {
+      await api.post(`/api/admin/sections/${id}/assign-exercise`, {
+        exercise_id: assignExerciseId,
+        ...(assignDeadline ? { deadline: new Date(assignDeadline).toISOString() } : {}),
+        is_assessment: assignIsAssessment,
+      })
+      toast.success('Đã gán bài tập.')
+      setShowAssignForm(false)
+      await fetchDetail()
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || 'Không thể gán bài tập.')
+    } finally {
+      setAssignSubmitting(false)
     }
   }
 
@@ -233,12 +289,93 @@ export function SectionDetailPage() {
 
       {/* Exercises */}
       <div className="card overflow-hidden">
-        <div className="flex items-center gap-2 border-b border-gray-200 px-5 py-4">
-          <ExerciseIcon className="h-5 w-5 text-gray-500" />
-          <h2 className="text-sm font-semibold text-gray-700">
-            Bài tập đã gán ({exerciseCount})
-          </h2>
+        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+          <div className="flex items-center gap-2">
+            <ExerciseIcon className="h-5 w-5 text-gray-500" />
+            <h2 className="text-sm font-semibold text-gray-700">
+              Bài tập đã gán ({exerciseCount})
+            </h2>
+          </div>
+          <button onClick={toggleAssignForm} className="btn-primary btn-sm">
+            {showAssignForm ? 'Đóng' : 'Gán bài tập'}
+          </button>
         </div>
+
+        {/* Assign form */}
+        {showAssignForm && (
+          <form
+            onSubmit={handleAssignExercise}
+            className="space-y-4 border-b border-gray-200 bg-gray-50 px-5 py-4"
+          >
+            <div>
+              <label htmlFor="assign-exercise" className="label">
+                Bài tập
+              </label>
+              <select
+                id="assign-exercise"
+                required
+                value={assignExerciseId}
+                onChange={(e) => setAssignExerciseId(e.target.value)}
+                className="input"
+              >
+                <option value="">-- Chọn bài tập --</option>
+                {availableExercises
+                  .filter(
+                    (ex) => !exercises.some((a) => a.exerciseId === ex.id)
+                  )
+                  .map((ex) => (
+                    <option key={ex.id} value={ex.id}>
+                      {ex.title}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="assign-deadline" className="label">
+                Hạn nộp (tùy chọn)
+              </label>
+              <input
+                id="assign-deadline"
+                type="datetime-local"
+                value={assignDeadline}
+                onChange={(e) => setAssignDeadline(e.target.value)}
+                className="input"
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={assignIsAssessment}
+                onChange={(e) => setAssignIsAssessment(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              Bài đánh giá (chống gian lận)
+            </label>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowAssignForm(false)}
+                className="btn-secondary btn-sm"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={assignSubmitting || !assignExerciseId}
+                className="btn-primary btn-sm"
+              >
+                {assignSubmitting ? (
+                  <>
+                    <Spinner /> Đang gán...
+                  </>
+                ) : (
+                  'Gán'
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+
         {exercises.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-gray-500">
             Lớp chưa được gán bài tập nào.

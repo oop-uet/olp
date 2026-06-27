@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader, Spinner, StudentsIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
@@ -14,6 +15,7 @@ interface UserRow {
   mustChangePassword: boolean
   lockedUntil: string | null
   createdAt: string
+  sections: { id: string; name: string; semester: string }[]
 }
 
 interface UserFormData {
@@ -308,6 +310,7 @@ export function StudentManagementPage() {
                 <th className="table-th">MSSV</th>
                 <th className="table-th">Họ tên</th>
                 <th className="table-th">Email</th>
+                <th className="table-th">Lớp học phần</th>
                 <th className="table-th">Ngày tạo</th>
                 <th className="table-th text-right">Thao tác</th>
               </tr>
@@ -325,6 +328,23 @@ export function StudentManagementPage() {
                   </td>
                   <td className="table-td text-gray-700">{user.fullName || '—'}</td>
                   <td className="table-td text-gray-700">{user.email}</td>
+                  <td className="table-td">
+                    {user.sections && user.sections.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {user.sections.map((section) => (
+                          <Link
+                            key={section.id}
+                            to={`/admin/sections/${section.id}`}
+                            className="badge-blue hover:opacity-80"
+                          >
+                            {section.name}
+                          </Link>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </td>
                   <td className="table-td text-gray-500">{formatDate(user.createdAt)}</td>
                   <td className="px-5 py-3.5 text-right">
                     <button

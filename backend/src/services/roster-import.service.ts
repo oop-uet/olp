@@ -25,9 +25,21 @@ export interface RosterMetadata {
 
 export interface RosterImportReport {
   section: { id: string; name: string; semester: string };
+  instructor: { id: string; name: string; matched: boolean } | null;
   imported: number;
   skipped: Array<{ row: number; studentId?: string; reason: string }>;
   total: number;
+}
+
+/** Normalize a Vietnamese name for loose matching (lowercase, collapse spaces, strip accents). */
+function normalizeName(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/gi, "d")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 // ─── Parser for Vietnamese university class roster (.xls/.xlsx) ──────────────
@@ -193,6 +205,41 @@ export async function importClassRoster(
 
   const now = new Date().toISOString();
 
+  // Resolve instructor: try to match the name parsed from the file against
+  // existing instructor accounts; fall back to the importing admin (default).
+  let resolvedInstructorId: string | null = instructorId;
+  let instructorReport: RosterImportReport["instructor"] = null;
+
+  if (metadata.instructor && metadata.instructor.trim()) {
+    const parsedName = normalizeName(metadata.instructor);
+    const instructors = await database
+      .select({ id: users.id, fullName: users.fullName, username: users.username })
+      .from(users)
+      .where(eq(users.role, "instructor"));
+
+    const matched = instructors.find((ins: any) => {
+      const fn = ins.fullName ? normalizeName(ins.fullName) : "";
+      const un = ins.username ? normalizeName(ins.username) : "";
+      return fn === parsedName || un === parsedName || (fn && parsedName.includes(fn)) || (fn && fn.includes(parsedName));
+    });
+
+    if (matched) {
+      resolvedInstructorId = matched.id;
+      instructorReport = {
+        id: matched.id,
+        name: matched.fullName || matched.username,
+        matched: true,
+      };
+    } else {
+      // Not found → keep default (importing admin), note the parsed name
+      instructorReport = {
+        id: resolvedInstructorId ?? "",
+        name: metadata.instructor.trim(),
+        matched: false,
+      };
+    }
+  }
+
   // 1. Create or find the class section
   const sectionId = crypto.randomUUID();
   const sectionName = metadata.sectionName || "Imported Section";
@@ -203,7 +250,7 @@ export async function importClassRoster(
       id: sectionId,
       name: sectionName,
       semester: metadata.semester,
-      instructorId: instructorId,
+      instructorId: resolvedInstructorId,
       createdAt: now,
     })
     .returning();
@@ -211,6 +258,7 @@ export async function importClassRoster(
   // 2. Import students
   const report: RosterImportReport = {
     section: { id: sectionId, name: sectionName, semester: metadata.semester },
+    instructor: instructorReport,
     imported: 0,
     skipped: [],
     total: students.length,

@@ -32,6 +32,7 @@ const InstructorManagementPage = lazy(() => import('../pages/admin/InstructorMan
 const StudentManagementPage = lazy(() => import('../pages/admin/StudentManagementPage').then((m) => ({ default: m.StudentManagementPage })))
 const SectionDetailPage = lazy(() => import('../pages/admin/SectionDetailPage').then((m) => ({ default: m.SectionDetailPage })))
 const SectionManagerPage = lazy(() => import('../pages/admin/SectionManagerPage').then((m) => ({ default: m.SectionManagerPage })))
+const AdminExercisesPage = lazy(() => import('../pages/admin/AdminExercisesPage').then((m) => ({ default: m.AdminExercisesPage })))
 const StudentImportPage = lazy(() => import('../pages/admin/StudentImportPage').then((m) => ({ default: m.StudentImportPage })))
 const ConfigPage = lazy(() => import('../pages/admin/ConfigPage').then((m) => ({ default: m.ConfigPage })))
 const QuotaPage = lazy(() => import('../pages/admin/QuotaPage').then((m) => ({ default: m.QuotaPage })))
@@ -106,6 +107,7 @@ export const router = createBrowserRouter(
         { path: 'sections', element: withSuspense(<SectionManagerPage />) },
         { path: 'sections/:id', element: withSuspense(<SectionDetailPage />) },
         { path: 'sections/:id/students', element: withSuspense(<StudentImportPage />) },
+        { path: 'exercises', element: withSuspense(<AdminExercisesPage />) },
         { path: 'config', element: withSuspense(<ConfigPage />) },
         { path: 'quota', element: withSuspense(<QuotaPage />) },
       ],

@@ -5,6 +5,7 @@ import { db as defaultDb } from "../db/index.js";
 import {
   users,
   sectionEnrollments,
+  classSections,
   submissions,
   submissionResults,
   anticheatEvents,
@@ -90,7 +91,34 @@ export async function listUsers(
         : and(...conditions);
 
   const rows = await database.select().from(users).where(where);
-  return rows.map(toPublicUser);
+
+  // Attach enrolled sections for each user (mainly relevant for students)
+  const userIds = rows.map((u: any) => u.id);
+  const sectionsByUser = new Map<string, Array<{ id: string; name: string; semester: string }>>();
+
+  if (userIds.length > 0) {
+    const enrollmentRows = await database
+      .select({
+        studentId: sectionEnrollments.studentId,
+        sectionId: classSections.id,
+        sectionName: classSections.name,
+        semester: classSections.semester,
+      })
+      .from(sectionEnrollments)
+      .innerJoin(classSections, eq(sectionEnrollments.sectionId, classSections.id))
+      .where(inArray(sectionEnrollments.studentId, userIds));
+
+    for (const e of enrollmentRows as any[]) {
+      const list = sectionsByUser.get(e.studentId) ?? [];
+      list.push({ id: e.sectionId, name: e.sectionName, semester: e.semester });
+      sectionsByUser.set(e.studentId, list);
+    }
+  }
+
+  return rows.map((u: any) => ({
+    ...toPublicUser(u),
+    sections: sectionsByUser.get(u.id) ?? [],
+  }));
 }
 
 // ─── Create ───────────────────────────────────────────────────────────────

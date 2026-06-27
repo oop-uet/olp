@@ -37,6 +37,7 @@ const menusByRole: Record<UserRole, MenuItem[]> = {
     { label: 'Giảng viên', path: '/admin/instructors', icon: TeacherIcon },
     { label: 'Sinh viên', path: '/admin/students', icon: StudentsIcon },
     { label: 'Lớp học phần', path: '/admin/sections', icon: SectionIcon },
+    { label: 'Bài tập', path: '/admin/exercises', icon: ExerciseIcon },
     { label: 'Cấu hình', path: '/admin/config', icon: ConfigIcon },
     { label: 'Giám sát Quota', path: '/admin/quota', icon: QuotaIcon },
   ],
