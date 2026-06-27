@@ -4,27 +4,30 @@ import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 
 /**
- * Main authenticated layout wrapping Sidebar + Header + content area.
- * Uses <Outlet /> for nested route content.
- * Designed for screens 1024px and wider.
+ * Main authenticated layout: responsive sidebar + header + scrollable content.
+ * Sidebar collapses on desktop and slides over on mobile.
  */
 export function AppLayout() {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      {/* Sidebar */}
+    <div className="flex h-screen overflow-hidden bg-gray-50">
       <Sidebar
-        collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed((prev) => !prev)}
+        collapsed={collapsed}
+        mobileOpen={mobileOpen}
+        onCloseMobile={() => setMobileOpen(false)}
       />
 
-      {/* Main content area */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Header />
-
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-6">
-          <Outlet />
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <Header
+          onToggleSidebar={() => setCollapsed((v) => !v)}
+          onToggleMobile={() => setMobileOpen((v) => !v)}
+        />
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+          <div className="mx-auto max-w-7xl">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

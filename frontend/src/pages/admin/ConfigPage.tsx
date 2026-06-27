@@ -1,6 +1,7 @@
 import { useEffect, useState, FormEvent } from 'react'
 import { api } from '../../lib/api'
-import { LoadingIndicator } from '../../components/ui'
+import { PageLoader, Spinner, ConfigIcon } from '../../components/ui'
+import { toast } from '../../stores/toast.store'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -26,26 +27,26 @@ interface ConfigParam {
 
 const CONFIG_PARAMS: Record<string, Omit<ConfigParam, 'key' | 'currentValue'>> = {
   warning_threshold: {
-    label: 'Warning Threshold',
+    label: 'Ngưỡng cảnh báo',
     description:
-      'Maximum number of anti-cheat warnings before automatic score nullification.',
+      'Số lần cảnh báo chống gian lận tối đa trước khi điểm bị tự động hủy.',
     min: 1,
     max: 10,
-    unit: 'warnings',
+    unit: 'lần cảnh báo',
   },
   time_limit: {
-    label: 'Exercise Time Limit',
-    description: 'Default time limit for exercise completion.',
+    label: 'Giới hạn thời gian bài tập',
+    description: 'Thời gian làm bài mặc định cho mỗi bài tập.',
     min: 1,
     max: 180,
-    unit: 'minutes',
+    unit: 'phút',
   },
   max_submissions: {
-    label: 'Maximum Submissions',
-    description: 'Maximum number of submission attempts per exercise.',
+    label: 'Số lần nộp tối đa',
+    description: 'Số lần nộp bài tối đa cho mỗi bài tập.',
     min: 1,
     max: 100,
-    unit: 'attempts',
+    unit: 'lần nộp',
   },
 }
 
@@ -58,7 +59,6 @@ export function ConfigPage() {
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [saving, setSaving] = useState<string | null>(null)
-  const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   useEffect(() => {
     fetchConfig()
@@ -79,7 +79,7 @@ export function ConfigPage() {
       }
       setFormValues(values)
     } catch {
-      setFetchError('Failed to load configuration. Please try again.')
+      setFetchError('Không thể tải cấu hình. Vui lòng thử lại.')
     } finally {
       setLoading(false)
     }
@@ -90,15 +90,15 @@ export function ConfigPage() {
     if (!meta) return null
 
     const trimmed = value.trim()
-    if (!trimmed) return `${meta.label} is required`
+    if (!trimmed) return `${meta.label} là bắt buộc`
 
     const num = parseInt(trimmed, 10)
     if (isNaN(num) || num.toString() !== trimmed) {
-      return `${meta.label} must be a valid integer`
+      return `${meta.label} phải là số nguyên hợp lệ`
     }
 
     if (num < meta.min || num > meta.max) {
-      return `${meta.label} must be between ${meta.min} and ${meta.max}`
+      return `${meta.label} phải nằm trong khoảng ${meta.min} đến ${meta.max}`
     }
 
     return null
@@ -112,12 +112,10 @@ export function ConfigPage() {
       delete next[key]
       return next
     })
-    setSuccessMessage(null)
   }
 
   async function handleSubmit(key: string, e: FormEvent) {
     e.preventDefault()
-    setSuccessMessage(null)
 
     const value = formValues[key] ?? ''
     const error = validateField(key, value)
@@ -130,8 +128,8 @@ export function ConfigPage() {
     setSaving(key)
     try {
       await api.put('/api/admin/config', { key, value: value.trim() })
-      setSuccessMessage(
-        `${CONFIG_PARAMS[key]?.label || key} updated successfully.`
+      toast.success(
+        `Đã cập nhật ${CONFIG_PARAMS[key]?.label || key} thành công.`
       )
       // Refresh config to show latest values
       await fetchConfig()
@@ -139,26 +137,23 @@ export function ConfigPage() {
       const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
       const message =
         axiosErr?.response?.data?.error?.message ||
-        'Failed to update configuration.'
-      setErrors((prev) => ({ ...prev, [key]: message }))
+        'Không thể cập nhật cấu hình.'
+      toast.error(message)
     } finally {
       setSaving(null)
     }
   }
 
   if (loading) {
-    return <LoadingIndicator label="Loading configuration..." />
+    return <PageLoader label="Đang tải cấu hình..." />
   }
 
   if (fetchError) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 p-8">
-        <p className="text-red-600">{fetchError}</p>
-        <button
-          onClick={fetchConfig}
-          className="rounded-md bg-primary px-4 py-2 text-sm text-white hover:bg-primary-600 transition-colors"
-        >
-          Retry
+        <p className="text-danger-600">{fetchError}</p>
+        <button onClick={fetchConfig} className="btn-primary">
+          Thử lại
         </button>
       </div>
     )
@@ -179,22 +174,17 @@ export function ConfigPage() {
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">System Configuration</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Adjust system parameters. Changes apply to new sessions after modification.
-        </p>
-      </div>
-
-      {/* Success message */}
-      {successMessage && (
-        <div
-          className="rounded border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700"
-          role="status"
-        >
-          {successMessage}
+      <div className="flex items-center gap-3">
+        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50 text-primary">
+          <ConfigIcon className="h-6 w-6" />
+        </span>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Cấu hình hệ thống</h1>
+          <p className="mt-1 text-sm text-gray-600">
+            Điều chỉnh các tham số hệ thống. Thay đổi sẽ áp dụng cho các phiên mới sau khi cập nhật.
+          </p>
         </div>
-      )}
+      </div>
 
       {/* Config forms */}
       <div className="space-y-4">
@@ -202,7 +192,7 @@ export function ConfigPage() {
           <form
             key={param.key}
             onSubmit={(e) => handleSubmit(param.key, e)}
-            className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
+            className="card p-5"
             noValidate
           >
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -215,8 +205,8 @@ export function ConfigPage() {
                 </label>
                 <p className="mt-0.5 text-xs text-gray-500">{param.description}</p>
                 <p className="mt-1 text-xs text-gray-400">
-                  Valid range: {param.min}–{param.max} {param.unit} | Current
-                  value: {param.currentValue}
+                  Khoảng hợp lệ: {param.min}–{param.max} {param.unit} | Giá trị
+                  hiện tại: {param.currentValue}
                 </p>
 
                 <div className="mt-3 flex items-center gap-3">
@@ -227,26 +217,28 @@ export function ConfigPage() {
                     max={param.max}
                     value={formValues[param.key] ?? ''}
                     onChange={(e) => handleChange(param.key, e.target.value)}
-                    className={`w-32 rounded border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
-                      errors[param.key]
-                        ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                        : 'border-gray-300 focus:border-primary focus:ring-primary'
-                    }`}
+                    className={`input w-32 ${errors[param.key] ? 'input-error' : ''}`}
                   />
                   <span className="text-xs text-gray-500">{param.unit}</span>
                 </div>
 
                 {errors[param.key] && (
-                  <p className="mt-1.5 text-xs text-red-600">{errors[param.key]}</p>
+                  <p className="mt-1.5 text-xs text-danger-600">{errors[param.key]}</p>
                 )}
               </div>
 
               <button
                 type="submit"
                 disabled={saving === param.key}
-                className="shrink-0 rounded bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:opacity-60"
+                className="btn-primary shrink-0"
               >
-                {saving === param.key ? 'Saving...' : 'Update'}
+                {saving === param.key ? (
+                  <>
+                    <Spinner /> Đang lưu...
+                  </>
+                ) : (
+                  'Cập nhật'
+                )}
               </button>
             </div>
           </form>
@@ -254,8 +246,8 @@ export function ConfigPage() {
       </div>
 
       {params.length === 0 && (
-        <div className="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm">
-          <p className="text-sm text-gray-500">No configurable parameters found.</p>
+        <div className="card p-8 text-center">
+          <p className="text-sm text-gray-500">Không tìm thấy tham số nào có thể cấu hình.</p>
         </div>
       )}
     </div>

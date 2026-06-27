@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../lib/api'
-import { LoadingIndicator } from '../../components/ui'
+import { PageLoader, ExerciseIcon } from '../../components/ui'
+import { toast } from '../../stores/toast.store'
 
 interface Exercise {
   id: string
@@ -14,25 +15,25 @@ interface Exercise {
 }
 
 const difficultyConfig = {
-  easy: { label: 'Easy', className: 'bg-green-100 text-green-800 border-green-200' },
-  medium: { label: 'Medium', className: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
-  hard: { label: 'Hard', className: 'bg-red-100 text-red-800 border-red-200' },
+  easy: { label: 'Dễ', className: 'badge-green' },
+  medium: { label: 'Trung bình', className: 'badge-yellow' },
+  hard: { label: 'Khó', className: 'badge-red' },
 }
 
 const statusConfig = {
-  not_started: { label: 'Not Started', className: 'text-gray-500' },
-  in_progress: { label: 'In Progress', className: 'text-blue-600' },
-  submitted: { label: 'Submitted', className: 'text-orange-600' },
-  completed: { label: 'Completed', className: 'text-green-600' },
+  not_started: { label: 'Chưa bắt đầu', className: 'text-gray-500' },
+  in_progress: { label: 'Đang làm', className: 'text-primary-600' },
+  submitted: { label: 'Đã nộp', className: 'text-warning-600' },
+  completed: { label: 'Hoàn thành', className: 'text-success-600' },
 }
 
 function formatDeadline(deadline: string | null): string {
-  if (!deadline) return 'No deadline'
+  if (!deadline) return 'Không có hạn nộp'
   const date = new Date(deadline)
   const now = new Date()
   const diffMs = date.getTime() - now.getTime()
 
-  if (diffMs < 0) return 'Expired'
+  if (diffMs < 0) return 'Đã hết hạn'
 
   const formatted = date.toLocaleDateString('vi-VN', {
     day: '2-digit',
@@ -61,7 +62,6 @@ function isDeadlineExpired(deadline: string | null): boolean {
 export function ExerciseListPage() {
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchExercises()
@@ -70,40 +70,30 @@ export function ExerciseListPage() {
   async function fetchExercises() {
     try {
       setLoading(true)
-      setError(null)
       const response = await api.get('/api/exercises')
       setExercises(response.data.exercises ?? response.data ?? [])
     } catch (err) {
-      setError('Failed to load exercises. Please try again.')
+      toast.error('Không thể tải danh sách bài tập. Vui lòng thử lại.')
     } finally {
       setLoading(false)
     }
   }
 
   if (loading) {
-    return <LoadingIndicator label="Loading exercises..." />
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-4 p-8">
-        <p className="text-red-600">{error}</p>
-        <button
-          onClick={fetchExercises}
-          className="rounded-md bg-primary px-4 py-2 text-sm text-white hover:bg-primary-600 transition-colors"
-        >
-          Retry
-        </button>
-      </div>
-    )
+    return <PageLoader label="Đang tải bài tập..." />
   }
 
   if (exercises.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 p-12">
-        <span className="text-4xl">📝</span>
-        <p className="text-lg font-medium text-gray-700">No exercises assigned yet</p>
-        <p className="text-sm text-gray-500">Check back later for new assignments.</p>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Bài tập</h1>
+        </div>
+        <div className="card flex flex-col items-center justify-center gap-3 p-12 text-center">
+          <ExerciseIcon className="h-12 w-12 text-gray-300" />
+          <p className="text-lg font-medium text-gray-700">Chưa có bài tập nào được giao</p>
+          <p className="text-sm text-gray-500">Hãy quay lại sau để xem các bài tập mới.</p>
+        </div>
       </div>
     )
   }
@@ -112,9 +102,9 @@ export function ExerciseListPage() {
     <div className="space-y-6">
       {/* Page header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Exercises</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Bài tập</h1>
         <p className="mt-1 text-sm text-gray-600">
-          {exercises.length} exercise{exercises.length !== 1 ? 's' : ''} assigned
+          {exercises.length} bài tập được giao
         </p>
       </div>
 
@@ -124,7 +114,7 @@ export function ExerciseListPage() {
           <Link
             key={exercise.id}
             to={`/student/exercises/${exercise.id}`}
-            className="block rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition-all hover:shadow-md hover:border-primary-200"
+            className="card-hover block p-5"
           >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               {/* Left: Title and metadata */}
@@ -133,9 +123,7 @@ export function ExerciseListPage() {
                   <h2 className="text-lg font-semibold text-gray-900 truncate">
                     {exercise.title}
                   </h2>
-                  <span
-                    className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${difficultyConfig[exercise.difficulty].className}`}
-                  >
+                  <span className={difficultyConfig[exercise.difficulty].className}>
                     {difficultyConfig[exercise.difficulty].label}
                   </span>
                 </div>
@@ -144,10 +132,7 @@ export function ExerciseListPage() {
                 {exercise.oopTags && exercise.oopTags.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {exercise.oopTags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
-                      >
+                      <span key={tag} className="badge-gray">
                         {tag}
                       </span>
                     ))}
@@ -167,7 +152,7 @@ export function ExerciseListPage() {
                 {/* Score if submitted */}
                 {exercise.score !== null && (
                   <span className="text-sm text-gray-700">
-                    Score: <span className="font-semibold">{exercise.score.toFixed(1)}%</span>
+                    Điểm: <span className="font-semibold">{exercise.score.toFixed(1)}%</span>
                   </span>
                 )}
 
@@ -175,14 +160,14 @@ export function ExerciseListPage() {
                 <span
                   className={`text-xs ${
                     isDeadlineExpired(exercise.deadline)
-                      ? 'text-red-500 font-medium'
+                      ? 'text-danger-600 font-medium'
                       : isDeadlineSoon(exercise.deadline)
-                        ? 'text-orange-500 font-medium'
+                        ? 'text-warning-600 font-medium'
                         : 'text-gray-500'
                   }`}
                 >
                   {isDeadlineExpired(exercise.deadline) ? '⚠️ ' : ''}
-                  {formatDeadline(exercise.deadline)}
+                  Hạn nộp: {formatDeadline(exercise.deadline)}
                 </span>
               </div>
             </div>

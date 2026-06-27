@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { api } from '../../lib/api'
-import { LoadingIndicator } from '../../components/ui/LoadingIndicator'
+import { PageLoader, Spinner } from '../../components/ui'
+import { toast } from '../../stores/toast.store'
 
 interface SkippedRow {
   row: number
@@ -31,7 +32,6 @@ export function StudentImportPage() {
   const [importing, setImporting] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
-  const [error, setError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -43,7 +43,6 @@ export function StudentImportPage() {
   }
 
   function handleFileSelect(selectedFile: File | null) {
-    setError(null)
     setImportResult(null)
 
     if (!selectedFile) {
@@ -52,7 +51,7 @@ export function StudentImportPage() {
     }
 
     if (!isValidFileType(selectedFile)) {
-      setError('Invalid file type. Please select a CSV or Excel (.xlsx) file.')
+      toast.error('Định dạng file không hợp lệ. Vui lòng chọn file CSV hoặc Excel (.xlsx).')
       setFile(null)
       return
     }
@@ -90,7 +89,6 @@ export function StudentImportPage() {
     if (!file || !sectionId) return
 
     setImporting(true)
-    setError(null)
     setImportResult(null)
 
     try {
@@ -107,11 +105,12 @@ export function StudentImportPage() {
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
+      toast.success('Nhập danh sách sinh viên thành công.')
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { error?: { message?: string } } } })?.response
-          ?.data?.error?.message || 'Failed to import students. Please try again.'
-      setError(message)
+          ?.data?.error?.message || 'Không thể nhập sinh viên. Vui lòng thử lại.'
+      toast.error(message)
     } finally {
       setImporting(false)
     }
@@ -121,7 +120,6 @@ export function StudentImportPage() {
     if (!sectionId) return
 
     setExporting(true)
-    setError(null)
 
     try {
       const response = await api.get(
@@ -139,8 +137,9 @@ export function StudentImportPage() {
       link.click()
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
+      toast.success('Xuất danh sách thành công.')
     } catch {
-      setError('Failed to export students. Please try again.')
+      toast.error('Không thể xuất danh sách sinh viên. Vui lòng thử lại.')
     } finally {
       setExporting(false)
     }
@@ -151,47 +150,34 @@ export function StudentImportPage() {
       {/* Page header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-gray-800">
-          Student Import / Export
+          Nhập / Xuất sinh viên
         </h1>
         <button
           onClick={handleExport}
           disabled={exporting}
-          className="inline-flex items-center gap-2 rounded bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:opacity-50"
+          className="btn-primary"
         >
           {exporting ? (
             <>
-              <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              Exporting...
+              <Spinner />
+              Đang xuất...
             </>
           ) : (
             <>
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
-              Export CSV
+              Xuất CSV
             </>
           )}
         </button>
       </div>
 
-      {/* Error message */}
-      {error && (
-        <div
-          className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-          role="alert"
-        >
-          {error}
-        </div>
-      )}
-
       {/* File upload area */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-medium text-gray-800">Import Students</h2>
+      <div className="card p-6">
+        <h2 className="mb-4 text-lg font-medium text-gray-800">Nhập sinh viên</h2>
         <p className="mb-4 text-sm text-gray-600">
-          Upload a CSV or Excel (.xlsx) file with columns:{' '}
+          Tải lên file CSV hoặc Excel (.xlsx) với các cột:{' '}
           <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">student_id</code>,{' '}
           <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">full_name</code>,{' '}
           <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">email</code>
@@ -210,7 +196,7 @@ export function StudentImportPage() {
           }`}
           role="button"
           tabIndex={0}
-          aria-label="Drop file here or click to select"
+          aria-label="Kéo thả file vào đây hoặc nhấn để chọn"
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault()
@@ -232,9 +218,9 @@ export function StudentImportPage() {
             />
           </svg>
           <p className="mt-2 text-sm text-gray-600">
-            <span className="font-medium text-primary">Click to upload</span> or drag and drop
+            <span className="font-medium text-primary">Nhấn để tải lên</span> hoặc kéo thả
           </p>
-          <p className="mt-1 text-xs text-gray-500">CSV or Excel (.xlsx) files only</p>
+          <p className="mt-1 text-xs text-gray-500">Chỉ chấp nhận file CSV hoặc Excel (.xlsx)</p>
 
           <input
             ref={fileInputRef}
@@ -242,13 +228,13 @@ export function StudentImportPage() {
             accept={ACCEPTED_FILE_TYPES}
             onChange={handleInputChange}
             className="hidden"
-            aria-label="Select student list file"
+            aria-label="Chọn file danh sách sinh viên"
           />
         </div>
 
         {/* Selected file display */}
         {file && (
-          <div className="mt-4 flex items-center justify-between rounded border border-gray-200 bg-gray-50 px-4 py-3">
+          <div className="mt-4 flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
             <div className="flex items-center gap-3">
               <svg className="h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -265,7 +251,7 @@ export function StudentImportPage() {
                 if (fileInputRef.current) fileInputRef.current.value = ''
               }}
               className="text-sm text-gray-500 hover:text-gray-700"
-              aria-label="Remove selected file"
+              aria-label="Bỏ file đã chọn"
             >
               ✕
             </button>
@@ -277,49 +263,46 @@ export function StudentImportPage() {
           <button
             onClick={handleImport}
             disabled={!file || importing}
-            className="inline-flex items-center gap-2 rounded bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="btn-primary"
           >
             {importing ? (
               <>
-                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Importing...
+                <Spinner />
+                Đang nhập...
               </>
             ) : (
               <>
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                 </svg>
-                Import Students
+                Nhập sinh viên
               </>
             )}
           </button>
         </div>
 
         {/* Loading state */}
-        {importing && <LoadingIndicator label="Importing students..." />}
+        {importing && <PageLoader label="Đang nhập sinh viên..." />}
       </div>
 
       {/* Import results */}
       {importResult && (
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-medium text-gray-800">Import Results</h2>
+        <div className="card p-6">
+          <h2 className="mb-4 text-lg font-medium text-gray-800">Kết quả nhập</h2>
 
           {/* Summary */}
           <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
-              <p className="text-sm text-gray-600">Total Rows</p>
+              <p className="text-sm text-gray-600">Tổng số dòng</p>
               <p className="text-2xl font-semibold text-gray-800">{importResult.total}</p>
             </div>
-            <div className="rounded-lg border border-green-100 bg-green-50 p-4">
-              <p className="text-sm text-green-700">Successfully Imported</p>
-              <p className="text-2xl font-semibold text-green-800">{importResult.imported}</p>
+            <div className="rounded-lg border border-success-100 bg-success-50 p-4">
+              <p className="text-sm text-success-700">Nhập thành công</p>
+              <p className="text-2xl font-semibold text-success-700">{importResult.imported}</p>
             </div>
-            <div className="rounded-lg border border-yellow-100 bg-yellow-50 p-4">
-              <p className="text-sm text-yellow-700">Skipped</p>
-              <p className="text-2xl font-semibold text-yellow-800">{importResult.skipped.length}</p>
+            <div className="rounded-lg border border-warning-100 bg-warning-50 p-4">
+              <p className="text-sm text-warning-700">Bỏ qua</p>
+              <p className="text-2xl font-semibold text-warning-700">{importResult.skipped.length}</p>
             </div>
           </div>
 
@@ -327,47 +310,27 @@ export function StudentImportPage() {
           {importResult.skipped.length > 0 && (
             <div>
               <h3 className="mb-2 text-sm font-medium text-gray-700">
-                Skipped Rows
+                Các dòng bị bỏ qua
               </h3>
               <div className="overflow-hidden rounded-lg border border-gray-200">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                        Row
-                      </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                        Student ID
-                      </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                        Name
-                      </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                        Email
-                      </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                        Reason
-                      </th>
+                      <th className="table-th">Dòng</th>
+                      <th className="table-th">MSSV</th>
+                      <th className="table-th">Họ tên</th>
+                      <th className="table-th">Email</th>
+                      <th className="table-th">Lý do</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 bg-white">
                     {importResult.skipped.map((row, index) => (
                       <tr key={index} className="hover:bg-gray-50">
-                        <td className="whitespace-nowrap px-4 py-2 text-sm text-gray-600">
-                          {row.row}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-2 text-sm text-gray-600">
-                          {row.student_id || '—'}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-2 text-sm text-gray-600">
-                          {row.full_name || '—'}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-2 text-sm text-gray-600">
-                          {row.email || '—'}
-                        </td>
-                        <td className="px-4 py-2 text-sm text-red-600">
-                          {row.reason}
-                        </td>
+                        <td className="table-td text-gray-600">{row.row}</td>
+                        <td className="table-td text-gray-600">{row.student_id || '—'}</td>
+                        <td className="table-td text-gray-600">{row.full_name || '—'}</td>
+                        <td className="table-td text-gray-600">{row.email || '—'}</td>
+                        <td className="px-5 py-3.5 text-sm text-danger-600">{row.reason}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -378,8 +341,8 @@ export function StudentImportPage() {
 
           {/* Success message when no skipped rows */}
           {importResult.skipped.length === 0 && importResult.imported > 0 && (
-            <div className="rounded border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-              All {importResult.imported} students were imported successfully.
+            <div className="rounded-lg border border-success-100 bg-success-50 px-4 py-3 text-sm text-success-700">
+              Đã nhập thành công {importResult.imported} sinh viên.
             </div>
           )}
         </div>

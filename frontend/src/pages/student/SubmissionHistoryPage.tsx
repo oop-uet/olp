@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../lib/api'
-import { LoadingIndicator } from '../../components/ui'
+import { PageLoader, SubmissionIcon } from '../../components/ui'
+import { toast } from '../../stores/toast.store'
 
 interface Submission {
   id: string
@@ -27,16 +28,15 @@ function formatTimestamp(ts: string): string {
   })
 }
 
-function getScoreColor(score: number): string {
-  if (score >= 80) return 'text-green-700 bg-green-50 border-green-200'
-  if (score >= 50) return 'text-yellow-700 bg-yellow-50 border-yellow-200'
-  return 'text-red-700 bg-red-50 border-red-200'
+function getScoreBadge(score: number): string {
+  if (score >= 80) return 'badge-green'
+  if (score >= 50) return 'badge-yellow'
+  return 'badge-red'
 }
 
 export function SubmissionHistoryPage() {
   const [groups, setGroups] = useState<ExerciseSubmissionGroup[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchSubmissions()
@@ -45,49 +45,36 @@ export function SubmissionHistoryPage() {
   async function fetchSubmissions() {
     try {
       setLoading(true)
-      setError(null)
       const response = await api.get('/api/submissions')
       const data = response.data.groups ?? response.data ?? []
       setGroups(data)
     } catch {
-      setError('Failed to load submissions. Please try again.')
+      toast.error('Không thể tải danh sách bài nộp. Vui lòng thử lại.')
     } finally {
       setLoading(false)
     }
   }
 
   if (loading) {
-    return <LoadingIndicator label="Loading submissions..." />
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-4 p-8">
-        <p className="text-red-600">{error}</p>
-        <button
-          onClick={fetchSubmissions}
-          className="rounded-md bg-primary px-4 py-2 text-sm text-white hover:bg-primary-600 transition-colors"
-        >
-          Retry
-        </button>
-      </div>
-    )
+    return <PageLoader label="Đang tải bài nộp..." />
   }
 
   if (groups.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 p-12">
-        <span className="text-4xl">📭</span>
-        <p className="text-lg font-medium text-gray-700">No submissions yet</p>
-        <p className="text-sm text-gray-500">
-          Complete an exercise and submit your solution to see it here.
-        </p>
-        <Link
-          to="/student/exercises"
-          className="mt-4 rounded-md bg-primary px-4 py-2 text-sm text-white hover:bg-primary-600 transition-colors"
-        >
-          Browse Exercises
-        </Link>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Lịch sử nộp bài</h1>
+        </div>
+        <div className="card flex flex-col items-center justify-center gap-3 p-12 text-center">
+          <SubmissionIcon className="h-12 w-12 text-gray-300" />
+          <p className="text-lg font-medium text-gray-700">Chưa có bài nộp</p>
+          <p className="text-sm text-gray-500">
+            Hoàn thành một bài tập và nộp bài để xem ở đây.
+          </p>
+          <Link to="/student/exercises" className="btn-primary mt-2">
+            Xem danh sách bài tập
+          </Link>
+        </div>
       </div>
     )
   }
@@ -96,26 +83,23 @@ export function SubmissionHistoryPage() {
     <div className="space-y-6">
       {/* Page header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Submission History</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Lịch sử nộp bài</h1>
         <p className="mt-1 text-sm text-gray-600">
-          Your submissions grouped by exercise, sorted by most recent.
+          Các bài nộp được nhóm theo bài tập, sắp xếp theo thời gian gần nhất.
         </p>
       </div>
 
       {/* Grouped submissions */}
       <div className="space-y-6">
         {groups.map((group) => (
-          <div
-            key={group.exerciseId}
-            className="rounded-lg border border-gray-200 bg-white shadow-sm"
-          >
+          <div key={group.exerciseId} className="card">
             {/* Exercise header */}
             <div className="border-b border-gray-100 px-5 py-4">
               <h2 className="text-lg font-semibold text-gray-900">
                 {group.exerciseTitle}
               </h2>
               <p className="mt-0.5 text-xs text-gray-500">
-                {group.submissions.length} submission{group.submissions.length !== 1 ? 's' : ''}
+                {group.submissions.length} lần nộp
               </p>
             </div>
 
@@ -136,9 +120,7 @@ export function SubmissionHistoryPage() {
                     </span>
                   </div>
 
-                  <span
-                    className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${getScoreColor(submission.score)}`}
-                  >
+                  <span className={getScoreBadge(submission.score)}>
                     {submission.score.toFixed(1)}%
                   </span>
                 </Link>

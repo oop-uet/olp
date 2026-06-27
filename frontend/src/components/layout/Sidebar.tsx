@@ -1,98 +1,121 @@
 import { NavLink } from 'react-router-dom'
+import { ComponentType } from 'react'
 import { useAuthStore, UserRole } from '../../stores/auth.store'
+import {
+  ExerciseIcon,
+  SubmissionIcon,
+  ProgressIcon,
+  LeaderboardIcon,
+  SectionIcon,
+  ConfigIcon,
+  QuotaIcon,
+} from '../ui/Icon'
 
 interface MenuItem {
   label: string
   path: string
-  icon: string
+  icon: ComponentType<{ className?: string }>
 }
 
 const menusByRole: Record<UserRole, MenuItem[]> = {
   student: [
-    { label: 'Exercises', path: '/student/exercises', icon: '📝' },
-    { label: 'Submissions', path: '/student/submissions', icon: '📤' },
-    { label: 'Progress', path: '/student/progress', icon: '📊' },
+    { label: 'Bài tập', path: '/student/exercises', icon: ExerciseIcon },
+    { label: 'Bài nộp', path: '/student/submissions', icon: SubmissionIcon },
+    { label: 'Tiến độ', path: '/student/progress', icon: ProgressIcon },
   ],
   instructor: [
-    { label: 'Exercise Manager', path: '/instructor/exercises', icon: '📋' },
-    { label: 'Submissions', path: '/instructor/submissions', icon: '📥' },
-    { label: 'Leaderboard', path: '/instructor/leaderboard', icon: '🏆' },
+    { label: 'Quản lý bài tập', path: '/instructor/exercises', icon: ExerciseIcon },
+    { label: 'Chấm bài', path: '/instructor/submissions', icon: SubmissionIcon },
+    { label: 'Bảng xếp hạng', path: '/instructor/leaderboard', icon: LeaderboardIcon },
   ],
   admin: [
-    { label: 'Sections', path: '/admin/sections', icon: '🏫' },
-    { label: 'Configuration', path: '/admin/config', icon: '⚙️' },
-    { label: 'Quota Monitor', path: '/admin/quota', icon: '📈' },
+    { label: 'Lớp học phần', path: '/admin/sections', icon: SectionIcon },
+    { label: 'Cấu hình', path: '/admin/config', icon: ConfigIcon },
+    { label: 'Giám sát Quota', path: '/admin/quota', icon: QuotaIcon },
   ],
 }
 
 interface SidebarProps {
   collapsed?: boolean
-  onToggle?: () => void
+  mobileOpen?: boolean
+  onCloseMobile?: () => void
 }
 
-export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
+export function Sidebar({ collapsed = false, mobileOpen = false, onCloseMobile }: SidebarProps) {
   const { user } = useAuthStore()
-
   if (!user) return null
 
   const menuItems = menusByRole[user.role] ?? []
 
   return (
-    <aside
-      className={`flex h-screen flex-col bg-primary text-white transition-all duration-200 ${
-        collapsed ? 'w-16' : 'w-60'
-      }`}
-    >
-      {/* Logo area */}
-      <div className="flex h-16 items-center justify-center border-b border-primary-400 px-3">
-        {collapsed ? (
-          <span className="text-lg font-bold">U</span>
-        ) : (
-          <span className="text-sm font-bold tracking-wide">UET-VNU OOP</span>
-        )}
-      </div>
-
-      {/* Toggle button */}
-      <button
-        onClick={onToggle}
-        className="flex h-10 items-center justify-center border-b border-primary-400 text-primary-200 hover:bg-primary-400 hover:text-white"
-        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-      >
-        {collapsed ? '▶' : '◀'}
-      </button>
-
-      {/* Navigation links */}
-      <nav className="flex-1 overflow-y-auto py-4">
-        <ul className="space-y-1 px-2">
-          {menuItems.map((item) => (
-            <li key={item.path}>
-              <NavLink
-                to={item.path}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
-                    isActive
-                      ? 'bg-primary-400 text-white font-medium'
-                      : 'text-primary-100 hover:bg-primary-600 hover:text-white'
-                  }`
-                }
-                title={item.label}
-              >
-                <span className="text-base">{item.icon}</span>
-                {!collapsed && <span>{item.label}</span>}
-              </NavLink>
-            </li>
-          ))}
-        </ul>
-      </nav>
-
-      {/* Role indicator at bottom */}
-      {!collapsed && (
-        <div className="border-t border-primary-400 p-3">
-          <p className="text-xs text-primary-200">
-            Role: <span className="capitalize text-white">{user.role}</span>
-          </p>
-        </div>
+    <>
+      {/* Mobile backdrop */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+          onClick={onCloseMobile}
+          aria-hidden="true"
+        />
       )}
-    </aside>
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col bg-primary-600 text-white transition-all duration-200 lg:static lg:translate-x-0 ${
+          collapsed ? 'lg:w-[72px]' : 'lg:w-64'
+        } w-64 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
+      >
+        {/* Logo */}
+        <div className="flex h-16 items-center gap-3 border-b border-white/10 px-4">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white font-bold text-primary-600">
+            U
+          </div>
+          {!collapsed && (
+            <div className="leading-tight">
+              <p className="text-sm font-bold">UET-VNU</p>
+              <p className="text-[11px] text-primary-200">OOP Platform</p>
+            </div>
+          )}
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto px-3 py-4">
+          <ul className="space-y-1">
+            {menuItems.map((item) => {
+              const Icon = item.icon
+              return (
+                <li key={item.path}>
+                  <NavLink
+                    to={item.path}
+                    onClick={onCloseMobile}
+                    title={item.label}
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                        isActive
+                          ? 'bg-white/15 text-white'
+                          : 'text-primary-100 hover:bg-white/10 hover:text-white'
+                      } ${collapsed ? 'lg:justify-center' : ''}`
+                    }
+                  >
+                    <Icon className="h-5 w-5 shrink-0" />
+                    {!collapsed && <span>{item.label}</span>}
+                  </NavLink>
+                </li>
+              )
+            })}
+          </ul>
+        </nav>
+
+        {/* Role footer */}
+        {!collapsed && (
+          <div className="border-t border-white/10 p-4">
+            <p className="text-xs text-primary-200">
+              Vai trò:{' '}
+              <span className="font-medium capitalize text-white">
+                {user.role === 'student' ? 'Sinh viên' : user.role === 'instructor' ? 'Giảng viên' : 'Quản trị'}
+              </span>
+            </p>
+          </div>
+        )}
+      </aside>
+    </>
   )
 }

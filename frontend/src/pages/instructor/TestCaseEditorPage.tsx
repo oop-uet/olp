@@ -1,7 +1,8 @@
 import { useState, useEffect, FormEvent } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../../lib/api'
-import { LoadingIndicator } from '../../components/ui/LoadingIndicator'
+import { PageLoader } from '../../components/ui'
+import { toast } from '../../stores/toast.store'
 
 const MAX_FIELD_LENGTH = 10240 // 10KB
 const MAX_TEST_CASES = 50
@@ -29,7 +30,6 @@ interface FormErrors {
   input_data?: string
   expected_output?: string
   point_value?: string
-  general?: string
 }
 
 const emptyForm: TestCaseFormData = {
@@ -45,7 +45,6 @@ export function TestCaseEditorPage() {
 
   const [testCases, setTestCases] = useState<TestCase[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
   // Form state
   const [formData, setFormData] = useState<TestCaseFormData>(emptyForm)
@@ -63,12 +62,11 @@ export function TestCaseEditorPage() {
 
   async function fetchTestCases() {
     setLoading(true)
-    setError(null)
     try {
       const response = await api.get(`/api/exercises/${exerciseId}/testcases`)
       setTestCases(response.data)
     } catch {
-      setError('Failed to load test cases. Please try again.')
+      toast.error('Không thể tải bộ test. Vui lòng thử lại.')
     } finally {
       setLoading(false)
     }
@@ -78,13 +76,13 @@ export function TestCaseEditorPage() {
     const errors: FormErrors = {}
 
     if (data.input_data.length > MAX_FIELD_LENGTH) {
-      errors.input_data = `Input data must be ${MAX_FIELD_LENGTH} characters or less (10KB)`
+      errors.input_data = `Đầu vào tối đa ${MAX_FIELD_LENGTH} ký tự (10KB)`
     }
 
     if (!data.expected_output.trim()) {
-      errors.expected_output = 'Expected output is required'
+      errors.expected_output = 'Kết quả mong đợi là bắt buộc'
     } else if (data.expected_output.length > MAX_FIELD_LENGTH) {
-      errors.expected_output = `Expected output must be ${MAX_FIELD_LENGTH} characters or less (10KB)`
+      errors.expected_output = `Kết quả mong đợi tối đa ${MAX_FIELD_LENGTH} ký tự (10KB)`
     }
 
     if (
@@ -92,12 +90,7 @@ export function TestCaseEditorPage() {
       data.point_value < MIN_POINTS ||
       data.point_value > MAX_POINTS
     ) {
-      errors.point_value = `Point value must be an integer between ${MIN_POINTS} and ${MAX_POINTS}`
-    }
-
-    // Check max test cases limit (only when creating new)
-    if (!editingId && testCases.length >= MAX_TEST_CASES) {
-      errors.general = `Maximum of ${MAX_TEST_CASES} test cases per exercise reached`
+      errors.point_value = `Điểm phải là số nguyên từ ${MIN_POINTS} đến ${MAX_POINTS}`
     }
 
     return errors
@@ -124,7 +117,7 @@ export function TestCaseEditorPage() {
 
   function handleNewTestCase() {
     if (testCases.length >= MAX_TEST_CASES) {
-      setError(`Maximum of ${MAX_TEST_CASES} test cases per exercise reached.`)
+      toast.error(`Đã đạt tối đa ${MAX_TEST_CASES} bộ test cho mỗi bài tập.`)
       return
     }
     setEditingId(null)
@@ -142,6 +135,12 @@ export function TestCaseEditorPage() {
       return
     }
 
+    // Check max test cases limit (only when creating new)
+    if (!editingId && testCases.length >= MAX_TEST_CASES) {
+      toast.error(`Đã đạt tối đa ${MAX_TEST_CASES} bộ test cho mỗi bài tập.`)
+      return
+    }
+
     setSubmitting(true)
     setFormErrors({})
 
@@ -152,47 +151,48 @@ export function TestCaseEditorPage() {
         setTestCases((prev) =>
           prev.map((tc) => (tc.id === editingId ? { ...tc, ...response.data } : tc))
         )
+        toast.success('Đã cập nhật bộ test.')
       } else {
         // Create new test case
-        const response = await api.post(
-          `/api/exercises/${exerciseId}/testcases`,
-          formData
-        )
+        const response = await api.post(`/api/exercises/${exerciseId}/testcases`, formData)
         setTestCases((prev) => [...prev, response.data])
+        toast.success('Đã tạo bộ test.')
       }
 
       handleCancelForm()
-    } catch (err: unknown) {
-      const errorMsg = editingId
-        ? 'Failed to update test case. Please try again.'
-        : 'Failed to create test case. Please try again.'
-      setFormErrors({ general: errorMsg })
+    } catch {
+      toast.error(
+        editingId
+          ? 'Không thể cập nhật bộ test. Vui lòng thử lại.'
+          : 'Không thể tạo bộ test. Vui lòng thử lại.'
+      )
     } finally {
       setSubmitting(false)
     }
   }
 
   async function handleDelete(testCaseId: string) {
-    if (!window.confirm('Are you sure you want to delete this test case?')) return
+    if (!window.confirm('Bạn có chắc chắn muốn xóa bộ test này?')) return
 
     setDeletingId(testCaseId)
     try {
       await api.delete(`/api/testcases/${testCaseId}`)
       setTestCases((prev) => prev.filter((tc) => tc.id !== testCaseId))
+      toast.success('Đã xóa bộ test.')
 
       // If we were editing the deleted test case, close the form
       if (editingId === testCaseId) {
         handleCancelForm()
       }
     } catch {
-      setError('Failed to delete test case. Please try again.')
+      toast.error('Không thể xóa bộ test. Vui lòng thử lại.')
     } finally {
       setDeletingId(null)
     }
   }
 
   if (loading) {
-    return <LoadingIndicator label="Loading test cases..." />
+    return <PageLoader label="Đang tải bộ test..." />
   }
 
   return (
@@ -200,72 +200,41 @@ export function TestCaseEditorPage() {
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-800">Test Case Editor</h1>
+          <h1 className="text-2xl font-semibold text-gray-800">Trình soạn bộ test</h1>
           <p className="mt-1 text-sm text-gray-500">
-            {testCases.length}/{MAX_TEST_CASES} test cases
+            {testCases.length}/{MAX_TEST_CASES} bộ test
           </p>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={handleNewTestCase}
             disabled={testCases.length >= MAX_TEST_CASES}
-            className="rounded bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:opacity-50"
+            className="btn-primary"
           >
-            Add Test Case
+            Thêm bộ test
           </button>
           <button
             onClick={() => navigate(`/instructor/exercises/${exerciseId}/edit`)}
-            className="text-sm text-gray-500 hover:text-gray-700"
+            className="btn-ghost btn-sm"
           >
-            ← Back to exercise
+            ← Quay lại bài tập
           </button>
         </div>
       </div>
 
-      {/* Error message */}
-      {error && (
-        <div
-          className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-          role="alert"
-        >
-          {error}
-          <button
-            onClick={() => {
-              setError(null)
-              fetchTestCases()
-            }}
-            className="ml-2 font-medium underline hover:text-red-800"
-          >
-            Retry
-          </button>
-        </div>
-      )}
-
       {/* Inline form (create / edit) */}
       {showForm && (
-        <div className="rounded-lg border border-primary-200 bg-primary-50/30 p-5">
+        <div className="rounded-xl border border-primary-200 bg-primary-50/30 p-5">
           <h2 className="mb-4 text-sm font-semibold text-gray-700">
-            {editingId ? 'Edit Test Case' : 'New Test Case'}
+            {editingId ? 'Sửa bộ test' : 'Bộ test mới'}
           </h2>
-
-          {formErrors.general && (
-            <div
-              className="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-              role="alert"
-            >
-              {formErrors.general}
-            </div>
-          )}
 
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {/* Input Data */}
               <div>
-                <label
-                  htmlFor="input_data"
-                  className="mb-1 block text-sm font-medium text-gray-700"
-                >
-                  Input Data
+                <label htmlFor="input_data" className="label">
+                  Dữ liệu đầu vào
                 </label>
                 <textarea
                   id="input_data"
@@ -274,16 +243,12 @@ export function TestCaseEditorPage() {
                     setFormData((prev) => ({ ...prev, input_data: e.target.value }))
                   }
                   rows={5}
-                  className={`w-full rounded border px-3 py-2 font-mono text-sm focus:outline-none focus:ring-1 ${
-                    formErrors.input_data
-                      ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                      : 'border-gray-300 focus:border-primary focus:ring-primary'
-                  }`}
-                  placeholder="Test input (stdin)..."
+                  className={`input font-mono ${formErrors.input_data ? 'input-error' : ''}`}
+                  placeholder="Đầu vào (stdin)..."
                 />
                 <div className="mt-1 flex justify-between">
                   {formErrors.input_data && (
-                    <p className="text-xs text-red-600">{formErrors.input_data}</p>
+                    <p className="text-xs text-danger-600">{formErrors.input_data}</p>
                   )}
                   <p className="ml-auto text-xs text-gray-400">
                     {formData.input_data.length}/{MAX_FIELD_LENGTH}
@@ -293,32 +258,22 @@ export function TestCaseEditorPage() {
 
               {/* Expected Output */}
               <div>
-                <label
-                  htmlFor="expected_output"
-                  className="mb-1 block text-sm font-medium text-gray-700"
-                >
-                  Expected Output <span className="text-red-500">*</span>
+                <label htmlFor="expected_output" className="label">
+                  Kết quả mong đợi <span className="text-danger-500">*</span>
                 </label>
                 <textarea
                   id="expected_output"
                   value={formData.expected_output}
                   onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      expected_output: e.target.value,
-                    }))
+                    setFormData((prev) => ({ ...prev, expected_output: e.target.value }))
                   }
                   rows={5}
-                  className={`w-full rounded border px-3 py-2 font-mono text-sm focus:outline-none focus:ring-1 ${
-                    formErrors.expected_output
-                      ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                      : 'border-gray-300 focus:border-primary focus:ring-primary'
-                  }`}
-                  placeholder="Expected output (stdout)..."
+                  className={`input font-mono ${formErrors.expected_output ? 'input-error' : ''}`}
+                  placeholder="Kết quả mong đợi (stdout)..."
                 />
                 <div className="mt-1 flex justify-between">
                   {formErrors.expected_output && (
-                    <p className="text-xs text-red-600">{formErrors.expected_output}</p>
+                    <p className="text-xs text-danger-600">{formErrors.expected_output}</p>
                   )}
                   <p className="ml-auto text-xs text-gray-400">
                     {formData.expected_output.length}/{MAX_FIELD_LENGTH}
@@ -330,11 +285,8 @@ export function TestCaseEditorPage() {
             {/* Point value + Visibility */}
             <div className="flex flex-wrap items-center gap-6">
               <div>
-                <label
-                  htmlFor="point_value"
-                  className="mb-1 block text-sm font-medium text-gray-700"
-                >
-                  Point Value <span className="text-red-500">*</span>
+                <label htmlFor="point_value" className="label">
+                  Điểm <span className="text-danger-500">*</span>
                 </label>
                 <input
                   id="point_value"
@@ -348,17 +300,13 @@ export function TestCaseEditorPage() {
                       point_value: parseInt(e.target.value) || MIN_POINTS,
                     }))
                   }
-                  className={`w-24 rounded border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
-                    formErrors.point_value
-                      ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                      : 'border-gray-300 focus:border-primary focus:ring-primary'
-                  }`}
+                  className={`input w-24 ${formErrors.point_value ? 'input-error' : ''}`}
                 />
                 {formErrors.point_value && (
-                  <p className="mt-1 text-xs text-red-600">{formErrors.point_value}</p>
+                  <p className="mt-1 text-xs text-danger-600">{formErrors.point_value}</p>
                 )}
                 <p className="mt-1 text-xs text-gray-400">
-                  Range: {MIN_POINTS}-{MAX_POINTS}
+                  Khoảng: {MIN_POINTS}-{MAX_POINTS}
                 </p>
               </div>
 
@@ -368,42 +316,31 @@ export function TestCaseEditorPage() {
                     type="checkbox"
                     checked={formData.is_visible}
                     onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        is_visible: e.target.checked,
-                      }))
+                      setFormData((prev) => ({ ...prev, is_visible: e.target.checked }))
                     }
                     className="rounded border-gray-300 text-primary focus:ring-primary"
                   />
-                  Visible to students
+                  Hiển thị cho sinh viên
                 </label>
                 <p className="mt-1 text-xs text-gray-400">
-                  Hidden test cases are only used during evaluation
+                  Bộ test ẩn chỉ dùng khi chấm điểm
                 </p>
               </div>
             </div>
 
             {/* Form actions */}
             <div className="flex items-center gap-3 pt-2">
-              <button
-                type="submit"
-                disabled={submitting}
-                className="rounded bg-primary px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:opacity-60"
-              >
+              <button type="submit" disabled={submitting} className="btn-primary">
                 {submitting
                   ? editingId
-                    ? 'Updating...'
-                    : 'Creating...'
+                    ? 'Đang cập nhật...'
+                    : 'Đang tạo...'
                   : editingId
-                    ? 'Update Test Case'
-                    : 'Create Test Case'}
+                    ? 'Cập nhật bộ test'
+                    : 'Tạo bộ test'}
               </button>
-              <button
-                type="button"
-                onClick={handleCancelForm}
-                className="rounded border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-              >
-                Cancel
+              <button type="button" onClick={handleCancelForm} className="btn-secondary">
+                Hủy
               </button>
             </div>
           </form>
@@ -412,38 +349,23 @@ export function TestCaseEditorPage() {
 
       {/* Test case list */}
       {testCases.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 p-12 text-center">
-          <p className="text-gray-500">No test cases defined yet.</p>
-          <button
-            onClick={handleNewTestCase}
-            className="mt-3 text-sm font-medium text-primary hover:text-primary-600"
-          >
-            Add your first test case
+        <div className="card flex flex-col items-center justify-center p-12 text-center">
+          <p className="text-gray-500">Chưa có bộ test nào.</p>
+          <button onClick={handleNewTestCase} className="btn-primary btn-sm mt-4">
+            Thêm bộ test đầu tiên
           </button>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+        <div className="card overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  #
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Input (preview)
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Expected Output (preview)
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Points
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Visibility
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Actions
-                </th>
+                <th className="table-th">#</th>
+                <th className="table-th">Đầu vào (xem trước)</th>
+                <th className="table-th">Kết quả mong đợi (xem trước)</th>
+                <th className="table-th text-center">Điểm</th>
+                <th className="table-th text-center">Hiển thị</th>
+                <th className="table-th text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -452,42 +374,31 @@ export function TestCaseEditorPage() {
                   key={tc.id}
                   className={`hover:bg-gray-50 ${editingId === tc.id ? 'bg-primary-50/50' : ''}`}
                 >
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                    {index + 1}
+                  <td className="table-td text-gray-500">{index + 1}</td>
+                  <td className="max-w-[200px] truncate px-5 py-3.5 font-mono text-xs text-gray-700">
+                    {tc.input_data || <span className="italic text-gray-400">trống</span>}
                   </td>
-                  <td className="max-w-[200px] truncate px-6 py-4 font-mono text-xs text-gray-700">
-                    {tc.input_data || <span className="italic text-gray-400">empty</span>}
-                  </td>
-                  <td className="max-w-[200px] truncate px-6 py-4 font-mono text-xs text-gray-700">
+                  <td className="max-w-[200px] truncate px-5 py-3.5 font-mono text-xs text-gray-700">
                     {tc.expected_output}
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-center text-sm font-medium text-gray-900">
+                  <td className="table-td text-center font-medium text-gray-900">
                     {tc.point_value}
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-center">
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        tc.is_visible
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-gray-100 text-gray-600'
-                      }`}
-                    >
-                      {tc.is_visible ? 'Visible' : 'Hidden'}
+                  <td className="table-td text-center">
+                    <span className={tc.is_visible ? 'badge-green' : 'badge-gray'}>
+                      {tc.is_visible ? 'Hiển thị' : 'Ẩn'}
                     </span>
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-right">
-                    <button
-                      onClick={() => handleEdit(tc)}
-                      className="mr-3 text-sm font-medium text-primary hover:text-primary-600"
-                    >
-                      Edit
+                  <td className="table-td text-right">
+                    <button onClick={() => handleEdit(tc)} className="btn-secondary btn-sm mr-2">
+                      Sửa
                     </button>
                     <button
                       onClick={() => handleDelete(tc.id)}
                       disabled={deletingId === tc.id}
-                      className="text-sm font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+                      className="btn-danger btn-sm"
                     >
-                      {deletingId === tc.id ? 'Deleting...' : 'Delete'}
+                      {deletingId === tc.id ? 'Đang xóa...' : 'Xóa'}
                     </button>
                   </td>
                 </tr>
@@ -499,23 +410,19 @@ export function TestCaseEditorPage() {
 
       {/* Summary */}
       {testCases.length > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
           <div className="flex items-center justify-between text-sm text-gray-600">
             <span>
-              Total points:{' '}
+              Tổng điểm:{' '}
               <span className="font-medium text-gray-900">
                 {testCases.reduce((sum, tc) => sum + tc.point_value, 0)}
               </span>
             </span>
             <span>
-              Visible:{' '}
-              <span className="font-medium">
-                {testCases.filter((tc) => tc.is_visible).length}
-              </span>{' '}
-              / Hidden:{' '}
-              <span className="font-medium">
-                {testCases.filter((tc) => !tc.is_visible).length}
-              </span>
+              Hiển thị:{' '}
+              <span className="font-medium">{testCases.filter((tc) => tc.is_visible).length}</span>{' '}
+              / Ẩn:{' '}
+              <span className="font-medium">{testCases.filter((tc) => !tc.is_visible).length}</span>
             </span>
           </div>
         </div>

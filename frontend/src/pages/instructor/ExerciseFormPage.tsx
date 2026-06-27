@@ -1,10 +1,17 @@
 import { useState, useEffect, FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../../lib/api'
-import { LoadingIndicator } from '../../components/ui/LoadingIndicator'
+import { PageLoader } from '../../components/ui'
+import { toast } from '../../stores/toast.store'
 
 const DIFFICULTY_OPTIONS = ['easy', 'medium', 'hard'] as const
 type Difficulty = (typeof DIFFICULTY_OPTIONS)[number]
+
+const DIFFICULTY_LABELS: Record<Difficulty, string> = {
+  easy: 'Dễ',
+  medium: 'Trung bình',
+  hard: 'Khó',
+}
 
 const OOP_TAG_OPTIONS = [
   'classes and objects',
@@ -48,7 +55,6 @@ export function ExerciseFormPage() {
   const [errors, setErrors] = useState<FormErrors>({})
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState<string | null>(null)
 
   useEffect(() => {
     if (isEditing && id) {
@@ -82,7 +88,7 @@ export function ExerciseFormPage() {
         )
       }
     } catch {
-      setSubmitError('Failed to load exercise data.')
+      toast.error('Không thể tải dữ liệu bài tập.')
     } finally {
       setLoading(false)
     }
@@ -92,32 +98,30 @@ export function ExerciseFormPage() {
     const newErrors: FormErrors = {}
 
     if (!title.trim()) {
-      newErrors.title = 'Title is required'
+      newErrors.title = 'Tiêu đề là bắt buộc'
     } else if (title.length > 200) {
-      newErrors.title = 'Title must be 200 characters or less'
+      newErrors.title = 'Tiêu đề tối đa 200 ký tự'
     }
 
     if (!description.trim()) {
-      newErrors.description = 'Description is required'
+      newErrors.description = 'Mô tả là bắt buộc'
     } else if (description.length > 5000) {
-      newErrors.description = 'Description must be 5000 characters or less'
+      newErrors.description = 'Mô tả tối đa 5000 ký tự'
     }
 
     if (!difficulty) {
-      newErrors.difficulty = 'Difficulty level is required'
+      newErrors.difficulty = 'Độ khó là bắt buộc'
     }
 
     if (selectedTags.length < 1) {
-      newErrors.tags = 'At least 1 tag is required'
+      newErrors.tags = 'Cần ít nhất 1 thẻ'
     } else if (selectedTags.length > 5) {
-      newErrors.tags = 'Maximum 5 tags allowed'
+      newErrors.tags = 'Tối đa 5 thẻ'
     }
 
-    const validTestCases = testCases.filter(
-      (tc) => tc.expected_output.trim() !== ''
-    )
+    const validTestCases = testCases.filter((tc) => tc.expected_output.trim() !== '')
     if (validTestCases.length < 1) {
-      newErrors.testCases = 'At least 1 test case with expected output is required'
+      newErrors.testCases = 'Cần ít nhất 1 bộ test có kết quả mong đợi'
     }
 
     setErrors(newErrors)
@@ -148,14 +152,11 @@ export function ExerciseFormPage() {
   }
 
   function updateTestCase(index: number, field: keyof TestCaseForm, value: string | boolean | number) {
-    setTestCases((prev) =>
-      prev.map((tc, i) => (i === index ? { ...tc, [field]: value } : tc))
-    )
+    setTestCases((prev) => prev.map((tc, i) => (i === index ? { ...tc, [field]: value } : tc)))
   }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    setSubmitError(null)
 
     if (!validate()) return
 
@@ -172,16 +173,18 @@ export function ExerciseFormPage() {
 
       if (isEditing && id) {
         await api.put(`/api/exercises/${id}`, payload)
+        toast.success('Đã cập nhật bài tập.')
       } else {
         await api.post('/api/exercises', payload)
+        toast.success('Đã tạo bài tập.')
       }
 
       navigate('/instructor/exercises')
     } catch {
-      setSubmitError(
+      toast.error(
         isEditing
-          ? 'Failed to update exercise. Please try again.'
-          : 'Failed to create exercise. Please try again.'
+          ? 'Không thể cập nhật bài tập. Vui lòng thử lại.'
+          : 'Không thể tạo bài tập. Vui lòng thử lại.'
       )
     } finally {
       setSubmitting(false)
@@ -189,7 +192,7 @@ export function ExerciseFormPage() {
   }
 
   if (loading) {
-    return <LoadingIndicator label="Loading exercise..." />
+    return <PageLoader label="Đang tải bài tập..." />
   }
 
   return (
@@ -197,30 +200,18 @@ export function ExerciseFormPage() {
       {/* Page header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-gray-800">
-          {isEditing ? 'Edit Exercise' : 'Create Exercise'}
+          {isEditing ? 'Sửa bài tập' : 'Tạo bài tập'}
         </h1>
-        <button
-          onClick={() => navigate('/instructor/exercises')}
-          className="text-sm text-gray-500 hover:text-gray-700"
-        >
-          ← Back to exercises
+        <button onClick={() => navigate('/instructor/exercises')} className="btn-ghost btn-sm">
+          ← Quay lại danh sách
         </button>
       </div>
 
-      {submitError && (
-        <div
-          className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-          role="alert"
-        >
-          {submitError}
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+      <form onSubmit={handleSubmit} className="card space-y-6 p-6" noValidate>
         {/* Title */}
         <div>
-          <label htmlFor="title" className="mb-1 block text-sm font-medium text-gray-700">
-            Title <span className="text-red-500">*</span>
+          <label htmlFor="title" className="label">
+            Tiêu đề <span className="text-danger-500">*</span>
           </label>
           <input
             id="title"
@@ -228,23 +219,19 @@ export function ExerciseFormPage() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             maxLength={200}
-            className={`w-full rounded border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
-              errors.title
-                ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                : 'border-gray-300 focus:border-primary focus:ring-primary'
-            }`}
-            placeholder="Exercise title"
+            className={`input ${errors.title ? 'input-error' : ''}`}
+            placeholder="Tiêu đề bài tập"
           />
           <div className="mt-1 flex justify-between">
-            {errors.title && <p className="text-xs text-red-600">{errors.title}</p>}
+            {errors.title && <p className="text-xs text-danger-600">{errors.title}</p>}
             <p className="ml-auto text-xs text-gray-400">{title.length}/200</p>
           </div>
         </div>
 
         {/* Description */}
         <div>
-          <label htmlFor="description" className="mb-1 block text-sm font-medium text-gray-700">
-            Description <span className="text-red-500">*</span>
+          <label htmlFor="description" className="label">
+            Mô tả <span className="text-danger-500">*</span>
           </label>
           <textarea
             id="description"
@@ -252,53 +239,41 @@ export function ExerciseFormPage() {
             onChange={(e) => setDescription(e.target.value)}
             maxLength={5000}
             rows={6}
-            className={`w-full rounded border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
-              errors.description
-                ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                : 'border-gray-300 focus:border-primary focus:ring-primary'
-            }`}
-            placeholder="Describe the exercise requirements..."
+            className={`input ${errors.description ? 'input-error' : ''}`}
+            placeholder="Mô tả yêu cầu của bài tập..."
           />
           <div className="mt-1 flex justify-between">
-            {errors.description && (
-              <p className="text-xs text-red-600">{errors.description}</p>
-            )}
+            {errors.description && <p className="text-xs text-danger-600">{errors.description}</p>}
             <p className="ml-auto text-xs text-gray-400">{description.length}/5000</p>
           </div>
         </div>
 
         {/* Difficulty */}
         <div>
-          <label htmlFor="difficulty" className="mb-1 block text-sm font-medium text-gray-700">
-            Difficulty <span className="text-red-500">*</span>
+          <label htmlFor="difficulty" className="label">
+            Độ khó <span className="text-danger-500">*</span>
           </label>
           <select
             id="difficulty"
             value={difficulty}
             onChange={(e) => setDifficulty(e.target.value as Difficulty)}
-            className={`w-full rounded border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
-              errors.difficulty
-                ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                : 'border-gray-300 focus:border-primary focus:ring-primary'
-            }`}
+            className={`input ${errors.difficulty ? 'input-error' : ''}`}
           >
-            <option value="">Select difficulty</option>
+            <option value="">Chọn độ khó</option>
             {DIFFICULTY_OPTIONS.map((opt) => (
               <option key={opt} value={opt}>
-                {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                {DIFFICULTY_LABELS[opt]}
               </option>
             ))}
           </select>
-          {errors.difficulty && (
-            <p className="mt-1 text-xs text-red-600">{errors.difficulty}</p>
-          )}
+          {errors.difficulty && <p className="mt-1 text-xs text-danger-600">{errors.difficulty}</p>}
         </div>
 
         {/* OOP Tags */}
         <div>
-          <label className="mb-2 block text-sm font-medium text-gray-700">
-            OOP Tags <span className="text-red-500">*</span>
-            <span className="ml-1 font-normal text-gray-400">(select 1-5)</span>
+          <label className="label">
+            Thẻ OOP <span className="text-danger-500">*</span>
+            <span className="ml-1 font-normal text-gray-400">(chọn 1-5)</span>
           </label>
           <div className="flex flex-wrap gap-2">
             {OOP_TAG_OPTIONS.map((tag) => {
@@ -319,94 +294,87 @@ export function ExerciseFormPage() {
               )
             })}
           </div>
-          {errors.tags && <p className="mt-1 text-xs text-red-600">{errors.tags}</p>}
+          {errors.tags && <p className="mt-1 text-xs text-danger-600">{errors.tags}</p>}
         </div>
 
         {/* Starter Code */}
         <div>
-          <label htmlFor="starter-code" className="mb-1 block text-sm font-medium text-gray-700">
-            Starter Code Template
+          <label htmlFor="starter-code" className="label">
+            Mã khởi tạo (template)
           </label>
           <textarea
             id="starter-code"
             value={starterCode}
             onChange={(e) => setStarterCode(e.target.value)}
             rows={8}
-            className="w-full rounded border border-gray-300 px-3 py-2 font-mono text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            placeholder="// Starter code template for students..."
+            className="input font-mono"
+            placeholder="// Mã khởi tạo cho sinh viên..."
           />
         </div>
 
         {/* Test Cases */}
         <div>
           <div className="mb-3 flex items-center justify-between">
-            <label className="text-sm font-medium text-gray-700">
-              Test Cases <span className="text-red-500">*</span>
-              <span className="ml-1 font-normal text-gray-400">(at least 1 required)</span>
+            <label className="label mb-0">
+              Bộ test <span className="text-danger-500">*</span>
+              <span className="ml-1 font-normal text-gray-400">(cần ít nhất 1)</span>
             </label>
             <button
               type="button"
               onClick={addTestCase}
               disabled={testCases.length >= 50}
-              className="text-sm font-medium text-primary hover:text-primary-600 disabled:opacity-50"
+              className="btn-ghost btn-sm"
             >
-              + Add Test Case
+              + Thêm bộ test
             </button>
           </div>
 
-          {errors.testCases && (
-            <p className="mb-2 text-xs text-red-600">{errors.testCases}</p>
-          )}
+          {errors.testCases && <p className="mb-2 text-xs text-danger-600">{errors.testCases}</p>}
 
           <div className="space-y-4">
             {testCases.map((tc, index) => (
-              <div
-                key={index}
-                className="rounded-lg border border-gray-200 bg-gray-50 p-4"
-              >
+              <div key={index} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                 <div className="mb-3 flex items-center justify-between">
-                  <span className="text-xs font-medium text-gray-500">
-                    Test Case #{index + 1}
-                  </span>
+                  <span className="text-xs font-medium text-gray-500">Bộ test #{index + 1}</span>
                   {testCases.length > 1 && (
                     <button
                       type="button"
                       onClick={() => removeTestCase(index)}
-                      className="text-xs text-red-500 hover:text-red-700"
+                      className="text-xs text-danger-600 hover:text-danger-700"
                     >
-                      Remove
+                      Xóa
                     </button>
                   )}
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-xs text-gray-600">Input</label>
+                    <label className="mb-1 block text-xs text-gray-600">Đầu vào</label>
                     <textarea
                       value={tc.input_data}
                       onChange={(e) => updateTestCase(index, 'input_data', e.target.value)}
                       rows={3}
-                      className="w-full rounded border border-gray-300 px-2 py-1.5 font-mono text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                      placeholder="Test input..."
+                      className="input font-mono text-xs"
+                      placeholder="Dữ liệu đầu vào..."
                     />
                   </div>
                   <div>
                     <label className="mb-1 block text-xs text-gray-600">
-                      Expected Output <span className="text-red-500">*</span>
+                      Kết quả mong đợi <span className="text-danger-500">*</span>
                     </label>
                     <textarea
                       value={tc.expected_output}
                       onChange={(e) => updateTestCase(index, 'expected_output', e.target.value)}
                       rows={3}
-                      className="w-full rounded border border-gray-300 px-2 py-1.5 font-mono text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                      placeholder="Expected output..."
+                      className="input font-mono text-xs"
+                      placeholder="Kết quả mong đợi..."
                     />
                   </div>
                 </div>
 
                 <div className="mt-3 flex items-center gap-4">
                   <div className="flex items-center gap-2">
-                    <label className="text-xs text-gray-600">Points:</label>
+                    <label className="text-xs text-gray-600">Điểm:</label>
                     <input
                       type="number"
                       min={1}
@@ -415,7 +383,7 @@ export function ExerciseFormPage() {
                       onChange={(e) =>
                         updateTestCase(index, 'point_value', parseInt(e.target.value) || 1)
                       }
-                      className="w-16 rounded border border-gray-300 px-2 py-1 text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="input w-16 text-xs"
                     />
                   </div>
                   <label className="flex items-center gap-1.5 text-xs text-gray-600">
@@ -425,7 +393,7 @@ export function ExerciseFormPage() {
                       onChange={(e) => updateTestCase(index, 'is_visible', e.target.checked)}
                       className="rounded border-gray-300 text-primary focus:ring-primary"
                     />
-                    Visible to students
+                    Hiển thị cho sinh viên
                   </label>
                 </div>
               </div>
@@ -435,25 +403,21 @@ export function ExerciseFormPage() {
 
         {/* Submit */}
         <div className="flex items-center gap-3 border-t border-gray-200 pt-6">
-          <button
-            type="submit"
-            disabled={submitting}
-            className="rounded bg-primary px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:opacity-60"
-          >
+          <button type="submit" disabled={submitting} className="btn-primary btn-lg">
             {submitting
               ? isEditing
-                ? 'Updating...'
-                : 'Creating...'
+                ? 'Đang cập nhật...'
+                : 'Đang tạo...'
               : isEditing
-                ? 'Update Exercise'
-                : 'Create Exercise'}
+                ? 'Cập nhật bài tập'
+                : 'Tạo bài tập'}
           </button>
           <button
             type="button"
             onClick={() => navigate('/instructor/exercises')}
-            className="rounded border border-gray-300 px-6 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            className="btn-secondary btn-lg"
           >
-            Cancel
+            Hủy
           </button>
         </div>
       </form>

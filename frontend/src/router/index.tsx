@@ -1,142 +1,101 @@
 import { createBrowserRouter } from 'react-router-dom'
+import { lazy, Suspense, ReactNode } from 'react'
 import { AuthGuard } from './AuthGuard'
 import { RoleRedirect } from './RoleRedirect'
 import { AppLayout } from '../components/layout/AppLayout'
-import { LoginPage } from '../pages/LoginPage'
-import { ChangePasswordPage } from '../pages/ChangePasswordPage'
-import { ExerciseManagerPage } from '../pages/instructor/ExerciseManagerPage'
-import { ExerciseFormPage } from '../pages/instructor/ExerciseFormPage'
-import { TestCaseEditorPage } from '../pages/instructor/TestCaseEditorPage'
-import { SubmissionReviewPage } from '../pages/instructor/SubmissionReviewPage'
-import { LeaderboardPage } from '../pages/instructor/LeaderboardPage'
-import {
-  ExerciseListPage,
-  ExerciseWorkspacePage,
-  SubmissionHistoryPage,
-  SubmissionDetailPage,
-  ProgressPage,
-} from '../pages/student'
-import { ConfigPage, QuotaPage } from '../pages/admin'
-import { SectionManagerPage } from '../pages/admin/SectionManagerPage'
-import { StudentImportPage } from '../pages/admin/StudentImportPage'
+import { PageLoader } from '../components/ui/PageLoader'
 
-// Layout wrapper for authenticated routes
-function AuthenticatedLayout() {
-  return <AppLayout />
+// ─── Lazy-loaded pages ───────────────────────────────────────────────────────
+// Each page becomes its own chunk. Heavy pages (Monaco editor) only load when
+// the route is visited, keeping the initial bundle small and the app fast.
+
+const LoginPage = lazy(() => import('../pages/LoginPage').then((m) => ({ default: m.LoginPage })))
+const ChangePasswordPage = lazy(() => import('../pages/ChangePasswordPage').then((m) => ({ default: m.ChangePasswordPage })))
+
+// Student
+const ExerciseListPage = lazy(() => import('../pages/student/ExerciseListPage').then((m) => ({ default: m.ExerciseListPage })))
+const ExerciseWorkspacePage = lazy(() => import('../pages/student/ExerciseWorkspacePage').then((m) => ({ default: m.ExerciseWorkspacePage })))
+const SubmissionHistoryPage = lazy(() => import('../pages/student/SubmissionHistoryPage').then((m) => ({ default: m.SubmissionHistoryPage })))
+const SubmissionDetailPage = lazy(() => import('../pages/student/SubmissionDetailPage').then((m) => ({ default: m.SubmissionDetailPage })))
+const ProgressPage = lazy(() => import('../pages/student/ProgressPage').then((m) => ({ default: m.ProgressPage })))
+
+// Instructor
+const ExerciseManagerPage = lazy(() => import('../pages/instructor/ExerciseManagerPage').then((m) => ({ default: m.ExerciseManagerPage })))
+const ExerciseFormPage = lazy(() => import('../pages/instructor/ExerciseFormPage').then((m) => ({ default: m.ExerciseFormPage })))
+const TestCaseEditorPage = lazy(() => import('../pages/instructor/TestCaseEditorPage').then((m) => ({ default: m.TestCaseEditorPage })))
+const SubmissionReviewPage = lazy(() => import('../pages/instructor/SubmissionReviewPage').then((m) => ({ default: m.SubmissionReviewPage })))
+const LeaderboardPage = lazy(() => import('../pages/instructor/LeaderboardPage').then((m) => ({ default: m.LeaderboardPage })))
+
+// Admin
+const SectionManagerPage = lazy(() => import('../pages/admin/SectionManagerPage').then((m) => ({ default: m.SectionManagerPage })))
+const StudentImportPage = lazy(() => import('../pages/admin/StudentImportPage').then((m) => ({ default: m.StudentImportPage })))
+const ConfigPage = lazy(() => import('../pages/admin/ConfigPage').then((m) => ({ default: m.ConfigPage })))
+const QuotaPage = lazy(() => import('../pages/admin/QuotaPage').then((m) => ({ default: m.QuotaPage })))
+
+// Wrap a lazy element with Suspense fallback
+function withSuspense(node: ReactNode): ReactNode {
+  return <Suspense fallback={<PageLoader />}>{node}</Suspense>
 }
 
-export const router = createBrowserRouter([
-  // Public routes
-  {
-    path: '/login',
-    element: <LoginPage />,
-  },
+export const router = createBrowserRouter(
+  [
+    // Public routes
+    { path: '/login', element: withSuspense(<LoginPage />) },
+    { path: '/change-password', element: withSuspense(<ChangePasswordPage />) },
 
-  // Change password (required on first login)
-  {
-    path: '/change-password',
-    element: <ChangePasswordPage />,
-  },
+    // Root redirect based on role
+    { path: '/', element: <RoleRedirect /> },
 
-  // Root redirect based on role
-  {
-    path: '/',
-    element: <RoleRedirect />,
-  },
+    // Student routes
+    {
+      path: '/student',
+      element: (
+        <AuthGuard allowedRoles={['student']}>
+          <AppLayout />
+        </AuthGuard>
+      ),
+      children: [
+        { path: 'exercises', element: withSuspense(<ExerciseListPage />) },
+        { path: 'exercises/:id', element: withSuspense(<ExerciseWorkspacePage />) },
+        { path: 'submissions', element: withSuspense(<SubmissionHistoryPage />) },
+        { path: 'submissions/:id', element: withSuspense(<SubmissionDetailPage />) },
+        { path: 'progress', element: withSuspense(<ProgressPage />) },
+      ],
+    },
 
-  // Student routes
-  {
-    path: '/student',
-    element: (
-      <AuthGuard allowedRoles={['student']}>
-        <AuthenticatedLayout />
-      </AuthGuard>
-    ),
-    children: [
-      {
-        path: 'exercises',
-        element: <ExerciseListPage />,
-      },
-      {
-        path: 'exercises/:id',
-        element: <ExerciseWorkspacePage />,
-      },
-      {
-        path: 'submissions',
-        element: <SubmissionHistoryPage />,
-      },
-      {
-        path: 'submissions/:id',
-        element: <SubmissionDetailPage />,
-      },
-      {
-        path: 'progress',
-        element: <ProgressPage />,
-      },
-    ],
-  },
+    // Instructor routes
+    {
+      path: '/instructor',
+      element: (
+        <AuthGuard allowedRoles={['instructor']}>
+          <AppLayout />
+        </AuthGuard>
+      ),
+      children: [
+        { path: 'exercises', element: withSuspense(<ExerciseManagerPage />) },
+        { path: 'exercises/new', element: withSuspense(<ExerciseFormPage />) },
+        { path: 'exercises/:id/edit', element: withSuspense(<ExerciseFormPage />) },
+        { path: 'exercises/:id/testcases', element: withSuspense(<TestCaseEditorPage />) },
+        { path: 'submissions', element: withSuspense(<SubmissionReviewPage />) },
+        { path: 'leaderboard', element: withSuspense(<LeaderboardPage />) },
+      ],
+    },
 
-  // Instructor routes
-  {
-    path: '/instructor',
-    element: (
-      <AuthGuard allowedRoles={['instructor']}>
-        <AuthenticatedLayout />
-      </AuthGuard>
-    ),
-    children: [
-      {
-        path: 'exercises',
-        element: <ExerciseManagerPage />,
-      },
-      {
-        path: 'exercises/new',
-        element: <ExerciseFormPage />,
-      },
-      {
-        path: 'exercises/:id/edit',
-        element: <ExerciseFormPage />,
-      },
-      {
-        path: 'exercises/:id/testcases',
-        element: <TestCaseEditorPage />,
-      },
-      {
-        path: 'submissions',
-        element: <SubmissionReviewPage />,
-      },
-      {
-        path: 'leaderboard',
-        element: <LeaderboardPage />,
-      },
-    ],
-  },
-
-  // Admin routes
-  {
-    path: '/admin',
-    element: (
-      <AuthGuard allowedRoles={['admin']}>
-        <AuthenticatedLayout />
-      </AuthGuard>
-    ),
-    children: [
-      {
-        path: 'sections',
-        element: <SectionManagerPage />,
-      },
-      {
-        path: 'sections/:id/students',
-        element: <StudentImportPage />,
-      },
-      {
-        path: 'config',
-        element: <ConfigPage />,
-      },
-      {
-        path: 'quota',
-        element: <QuotaPage />,
-      },
-    ],
-  },
-], { basename: '/olp' })
+    // Admin routes
+    {
+      path: '/admin',
+      element: (
+        <AuthGuard allowedRoles={['admin']}>
+          <AppLayout />
+        </AuthGuard>
+      ),
+      children: [
+        { path: 'sections', element: withSuspense(<SectionManagerPage />) },
+        { path: 'sections/:id/students', element: withSuspense(<StudentImportPage />) },
+        { path: 'config', element: withSuspense(<ConfigPage />) },
+        { path: 'quota', element: withSuspense(<QuotaPage />) },
+      ],
+    },
+  ],
+  { basename: '/olp' }
+)

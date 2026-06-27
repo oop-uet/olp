@@ -1,5 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
 import { useAuthStore } from '../stores/auth.store'
+import { toast } from '../stores/toast.store'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
@@ -45,6 +46,16 @@ api.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & {
       _retry?: boolean
+    }
+
+    // Surface server (5xx) and network errors as toasts. 401 is handled by the
+    // refresh logic below; 4xx validation errors are handled by the pages.
+    if (!error.response) {
+      toast.error(
+        'Không thể kết nối tới máy chủ. Máy chủ có thể đang khởi động, vui lòng thử lại sau 30 giây.'
+      )
+    } else if (error.response.status >= 500) {
+      toast.error('Lỗi máy chủ. Vui lòng thử lại sau.')
     }
 
     // Only handle 401 errors that haven't been retried

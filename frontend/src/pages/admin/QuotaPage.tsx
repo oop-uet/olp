@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
-import { LoadingIndicator } from '../../components/ui'
+import { PageLoader, QuotaIcon } from '../../components/ui'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -80,29 +80,17 @@ function getProgressBarColor(percentage: number): string {
 }
 
 function getCardBorderColor(status: 'ok' | 'warning'): string {
-  return status === 'warning' ? 'border-red-300' : 'border-gray-200'
+  return status === 'warning' ? 'border-danger-500' : 'border-gray-200'
 }
 
 function getStatusBadge(status: 'ok' | 'warning', percentage: number) {
   if (status === 'warning') {
-    return (
-      <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-        ⚠️ Above 80%
-      </span>
-    )
+    return <span className="badge-red">⚠️ Trên 80%</span>
   }
   if (percentage >= 60) {
-    return (
-      <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
-        Moderate
-      </span>
-    )
+    return <span className="badge-yellow">Trung bình</span>
   }
-  return (
-    <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-      Healthy
-    </span>
-  )
+  return <span className="badge-green">Ổn định</span>
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -123,25 +111,22 @@ export function QuotaPage() {
       const response = await api.get('/api/admin/quota-status')
       setQuotaData(response.data)
     } catch {
-      setError('Failed to load quota status. Please try again.')
+      setError('Không thể tải trạng thái quota. Vui lòng thử lại.')
     } finally {
       setLoading(false)
     }
   }
 
   if (loading) {
-    return <LoadingIndicator label="Loading quota status..." />
+    return <PageLoader label="Đang tải trạng thái quota..." />
   }
 
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 p-8">
-        <p className="text-red-600">{error}</p>
-        <button
-          onClick={fetchQuota}
-          className="rounded-md bg-primary px-4 py-2 text-sm text-white hover:bg-primary-600 transition-colors"
-        >
-          Retry
+        <p className="text-danger-600">{error}</p>
+        <button onClick={fetchQuota} className="btn-primary">
+          Thử lại
         </button>
       </div>
     )
@@ -157,29 +142,31 @@ export function QuotaPage() {
     <div className="space-y-6">
       {/* Page header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Quota Monitor</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            Free-tier service usage for the platform.
-          </p>
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50 text-primary">
+            <QuotaIcon className="h-6 w-6" />
+          </span>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Giám sát Quota</h1>
+            <p className="mt-1 text-sm text-gray-600">
+              Mức sử dụng dịch vụ gói miễn phí của nền tảng.
+            </p>
+          </div>
         </div>
-        <button
-          onClick={fetchQuota}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-        >
-          ↻ Refresh
+        <button onClick={fetchQuota} className="btn-secondary">
+          ↻ Làm mới
         </button>
       </div>
 
       {/* Warning banner */}
       {warningCount > 0 && (
         <div
-          className="rounded border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800"
+          className="rounded-lg border border-warning-100 bg-warning-50 px-4 py-3 text-sm text-warning-700"
           role="alert"
         >
-          <span className="font-medium">⚠️ Attention:</span>{' '}
-          {warningCount} service{warningCount > 1 ? 's are' : ' is'} above 80%
-          of free-tier limits. Consider reducing usage or upgrading.
+          <span className="font-medium">⚠️ Chú ý:</span>{' '}
+          {warningCount} dịch vụ đã vượt quá 80% giới hạn gói miễn phí. Hãy cân
+          nhắc giảm mức sử dụng hoặc nâng cấp.
         </div>
       )}
 
@@ -195,9 +182,7 @@ export function QuotaPage() {
           return (
             <div
               key={service.name}
-              className={`rounded-lg border bg-white p-5 shadow-sm ${getCardBorderColor(
-                service.status
-              )}`}
+              className={`card p-5 ${getCardBorderColor(service.status)}`}
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
@@ -213,10 +198,10 @@ export function QuotaPage() {
               <div className="mt-4">
                 <div className="flex items-center justify-between text-xs text-gray-500">
                   <span>
-                    {formatNumber(service.current, service.name)} used
+                    {formatNumber(service.current, service.name)} đã dùng
                   </span>
                   <span>
-                    {formatLimit(service.limit, service.name)} limit
+                    giới hạn {formatLimit(service.limit, service.name)}
                   </span>
                 </div>
                 <div className="mt-1.5 h-3 overflow-hidden rounded-full bg-gray-100">
@@ -238,13 +223,13 @@ export function QuotaPage() {
 
       {/* Warnings log */}
       {quotaData.warnings.length > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-semibold text-gray-700">Warning Log</h2>
+        <div className="card p-5">
+          <h2 className="text-sm font-semibold text-gray-700">Nhật ký cảnh báo</h2>
           <ul className="mt-3 space-y-1.5">
             {quotaData.warnings.map((warning, idx) => (
               <li
                 key={idx}
-                className="rounded bg-red-50 px-3 py-2 text-xs text-red-700"
+                className="rounded bg-danger-50 px-3 py-2 text-xs text-danger-700"
               >
                 {warning}
               </li>

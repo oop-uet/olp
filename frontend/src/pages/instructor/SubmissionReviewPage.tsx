@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../../lib/api'
-import { LoadingIndicator } from '../../components/ui'
+import { PageLoader, CheckCircleIcon, XCircleIcon, SubmissionIcon } from '../../components/ui'
+import { toast } from '../../stores/toast.store'
 import Editor from '@monaco-editor/react'
 
 // --- Types ---
@@ -64,37 +65,25 @@ function formatTimestamp(ts: string): string {
 }
 
 function getScoreColor(score: number): string {
-  if (score >= 80) return 'text-green-700'
-  if (score >= 50) return 'text-yellow-700'
-  return 'text-red-700'
+  if (score >= 80) return 'text-success-700'
+  if (score >= 50) return 'text-warning-700'
+  return 'text-danger-700'
 }
 
 function getStatusBadge(status: string, passed: boolean) {
   if (passed) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700">
-        <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-          <path
-            fillRule="evenodd"
-            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-            clipRule="evenodd"
-          />
-        </svg>
-        Pass
+      <span className="badge-green">
+        <CheckCircleIcon className="h-3.5 w-3.5" />
+        Đạt
       </span>
     )
   }
 
-  const statusLabel = status === 'timeout' ? 'Timeout' : status === 'error' ? 'Error' : 'Fail'
+  const statusLabel = status === 'timeout' ? 'Quá thời gian' : status === 'error' ? 'Lỗi' : 'Không đạt'
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700">
-      <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-        <path
-          fillRule="evenodd"
-          d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-          clipRule="evenodd"
-        />
-      </svg>
+    <span className="badge-red">
+      <XCircleIcon className="h-3.5 w-3.5" />
       {statusLabel}
     </span>
   )
@@ -103,11 +92,11 @@ function getStatusBadge(status: string, passed: boolean) {
 function getEventTypeLabel(eventType: string): string {
   switch (eventType) {
     case 'fullscreen_exit':
-      return 'Fullscreen Exit'
+      return 'Thoát toàn màn hình'
     case 'visibility_hidden':
-      return 'Tab Switch'
+      return 'Chuyển tab'
     case 'window_blur':
-      return 'Window Blur'
+      return 'Rời cửa sổ'
     default:
       return eventType
   }
@@ -122,7 +111,6 @@ export function SubmissionReviewPage() {
   const [submissions, setSubmissions] = useState<SubmissionListItem[]>([])
   const [exercises, setExercises] = useState<ExerciseOption[]>([])
   const [loadingList, setLoadingList] = useState(true)
-  const [listError, setListError] = useState<string | null>(null)
 
   // Detail state
   const [selectedSubmission, setSelectedSubmission] = useState<SubmissionDetail | null>(null)
@@ -145,7 +133,9 @@ export function SubmissionReviewPage() {
   async function fetchExercises() {
     try {
       const response = await api.get('/api/exercises')
-      setExercises(response.data.map((e: { id: string; title: string }) => ({ id: e.id, title: e.title })))
+      setExercises(
+        response.data.map((e: { id: string; title: string }) => ({ id: e.id, title: e.title }))
+      )
     } catch {
       // Non-critical: filter will still work without exercise names
     }
@@ -153,7 +143,6 @@ export function SubmissionReviewPage() {
 
   async function fetchSubmissions() {
     setLoadingList(true)
-    setListError(null)
     try {
       const params: Record<string, string> = {}
       if (selectedExerciseId) {
@@ -162,7 +151,7 @@ export function SubmissionReviewPage() {
       const response = await api.get('/api/submissions', { params })
       setSubmissions(response.data)
     } catch {
-      setListError('Failed to load submissions. Please try again.')
+      toast.error('Không thể tải danh sách bài nộp. Vui lòng thử lại.')
     } finally {
       setLoadingList(false)
     }
@@ -180,7 +169,8 @@ export function SubmissionReviewPage() {
       setSelectedSubmission(detailRes.data)
       setAntiCheatLog(logRes.data)
     } catch {
-      setDetailError('Failed to load submission details.')
+      setDetailError('Không thể tải chi tiết bài nộp.')
+      toast.error('Không thể tải chi tiết bài nộp.')
     } finally {
       setLoadingDetail(false)
     }
@@ -207,18 +197,15 @@ export function SubmissionReviewPage() {
   // --- Detail View ---
   if (selectedSubmission || loadingDetail) {
     if (loadingDetail) {
-      return <LoadingIndicator label="Loading submission details..." />
+      return <PageLoader label="Đang tải chi tiết bài nộp..." />
     }
 
     if (detailError) {
       return (
         <div className="flex flex-col items-center justify-center gap-4 p-8">
-          <p className="text-red-600">{detailError}</p>
-          <button
-            onClick={handleBackToList}
-            className="rounded-md bg-primary px-4 py-2 text-sm text-white transition-colors hover:bg-primary-600"
-          >
-            Back to Submissions
+          <p className="text-danger-600">{detailError}</p>
+          <button onClick={handleBackToList} className="btn-primary">
+            Quay lại danh sách
           </button>
         </div>
       )
@@ -241,16 +228,16 @@ export function SubmissionReviewPage() {
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          Back to Submissions
+          Quay lại danh sách
         </button>
 
         {/* Header card */}
-        <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="card p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-xl font-bold text-gray-900">{selectedSubmission.exerciseTitle}</h1>
               <p className="mt-1 text-sm text-gray-500">
-                {selectedSubmission.studentName} ({selectedSubmission.studentId}) — Attempt #
+                {selectedSubmission.studentName} ({selectedSubmission.studentId}) — Lần nộp #
                 {selectedSubmission.attemptNumber}
               </p>
               <p className="text-xs text-gray-400">{formatTimestamp(selectedSubmission.submittedAt)}</p>
@@ -260,32 +247,30 @@ export function SubmissionReviewPage() {
                 {selectedSubmission.score.toFixed(1)}%
               </p>
               <p className="text-xs text-gray-500">
-                {earnedPoints}/{totalPoints} points
+                {earnedPoints}/{totalPoints} điểm
               </p>
             </div>
           </div>
         </div>
 
         {/* Test case results */}
-        <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+        <div className="card">
           <div className="border-b border-gray-100 px-5 py-4">
-            <h2 className="text-lg font-semibold text-gray-900">Test Case Results</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Kết quả bộ test</h2>
           </div>
           <div className="divide-y divide-gray-100">
             {selectedSubmission.testCaseResults.length === 0 ? (
-              <p className="px-5 py-4 text-sm text-gray-500">No test case results.</p>
+              <p className="px-5 py-4 text-sm text-gray-500">Không có kết quả bộ test.</p>
             ) : (
               selectedSubmission.testCaseResults.map((tc, index) => (
                 <div key={tc.id} className="flex items-center justify-between px-5 py-3">
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-medium text-gray-700">
-                      {tc.testCaseLabel || `Test Case ${index + 1}`}
+                      {tc.testCaseLabel || `Bộ test ${index + 1}`}
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-xs text-gray-500">
-                      {tc.pointValue} pt{tc.pointValue !== 1 ? 's' : ''}
-                    </span>
+                    <span className="text-xs text-gray-500">{tc.pointValue} điểm</span>
                     {getStatusBadge(tc.status, tc.passed)}
                   </div>
                 </div>
@@ -295,40 +280,28 @@ export function SubmissionReviewPage() {
         </div>
 
         {/* Anti-cheat log */}
-        <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+        <div className="card">
           <div className="border-b border-gray-100 px-5 py-4">
-            <h2 className="text-lg font-semibold text-gray-900">Anti-Cheat Log</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Nhật ký chống gian lận</h2>
           </div>
           {antiCheatLog.length === 0 ? (
-            <p className="px-5 py-4 text-sm text-gray-500">No anti-cheat events recorded.</p>
+            <p className="px-5 py-4 text-sm text-gray-500">Không có sự kiện chống gian lận nào.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                      Event Type
-                    </th>
-                    <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                      Warning Count
-                    </th>
-                    <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                      Timestamp
-                    </th>
+                    <th className="table-th">Loại sự kiện</th>
+                    <th className="table-th">Số lần cảnh báo</th>
+                    <th className="table-th">Thời điểm</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {antiCheatLog.map((event) => (
                     <tr key={event.id} className="hover:bg-gray-50">
-                      <td className="whitespace-nowrap px-5 py-3 text-sm text-gray-700">
-                        {getEventTypeLabel(event.eventType)}
-                      </td>
-                      <td className="whitespace-nowrap px-5 py-3 text-sm text-gray-700">
-                        {event.warningCountAtEvent}
-                      </td>
-                      <td className="whitespace-nowrap px-5 py-3 text-sm text-gray-500">
-                        {formatTimestamp(event.occurredAt)}
-                      </td>
+                      <td className="table-td">{getEventTypeLabel(event.eventType)}</td>
+                      <td className="table-td">{event.warningCountAtEvent}</td>
+                      <td className="table-td text-gray-500">{formatTimestamp(event.occurredAt)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -338,9 +311,9 @@ export function SubmissionReviewPage() {
         </div>
 
         {/* Submitted code */}
-        <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+        <div className="card">
           <div className="border-b border-gray-100 px-5 py-4">
-            <h2 className="text-lg font-semibold text-gray-900">Submitted Code</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Mã đã nộp</h2>
           </div>
           <div className="h-[400px]">
             <Editor
@@ -368,21 +341,21 @@ export function SubmissionReviewPage() {
     <div className="space-y-6">
       {/* Page header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-gray-800">Submission Review</h1>
+        <h1 className="text-2xl font-semibold text-gray-800">Chấm bài</h1>
       </div>
 
       {/* Filter by exercise */}
       <div className="flex items-center gap-3">
         <label htmlFor="exercise-filter" className="text-sm font-medium text-gray-700">
-          Filter by exercise:
+          Lọc theo bài tập:
         </label>
         <select
           id="exercise-filter"
           value={selectedExerciseId}
           onChange={(e) => handleExerciseFilter(e.target.value)}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          className="input max-w-xs"
         >
-          <option value="">All exercises</option>
+          <option value="">Tất cả bài tập</option>
           {exercises.map((ex) => (
             <option key={ex.id} value={ex.id}>
               {ex.title}
@@ -391,71 +364,46 @@ export function SubmissionReviewPage() {
         </select>
       </div>
 
-      {/* Error */}
-      {listError && (
-        <div className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
-          {listError}
-          <button onClick={fetchSubmissions} className="ml-2 font-medium underline hover:text-red-800">
-            Retry
-          </button>
-        </div>
-      )}
-
       {/* Submissions table */}
       {loadingList ? (
-        <LoadingIndicator label="Loading submissions..." />
+        <PageLoader label="Đang tải bài nộp..." />
       ) : submissions.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 p-12 text-center">
-          <p className="text-gray-500">No submissions found.</p>
+        <div className="card flex flex-col items-center justify-center p-12 text-center">
+          <SubmissionIcon className="mb-3 h-10 w-10 text-gray-300" />
+          <p className="text-gray-500">Không tìm thấy bài nộp nào.</p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+        <div className="card overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Student
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Exercise
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Score
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Submitted At
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Actions
-                </th>
+                <th className="table-th">Sinh viên</th>
+                <th className="table-th">Bài tập</th>
+                <th className="table-th">Điểm</th>
+                <th className="table-th">Thời điểm nộp</th>
+                <th className="table-th text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {submissions.map((sub) => (
                 <tr key={sub.id} className="hover:bg-gray-50">
-                  <td className="whitespace-nowrap px-6 py-4">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{sub.studentName}</p>
-                      <p className="text-xs text-gray-500">{sub.studentId}</p>
-                    </div>
+                  <td className="px-5 py-3.5">
+                    <p className="text-sm font-medium text-gray-900">{sub.studentName}</p>
+                    <p className="text-xs text-gray-500">{sub.studentId}</p>
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
-                    {sub.exerciseTitle}
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-4">
+                  <td className="table-td">{sub.exerciseTitle}</td>
+                  <td className="table-td">
                     <span className={`text-sm font-medium ${getScoreColor(sub.score)}`}>
                       {sub.score.toFixed(1)}%
                     </span>
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                    {formatTimestamp(sub.submittedAt)}
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-right">
+                  <td className="table-td text-gray-500">{formatTimestamp(sub.submittedAt)}</td>
+                  <td className="table-td text-right">
                     <button
                       onClick={() => handleSelectSubmission(sub.id)}
-                      className="text-sm font-medium text-primary hover:text-primary-600"
+                      className="btn-secondary btn-sm"
                     >
-                      View Details
+                      Xem chi tiết
                     </button>
                   </td>
                 </tr>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuthStore } from '../stores/auth.store'
 import { getRoleDashboardPath } from '../router/AuthGuard'
+import { Spinner } from '../components/ui'
 
 export function ChangePasswordPage() {
   const [currentPassword, setCurrentPassword] = useState('')
@@ -62,7 +63,7 @@ export function ChangePasswordPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-md">
+      <div className="card w-full max-w-md p-8">
         <div className="mb-6 text-center">
           <h1 className="text-xl font-bold text-gray-900">Đổi mật khẩu</h1>
           <p className="mt-2 text-sm text-gray-600">
@@ -71,14 +72,17 @@ export function ChangePasswordPage() {
         </div>
 
         {error && (
-          <div className="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+          <div
+            className="mb-4 rounded-lg border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700"
+            role="alert"
+          >
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="current-password" className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor="current-password" className="label">
               Mật khẩu hiện tại
             </label>
             <input
@@ -87,13 +91,13 @@ export function ChangePasswordPage() {
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               required
-              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="input"
               placeholder="Nhập mật khẩu hiện tại (MSSV)"
             />
           </div>
 
           <div>
-            <label htmlFor="new-password" className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor="new-password" className="label">
               Mật khẩu mới
             </label>
             <input
@@ -103,13 +107,13 @@ export function ChangePasswordPage() {
               onChange={(e) => setNewPassword(e.target.value)}
               required
               minLength={6}
-              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="input"
               placeholder="Ít nhất 6 ký tự"
             />
           </div>
 
           <div>
-            <label htmlFor="confirm-password" className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor="confirm-password" className="label">
               Xác nhận mật khẩu mới
             </label>
             <input
@@ -118,17 +122,20 @@ export function ChangePasswordPage() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
-              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="input"
               placeholder="Nhập lại mật khẩu mới"
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full rounded bg-primary px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:opacity-60"
-          >
-            {isLoading ? 'Đang xử lý...' : 'Đổi mật khẩu'}
+          <button type="submit" disabled={isLoading} className="btn-primary w-full">
+            {isLoading ? (
+              <>
+                <Spinner />
+                Đang xử lý...
+              </>
+            ) : (
+              'Đổi mật khẩu'
+            )}
           </button>
         </form>
       </div>
