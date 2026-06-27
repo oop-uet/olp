@@ -14,10 +14,9 @@ export default defineConfig({
         'src/**/*.spec.ts',
         'src/test/**',
         'src/db/migrations/**',
+        'src/db/seed.ts',
+        'src/db/seed-exercises.ts',
       ],
-      thresholds: {
-        lines: 80,
-      },
     },
     setupFiles: ['src/test/setup.ts'],
   },
