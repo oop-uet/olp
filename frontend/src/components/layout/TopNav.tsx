@@ -56,18 +56,11 @@ const roleLabels: Record<string, string> = {
 /** Original leaf/sprout brand mark (not copied from any third party). */
 function LeafLogo({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M5 19c0-6 4-11 13-12-1 9-6 13-12 13-0.34 0-0.67-0.02-1-0.05V19z"
-        fill="currentColor"
-      />
-      <path
-        d="M6 18C8.5 13 11.5 10.5 16 9"
-        stroke="white"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-      />
-    </svg>
+    <img
+      src="/olp/uet-logo.jpg"
+      alt="UET Logo"
+      className={className}
+    />
   )
 }
 
@@ -115,8 +108,8 @@ export function TopNav() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 lg:px-6">
         {/* Brand */}
         <NavLink to="/" className="flex shrink-0 items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-teal-600">
-            <LeafLogo className="h-6 w-6" />
+          <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-white">
+            <LeafLogo className="h-9 w-9 object-cover" />
           </span>
           <span className="text-lg font-bold tracking-wide">UET OASIS</span>
         </NavLink>
