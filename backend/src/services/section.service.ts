@@ -1,7 +1,15 @@
 import crypto from "node:crypto";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db as defaultDb } from "../db/index.js";
-import { classSections, users } from "../db/schema.js";
+import {
+  classSections,
+  users,
+  sectionEnrollments,
+  exerciseAssignments,
+  submissions,
+  submissionResults,
+  anticheatEvents,
+} from "../db/schema.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -146,6 +154,31 @@ export async function deleteSection(id: string, database = defaultDb) {
     };
   }
 
+  // Delete dependent records first to satisfy foreign key constraints.
+  // Order: submission_results & anticheat_events → submissions → enrollments → assignments → section
+
+  // Find all submissions in this section
+  const sectionSubmissions = await database
+    .select({ id: submissions.id })
+    .from(submissions)
+    .where(eq(submissions.sectionId, id));
+  const submissionIds = sectionSubmissions.map((s: { id: string }) => s.id);
+
+  if (submissionIds.length > 0) {
+    await database
+      .delete(submissionResults)
+      .where(inArray(submissionResults.submissionId, submissionIds));
+    await database
+      .delete(anticheatEvents)
+      .where(inArray(anticheatEvents.submissionId, submissionIds));
+    await database.delete(submissions).where(eq(submissions.sectionId, id));
+  }
+
+  // Delete enrollments and exercise assignments for this section
+  await database.delete(sectionEnrollments).where(eq(sectionEnrollments.sectionId, id));
+  await database.delete(exerciseAssignments).where(eq(exerciseAssignments.sectionId, id));
+
+  // Finally delete the section
   await database.delete(classSections).where(eq(classSections.id, id));
 
   return { success: true };

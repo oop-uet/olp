@@ -1,4 +1,5 @@
 import { Navigate, useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
 import { useAuthStore, UserRole } from '../stores/auth.store'
 import { useRedirectStore } from '../stores/redirect.store'
 
@@ -12,9 +13,17 @@ export function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
   const { setIntendedDestination } = useRedirectStore()
   const location = useLocation()
 
-  if (!isAuthenticated || !user) {
-    // Save the intended destination before redirecting to login
-    setIntendedDestination(location.pathname + location.search)
+  const isUnauthenticated = !isAuthenticated || !user
+
+  // Save intended destination as a side-effect (not during render) to avoid
+  // setState-during-render infinite loops.
+  useEffect(() => {
+    if (isUnauthenticated) {
+      setIntendedDestination(location.pathname + location.search)
+    }
+  }, [isUnauthenticated, location.pathname, location.search, setIntendedDestination])
+
+  if (isUnauthenticated) {
     return <Navigate to="/login" replace />
   }
 

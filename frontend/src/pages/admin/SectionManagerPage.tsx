@@ -61,21 +61,7 @@ export function SectionManagerPage() {
   const fetchInstructors = useCallback(async () => {
     try {
       const response = await api.get('/api/admin/sections')
-      // Extract unique instructors from sections that have them
-      // Also try a dedicated users endpoint if available
-      try {
-        const usersResponse = await api.get('/api/admin/users', {
-          params: { role: 'instructor' },
-        })
-        if (Array.isArray(usersResponse.data)) {
-          setInstructors(usersResponse.data)
-          return
-        }
-      } catch {
-        // If no users endpoint exists, extract instructors from sections
-      }
-
-      // Fallback: extract instructors from loaded sections
+      // Extract instructors from loaded sections (no dedicated users endpoint)
       const instructorMap = new Map<string, Instructor>()
       const sectionData = response.data as Section[]
       sectionData.forEach((section) => {
