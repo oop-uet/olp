@@ -38,21 +38,21 @@ async function seed() {
       value: "3",
       validRange: "1-10",
       updatedAt: now,
-      updatedBy: adminId,
+      updatedBy: null,
     },
     {
       key: "time_limit",
       value: "60",
       validRange: "1-180",
       updatedAt: now,
-      updatedBy: adminId,
+      updatedBy: null,
     },
     {
       key: "max_submissions",
       value: "10",
       validRange: "1-100",
       updatedAt: now,
-      updatedBy: adminId,
+      updatedBy: null,
     },
   ];
 
