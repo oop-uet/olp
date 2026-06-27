@@ -46,3 +46,7 @@ local-executor/bin/
 # Temporary files
 tmp/
 temp/
+
+# Secrets / credentials (never commit)
+credentials.txt
+*credentials*

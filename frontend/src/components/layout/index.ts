@@ -1,3 +1,5 @@
 export { AppLayout } from './AppLayout'
+export { TopNav } from './TopNav'
+export { Breadcrumb } from './Breadcrumb'
 export { Header } from './Header'
 export { Sidebar } from './Sidebar'

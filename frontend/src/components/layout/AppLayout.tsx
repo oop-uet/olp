@@ -1,35 +1,21 @@
-import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
-import { Sidebar } from './Sidebar'
-import { Header } from './Header'
+import { TopNav } from './TopNav'
+import { Breadcrumb } from './Breadcrumb'
 
 /**
- * Main authenticated layout: responsive sidebar + header + scrollable content.
- * Sidebar collapses on desktop and slides over on mobile.
+ * Main authenticated layout emulating the UET OASIS look:
+ * a top horizontal navbar + breadcrumb bar + centered content area.
  */
 export function AppLayout() {
-  const [collapsed, setCollapsed] = useState(false)
-  const [mobileOpen, setMobileOpen] = useState(false)
-
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
-      <Sidebar
-        collapsed={collapsed}
-        mobileOpen={mobileOpen}
-        onCloseMobile={() => setMobileOpen(false)}
-      />
-
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <Header
-          onToggleSidebar={() => setCollapsed((v) => !v)}
-          onToggleMobile={() => setMobileOpen((v) => !v)}
-        />
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-          <div className="mx-auto max-w-7xl">
-            <Outlet />
-          </div>
-        </main>
-      </div>
+    <div className="flex min-h-screen flex-col bg-gray-50">
+      <TopNav />
+      <Breadcrumb />
+      <main className="flex-1">
+        <div className="mx-auto max-w-7xl px-4 py-6 lg:px-6">
+          <Outlet />
+        </div>
+      </main>
     </div>
   )
 }

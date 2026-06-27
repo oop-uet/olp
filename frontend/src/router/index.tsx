@@ -26,6 +26,7 @@ const ExerciseFormPage = lazy(() => import('../pages/instructor/ExerciseFormPage
 const TestCaseEditorPage = lazy(() => import('../pages/instructor/TestCaseEditorPage').then((m) => ({ default: m.TestCaseEditorPage })))
 const SubmissionReviewPage = lazy(() => import('../pages/instructor/SubmissionReviewPage').then((m) => ({ default: m.SubmissionReviewPage })))
 const LeaderboardPage = lazy(() => import('../pages/instructor/LeaderboardPage').then((m) => ({ default: m.LeaderboardPage })))
+const PlagiarismPage = lazy(() => import('../pages/instructor/PlagiarismPage').then((m) => ({ default: m.PlagiarismPage })))
 
 // Admin
 const AdminDashboardPage = lazy(() => import('../pages/admin/DashboardPage').then((m) => ({ default: m.DashboardPage })))
@@ -96,6 +97,7 @@ export const router = createBrowserRouter(
         { path: 'classes/:id/schedule', element: withSuspense(<SectionSchedulePage />) },
         { path: 'submissions', element: withSuspense(<SubmissionReviewPage />) },
         { path: 'leaderboard', element: withSuspense(<LeaderboardPage />) },
+        { path: 'plagiarism', element: withSuspense(<PlagiarismPage />) },
       ],
     },
 

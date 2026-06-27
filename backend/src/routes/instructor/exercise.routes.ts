@@ -11,6 +11,10 @@ import {
   assignToSection,
   isExerciseError,
 } from "../../services/exercise.service.js";
+import {
+  checkExercisePlagiarism,
+  isPlagiarismError,
+} from "../../services/plagiarism.service.js";
 
 // ─── Zod Schemas ─────────────────────────────────────────────────────────────
 
@@ -106,6 +110,37 @@ router.get("/", async (req: Request, res: Response) => {
 router.get("/library", async (_req: Request, res: Response) => {
   try {
     const result = await browseLibrary();
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "An unexpected error occurred",
+      },
+    });
+  }
+});
+
+/**
+ * GET /api/exercises/:id/plagiarism
+ * Detect students whose submitted code is suspiciously similar for an exercise.
+ * Optional query `section_id` scopes the check to a single section.
+ */
+router.get("/:id/plagiarism", async (req: Request, res: Response) => {
+  try {
+    const sectionId =
+      typeof req.query.section_id === "string" && req.query.section_id.length > 0
+        ? req.query.section_id
+        : undefined;
+
+    const result = await checkExercisePlagiarism(req.params.id, sectionId);
+
+    if (isPlagiarismError(result)) {
+      const statusCode = result.error.code === "NOT_FOUND" ? 404 : 400;
+      res.status(statusCode).json({ error: result.error });
+      return;
+    }
+
     res.status(200).json(result);
   } catch (error) {
     res.status(500).json({
