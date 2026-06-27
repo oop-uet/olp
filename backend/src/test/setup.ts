@@ -1,0 +1,156 @@
+import { beforeAll, afterAll, afterEach } from 'vitest';
+import Database from 'better-sqlite3';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
+import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+
+let sqlite: Database.Database;
+let testDb: BetterSQLite3Database;
+
+/**
+ * Creates an in-memory SQLite database for testing.
+ * This avoids hitting the real Turso database during tests.
+ */
+export function getTestDb(): BetterSQLite3Database {
+  return testDb;
+}
+
+export function getTestSqlite(): Database.Database {
+  return sqlite;
+}
+
+beforeAll(() => {
+  sqlite = new Database(':memory:');
+  testDb = drizzle(sqlite);
+
+  // Create tables matching the schema
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      username TEXT UNIQUE NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      role TEXT NOT NULL CHECK(role IN ('student', 'instructor', 'admin')),
+      failed_login_attempts INTEGER DEFAULT 0,
+      locked_until TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS class_sections (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      semester TEXT NOT NULL,
+      instructor_id TEXT REFERENCES users(id),
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS section_enrollments (
+      id TEXT PRIMARY KEY,
+      section_id TEXT NOT NULL REFERENCES class_sections(id),
+      student_id TEXT NOT NULL REFERENCES users(id),
+      student_external_id TEXT,
+      enrolled_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(section_id, student_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS exercises (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL,
+      difficulty TEXT NOT NULL CHECK(difficulty IN ('easy', 'medium', 'hard')),
+      starter_code TEXT,
+      is_library INTEGER DEFAULT 0,
+      oop_tags TEXT,
+      created_by TEXT REFERENCES users(id),
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS exercise_assignments (
+      id TEXT PRIMARY KEY,
+      exercise_id TEXT NOT NULL REFERENCES exercises(id),
+      section_id TEXT NOT NULL REFERENCES class_sections(id),
+      deadline TEXT,
+      is_assessment INTEGER DEFAULT 0,
+      assigned_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS test_cases (
+      id TEXT PRIMARY KEY,
+      exercise_id TEXT NOT NULL REFERENCES exercises(id),
+      input_data TEXT,
+      expected_output TEXT,
+      is_visible INTEGER DEFAULT 1,
+      point_value INTEGER NOT NULL CHECK(point_value BETWEEN 1 AND 100),
+      time_limit_seconds INTEGER,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS submissions (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL REFERENCES users(id),
+      exercise_id TEXT NOT NULL REFERENCES exercises(id),
+      section_id TEXT NOT NULL REFERENCES class_sections(id),
+      code TEXT NOT NULL,
+      score REAL,
+      attempt_number INTEGER,
+      submitted_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS submission_results (
+      id TEXT PRIMARY KEY,
+      submission_id TEXT NOT NULL REFERENCES submissions(id),
+      test_case_id TEXT NOT NULL REFERENCES test_cases(id),
+      passed INTEGER NOT NULL,
+      actual_output TEXT,
+      status TEXT NOT NULL CHECK(status IN ('passed', 'failed', 'timeout', 'error')),
+      execution_time_ms INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS anticheat_events (
+      id TEXT PRIMARY KEY,
+      submission_id TEXT REFERENCES submissions(id),
+      student_id TEXT NOT NULL REFERENCES users(id),
+      exercise_id TEXT NOT NULL REFERENCES exercises(id),
+      event_type TEXT NOT NULL,
+      warning_count_at_event INTEGER NOT NULL,
+      occurred_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS system_config (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      valid_range TEXT,
+      updated_at TEXT DEFAULT (datetime('now')),
+      updated_by TEXT REFERENCES users(id)
+    );
+  `);
+
+  // Seed default system configuration
+  sqlite.exec(`
+    INSERT OR IGNORE INTO system_config (key, value, valid_range)
+    VALUES
+      ('warning_threshold', '3', '1-10'),
+      ('time_limit_minutes', '60', '1-180'),
+      ('max_submissions', '10', '1-100');
+  `);
+});
+
+afterEach(() => {
+  // Clean user-created data between tests but preserve system_config defaults
+  sqlite.exec(`
+    DELETE FROM anticheat_events;
+    DELETE FROM submission_results;
+    DELETE FROM submissions;
+    DELETE FROM test_cases;
+    DELETE FROM exercise_assignments;
+    DELETE FROM exercises;
+    DELETE FROM section_enrollments;
+    DELETE FROM class_sections;
+    DELETE FROM users;
+  `);
+});
+
+afterAll(() => {
+  sqlite.close();
+});
