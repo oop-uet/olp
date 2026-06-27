@@ -24,6 +24,20 @@ const DIFFICULTY_BADGE: Record<string, { className: string; label: string }> = {
   hard: { className: 'badge-red', label: 'Khó' },
 }
 
+function parseOopTags(tags: unknown): string[] {
+  if (!tags) return []
+  if (Array.isArray(tags)) return tags as string[]
+  if (typeof tags === 'string') {
+    try {
+      const parsed = JSON.parse(tags)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  }
+  return []
+}
+
 export function ExerciseManagerPage() {
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [loading, setLoading] = useState(true)
@@ -145,7 +159,7 @@ export function ExerciseManagerPage() {
                         </td>
                         <td className="px-5 py-3.5">
                           <div className="flex flex-wrap gap-1">
-                            {exercise.oop_tags.map((tag) => (
+                            {parseOopTags(exercise.oop_tags ?? (exercise as unknown as Record<string, unknown>).oopTags).map((tag) => (
                               <span key={tag} className="badge-blue">
                                 {tag}
                               </span>

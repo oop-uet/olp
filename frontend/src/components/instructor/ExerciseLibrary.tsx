@@ -23,6 +23,20 @@ const DIFFICULTY_BADGE: Record<string, { className: string; label: string }> = {
   hard: { className: 'badge-red', label: 'Khó' },
 }
 
+function parseOopTags(tags: unknown): string[] {
+  if (!tags) return []
+  if (Array.isArray(tags)) return tags as string[]
+  if (typeof tags === 'string') {
+    try {
+      const parsed = JSON.parse(tags)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  }
+  return []
+}
+
 export function ExerciseLibrary() {
   const [exercises, setExercises] = useState<LibraryExercise[]>([])
   const [sections, setSections] = useState<Section[]>([])
@@ -43,10 +57,19 @@ export function ExerciseLibrary() {
     try {
       const [exercisesRes, sectionsRes] = await Promise.all([
         api.get('/api/exercises/library'),
-        api.get('/api/admin/sections').catch(() => ({ data: [] })),
+        api.get('/api/instructor/sections').catch(() => ({ data: [] })),
       ])
-      setExercises(exercisesRes.data)
-      setSections(sectionsRes.data)
+      const rawExercises = Array.isArray(exercisesRes.data) ? exercisesRes.data : []
+      setExercises(
+        rawExercises.map((e: Record<string, unknown>) => ({
+          id: e.id as string,
+          title: e.title as string,
+          description: e.description as string,
+          difficulty: e.difficulty as LibraryExercise['difficulty'],
+          oop_tags: parseOopTags(e.oopTags ?? e.oop_tags),
+        }))
+      )
+      setSections(Array.isArray(sectionsRes.data) ? sectionsRes.data : [])
     } catch {
       toast.error('Không thể tải thư viện bài tập. Vui lòng thử lại.')
     } finally {
