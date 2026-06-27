@@ -13,6 +13,7 @@ import {
   isSectionError,
 } from "../../services/section.service.js";
 import { assignToSection, isExerciseError } from "../../services/exercise.service.js";
+import { registerScheduleRoutes } from "../schedule.helper.js";
 
 // ─── Zod Schemas ─────────────────────────────────────────────────────────────
 
@@ -241,5 +242,8 @@ function getErrorStatusCode(code: string): number {
       return 400;
   }
 }
+
+// Week-based schedule endpoints (GET/POST/PUT under /:id/schedule)
+registerScheduleRoutes(router);
 
 export default router;

@@ -4,6 +4,7 @@ import { db } from "../../db/index.js";
 import { classSections, sectionEnrollments } from "../../db/schema.js";
 import { getSectionDetail, unassignExercise, isSectionError } from "../../services/section.service.js";
 import { getStudentProgress } from "../../services/submission.service.js";
+import { registerScheduleRoutes } from "../schedule.helper.js";
 
 const router = Router();
 
@@ -131,5 +132,8 @@ router.get("/:id/students/:studentId/progress", async (req: Request, res: Respon
     res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } });
   }
 });
+
+// Week-based schedule endpoints (GET/POST/PUT under /:id/schedule)
+registerScheduleRoutes(router);
 
 export default router;

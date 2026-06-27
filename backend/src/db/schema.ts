@@ -86,12 +86,33 @@ export const exerciseAssignments = sqliteTable(
       .references(() => classSections.id),
     deadline: text("deadline"),
     isAssessment: integer("is_assessment").notNull().default(0),
+    week: integer("week"),
     assignedAt: text("assigned_at").notNull(),
   },
   (table) => ({
     exerciseSectionIdx: uniqueIndex("assignments_exercise_section_unique").on(
       table.exerciseId,
       table.sectionId
+    ),
+  })
+);
+
+// ─── Section Weeks (per-week deadline for the 15-week schedule) ───────────────
+
+export const sectionWeeks = sqliteTable(
+  "section_weeks",
+  {
+    id: text("id").primaryKey(),
+    sectionId: text("section_id")
+      .notNull()
+      .references(() => classSections.id),
+    week: integer("week").notNull(),
+    deadline: text("deadline"),
+  },
+  (table) => ({
+    sectionWeekIdx: uniqueIndex("section_weeks_section_week_unique").on(
+      table.sectionId,
+      table.week
     ),
   })
 );

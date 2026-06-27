@@ -219,26 +219,35 @@ export function SectionDetailPage() {
       </Link>
 
       {/* Header */}
-      <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary">
-          <SectionIcon className="h-6 w-6" />
-        </span>
-        <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-semibold text-gray-800">{section.name}</h1>
-            <span className="badge-blue">{section.semester}</span>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary">
+            <SectionIcon className="h-6 w-6" />
+          </span>
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-semibold text-gray-800">{section.name}</h1>
+              <span className="badge-blue">{section.semester}</span>
+            </div>
+            <p className="text-sm text-gray-500">
+              Giảng viên:{' '}
+              {section.instructor ? (
+                <span className="font-medium text-gray-700">
+                  {section.instructor.fullName || section.instructor.username}
+                </span>
+              ) : (
+                <span className="italic text-gray-400">Chưa phân công</span>
+              )}
+            </p>
           </div>
-          <p className="text-sm text-gray-500">
-            Giảng viên:{' '}
-            {section.instructor ? (
-              <span className="font-medium text-gray-700">
-                {section.instructor.fullName || section.instructor.username}
-              </span>
-            ) : (
-              <span className="italic text-gray-400">Chưa phân công</span>
-            )}
-          </p>
         </div>
+        <Link
+          to={`/admin/sections/${section.id}/schedule`}
+          className="btn-primary btn-sm inline-flex items-center gap-2"
+        >
+          <ExerciseIcon className="h-4 w-4" />
+          Phân bài theo tuần
+        </Link>
       </div>
 
       {/* Students */}

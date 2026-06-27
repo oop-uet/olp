@@ -267,10 +267,19 @@ export function InstructorSectionDetailPage() {
           <h1 className="text-2xl font-semibold text-gray-800">{section.name}</h1>
           <span className="badge-blue">{section.semester}</span>
         </div>
-        <Link to="/instructor/leaderboard" className="btn-secondary btn-sm inline-flex items-center gap-2">
-          <LeaderboardIcon className="h-4 w-4" />
-          Bảng xếp hạng
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to={`/instructor/classes/${section.id}/schedule`}
+            className="btn-primary btn-sm inline-flex items-center gap-2"
+          >
+            <ExerciseIcon className="h-4 w-4" />
+            Phân bài theo tuần
+          </Link>
+          <Link to="/instructor/leaderboard" className="btn-secondary btn-sm inline-flex items-center gap-2">
+            <LeaderboardIcon className="h-4 w-4" />
+            Bảng xếp hạng
+          </Link>
+        </div>
       </div>
 
       {/* Students card */}

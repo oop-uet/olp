@@ -43,6 +43,9 @@ const QuotaPage = lazy(() => import('../pages/admin/QuotaPage').then((m) => ({ d
 const InstructorSectionsPage = lazy(() => import('../pages/instructor/InstructorSectionsPage').then((m) => ({ default: m.InstructorSectionsPage })))
 const InstructorSectionDetailPage = lazy(() => import('../pages/instructor/InstructorSectionDetailPage').then((m) => ({ default: m.InstructorSectionDetailPage })))
 
+// Shared (admin + instructor)
+const SectionSchedulePage = lazy(() => import('../pages/SectionSchedulePage').then((m) => ({ default: m.SectionSchedulePage })))
+
 // Wrap a lazy element with Suspense fallback
 function withSuspense(node: ReactNode): ReactNode {
   return <Suspense fallback={<PageLoader />}>{node}</Suspense>
@@ -90,6 +93,7 @@ export const router = createBrowserRouter(
         { path: 'exercises/:id/testcases', element: withSuspense(<TestCaseEditorPage />) },
         { path: 'classes', element: withSuspense(<InstructorSectionsPage />) },
         { path: 'classes/:id', element: withSuspense(<InstructorSectionDetailPage />) },
+        { path: 'classes/:id/schedule', element: withSuspense(<SectionSchedulePage />) },
         { path: 'submissions', element: withSuspense(<SubmissionReviewPage />) },
         { path: 'leaderboard', element: withSuspense(<LeaderboardPage />) },
       ],
@@ -109,6 +113,7 @@ export const router = createBrowserRouter(
         { path: 'students', element: withSuspense(<StudentManagementPage />) },
         { path: 'sections', element: withSuspense(<SectionManagerPage />) },
         { path: 'sections/:id', element: withSuspense(<SectionDetailPage />) },
+        { path: 'sections/:id/schedule', element: withSuspense(<SectionSchedulePage />) },
         { path: 'sections/:id/students', element: withSuspense(<StudentImportPage />) },
         { path: 'exercises', element: withSuspense(<AdminExercisesPage />) },
         { path: 'exercises/new', element: withSuspense(<AdminExerciseFormPage />) },
