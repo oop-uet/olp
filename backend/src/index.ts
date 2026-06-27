@@ -39,8 +39,12 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin/sections', authMiddleware(), requireRole('admin'), sectionRoutes);
 app.use('/api/admin/sections', authMiddleware(), requireRole('admin'), importRoutes);
 app.use('/api/admin', authMiddleware(), requireRole('admin'), rosterRoutes);
+app.use('/api/admin/users', authMiddleware(), requireRole('admin'), userRoutes);
 app.use('/api/admin/config', authMiddleware(), requireRole('admin'), configRoutes);
 app.use('/api/admin', adminRoutes);
+
+// Instructor - Sections (assigned classes + detail)
+app.use('/api/instructor/sections', authMiddleware(), requireRole('instructor'), instructorSectionRoutes);
 
 // Instructor - Test Cases
 app.use('/api/exercises/:exerciseId/testcases', authMiddleware(), requireRole('instructor'), exerciseTestCaseRouter);

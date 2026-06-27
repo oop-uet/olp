@@ -27,10 +27,18 @@ const SubmissionReviewPage = lazy(() => import('../pages/instructor/SubmissionRe
 const LeaderboardPage = lazy(() => import('../pages/instructor/LeaderboardPage').then((m) => ({ default: m.LeaderboardPage })))
 
 // Admin
+const AdminDashboardPage = lazy(() => import('../pages/admin/DashboardPage').then((m) => ({ default: m.DashboardPage })))
+const InstructorManagementPage = lazy(() => import('../pages/admin/InstructorManagementPage').then((m) => ({ default: m.InstructorManagementPage })))
+const StudentManagementPage = lazy(() => import('../pages/admin/StudentManagementPage').then((m) => ({ default: m.StudentManagementPage })))
+const SectionDetailPage = lazy(() => import('../pages/admin/SectionDetailPage').then((m) => ({ default: m.SectionDetailPage })))
 const SectionManagerPage = lazy(() => import('../pages/admin/SectionManagerPage').then((m) => ({ default: m.SectionManagerPage })))
 const StudentImportPage = lazy(() => import('../pages/admin/StudentImportPage').then((m) => ({ default: m.StudentImportPage })))
 const ConfigPage = lazy(() => import('../pages/admin/ConfigPage').then((m) => ({ default: m.ConfigPage })))
 const QuotaPage = lazy(() => import('../pages/admin/QuotaPage').then((m) => ({ default: m.QuotaPage })))
+
+// Instructor - classes
+const InstructorSectionsPage = lazy(() => import('../pages/instructor/InstructorSectionsPage').then((m) => ({ default: m.InstructorSectionsPage })))
+const InstructorSectionDetailPage = lazy(() => import('../pages/instructor/InstructorSectionDetailPage').then((m) => ({ default: m.InstructorSectionDetailPage })))
 
 // Wrap a lazy element with Suspense fallback
 function withSuspense(node: ReactNode): ReactNode {
@@ -76,6 +84,8 @@ export const router = createBrowserRouter(
         { path: 'exercises/new', element: withSuspense(<ExerciseFormPage />) },
         { path: 'exercises/:id/edit', element: withSuspense(<ExerciseFormPage />) },
         { path: 'exercises/:id/testcases', element: withSuspense(<TestCaseEditorPage />) },
+        { path: 'classes', element: withSuspense(<InstructorSectionsPage />) },
+        { path: 'classes/:id', element: withSuspense(<InstructorSectionDetailPage />) },
         { path: 'submissions', element: withSuspense(<SubmissionReviewPage />) },
         { path: 'leaderboard', element: withSuspense(<LeaderboardPage />) },
       ],
@@ -90,7 +100,11 @@ export const router = createBrowserRouter(
         </AuthGuard>
       ),
       children: [
+        { path: 'dashboard', element: withSuspense(<AdminDashboardPage />) },
+        { path: 'instructors', element: withSuspense(<InstructorManagementPage />) },
+        { path: 'students', element: withSuspense(<StudentManagementPage />) },
         { path: 'sections', element: withSuspense(<SectionManagerPage />) },
+        { path: 'sections/:id', element: withSuspense(<SectionDetailPage />) },
         { path: 'sections/:id/students', element: withSuspense(<StudentImportPage />) },
         { path: 'config', element: withSuspense(<ConfigPage />) },
         { path: 'quota', element: withSuspense(<QuotaPage />) },

@@ -1,3 +1,8 @@
+export { DashboardPage } from './DashboardPage'
+export { InstructorManagementPage } from './InstructorManagementPage'
+export { StudentManagementPage } from './StudentManagementPage'
+export { SectionDetailPage } from './SectionDetailPage'
+export { SectionManagerPage } from './SectionManagerPage'
 export { ConfigPage } from './ConfigPage'
 export { QuotaPage } from './QuotaPage'
 export { StudentImportPage } from './StudentImportPage'

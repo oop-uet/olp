@@ -9,6 +9,9 @@ import {
   SectionIcon,
   ConfigIcon,
   QuotaIcon,
+  DashboardIcon,
+  TeacherIcon,
+  StudentsIcon,
 } from '../ui/Icon'
 
 interface MenuItem {
@@ -25,10 +28,14 @@ const menusByRole: Record<UserRole, MenuItem[]> = {
   ],
   instructor: [
     { label: 'Quản lý bài tập', path: '/instructor/exercises', icon: ExerciseIcon },
+    { label: 'Lớp của tôi', path: '/instructor/classes', icon: SectionIcon },
     { label: 'Chấm bài', path: '/instructor/submissions', icon: SubmissionIcon },
     { label: 'Bảng xếp hạng', path: '/instructor/leaderboard', icon: LeaderboardIcon },
   ],
   admin: [
+    { label: 'Tổng quan', path: '/admin/dashboard', icon: DashboardIcon },
+    { label: 'Giảng viên', path: '/admin/instructors', icon: TeacherIcon },
+    { label: 'Sinh viên', path: '/admin/students', icon: StudentsIcon },
     { label: 'Lớp học phần', path: '/admin/sections', icon: SectionIcon },
     { label: 'Cấu hình', path: '/admin/config', icon: ConfigIcon },
     { label: 'Giám sát Quota', path: '/admin/quota', icon: QuotaIcon },

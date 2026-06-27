@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader, Spinner, SectionIcon, CheckCircleIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
@@ -427,9 +428,12 @@ export function SectionManagerPage() {
               {sections.map((section) => (
                 <tr key={section.id} className="hover:bg-gray-50">
                   <td className="table-td">
-                    <span className="font-medium text-gray-900">
+                    <Link
+                      to={`/admin/sections/${section.id}`}
+                      className="font-medium text-primary hover:text-primary-700"
+                    >
                       {section.name}
-                    </span>
+                    </Link>
                   </td>
                   <td className="table-td">
                     <span className="badge-blue">{section.semester}</span>
@@ -463,6 +467,12 @@ export function SectionManagerPage() {
                     )}
                   </td>
                   <td className="px-5 py-3.5 text-right">
+                    <Link
+                      to={`/admin/sections/${section.id}`}
+                      className="mr-3 text-sm font-medium text-primary hover:text-primary-700"
+                    >
+                      Chi tiết
+                    </Link>
                     <button
                       onClick={() => openEditForm(section)}
                       className="mr-3 text-sm font-medium text-primary hover:text-primary-700"
