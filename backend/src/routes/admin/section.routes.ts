@@ -7,6 +7,9 @@ import {
   updateSection,
   deleteSection,
   assignInstructor,
+  getSectionDetail,
+  removeStudentFromSection,
+  unassignExercise,
   isSectionError,
 } from "../../services/section.service.js";
 
@@ -147,6 +150,53 @@ router.put("/:id/instructor", validate(assignInstructorSchema), async (req: Requ
         message: "An unexpected error occurred",
       },
     });
+  }
+});
+
+/**
+ * GET /api/admin/sections/:id/detail
+ * Full section detail: info, enrolled students, assigned exercises.
+ */
+router.get("/:id/detail", async (req: Request, res: Response) => {
+  try {
+    const result = await getSectionDetail(req.params.id);
+    if (isSectionError(result)) {
+      res.status(getErrorStatusCode(result.error.code)).json({ error: result.error });
+      return;
+    }
+    res.status(200).json(result);
+  } catch {
+    res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } });
+  }
+});
+
+/**
+ * DELETE /api/admin/sections/:id/students/:studentId
+ * Remove a student enrollment from a section (does not delete the account).
+ */
+router.delete("/:id/students/:studentId", async (req: Request, res: Response) => {
+  try {
+    const result = await removeStudentFromSection(req.params.id, req.params.studentId);
+    if (isSectionError(result)) {
+      res.status(getErrorStatusCode(result.error.code)).json({ error: result.error });
+      return;
+    }
+    res.status(200).json(result);
+  } catch {
+    res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } });
+  }
+});
+
+/**
+ * DELETE /api/admin/sections/:id/exercises/:exerciseId
+ * Unassign an exercise from a section.
+ */
+router.delete("/:id/exercises/:exerciseId", async (req: Request, res: Response) => {
+  try {
+    const result = await unassignExercise(req.params.id, req.params.exerciseId);
+    res.status(200).json(result);
+  } catch {
+    res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } });
   }
 });
 

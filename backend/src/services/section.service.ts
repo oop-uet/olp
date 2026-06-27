@@ -1,11 +1,12 @@
 import crypto from "node:crypto";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, and } from "drizzle-orm";
 import { db as defaultDb } from "../db/index.js";
 import {
   classSections,
   users,
   sectionEnrollments,
   exerciseAssignments,
+  exercises,
   submissions,
   submissionResults,
   anticheatEvents,
@@ -227,6 +228,141 @@ export async function assignInstructor(
     .returning();
 
   return updated;
+}
+
+/**
+ * Get full detail of a class section: info, enrolled students, assigned exercises.
+ */
+export async function getSectionDetail(id: string, database = defaultDb) {
+  const section = await database.query.classSections.findFirst({
+    where: eq(classSections.id, id),
+    with: { instructor: true },
+  });
+
+  if (!section) {
+    return { error: { code: "NOT_FOUND", message: "Class section not found." } };
+  }
+
+  // Enrolled students (join users)
+  const enrollments = await database
+    .select({
+      enrollmentId: sectionEnrollments.id,
+      studentExternalId: sectionEnrollments.studentExternalId,
+      enrolledAt: sectionEnrollments.enrolledAt,
+      userId: users.id,
+      username: users.username,
+      email: users.email,
+      fullName: users.fullName,
+    })
+    .from(sectionEnrollments)
+    .innerJoin(users, eq(sectionEnrollments.studentId, users.id))
+    .where(eq(sectionEnrollments.sectionId, id));
+
+  // Assigned exercises (join exercises)
+  const assignments = await database
+    .select({
+      assignmentId: exerciseAssignments.id,
+      exerciseId: exerciseAssignments.exerciseId,
+      deadline: exerciseAssignments.deadline,
+      isAssessment: exerciseAssignments.isAssessment,
+      assignedAt: exerciseAssignments.assignedAt,
+      title: exercises.title,
+      difficulty: exercises.difficulty,
+    })
+    .from(exerciseAssignments)
+    .innerJoin(exercises, eq(exerciseAssignments.exerciseId, exercises.id))
+    .where(eq(exerciseAssignments.sectionId, id));
+
+  return {
+    section: {
+      id: section.id,
+      name: section.name,
+      semester: section.semester,
+      instructorId: section.instructorId,
+      instructor: section.instructor
+        ? {
+            id: section.instructor.id,
+            username: section.instructor.username,
+            fullName: section.instructor.fullName ?? null,
+            email: section.instructor.email,
+          }
+        : null,
+      createdAt: section.createdAt,
+    },
+    students: enrollments.map((e: any) => ({
+      enrollmentId: e.enrollmentId,
+      userId: e.userId,
+      studentId: e.studentExternalId || e.username,
+      username: e.username,
+      fullName: e.fullName ?? null,
+      email: e.email,
+      enrolledAt: e.enrolledAt,
+    })),
+    exercises: assignments.map((a: any) => ({
+      assignmentId: a.assignmentId,
+      exerciseId: a.exerciseId,
+      title: a.title,
+      difficulty: a.difficulty,
+      deadline: a.deadline,
+      isAssessment: Boolean(a.isAssessment),
+      assignedAt: a.assignedAt,
+    })),
+    studentCount: enrollments.length,
+    exerciseCount: assignments.length,
+  };
+}
+
+/**
+ * Remove a student enrollment from a section (does NOT delete the user account).
+ */
+export async function removeStudentFromSection(
+  sectionId: string,
+  studentUserId: string,
+  database = defaultDb
+) {
+  const enrollment = await database
+    .select({ id: sectionEnrollments.id })
+    .from(sectionEnrollments)
+    .where(
+      and(
+        eq(sectionEnrollments.sectionId, sectionId),
+        eq(sectionEnrollments.studentId, studentUserId)
+      )
+    );
+
+  if (enrollment.length === 0) {
+    return { error: { code: "NOT_FOUND", message: "Student is not enrolled in this section." } };
+  }
+
+  await database
+    .delete(sectionEnrollments)
+    .where(
+      and(
+        eq(sectionEnrollments.sectionId, sectionId),
+        eq(sectionEnrollments.studentId, studentUserId)
+      )
+    );
+
+  return { success: true };
+}
+
+/**
+ * Unassign an exercise from a section.
+ */
+export async function unassignExercise(
+  sectionId: string,
+  exerciseId: string,
+  database = defaultDb
+) {
+  await database
+    .delete(exerciseAssignments)
+    .where(
+      and(
+        eq(exerciseAssignments.sectionId, sectionId),
+        eq(exerciseAssignments.exerciseId, exerciseId)
+      )
+    );
+  return { success: true };
 }
 
 /**
