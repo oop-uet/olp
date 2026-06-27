@@ -11,6 +11,8 @@ export const users = sqliteTable(
     email: text("email").notNull(),
     passwordHash: text("password_hash").notNull(),
     role: text("role", { enum: ["student", "instructor", "admin"] }).notNull(),
+    fullName: text("full_name"),
+    mustChangePassword: integer("must_change_password").notNull().default(0),
     failedLoginAttempts: integer("failed_login_attempts").notNull().default(0),
     lockedUntil: text("locked_until"),
     createdAt: text("created_at").notNull(),

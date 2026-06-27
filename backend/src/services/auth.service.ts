@@ -50,6 +50,8 @@ export interface LoginResult {
     username: string;
     email: string;
     role: string;
+    fullName: string | null;
+    mustChangePassword: boolean;
   };
 }
 
@@ -301,6 +303,8 @@ export async function login(
       username: user.username,
       email: user.email,
       role: user.role,
+      fullName: (user as any).fullName || null,
+      mustChangePassword: Boolean((user as any).mustChangePassword),
     },
   };
 }

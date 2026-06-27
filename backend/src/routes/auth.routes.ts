@@ -115,4 +115,55 @@ function getAuthErrorStatus(code: string): number {
   }
 }
 
+// ─── Change Password ─────────────────────────────────────────────────────────
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+  newPassword: z.string().min(6, 'New password must be at least 6 characters'),
+});
+
+/**
+ * POST /api/auth/change-password
+ * Authenticated endpoint - changes user password.
+ * If mustChangePassword was set, clears the flag after successful change.
+ */
+router.post('/change-password', authMiddleware(), validate(changePasswordSchema), async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const { currentPassword, newPassword } = req.body;
+
+    // Import dynamically to avoid circular deps
+    const { comparePassword, hashPassword } = await import('../services/auth.service.js');
+    const { db } = await import('../db/index.js');
+    const { users } = await import('../db/schema.js');
+    const { eq } = await import('drizzle-orm');
+
+    // Get user
+    const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
+    if (!user) {
+      res.status(404).json({ error: { code: 'NOT_FOUND', message: 'User not found' } });
+      return;
+    }
+
+    // Verify current password
+    const isValid = await comparePassword(currentPassword, user.passwordHash);
+    if (!isValid) {
+      res.status(400).json({ error: { code: 'INVALID_PASSWORD', message: 'Current password is incorrect' } });
+      return;
+    }
+
+    // Hash new password and update
+    const newHash = await hashPassword(newPassword);
+    await db.update(users).set({
+      passwordHash: newHash,
+      mustChangePassword: 0,
+      updatedAt: new Date().toISOString(),
+    }).where(eq(users.id, userId));
+
+    res.status(200).json({ success: true, message: 'Password changed successfully' });
+  } catch (error) {
+    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'An unexpected error occurred' } });
+  }
+});
+
 export default router;

@@ -70,7 +70,7 @@ export function parseExcel(buffer: Buffer): ImportRow[] {
 
 /**
  * Detect file type and parse accordingly.
- * Supports CSV (by default) and Excel (.xlsx) determined by magic bytes or extension hint.
+ * Supports CSV (by default), Excel .xlsx (PK zip header), and .xls (legacy BIFF format).
  */
 export function parseFile(buffer: Buffer, filename?: string): ImportRow[] {
   // Check for Excel magic bytes (PK zip header for .xlsx)
@@ -78,7 +78,12 @@ export function parseFile(buffer: Buffer, filename?: string): ImportRow[] {
     (buffer[0] === 0x50 && buffer[1] === 0x4b) ||
     (filename && filename.toLowerCase().endsWith(".xlsx"));
 
-  if (isXlsx) {
+  // Check for .xls (legacy BIFF format: starts with 0xD0CF)
+  const isXls =
+    (buffer[0] === 0xd0 && buffer[1] === 0xcf) ||
+    (filename && filename.toLowerCase().endsWith(".xls"));
+
+  if (isXlsx || isXls) {
     return parseExcel(buffer);
   }
   return parseCSV(buffer);

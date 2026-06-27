@@ -8,6 +8,8 @@ export interface AuthUser {
   username: string
   email: string
   role: UserRole
+  fullName: string | null
+  mustChangePassword: boolean
 }
 
 interface AuthState {

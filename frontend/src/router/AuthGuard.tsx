@@ -18,6 +18,11 @@ export function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
     return <Navigate to="/login" replace />
   }
 
+  // Force password change on first login
+  if (user.mustChangePassword && location.pathname !== '/change-password') {
+    return <Navigate to="/change-password" replace />
+  }
+
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     // User is authenticated but doesn't have the required role
     // Redirect to their own dashboard

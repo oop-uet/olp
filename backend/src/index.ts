@@ -4,6 +4,7 @@ import authRoutes from './routes/auth.routes.js';
 import sectionRoutes from './routes/admin/section.routes.js';
 import configRoutes from './routes/admin/config.routes.js';
 import importRoutes from './routes/admin/import.routes.js';
+import rosterRoutes from './routes/admin/roster.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import { exerciseTestCaseRouter, testCaseRouter } from './routes/instructor/testcase.routes.js';
 import exerciseRoutes from './routes/instructor/exercise.routes.js';
@@ -35,6 +36,7 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/admin/sections', authMiddleware(), requireRole('admin'), sectionRoutes);
 app.use('/api/admin/sections', authMiddleware(), requireRole('admin'), importRoutes);
+app.use('/api/admin', authMiddleware(), requireRole('admin'), rosterRoutes);
 app.use('/api/admin/config', authMiddleware(), requireRole('admin'), configRoutes);
 app.use('/api/admin', adminRoutes);
 

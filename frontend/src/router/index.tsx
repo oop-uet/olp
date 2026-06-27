@@ -3,6 +3,7 @@ import { AuthGuard } from './AuthGuard'
 import { RoleRedirect } from './RoleRedirect'
 import { AppLayout } from '../components/layout/AppLayout'
 import { LoginPage } from '../pages/LoginPage'
+import { ChangePasswordPage } from '../pages/ChangePasswordPage'
 import { ExerciseManagerPage } from '../pages/instructor/ExerciseManagerPage'
 import { ExerciseFormPage } from '../pages/instructor/ExerciseFormPage'
 import { TestCaseEditorPage } from '../pages/instructor/TestCaseEditorPage'
@@ -29,6 +30,12 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: <LoginPage />,
+  },
+
+  // Change password (required on first login)
+  {
+    path: '/change-password',
+    element: <ChangePasswordPage />,
   },
 
   // Root redirect based on role
