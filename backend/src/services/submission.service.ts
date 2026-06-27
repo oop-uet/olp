@@ -339,7 +339,54 @@ export async function getSubmissionById(id: string, database: Database = default
     };
   }
 
-  return submission;
+  return {
+    ...submission,
+    effectiveScore: submission.manualScore ?? submission.score,
+  };
+}
+
+/**
+ * Grade a submission manually (instructor action).
+ * - Sets manualScore (validated 0..100) and/or feedback.
+ * - Returns the updated submission (re-fetched with results) on success.
+ *
+ * Validates: Requirements 5.x (instructor grading)
+ */
+export async function gradeSubmission(
+  id: string,
+  input: { score?: number; feedback?: string },
+  database: Database = defaultDb
+) {
+  const existing = await database.query.submissions.findFirst({
+    where: eq(submissions.id, id),
+  });
+
+  if (!existing) {
+    return {
+      error: { code: "NOT_FOUND", message: "Không tìm thấy bài nộp." },
+    };
+  }
+
+  const updates: { manualScore?: number; feedback?: string } = {};
+
+  if (input.score !== undefined) {
+    if (input.score < 0 || input.score > 100) {
+      return {
+        error: { code: "VALIDATION_ERROR", message: "Điểm phải từ 0 đến 100." },
+      };
+    }
+    updates.manualScore = input.score;
+  }
+
+  if (input.feedback !== undefined) {
+    updates.feedback = input.feedback;
+  }
+
+  if (Object.keys(updates).length > 0) {
+    await database.update(submissions).set(updates).where(eq(submissions.id, id));
+  }
+
+  return getSubmissionById(id, database);
 }
 
 // ─── Student Progress ────────────────────────────────────────────────────────

@@ -126,6 +126,8 @@ export const submissions = sqliteTable("submissions", {
     .references(() => classSections.id),
   code: text("code").notNull(),
   score: real("score"),
+  manualScore: real("manual_score"),
+  feedback: text("feedback"),
   attemptNumber: integer("attempt_number").notNull().default(1),
   submittedAt: text("submitted_at").notNull(),
 });

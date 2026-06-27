@@ -12,15 +12,26 @@ interface TestCase {
   pointValue: number
 }
 
+// Raw test case shape returned by GET /api/students/exercises/:id
+interface ApiTestCase {
+  id: string
+  inputData: string
+  expectedOutput: string
+  isVisible: true
+  pointValue: number
+  timeLimitSeconds: number | null
+}
+
 interface ExerciseDetail {
   id: string
   title: string
   description: string
   difficulty: 'easy' | 'medium' | 'hard'
-  starterCode: string
+  starterCode: string | null
+  sectionId: string
   deadline: string | null
   oopTags: string[]
-  visibleTestCases: TestCase[]
+  testCases: TestCase[]
 }
 
 interface TestResult {
@@ -64,10 +75,26 @@ export function ExerciseWorkspacePage() {
     try {
       setLoading(true)
       setError(null)
-      const response = await api.get(`/api/exercises/${exerciseId}`)
+      const response = await api.get(`/api/students/exercises/${exerciseId}`)
       const data = response.data
-      setExercise(data)
-      setCode(data.starterCode || '')
+      const detail: ExerciseDetail = {
+        id: data.id,
+        title: data.title,
+        description: data.description,
+        difficulty: data.difficulty,
+        starterCode: data.starterCode ?? null,
+        sectionId: data.sectionId,
+        deadline: data.deadline ?? null,
+        oopTags: data.oopTags ?? [],
+        testCases: (data.testCases ?? []).map((tc: ApiTestCase) => ({
+          id: tc.id,
+          input: tc.inputData,
+          expectedOutput: tc.expectedOutput,
+          pointValue: tc.pointValue,
+        })),
+      }
+      setExercise(detail)
+      setCode(detail.starterCode || '')
     } catch (err) {
       setError('Không thể tải bài tập. Vui lòng thử lại.')
     } finally {
@@ -89,7 +116,7 @@ export function ExerciseWorkspacePage() {
           JSON.stringify({
             type: 'compile_and_run',
             code,
-            testCases: exercise.visibleTestCases.map((tc) => ({
+            testCases: exercise.testCases.map((tc) => ({
               id: tc.id,
               input: tc.input,
               expectedOutput: tc.expectedOutput,
@@ -135,12 +162,26 @@ export function ExerciseWorkspacePage() {
 
   const handleSubmit = useCallback(async () => {
     if (!exercise) return
+
+    // Require the user to run the code before submitting.
+    if (!executionResult?.testResults || executionResult.testResults.length === 0) {
+      toast.error('Hãy chạy thử bài làm trước khi nộp.')
+      return
+    }
+
     setSubmitting(true)
 
     try {
       const response = await api.post('/api/submissions', {
-        exerciseId: exercise.id,
+        exercise_id: exercise.id,
+        section_id: exercise.sectionId,
         code,
+        test_results: executionResult.testResults.map((r) => ({
+          test_case_id: r.testCaseId,
+          actual_output: r.actualOutput ?? '',
+          execution_time_ms: r.executionTimeMs ?? 0,
+          status: r.status,
+        })),
       })
       const score = response.data.score
       toast.success(`Nộp bài thành công! Điểm: ${score.toFixed(1)}%`)
@@ -152,7 +193,7 @@ export function ExerciseWorkspacePage() {
     } finally {
       setSubmitting(false)
     }
-  }, [code, exercise])
+  }, [code, exercise, executionResult])
 
   if (loading) {
     return <PageLoader label="Đang tải bài tập..." />
@@ -230,7 +271,7 @@ export function ExerciseWorkspacePage() {
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              Test case ({exercise.visibleTestCases.length})
+              Test case ({exercise.testCases.length})
             </button>
           </div>
 
@@ -240,7 +281,7 @@ export function ExerciseWorkspacePage() {
               <DescriptionPanel exercise={exercise} />
             ) : (
               <TestCasesPanel
-                testCases={exercise.visibleTestCases}
+                testCases={exercise.testCases}
                 executionResult={executionResult}
               />
             )}

@@ -6,15 +6,18 @@ import { toast } from '../../stores/toast.store'
 
 interface Submission {
   id: string
-  submittedAt: string
+  exerciseId: string
+  sectionId: string
   score: number
   attemptNumber: number
+  submittedAt: string
 }
 
 interface ExerciseSubmissionGroup {
   exerciseId: string
   exerciseTitle: string
   submissions: Submission[]
+  latestSubmittedAt: string
 }
 
 function formatTimestamp(ts: string): string {
@@ -45,9 +48,45 @@ export function SubmissionHistoryPage() {
   async function fetchSubmissions() {
     try {
       setLoading(true)
+
+      // Fetch exercise titles to label each group (best-effort).
+      const titleById = new Map<string, string>()
+      try {
+        const exercisesRes = await api.get('/api/students/exercises')
+        const exercises: Array<{ id: string; title: string }> =
+          exercisesRes.data.exercises ?? []
+        for (const ex of exercises) {
+          titleById.set(ex.id, ex.title)
+        }
+      } catch {
+        // If titles can't be loaded, fall back to a generic label below.
+      }
+
       const response = await api.get('/api/submissions')
-      const data = response.data.groups ?? response.data ?? []
-      setGroups(data)
+      const grouped: Record<string, Submission[]> = response.data.grouped ?? {}
+
+      const result: ExerciseSubmissionGroup[] = Object.entries(grouped).map(
+        ([exerciseId, submissions]) => {
+          // Most recent first within each exercise group.
+          const sorted = [...submissions].sort(
+            (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+          )
+          return {
+            exerciseId,
+            exerciseTitle: titleById.get(exerciseId) ?? 'Bài tập',
+            submissions: sorted,
+            latestSubmittedAt: sorted[0]?.submittedAt ?? '',
+          }
+        }
+      )
+
+      // Groups ordered by most recent submission first.
+      result.sort(
+        (a, b) =>
+          new Date(b.latestSubmittedAt).getTime() - new Date(a.latestSubmittedAt).getTime()
+      )
+
+      setGroups(result)
     } catch {
       toast.error('Không thể tải danh sách bài nộp. Vui lòng thử lại.')
     } finally {
@@ -95,12 +134,8 @@ export function SubmissionHistoryPage() {
           <div key={group.exerciseId} className="card">
             {/* Exercise header */}
             <div className="border-b border-gray-100 px-5 py-4">
-              <h2 className="text-lg font-semibold text-gray-900">
-                {group.exerciseTitle}
-              </h2>
-              <p className="mt-0.5 text-xs text-gray-500">
-                {group.submissions.length} lần nộp
-              </p>
+              <h2 className="text-lg font-semibold text-gray-900">{group.exerciseTitle}</h2>
+              <p className="mt-0.5 text-xs text-gray-500">{group.submissions.length} lần nộp</p>
             </div>
 
             {/* Submission list */}

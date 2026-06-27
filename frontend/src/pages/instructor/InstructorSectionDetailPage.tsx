@@ -55,6 +55,12 @@ interface AvailableExercise {
   oopTags?: string[] | string
 }
 
+interface StudentProgress {
+  completedExercises: number
+  averageScore: number
+  rank: number | null
+}
+
 const DIFFICULTY_BADGE: Record<string, { className: string; label: string }> = {
   easy: { className: 'badge-green', label: 'Dễ' },
   medium: { className: 'badge-yellow', label: 'Trung bình' },
@@ -85,6 +91,12 @@ export function InstructorSectionDetailPage() {
   const [loading, setLoading] = useState(true)
   const [accessError, setAccessError] = useState<string | null>(null)
   const [removingId, setRemovingId] = useState<string | null>(null)
+
+  // ─── Student actions state ─────────────────────────────────────────────
+  const [removingStudentId, setRemovingStudentId] = useState<string | null>(null)
+  const [progressStudent, setProgressStudent] = useState<SectionStudent | null>(null)
+  const [progressData, setProgressData] = useState<StudentProgress | null>(null)
+  const [loadingProgress, setLoadingProgress] = useState(false)
 
   // ─── Assign exercise state ─────────────────────────────────────────────
   const [showAssignForm, setShowAssignForm] = useState(false)
@@ -133,6 +145,50 @@ export function InstructorSectionDetailPage() {
     } finally {
       setRemovingId(null)
     }
+  }
+
+  // ─── Student handlers ──────────────────────────────────────────────────
+
+  async function handleRemoveStudent(student: SectionStudent) {
+    if (
+      !window.confirm(
+        `Bạn có chắc chắn muốn xóa sinh viên "${student.fullName || student.username}" khỏi lớp này?`
+      )
+    )
+      return
+
+    setRemovingStudentId(student.userId)
+    try {
+      await api.delete(`/api/instructor/sections/${id}/students/${student.userId}`)
+      toast.success('Đã xóa sinh viên khỏi lớp.')
+      await fetchDetail()
+    } catch {
+      toast.error('Không thể xóa sinh viên. Vui lòng thử lại.')
+    } finally {
+      setRemovingStudentId(null)
+    }
+  }
+
+  async function handleViewProgress(student: SectionStudent) {
+    setProgressStudent(student)
+    setProgressData(null)
+    setLoadingProgress(true)
+    try {
+      const response = await api.get(
+        `/api/instructor/sections/${id}/students/${student.userId}/progress`
+      )
+      setProgressData(response.data)
+    } catch {
+      toast.error('Không thể tải tiến độ sinh viên.')
+      setProgressStudent(null)
+    } finally {
+      setLoadingProgress(false)
+    }
+  }
+
+  function closeProgress() {
+    setProgressStudent(null)
+    setProgressData(null)
   }
 
   // ─── Assign exercise handlers ──────────────────────────────────────────
@@ -232,6 +288,7 @@ export function InstructorSectionDetailPage() {
                 <th className="table-th">MSSV</th>
                 <th className="table-th">Họ tên</th>
                 <th className="table-th">Email</th>
+                <th className="table-th text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -240,6 +297,23 @@ export function InstructorSectionDetailPage() {
                   <td className="table-td font-medium text-gray-900">{student.studentId}</td>
                   <td className="table-td text-gray-700">{student.fullName}</td>
                   <td className="table-td text-gray-500">{student.email}</td>
+                  <td className="table-td text-right">
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => handleViewProgress(student)}
+                        className="btn-secondary btn-sm"
+                      >
+                        Xem tiến độ
+                      </button>
+                      <button
+                        onClick={() => handleRemoveStudent(student)}
+                        disabled={removingStudentId === student.userId}
+                        className="btn-danger btn-sm"
+                      >
+                        {removingStudentId === student.userId ? 'Đang xóa...' : 'Xóa khỏi lớp'}
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -378,6 +452,62 @@ export function InstructorSectionDetailPage() {
           </table>
         )}
       </div>
+
+      {/* Student progress modal */}
+      {progressStudent && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={closeProgress}
+        >
+          <div
+            className="card w-full max-w-md p-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+              <h3 className="font-semibold text-gray-800">
+                Tiến độ — {progressStudent.fullName || progressStudent.username}
+              </h3>
+              <button
+                onClick={closeProgress}
+                className="text-gray-400 transition-colors hover:text-gray-600"
+                aria-label="Đóng"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-5">
+              {loadingProgress ? (
+                <div className="flex items-center justify-center gap-2 py-6 text-sm text-gray-500">
+                  <Spinner /> Đang tải tiến độ...
+                </div>
+              ) : progressData ? (
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div className="rounded-lg bg-gray-50 p-4">
+                    <p className="text-2xl font-bold text-gray-900">
+                      {progressData.completedExercises}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">Bài đã hoàn thành</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 p-4">
+                    <p className="text-2xl font-bold text-gray-900">
+                      {progressData.averageScore.toFixed(1)}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">Điểm trung bình</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 p-4">
+                    <p className="text-2xl font-bold text-gray-900">
+                      {progressData.rank != null ? `#${progressData.rank}` : '—'}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">Xếp hạng</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="py-6 text-center text-sm text-gray-500">Không có dữ liệu tiến độ.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

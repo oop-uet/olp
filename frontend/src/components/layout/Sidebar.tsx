@@ -25,6 +25,7 @@ const menusByRole: Record<UserRole, MenuItem[]> = {
     { label: 'Bài tập', path: '/student/exercises', icon: ExerciseIcon },
     { label: 'Bài nộp', path: '/student/submissions', icon: SubmissionIcon },
     { label: 'Tiến độ', path: '/student/progress', icon: ProgressIcon },
+    { label: 'Bảng xếp hạng', path: '/student/leaderboard', icon: LeaderboardIcon },
   ],
   instructor: [
     { label: 'Quản lý bài tập', path: '/instructor/exercises', icon: ExerciseIcon },

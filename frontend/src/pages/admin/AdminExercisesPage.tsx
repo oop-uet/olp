@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader, ExerciseIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
@@ -82,11 +83,16 @@ export function AdminExercisesPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex items-center gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50 text-primary">
-          <ExerciseIcon className="h-6 w-6" />
-        </span>
-        <h1 className="text-2xl font-semibold text-gray-800">Quản lý bài tập</h1>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50 text-primary">
+            <ExerciseIcon className="h-6 w-6" />
+          </span>
+          <h1 className="text-2xl font-semibold text-gray-800">Quản lý bài tập</h1>
+        </div>
+        <Link to="/admin/exercises/new" className="btn-primary btn-sm">
+          Tạo bài tập
+        </Link>
       </div>
 
       {/* Table */}
@@ -141,13 +147,21 @@ export function AdminExercisesPage() {
                         : '—'}
                     </td>
                     <td className="px-5 py-3.5 text-right">
-                      <button
-                        onClick={() => handleDelete(exercise)}
-                        disabled={deletingId === exercise.id}
-                        className="text-sm font-medium text-danger-600 hover:text-danger-700 disabled:opacity-50"
-                      >
-                        {deletingId === exercise.id ? 'Đang xóa...' : 'Xóa'}
-                      </button>
+                      <div className="flex justify-end gap-3">
+                        <Link
+                          to={`/admin/exercises/${exercise.id}/edit`}
+                          className="text-sm font-medium text-primary hover:text-primary-600"
+                        >
+                          Sửa
+                        </Link>
+                        <button
+                          onClick={() => handleDelete(exercise)}
+                          disabled={deletingId === exercise.id}
+                          className="text-sm font-medium text-danger-600 hover:text-danger-700 disabled:opacity-50"
+                        >
+                          {deletingId === exercise.id ? 'Đang xóa...' : 'Xóa'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 )

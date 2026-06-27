@@ -54,8 +54,8 @@ export function LeaderboardPage() {
 
   async function fetchSections() {
     try {
-      // Try to get sections from the admin endpoint
-      const sectionsRes = await api.get('/api/admin/sections')
+      // Instructors see their own sections; admins see all.
+      const sectionsRes = await api.get('/api/instructor/sections')
       setSections(
         sectionsRes.data.map((s: { id: string; name: string; semester: string }) => ({
           id: s.id,
@@ -68,7 +68,7 @@ export function LeaderboardPage() {
         setSelectedSectionId(sectionsRes.data[0].id)
       }
     } catch {
-      // If admin sections endpoint is not accessible, sections dropdown remains empty
+      // If the sections endpoint is not accessible, sections dropdown remains empty
     }
   }
 

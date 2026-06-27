@@ -1,41 +1,56 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { AxiosError } from 'axios'
 import { api } from '../../lib/api'
-import { PageLoader, CheckCircleIcon, XCircleIcon, SubmissionIcon } from '../../components/ui'
+import { PageLoader, Spinner, CheckCircleIcon, XCircleIcon, SubmissionIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import Editor from '@monaco-editor/react'
 
 // --- Types ---
 
+interface StudentInfo {
+  id: string
+  username: string
+  email: string
+}
+
 interface SubmissionListItem {
   id: string
-  studentName: string
-  studentId: string
-  exerciseTitle: string
-  score: number
+  exerciseId: string
+  score: number | null
+  manualScore: number | null
   submittedAt: string
+  student?: StudentInfo | null
+}
+
+interface TestCaseInfo {
+  id: string
+  inputData?: string | null
+  expectedOutput?: string | null
+  isVisible?: number | boolean
+  pointValue?: number | null
 }
 
 interface TestCaseResult {
   id: string
-  passed: boolean
+  passed: number | boolean
   status: 'passed' | 'failed' | 'timeout' | 'error'
-  pointValue: number
-  testCaseLabel: string
-  actualOutput?: string
+  actualOutput?: string | null
+  testCase?: TestCaseInfo | null
 }
 
 interface SubmissionDetail {
   id: string
-  studentName: string
-  studentId: string
   exerciseId: string
-  exerciseTitle: string
   code: string
-  score: number
+  score: number | null
+  manualScore: number | null
+  feedback: string | null
+  effectiveScore: number | null
   attemptNumber: number
   submittedAt: string
-  testCaseResults: TestCaseResult[]
+  student?: StudentInfo | null
+  results: TestCaseResult[]
 }
 
 interface AntiCheatEvent {
@@ -54,6 +69,7 @@ interface ExerciseOption {
 
 function formatTimestamp(ts: string): string {
   const date = new Date(ts)
+  if (Number.isNaN(date.getTime())) return ts
   return date.toLocaleDateString('vi-VN', {
     day: '2-digit',
     month: '2-digit',
@@ -68,6 +84,10 @@ function getScoreColor(score: number): string {
   if (score >= 80) return 'text-success-700'
   if (score >= 50) return 'text-warning-700'
   return 'text-danger-700'
+}
+
+function isPassed(value: number | boolean): boolean {
+  return value === true || value === 1
 }
 
 function getStatusBadge(status: string, passed: boolean) {
@@ -118,7 +138,15 @@ export function SubmissionReviewPage() {
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [detailError, setDetailError] = useState<string | null>(null)
 
+  // Grading state
+  const [gradeScore, setGradeScore] = useState('')
+  const [gradeFeedback, setGradeFeedback] = useState('')
+  const [savingGrade, setSavingGrade] = useState(false)
+
   const selectedExerciseId = searchParams.get('exercise_id') || ''
+
+  // Map of exerciseId -> title for display (list/detail responses only carry exerciseId)
+  const exerciseTitleById = new Map(exercises.map((ex) => [ex.id, ex.title]))
 
   // Fetch exercises for filter dropdown
   useEffect(() => {
@@ -157,6 +185,13 @@ export function SubmissionReviewPage() {
     }
   }
 
+  function applyDetail(detail: SubmissionDetail) {
+    setSelectedSubmission(detail)
+    const prefill = detail.manualScore ?? detail.score
+    setGradeScore(prefill != null ? String(prefill) : '')
+    setGradeFeedback(detail.feedback ?? '')
+  }
+
   async function fetchSubmissionDetail(submissionId: string) {
     setLoadingDetail(true)
     setDetailError(null)
@@ -166,13 +201,45 @@ export function SubmissionReviewPage() {
         api.get(`/api/submissions/${submissionId}`),
         api.get(`/api/submissions/${submissionId}/anticheat-log`).catch(() => ({ data: [] })),
       ])
-      setSelectedSubmission(detailRes.data)
+      applyDetail(detailRes.data)
       setAntiCheatLog(logRes.data)
     } catch {
       setDetailError('Không thể tải chi tiết bài nộp.')
       toast.error('Không thể tải chi tiết bài nộp.')
     } finally {
       setLoadingDetail(false)
+    }
+  }
+
+  async function handleSaveGrade() {
+    if (!selectedSubmission) return
+
+    const trimmed = gradeScore.trim()
+    let scoreValue: number | undefined
+    if (trimmed !== '') {
+      scoreValue = Number(trimmed)
+      if (Number.isNaN(scoreValue) || scoreValue < 0 || scoreValue > 100) {
+        toast.error('Điểm phải là số từ 0 đến 100.')
+        return
+      }
+    }
+
+    setSavingGrade(true)
+    try {
+      const payload: { score?: number; feedback?: string } = {}
+      if (scoreValue !== undefined) payload.score = scoreValue
+      payload.feedback = gradeFeedback
+
+      const response = await api.patch(`/api/submissions/${selectedSubmission.id}/grade`, payload)
+      applyDetail(response.data)
+      toast.success('Đã lưu điểm và nhận xét.')
+    } catch (error) {
+      const message =
+        (error as AxiosError<{ error?: { message?: string } }>)?.response?.data?.error?.message ||
+        'Không thể lưu điểm. Vui lòng thử lại.'
+      toast.error(message)
+    } finally {
+      setSavingGrade(false)
     }
   }
 
@@ -213,10 +280,22 @@ export function SubmissionReviewPage() {
 
     if (!selectedSubmission) return null
 
-    const totalPoints = selectedSubmission.testCaseResults.reduce((sum, tc) => sum + tc.pointValue, 0)
-    const earnedPoints = selectedSubmission.testCaseResults
-      .filter((tc) => tc.passed)
-      .reduce((sum, tc) => sum + tc.pointValue, 0)
+    const results = selectedSubmission.results ?? []
+    const totalPoints = results.reduce((sum, tc) => sum + (tc.testCase?.pointValue ?? 0), 0)
+    const earnedPoints = results
+      .filter((tc) => isPassed(tc.passed))
+      .reduce((sum, tc) => sum + (tc.testCase?.pointValue ?? 0), 0)
+
+    const effectiveScore =
+      selectedSubmission.effectiveScore ??
+      selectedSubmission.manualScore ??
+      selectedSubmission.score ??
+      0
+    const isManuallyGraded = selectedSubmission.manualScore != null
+    const exerciseTitle =
+      exerciseTitleById.get(selectedSubmission.exerciseId) || 'Bài tập'
+    const studentName = selectedSubmission.student?.username || 'Sinh viên'
+    const studentEmail = selectedSubmission.student?.email || ''
 
     return (
       <div className="space-y-6">
@@ -235,20 +314,80 @@ export function SubmissionReviewPage() {
         <div className="card p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-xl font-bold text-gray-900">{selectedSubmission.exerciseTitle}</h1>
+              <h1 className="text-xl font-bold text-gray-900">{exerciseTitle}</h1>
               <p className="mt-1 text-sm text-gray-500">
-                {selectedSubmission.studentName} ({selectedSubmission.studentId}) — Lần nộp #
+                {studentName}
+                {studentEmail ? ` (${studentEmail})` : ''} — Lần nộp #
                 {selectedSubmission.attemptNumber}
               </p>
               <p className="text-xs text-gray-400">{formatTimestamp(selectedSubmission.submittedAt)}</p>
             </div>
             <div className="text-right">
-              <p className={`text-2xl font-bold ${getScoreColor(selectedSubmission.score)}`}>
-                {selectedSubmission.score.toFixed(1)}%
-              </p>
+              <div className="flex items-center justify-end gap-2">
+                <p className={`text-2xl font-bold ${getScoreColor(effectiveScore)}`}>
+                  {effectiveScore.toFixed(1)}%
+                </p>
+                {isManuallyGraded && <span className="badge-blue">Đã chấm tay</span>}
+              </div>
               <p className="text-xs text-gray-500">
-                {earnedPoints}/{totalPoints} điểm
+                {earnedPoints}/{totalPoints} điểm tự động
               </p>
+              {isManuallyGraded && selectedSubmission.score != null && (
+                <p className="text-xs text-gray-400">
+                  Điểm tự động: {selectedSubmission.score.toFixed(1)}%
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Grading panel */}
+        <div className="card">
+          <div className="border-b border-gray-100 px-5 py-4">
+            <h2 className="text-lg font-semibold text-gray-900">Chấm điểm thủ công</h2>
+          </div>
+          <div className="space-y-4 p-5">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div>
+                <label htmlFor="grade-score" className="label">
+                  Điểm (0-100)
+                </label>
+                <input
+                  id="grade-score"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="0.1"
+                  value={gradeScore}
+                  onChange={(e) => setGradeScore(e.target.value)}
+                  className="input"
+                  placeholder="Nhập điểm..."
+                />
+              </div>
+            </div>
+            <div>
+              <label htmlFor="grade-feedback" className="label">
+                Nhận xét
+              </label>
+              <textarea
+                id="grade-feedback"
+                rows={4}
+                value={gradeFeedback}
+                onChange={(e) => setGradeFeedback(e.target.value)}
+                className="input"
+                placeholder="Nhận xét cho sinh viên..."
+              />
+            </div>
+            <div className="flex justify-end">
+              <button onClick={handleSaveGrade} disabled={savingGrade} className="btn-primary btn-sm">
+                {savingGrade ? (
+                  <>
+                    <Spinner /> Đang lưu...
+                  </>
+                ) : (
+                  'Lưu điểm'
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -259,19 +398,17 @@ export function SubmissionReviewPage() {
             <h2 className="text-lg font-semibold text-gray-900">Kết quả bộ test</h2>
           </div>
           <div className="divide-y divide-gray-100">
-            {selectedSubmission.testCaseResults.length === 0 ? (
+            {results.length === 0 ? (
               <p className="px-5 py-4 text-sm text-gray-500">Không có kết quả bộ test.</p>
             ) : (
-              selectedSubmission.testCaseResults.map((tc, index) => (
+              results.map((tc, index) => (
                 <div key={tc.id} className="flex items-center justify-between px-5 py-3">
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium text-gray-700">
-                      {tc.testCaseLabel || `Bộ test ${index + 1}`}
-                    </span>
+                    <span className="text-sm font-medium text-gray-700">Bộ test {index + 1}</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-xs text-gray-500">{tc.pointValue} điểm</span>
-                    {getStatusBadge(tc.status, tc.passed)}
+                    <span className="text-xs text-gray-500">{tc.testCase?.pointValue ?? 0} điểm</span>
+                    {getStatusBadge(tc.status, isPassed(tc.passed))}
                   </div>
                 </div>
               ))
@@ -385,29 +522,39 @@ export function SubmissionReviewPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {submissions.map((sub) => (
-                <tr key={sub.id} className="hover:bg-gray-50">
-                  <td className="px-5 py-3.5">
-                    <p className="text-sm font-medium text-gray-900">{sub.studentName}</p>
-                    <p className="text-xs text-gray-500">{sub.studentId}</p>
-                  </td>
-                  <td className="table-td">{sub.exerciseTitle}</td>
-                  <td className="table-td">
-                    <span className={`text-sm font-medium ${getScoreColor(sub.score)}`}>
-                      {sub.score.toFixed(1)}%
-                    </span>
-                  </td>
-                  <td className="table-td text-gray-500">{formatTimestamp(sub.submittedAt)}</td>
-                  <td className="table-td text-right">
-                    <button
-                      onClick={() => handleSelectSubmission(sub.id)}
-                      className="btn-secondary btn-sm"
-                    >
-                      Xem chi tiết
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {submissions.map((sub) => {
+                const effective = sub.manualScore ?? sub.score ?? 0
+                return (
+                  <tr key={sub.id} className="hover:bg-gray-50">
+                    <td className="px-5 py-3.5">
+                      <p className="text-sm font-medium text-gray-900">
+                        {sub.student?.username || 'Sinh viên'}
+                      </p>
+                      <p className="text-xs text-gray-500">{sub.student?.email || ''}</p>
+                    </td>
+                    <td className="table-td">
+                      {exerciseTitleById.get(sub.exerciseId) || '—'}
+                    </td>
+                    <td className="table-td">
+                      <span className={`text-sm font-medium ${getScoreColor(effective)}`}>
+                        {effective.toFixed(1)}%
+                      </span>
+                      {sub.manualScore != null && (
+                        <span className="ml-2 badge-blue">Đã chấm tay</span>
+                      )}
+                    </td>
+                    <td className="table-td text-gray-500">{formatTimestamp(sub.submittedAt)}</td>
+                    <td className="table-td text-right">
+                      <button
+                        onClick={() => handleSelectSubmission(sub.id)}
+                        className="btn-secondary btn-sm"
+                      >
+                        Xem chi tiết
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>

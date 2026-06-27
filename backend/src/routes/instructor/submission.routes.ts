@@ -1,9 +1,13 @@
 import { Router, Request, Response } from "express";
+import { z } from "zod";
 import {
   listSubmissions,
   getSubmissionById,
+  gradeSubmission,
   isSubmissionError,
 } from "../../services/submission.service.js";
+import { requireRole } from "../../middleware/role.guard.js";
+import { validate } from "../../middleware/validate.js";
 
 // ─── Router ──────────────────────────────────────────────────────────────────
 
@@ -119,5 +123,41 @@ router.get("/:id", async (req: Request, res: Response) => {
     });
   }
 });
+
+/**
+ * PATCH /api/submissions/:id/grade
+ * Manually grade a submission (instructors only).
+ * Sets manual score (0..100) and/or feedback, then returns the updated submission.
+ */
+const gradeSchema = z.object({
+  score: z.number().min(0).max(100).optional(),
+  feedback: z.string().max(5000).optional(),
+});
+
+router.patch(
+  "/:id/grade",
+  requireRole("instructor"),
+  validate(gradeSchema),
+  async (req: Request, res: Response) => {
+    try {
+      const result = await gradeSubmission(req.params.id, req.body);
+
+      if (isSubmissionError(result)) {
+        const status = result.error.code === "NOT_FOUND" ? 404 : 400;
+        res.status(status).json({ error: result.error });
+        return;
+      }
+
+      res.status(200).json(result);
+    } catch (error) {
+      res.status(500).json({
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "An unexpected error occurred",
+        },
+      });
+    }
+  }
+);
 
 export default router;
