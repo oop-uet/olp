@@ -194,6 +194,40 @@ export function SectionManagerPage() {
     }
   }
 
+  // ─── Roster Import State ───────────────────────────────────────────────
+  const [showRosterImport, setShowRosterImport] = useState(false)
+  const [rosterFile, setRosterFile] = useState<File | null>(null)
+  const [rosterImporting, setRosterImporting] = useState(false)
+  const [rosterResult, setRosterResult] = useState<{
+    section: { id: string; name: string; semester: string };
+    imported: number;
+    skipped: Array<{ row: number; studentId?: string; reason: string }>;
+    total: number;
+  } | null>(null)
+
+  async function handleRosterImport() {
+    if (!rosterFile) return
+    setRosterImporting(true)
+    setError(null)
+    setRosterResult(null)
+
+    try {
+      const base64 = await fileToBase64(rosterFile)
+      const response = await api.post('/api/admin/import-roster', {
+        data: base64,
+        filename: rosterFile.name,
+      })
+      setRosterResult(response.data)
+      setRosterFile(null)
+      // Refresh sections list
+      fetchSections()
+    } catch (err: any) {
+      setError(err.response?.data?.error?.message || 'Import failed')
+    } finally {
+      setRosterImporting(false)
+    }
+  }
+
   // ─── Render ────────────────────────────────────────────────────────────
 
   return (
@@ -203,13 +237,70 @@ export function SectionManagerPage() {
         <h1 className="text-2xl font-semibold text-gray-800">
           Section Management
         </h1>
-        <button
-          onClick={openCreateForm}
-          className="rounded bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600"
-        >
-          Create Section
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowRosterImport(!showRosterImport)}
+            className="rounded border border-primary px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary-50"
+          >
+            📥 Import Danh sách lớp
+          </button>
+          <button
+            onClick={openCreateForm}
+            className="rounded bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600"
+          >
+            Create Section
+          </button>
+        </div>
       </div>
+
+      {/* Roster Import Panel */}
+      {showRosterImport && (
+        <div className="rounded-lg border border-primary-200 bg-primary-50/30 p-5">
+          <h2 className="mb-3 text-sm font-semibold text-gray-700">
+            Import Danh sách lớp (.xls / .xlsx)
+          </h2>
+          <p className="mb-4 text-xs text-gray-500">
+            Upload file danh sách lớp (format UET-VNU). Hệ thống sẽ tự tạo lớp, tạo tài khoản sinh viên (username = password = MSSV), và yêu cầu đổi mật khẩu khi đăng nhập lần đầu.
+          </p>
+
+          <div className="flex items-center gap-3">
+            <input
+              type="file"
+              accept=".xls,.xlsx"
+              onChange={(e) => setRosterFile(e.target.files?.[0] || null)}
+              className="block text-sm text-gray-600 file:mr-3 file:rounded file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-primary-600"
+            />
+            <button
+              onClick={handleRosterImport}
+              disabled={!rosterFile || rosterImporting}
+              className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50"
+            >
+              {rosterImporting ? 'Đang import...' : 'Import'}
+            </button>
+          </div>
+
+          {/* Import Result */}
+          {rosterResult && (
+            <div className="mt-4 rounded border border-green-200 bg-green-50 p-4">
+              <p className="text-sm font-medium text-green-800">
+                ✅ Import thành công!
+              </p>
+              <ul className="mt-2 space-y-1 text-xs text-green-700">
+                <li>Lớp: <strong>{rosterResult.section.name}</strong> ({rosterResult.section.semester})</li>
+                <li>Đã import: <strong>{rosterResult.imported}</strong> / {rosterResult.total} sinh viên</li>
+                {rosterResult.skipped.length > 0 && (
+                  <li className="text-orange-700">
+                    Bỏ qua: {rosterResult.skipped.length} (
+                    {rosterResult.skipped.slice(0, 3).map(s => s.reason).join(', ')}
+                    {rosterResult.skipped.length > 3 && '...'}
+                    )
+                  </li>
+                )}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Error Alert */}
       {error && (
@@ -432,4 +523,18 @@ export function SectionManagerPage() {
       )}
     </div>
   )
+}
+
+// Helper to convert a File to base64
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      const base64 = result.split(',')[1]
+      resolve(base64)
+    }
+    reader.onerror = () => reject(new Error('Failed to read file'))
+    reader.readAsDataURL(file)
+  })
 }
