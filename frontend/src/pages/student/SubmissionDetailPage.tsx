@@ -143,107 +143,110 @@ export function SubmissionDetailPage() {
     submittedFiles.find((file) => file.name === activeSubmittedFile) ?? submittedFiles[0]
 
   return (
-    <div className="space-y-6">
-      {/* Breadcrumb / Back link */}
-      <div>
-        <Link
-          to="/student/submissions"
-          className="inline-flex items-center gap-1 text-sm text-primary hover:text-primary-700 transition-colors"
-        >
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Quay lại danh sách bài nộp
-        </Link>
-      </div>
-
-      {/* Header card */}
-      <div className="card p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">{submission.exerciseTitle}</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Lần nộp #{submission.attemptNumber} — {formatTimestamp(submission.submittedAt)}
-            </p>
+    <div className="-m-6 min-h-[calc(100vh-8.25rem)] bg-slate-100">
+      <div className="border-b border-slate-200 bg-white px-5 py-4 shadow-sm">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <Link
+              to="/student/submissions"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
+              aria-label="Quay lại danh sách bài nộp"
+            >
+              ←
+            </Link>
+            <div className="min-w-0">
+              <h1 className="truncate text-lg font-bold text-slate-900">
+                {submission.exerciseTitle}
+              </h1>
+              <p className="text-xs font-medium text-slate-500">
+                Lần nộp #{submission.attemptNumber} · {formatTimestamp(submission.submittedAt)}
+              </p>
+            </div>
           </div>
-          <div className="text-right">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-right">
             <p className={`text-2xl font-bold ${getScoreColor(submission.score)}`}>
               {submission.score.toFixed(1)}%
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs font-medium text-slate-500">
               {earnedPoints}/{totalPoints} điểm
             </p>
           </div>
         </div>
       </div>
 
-      {/* Test case results */}
-      <div className="card">
-        <div className="border-b border-gray-100 px-5 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">Kết quả test case</h2>
-          <p className="mt-0.5 text-xs text-gray-500">Chỉ hiển thị test case công khai</p>
-        </div>
-        <div className="divide-y divide-gray-100">
-          {submission.testCaseResults.length === 0 ? (
-            <p className="px-5 py-4 text-sm text-gray-500">
-              Không có test case công khai cho bài tập này.
-            </p>
-          ) : (
-            submission.testCaseResults.map((tc, index) => (
-              <div key={tc.id} className="flex items-center justify-between px-5 py-3">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-gray-700">
-                    {tc.testCaseLabel || `Test case ${index + 1}`}
-                  </span>
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 p-4 lg:grid-cols-[360px_minmax(0,1fr)]">
+        <aside className="rounded-lg border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 px-4 py-3">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">
+              Kết quả test case
+            </h2>
+            <p className="mt-0.5 text-xs text-slate-500">Chỉ hiển thị test case công khai</p>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {submission.testCaseResults.length === 0 ? (
+              <p className="px-4 py-4 text-sm text-slate-500">
+                Không có test case công khai cho bài tập này.
+              </p>
+            ) : (
+              submission.testCaseResults.map((tc, index) => (
+                <div key={tc.id} className="px-4 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">
+                        {tc.testCaseLabel || `Test case ${index + 1}`}
+                      </p>
+                      <p className="mt-0.5 text-xs text-slate-500">{tc.pointValue} điểm</p>
+                    </div>
+                    {getStatusBadge(tc.status, tc.passed)}
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-gray-500">{tc.pointValue} điểm</span>
-                  {getStatusBadge(tc.status, tc.passed)}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
+              ))
+            )}
+          </div>
+        </aside>
 
-      {/* Submitted code */}
-      <div className="card overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">Mã nguồn đã nộp</h2>
-          {submittedFiles.length > 1 && (
-            <div className="flex max-w-full gap-1 overflow-x-auto">
-              {submittedFiles.map((file) => (
-                <button
-                  key={file.name}
-                  onClick={() => setActiveSubmittedFile(file.name)}
-                  className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
-                    currentSubmittedFile.name === file.name
-                      ? 'bg-primary-50 text-primary-700 ring-1 ring-primary-100'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {file.name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="h-[400px]">
-          <Editor
-            height="100%"
-            language="java"
-            value={currentSubmittedFile?.content ?? ''}
-            theme="vs-dark"
-            options={{
-              readOnly: true,
-              minimap: { enabled: false },
-              scrollBeyondLastLine: false,
-              fontSize: 14,
-              lineNumbers: 'on',
-              wordWrap: 'on',
-            }}
-          />
-        </div>
+        <section className="min-w-0 overflow-hidden rounded-lg border border-slate-800 bg-slate-950 shadow-sm">
+          <div className="flex h-11 items-center justify-between gap-2 border-b border-slate-800 bg-slate-900 px-3">
+            <h2 className="shrink-0 text-xs font-bold uppercase tracking-wide text-slate-300">
+              Mã nguồn đã nộp
+            </h2>
+            {submittedFiles.length > 1 && (
+              <div className="flex min-w-0 gap-1 overflow-x-auto">
+                {submittedFiles.map((file) => (
+                  <button
+                    key={file.name}
+                    onClick={() => setActiveSubmittedFile(file.name)}
+                    className={`h-8 shrink-0 rounded-md px-3 text-xs font-semibold ${
+                      currentSubmittedFile.name === file.name
+                        ? 'bg-slate-700 text-white'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
+                    }`}
+                  >
+                    {file.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="h-[calc(100vh-16rem)] min-h-[480px]">
+            <Editor
+              height="100%"
+              language="java"
+              value={currentSubmittedFile?.content ?? ''}
+              theme="vs-dark"
+              options={{
+                readOnly: true,
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                fontSize: 14,
+                lineHeight: 22,
+                lineNumbers: 'on',
+                wordWrap: 'on',
+                automaticLayout: true,
+              }}
+            />
+          </div>
+        </section>
       </div>
     </div>
   )

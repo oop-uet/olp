@@ -65,11 +65,37 @@ const difficultyConfig = {
 }
 
 function createInitialSourceFile(code: string): SourceFile {
+  const starterFiles = parseStarterFiles(code)
+  if (starterFiles.length > 0) {
+    return starterFiles[0]
+  }
+
   const className = code.match(/public\s+class\s+([A-Za-z_$][\w$]*)/)?.[1] ?? 'Main'
   return {
     id: `${className}-${Date.now()}`,
     name: `${className}.java`,
     content: code,
+  }
+}
+
+function parseStarterFiles(code: string): SourceFile[] {
+  try {
+    const parsed = JSON.parse(code) as {
+      format?: string
+      files?: Array<{ name?: string; content?: string }>
+    }
+
+    if (parsed.format !== 'oop-java-files' || !Array.isArray(parsed.files)) return []
+
+    return parsed.files
+      .filter((file) => file.name?.endsWith('.java') && typeof file.content === 'string')
+      .map((file, index) => ({
+        id: `${file.name}-${Date.now()}-${index}`,
+        name: file.name as string,
+        content: file.content as string,
+      }))
+  } catch {
+    return []
   }
 }
 
@@ -172,9 +198,11 @@ export function ExerciseWorkspacePage() {
         })),
       }
       setExercise(detail)
-      const starterFile = createInitialSourceFile(detail.starterCode || '')
-      setFiles([starterFile])
-      setActiveFileId(starterFile.id)
+      const starterFiles = parseStarterFiles(detail.starterCode || '')
+      const nextFiles =
+        starterFiles.length > 0 ? starterFiles : [createInitialSourceFile(detail.starterCode || '')]
+      setFiles(nextFiles)
+      setActiveFileId(nextFiles[0].id)
     } catch {
       setError('Không thể tải bài tập. Vui lòng thử lại.')
     } finally {
@@ -661,12 +689,67 @@ function DescriptionPanel({ exercise }: { exercise: ExerciseDetail }) {
         <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
           Yêu cầu bài tập
         </h2>
-        <div className="whitespace-pre-wrap text-sm leading-7 text-slate-700">
-          {exercise.description}
-        </div>
+        <FormattedDescription text={exercise.description} />
       </div>
     </div>
   )
+}
+
+function FormattedDescription({ text }: { text: string }) {
+  return (
+    <div className="space-y-3 text-sm leading-6 text-slate-700">
+      {text.split('\n').map((rawLine, index) => {
+        const line = rawLine.trim()
+        if (!line) return <div key={index} className="h-1" />
+
+        if (line.startsWith('# ')) {
+          return (
+            <h2 key={index} className="text-lg font-bold leading-7 text-slate-900">
+              {line.slice(2)}
+            </h2>
+          )
+        }
+
+        if (line.startsWith('## ')) {
+          return (
+            <h3
+              key={index}
+              className="border-l-4 border-teal-600 pl-3 text-sm font-bold uppercase tracking-wide text-slate-800"
+            >
+              {line.slice(3)}
+            </h3>
+          )
+        }
+
+        if (line.startsWith('- ')) {
+          return (
+            <div key={index} className="flex gap-2">
+              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-teal-600" />
+              <p>{renderInlineCode(line.slice(2))}</p>
+            </div>
+          )
+        }
+
+        return <p key={index}>{renderInlineCode(line)}</p>
+      })}
+    </div>
+  )
+}
+
+function renderInlineCode(text: string) {
+  return text.split(/(`[^`]+`)/g).map((part, index) => {
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return (
+        <code
+          key={index}
+          className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs font-semibold text-slate-900"
+        >
+          {part.slice(1, -1)}
+        </code>
+      )
+    }
+    return <span key={index}>{part}</span>
+  })
 }
 
 function TestCasesPanel({
@@ -722,12 +805,18 @@ function TestCasesPanel({
               </div>
 
               <div className="space-y-1.5">
-                <div>
-                  <p className="text-xs font-bold text-slate-500">Đầu vào</p>
-                  <pre className="mt-1 rounded-md bg-white p-2 text-xs text-slate-800 border border-slate-200 overflow-x-auto">
-                    {tc.input || '(trống)'}
-                  </pre>
-                </div>
+                {tc.input ? (
+                  <div>
+                    <p className="text-xs font-bold text-slate-500">Đầu vào</p>
+                    <pre className="mt-1 rounded-md bg-white p-2 text-xs text-slate-800 border border-slate-200 overflow-x-auto">
+                      {tc.input}
+                    </pre>
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-500">
+                    Test tự tạo dữ liệu trong chương trình, không cần nhập stdin.
+                  </div>
+                )}
                 <div>
                   <p className="text-xs font-bold text-slate-500">Đầu ra mong đợi</p>
                   <pre className="mt-1 rounded-md bg-white p-2 text-xs text-slate-800 border border-slate-200 overflow-x-auto">
