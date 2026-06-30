@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
-import { useSearchParams, Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { AxiosError } from 'axios'
 import { api } from '../../lib/api'
 import { PageLoader, Spinner, CheckCircleIcon, XCircleIcon, SubmissionIcon } from '../../components/ui'
@@ -308,6 +308,10 @@ export function SubmissionReviewPage() {
   function handleBackToList() {
     setSelectedSubmission(null)
     setDetailError(null)
+  }
+
+  function handleSelectSubmission(submissionId: string) {
+    fetchSubmissionDetail(submissionId)
   }
 
   // --- Detail View ---
