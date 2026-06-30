@@ -6,7 +6,7 @@ import { PageLoader, CheckCircleIcon, XCircleIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 
 type ResultStatus = 'passed' | 'failed' | 'timeout' | 'error'
-type ReviewTab = 'source' | 'results' | 'details'
+type ReviewTab = 'source' | 'results'
 
 interface ApiTestCaseInfo {
   inputData?: string | null
@@ -147,29 +147,22 @@ function formatTimestamp(ts: string): string {
 }
 
 function getScoreColor(score: number): string {
-  if (score >= 80) return 'text-emerald-700'
-  if (score >= 50) return 'text-amber-700'
+  if (score >= 80) return 'text-teal-700'
+  if (score >= 50) return 'text-yellow-700'
   return 'text-rose-700'
 }
 
-function getStatusBadge(status: ResultStatus, passed: boolean) {
-  if (passed) {
-    return (
-      <span className="badge-green">
-        <CheckCircleIcon className="h-3.5 w-3.5" />
-        Accepted
-      </span>
-    )
+function getFunctionalMessage(tc: TestCaseResult) {
+  if (tc.passed) {
+    return 'Kết quả đúng.'
   }
-
-  const statusLabel =
-    status === 'timeout' ? 'Timeout' : status === 'error' ? 'Runtime error' : 'Wrong answer'
-  return (
-    <span className="badge-red">
-      <XCircleIcon className="h-3.5 w-3.5" />
-      {statusLabel}
-    </span>
-  )
+  if (tc.status === 'timeout') {
+    return 'Chương trình chạy quá thời gian cho phép.'
+  }
+  if (tc.status === 'error') {
+    return tc.actualOutput || 'Chương trình gặp lỗi khi chạy test.'
+  }
+  return 'Kết quả sai.'
 }
 
 function downloadTextFile(fileName: string, content: string) {
@@ -289,10 +282,10 @@ export function SubmissionDetailPage() {
         </div>
       </div>
 
-      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 p-4 xl:grid-cols-[360px_minmax(0,1fr)]">
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 p-4 xl:grid-cols-[340px_minmax(0,1fr)]">
         <aside className="space-y-4">
           <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-            <div className="bg-gradient-to-r from-teal-600 to-cyan-500 px-4 py-3">
+            <div className="bg-teal-700 px-4 py-3">
               <h2 className="text-sm font-bold uppercase tracking-wide text-white">
                 Chi tiết bài nộp
               </h2>
@@ -303,7 +296,7 @@ export function SubmissionDetailPage() {
                 {accepted ? (
                   <span className="badge-green">Accepted</span>
                 ) : (
-                  <span className="badge-red">Chưa đạt</span>
+                  <span className="badge-red">Wrong answer</span>
                 )}
               </div>
               <div className="flex items-center justify-between gap-3">
@@ -333,7 +326,7 @@ export function SubmissionDetailPage() {
           </section>
 
           <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-            <div className="bg-gradient-to-r from-teal-600 to-cyan-500 px-4 py-3">
+            <div className="bg-teal-700 px-4 py-3">
               <h2 className="text-sm font-bold uppercase tracking-wide text-white">
                 Bài đã nộp
               </h2>
@@ -349,7 +342,7 @@ export function SubmissionDetailPage() {
                   }}
                   className={`flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm font-semibold transition ${
                     currentSubmittedFile.name === file.name
-                      ? 'bg-amber-100 text-amber-800'
+                      ? 'bg-teal-50 text-teal-800 ring-1 ring-teal-200'
                       : 'text-slate-600 hover:bg-slate-50 hover:text-teal-700'
                   }`}
                 >
@@ -361,14 +354,14 @@ export function SubmissionDetailPage() {
           </section>
 
           <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-            <div className="bg-gradient-to-r from-teal-600 to-cyan-500 px-4 py-3">
+            <div className="bg-teal-700 px-4 py-3">
               <h2 className="text-sm font-bold uppercase tracking-wide text-white">
                 Quy tắc lập trình
               </h2>
             </div>
             <div className="p-4 text-sm leading-6 text-slate-600">
-              Kiểm tra định dạng, biên dịch và các test case công khai được hiển thị theo dữ liệu bài nộp.
-              Các test ẩn chỉ được tính vào điểm tổng.
+              Sinh viên chỉ xem mã nguồn đã nộp và kết quả yêu cầu chức năng công khai. Unit test và
+              file test chi tiết chỉ hiển thị ở trang giảng viên/quản trị.
             </div>
           </section>
         </aside>
@@ -380,7 +373,6 @@ export function SubmissionDetailPage() {
                 {[
                   ['source', 'Mã nguồn'],
                   ['results', `Yêu cầu chức năng (${review.passedCount}/${review.results.length})`],
-                  ['details', 'Chi tiết test cases'],
                 ].map(([tab, label]) => (
                   <button
                     key={tab}
@@ -388,7 +380,7 @@ export function SubmissionDetailPage() {
                     onClick={() => setActiveTab(tab as ReviewTab)}
                     className={`h-9 rounded-md px-3 text-sm font-bold transition ${
                       activeTab === tab
-                        ? 'bg-amber-100 text-amber-800'
+                        ? 'bg-teal-50 text-teal-800 ring-1 ring-teal-200'
                         : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                     }`}
                   >
@@ -424,69 +416,19 @@ export function SubmissionDetailPage() {
           )}
 
           {activeTab === 'results' && (
-            <div className="min-h-[560px] p-4">
+            <div className="min-h-[560px] space-y-4 bg-slate-50 p-4">
               {!hasPublicResults ? (
                 <EmptyResults />
               ) : (
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-4">
                   {review.results.map((tc, index) => (
-                    <div
+                    <FunctionalResultCard
                       key={tc.id}
-                      className={`rounded-lg border p-4 ${
-                        tc.passed
-                          ? 'border-emerald-200 bg-emerald-50'
-                          : 'border-rose-200 bg-rose-50'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-bold text-slate-900">
-                            {tc.testCaseLabel || `Test case ${index + 1}`}
-                          </p>
-                          <p className="mt-1 text-xs font-medium text-slate-500">
-                            {tc.pointValue} điểm
-                            {tc.executionTimeMs != null ? ` · ${tc.executionTimeMs} ms` : ''}
-                          </p>
-                        </div>
-                        {getStatusBadge(tc.status, tc.passed)}
-                      </div>
-                    </div>
+                      result={tc}
+                      index={index}
+                    />
                   ))}
                 </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'details' && (
-            <div className="min-h-[560px] space-y-4 p-4">
-              {!hasPublicResults ? (
-                <EmptyResults />
-              ) : (
-                review.results.map((tc, index) => (
-                  <div key={tc.id} className="rounded-lg border border-slate-200 bg-white">
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
-                      <div>
-                        <h3 className="text-sm font-bold text-slate-900">
-                          {tc.testCaseLabel || `Test case ${index + 1}`}
-                        </h3>
-                        <p className="text-xs font-medium text-slate-500">
-                          {tc.pointValue} điểm
-                          {tc.executionTimeMs != null ? ` · ${tc.executionTimeMs} ms` : ''}
-                        </p>
-                      </div>
-                      {getStatusBadge(tc.status, tc.passed)}
-                    </div>
-                    <div className="grid gap-3 p-4 lg:grid-cols-3">
-                      <CodePreview title="Đầu vào" value={tc.inputData || 'Không có stdin công khai.'} />
-                      <CodePreview title="Kết quả mong đợi" value={tc.expectedOutput || 'Không công khai.'} />
-                      <CodePreview
-                        title="Kết quả thực tế"
-                        value={tc.actualOutput || (tc.passed ? 'Đã khớp kết quả mong đợi.' : 'Không có output.')}
-                        tone={tc.passed ? 'success' : 'danger'}
-                      />
-                    </div>
-                  </div>
-                ))
               )}
             </div>
           )}
@@ -509,30 +451,116 @@ function EmptyResults() {
   )
 }
 
-function CodePreview({
-  title,
-  value,
-  tone = 'default',
+function FunctionalResultCard({
+  result,
+  index,
 }: {
-  title: string
-  value: string
-  tone?: 'default' | 'success' | 'danger'
+  result: TestCaseResult
+  index: number
 }) {
-  const toneClass =
-    tone === 'success'
-      ? 'border-emerald-100 text-emerald-800'
-      : tone === 'danger'
-        ? 'border-rose-100 text-rose-800'
-        : 'border-slate-200 text-slate-800'
+  const [expanded, setExpanded] = useState(!result.passed)
+  const statusClass = result.passed
+    ? 'border-teal-200 bg-teal-50 text-teal-700'
+    : 'border-rose-200 bg-rose-50 text-rose-700'
+  const iconClass = result.passed ? 'bg-teal-600' : 'bg-rose-600'
 
   return (
-    <div>
-      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{title}</p>
-      <pre
-        className={`mt-2 max-h-72 overflow-auto rounded-md border bg-slate-50 p-3 text-xs leading-5 ${toneClass}`}
+    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+      <button
+        type="button"
+        onClick={() => setExpanded((value) => !value)}
+        className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left"
       >
-        {value}
-      </pre>
+        <div className="flex min-w-0 items-center gap-4">
+          <span
+            className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white ${iconClass}`}
+          >
+            {result.passed ? (
+              <CheckCircleIcon className="h-6 w-6" />
+            ) : (
+              <XCircleIcon className="h-6 w-6" />
+            )}
+          </span>
+          <div className="min-w-0">
+            <h3 className={`truncate text-base font-bold ${result.passed ? 'text-teal-700' : 'text-rose-700'}`}>
+              Test case {index + 1} ({result.pointValue} điểm): {result.testCaseLabel || `test_${index + 1}`}
+            </h3>
+            <p className="mt-1 text-xs font-semibold text-slate-500">
+              {result.executionTimeMs != null ? `${result.executionTimeMs} ms · ` : ''}
+              {getFunctionalMessage(result)}
+            </p>
+          </div>
+        </div>
+        <span className={`rounded-md border px-3 py-1 text-xs font-bold uppercase ${statusClass}`}>
+          {result.passed ? 'Accepted' : result.status === 'timeout' ? 'Timeout' : result.status === 'error' ? 'Error' : 'Wrong answer'}
+        </span>
+      </button>
+
+      {expanded && (
+        <div className={`border-t px-5 py-4 ${result.passed ? 'border-teal-100 bg-teal-50/60' : 'border-rose-100 bg-rose-50/70'}`}>
+          <div className="mx-auto max-w-none space-y-5 font-mono text-sm leading-6">
+            <OutputBlock
+              title="View"
+              wrongLabel="Kết quả thực tế"
+              wrongValue={result.actualOutput || (result.passed ? result.expectedOutput : 'Không có output.')}
+              correctLabel="Kết quả đúng"
+              correctValue={result.expectedOutput || (result.passed ? result.actualOutput : 'Không công khai.')}
+              passed={result.passed}
+            />
+            {(result.inputData || result.actualOutput || result.expectedOutput) && (
+              <OutputBlock
+                title="Original code"
+                wrongLabel="Đầu vào"
+                wrongValue={result.inputData || 'Không có stdin công khai.'}
+                correctLabel="Trạng thái"
+                correctValue={getFunctionalMessage(result)}
+                passed={result.passed}
+                compact
+              />
+            )}
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
+function OutputBlock({
+  title,
+  wrongLabel,
+  wrongValue,
+  correctLabel,
+  correctValue,
+  passed,
+  compact = false,
+}: {
+  title: string
+  wrongLabel: string
+  wrongValue: string
+  correctLabel: string
+  correctValue: string
+  passed: boolean
+  compact?: boolean
+}) {
+  return (
+    <div className="space-y-3">
+      <p className="text-center font-mono text-base text-slate-700">
+        ---------- {title} ----------
+      </p>
+      <div>
+        <p className={`font-semibold ${passed ? 'text-teal-700' : 'text-rose-700'}`}>
+          {wrongLabel}:
+        </p>
+        <pre className={`mt-1 whitespace-pre-wrap break-words text-sm ${passed ? 'text-teal-800' : 'text-rose-700'} ${compact ? 'max-h-48 overflow-auto' : ''}`}>
+          {wrongValue}
+        </pre>
+      </div>
+      <div>
+        <p className="font-semibold text-teal-700">{correctLabel}:</p>
+        <pre className={`mt-1 whitespace-pre-wrap break-words text-sm text-teal-800 ${compact ? 'max-h-48 overflow-auto' : ''}`}>
+          {correctValue}
+        </pre>
+      </div>
     </div>
   )
 }
