@@ -249,72 +249,82 @@ export function ExerciseWorkspacePage() {
   }
 
   const workspace = (
-    <div className="flex h-full flex-col gap-4 -m-6 p-4">
-      {/* Top bar with exercise title and actions */}
-      <div className="card flex items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-3 min-w-0">
+    <div className="-m-6 flex min-h-[calc(100vh-8.25rem)] flex-col bg-slate-100">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-5 py-3 shadow-sm">
+        <div className="flex min-w-0 items-center gap-3">
           <Link
             to="/student/exercises"
-            className="text-gray-400 hover:text-primary transition-colors text-lg"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
             aria-label="Quay lại danh sách bài tập"
           >
             ←
           </Link>
-          <h1 className="text-lg font-bold text-gray-900 truncate">{exercise.title}</h1>
-          <span className={difficultyConfig[exercise.difficulty].className}>
-            {difficultyConfig[exercise.difficulty].label}
-          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="truncate text-base font-bold text-slate-900 sm:text-lg">
+                {exercise.title}
+              </h1>
+              <span className={difficultyConfig[exercise.difficulty].className}>
+                {difficultyConfig[exercise.difficulty].label}
+              </span>
+              {exercise.isAssessment && (
+                <span className="badge-yellow">Kiểm tra</span>
+              )}
+            </div>
+            <p className="mt-0.5 text-xs font-medium text-slate-500">
+              {exercise.deadline
+                ? `Hạn nộp: ${new Date(exercise.deadline).toLocaleString('vi-VN')}`
+                : 'Không giới hạn thời gian'}
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex shrink-0 items-center gap-2">
           <button
             onClick={handleRun}
             disabled={running || !code.trim()}
-            className="btn-success"
+            className="btn-success h-10 px-4 text-sm"
           >
-            {running ? <Spinner /> : '▶'}
-            {running ? 'Đang chạy...' : 'Chạy thử'}
+            {running ? <Spinner /> : <span aria-hidden="true">▶</span>}
+            {running ? 'Đang chạy' : 'Chạy thử'}
           </button>
           <button
             onClick={handleSubmit}
             disabled={submitting || !code.trim()}
-            className="btn-primary"
+            className="btn-primary h-10 px-4 text-sm"
           >
-            {submitting ? <Spinner /> : '📤'}
-            {submitting ? 'Đang nộp...' : 'Nộp bài'}
+            {submitting ? <Spinner /> : <span aria-hidden="true">↑</span>}
+            {submitting ? 'Đang nộp' : 'Nộp bài'}
           </button>
         </div>
       </div>
 
-      {/* Main workspace area */}
-      <div className="flex flex-1 gap-4 overflow-hidden min-h-0">
-        {/* Left panel: description + test cases */}
-        <div className="card flex w-[380px] flex-shrink-0 flex-col overflow-hidden">
-          {/* Panel tabs */}
-          <div className="flex border-b border-gray-200">
+      <div className="grid flex-1 grid-cols-[360px_minmax(0,1fr)] gap-4 overflow-hidden p-4">
+        <aside className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+          <div className="grid grid-cols-2 border-b border-slate-200 bg-slate-50">
             <button
               onClick={() => setActivePanel('description')}
-              className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors ${
+              className={`px-4 py-3 text-sm font-bold transition-colors ${
                 activePanel === 'description'
-                  ? 'border-b-2 border-primary text-primary bg-primary-50'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'border-b-2 border-teal-600 bg-white text-teal-700'
+                  : 'text-slate-600 hover:bg-white hover:text-slate-900'
               }`}
             >
               Mô tả
             </button>
             <button
               onClick={() => setActivePanel('testcases')}
-              className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors ${
+              className={`px-4 py-3 text-sm font-bold transition-colors ${
                 activePanel === 'testcases'
-                  ? 'border-b-2 border-primary text-primary bg-primary-50'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'border-b-2 border-teal-600 bg-white text-teal-700'
+                  : 'text-slate-600 hover:bg-white hover:text-slate-900'
               }`}
             >
               Test case ({exercise.testCases.length})
             </button>
           </div>
 
-          {/* Panel content */}
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="min-h-0 flex-1 overflow-y-auto p-4">
             {activePanel === 'description' ? (
               <DescriptionPanel exercise={exercise} />
             ) : (
@@ -324,12 +334,10 @@ export function ExerciseWorkspacePage() {
               />
             )}
           </div>
-        </div>
+        </aside>
 
-        {/* Center: Code editor + output */}
-        <div className="flex flex-1 flex-col gap-4 min-w-0 overflow-hidden">
-          {/* Monaco Editor */}
-          <div className="flex-1 rounded-xl border border-slate-200 overflow-hidden min-h-0 shadow-sm">
+        <section className="flex min-w-0 flex-col gap-4 overflow-hidden">
+          <div className="min-h-[420px] flex-1 overflow-hidden rounded-lg border border-slate-800 bg-[#1e1e1e] shadow-sm">
             <Editor
               height="100%"
               language="java"
@@ -339,6 +347,8 @@ export function ExerciseWorkspacePage() {
               options={{
                 minimap: { enabled: false },
                 fontSize: 14,
+                fontFamily: 'JetBrains Mono, Menlo, Monaco, Consolas, monospace',
+                lineHeight: 22,
                 lineNumbers: 'on',
                 scrollBeyondLastLine: false,
                 automaticLayout: true,
@@ -350,9 +360,8 @@ export function ExerciseWorkspacePage() {
             />
           </div>
 
-          {/* Output panel */}
           <OutputPanel executionResult={executionResult} running={running} />
-        </div>
+        </section>
       </div>
     </div>
   )
@@ -374,9 +383,8 @@ export function ExerciseWorkspacePage() {
 function DescriptionPanel({ exercise }: { exercise: ExerciseDetail }) {
   return (
     <div className="space-y-4">
-      {/* Tags */}
       {exercise.oopTags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-2">
           {exercise.oopTags.map((tag) => (
             <span key={tag} className="badge-blue">
               {tag}
@@ -385,18 +393,20 @@ function DescriptionPanel({ exercise }: { exercise: ExerciseDetail }) {
         </div>
       )}
 
-      {/* Deadline */}
       {exercise.deadline && (
-        <div className="rounded-lg bg-warning-50 border border-warning-100 px-3 py-2">
-          <p className="text-xs font-medium text-warning-700">
-            ⏰ Hạn nộp: {new Date(exercise.deadline).toLocaleString('vi-VN')}
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+          <p className="text-xs font-bold uppercase tracking-wide text-amber-800">Hạn nộp</p>
+          <p className="mt-1 text-sm font-semibold text-amber-900">
+            {new Date(exercise.deadline).toLocaleString('vi-VN')}
           </p>
         </div>
       )}
 
-      {/* Description */}
-      <div className="prose prose-sm max-w-none">
-        <div className="whitespace-pre-wrap text-sm text-gray-700 leading-relaxed">
+      <div>
+        <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+          Yêu cầu bài tập
+        </h2>
+        <div className="whitespace-pre-wrap text-sm leading-7 text-slate-700">
           {exercise.description}
         </div>
       </div>
@@ -414,14 +424,16 @@ function TestCasesPanel({
   return (
     <div className="space-y-3">
       {testCases.length === 0 ? (
-        <p className="text-sm text-gray-500">Không có test case công khai.</p>
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+          Không có test case công khai.
+        </div>
       ) : (
         testCases.map((tc, index) => {
           const result = executionResult?.testResults?.find((r) => r.testCaseId === tc.id)
           return (
             <div
               key={tc.id}
-              className={`rounded-lg border p-3 ${
+              className={`rounded-md border p-3 ${
                 result
                   ? result.passed
                     ? 'border-success-100 bg-success-50'
@@ -430,11 +442,13 @@ function TestCasesPanel({
               }`}
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-gray-700">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-700">
                   Test case {index + 1}
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500">{tc.pointValue} điểm</span>
+                  <span className="rounded bg-white px-2 py-0.5 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
+                    {tc.pointValue} điểm
+                  </span>
                   {result && (
                     <span
                       className={`inline-flex items-center gap-1 text-xs font-medium ${
@@ -454,21 +468,21 @@ function TestCasesPanel({
 
               <div className="space-y-1.5">
                 <div>
-                  <p className="text-xs font-medium text-gray-600">Đầu vào:</p>
-                  <pre className="mt-0.5 rounded bg-white p-2 text-xs text-gray-800 border border-gray-200 overflow-x-auto">
+                  <p className="text-xs font-bold text-slate-500">Đầu vào</p>
+                  <pre className="mt-1 rounded-md bg-white p-2 text-xs text-slate-800 border border-slate-200 overflow-x-auto">
                     {tc.input || '(trống)'}
                   </pre>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-gray-600">Đầu ra mong đợi:</p>
-                  <pre className="mt-0.5 rounded bg-white p-2 text-xs text-gray-800 border border-gray-200 overflow-x-auto">
+                  <p className="text-xs font-bold text-slate-500">Đầu ra mong đợi</p>
+                  <pre className="mt-1 rounded-md bg-white p-2 text-xs text-slate-800 border border-slate-200 overflow-x-auto">
                     {tc.expectedOutput}
                   </pre>
                 </div>
                 {result && !result.passed && result.actualOutput && (
                   <div>
-                    <p className="text-xs font-medium text-danger-600">Đầu ra thực tế:</p>
-                    <pre className="mt-0.5 rounded bg-white p-2 text-xs text-danger-700 border border-danger-100 overflow-x-auto">
+                    <p className="text-xs font-bold text-danger-600">Đầu ra thực tế</p>
+                    <pre className="mt-1 rounded-md bg-white p-2 text-xs text-danger-700 border border-danger-100 overflow-x-auto">
                       {result.actualOutput}
                     </pre>
                   </div>
@@ -491,8 +505,8 @@ function OutputPanel({
 }) {
   if (running) {
     return (
-      <div className="h-32 rounded-xl border border-gray-200 bg-gray-900 p-4 flex items-center justify-center">
-        <div className="flex items-center gap-2 text-success-400">
+      <div className="h-32 rounded-lg border border-slate-800 bg-slate-950 p-4 flex items-center justify-center">
+        <div className="flex items-center gap-2 text-emerald-300">
           <Spinner />
           <span className="text-sm">Đang biên dịch và chạy...</span>
         </div>
@@ -502,18 +516,27 @@ function OutputPanel({
 
   if (!executionResult) {
     return (
-      <div className="h-32 rounded-xl border border-gray-200 bg-gray-900 p-4 flex items-center justify-center text-center">
-        <p className="text-sm text-gray-400">
-          Nhấn "Chạy thử" để biên dịch và kiểm tra mã của bạn cục bộ, hoặc "Nộp bài" để chấm điểm với tất cả test case.
-        </p>
+      <div className="h-32 rounded-lg border border-slate-800 bg-slate-950">
+        <div className="border-b border-slate-800 px-4 py-2">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+            Kết quả chạy thử
+          </p>
+        </div>
+        <div className="flex h-[88px] items-center px-4 text-sm text-slate-400">
+          Chạy thử để biên dịch và kiểm tra mã bằng Local Executor trước khi nộp bài.
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="h-40 rounded-xl border border-gray-200 bg-gray-900 p-4 overflow-y-auto">
-      {/* Execution results */}
-      <div className="space-y-2">
+    <div className="h-40 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950">
+      <div className="sticky top-0 border-b border-slate-800 bg-slate-950 px-4 py-2">
+        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+          Kết quả chạy thử
+        </p>
+      </div>
+      <div className="space-y-2 p-4">
         {!executionResult.compiled && executionResult.errors && (
           <div>
             <p className="text-xs font-semibold text-danger-400 mb-1">Lỗi biên dịch:</p>

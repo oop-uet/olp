@@ -177,7 +177,7 @@ export function AntiCheatMonitor({
     return (
       <div className="relative">
         {/* Warning indicator */}
-        <div className="absolute right-4 top-4 z-50">
+        <div className="fixed bottom-5 right-5 z-50">
           <WarningBadge count={warningCount} threshold={threshold} nullified />
         </div>
 
@@ -213,7 +213,7 @@ export function AntiCheatMonitor({
   return (
     <div className="relative">
       {/* Warning indicator */}
-      <div className="absolute right-4 top-4 z-50">
+      <div className="fixed bottom-5 right-5 z-50">
         <WarningBadge count={warningCount} threshold={threshold} />
       </div>
 
@@ -256,7 +256,7 @@ function WarningBadge({
 
   return (
     <div
-      className={`rounded-full border px-3 py-1 text-sm font-medium ${bgColor}`}
+      className={`rounded-lg border px-3 py-2 text-sm font-bold shadow-lg ${bgColor}`}
       aria-label={`Warnings: ${count} of ${threshold}`}
     >
       Warnings: {count}/{threshold}
