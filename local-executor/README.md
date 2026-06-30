@@ -23,7 +23,15 @@ Download `oop-local-executor-1.0.0.jar` from the [Releases page](https://github.
 
 ## Quick Start
 
-### Option 1: Using startup scripts
+### Option 1: Direct JAR execution
+
+```bash
+java -jar oop-local-executor-1.0.0.jar
+```
+
+The server starts on `ws://localhost:9876`. Open the OOP Learning Platform in your browser. The exercise workspace only opens after the platform verifies that this executor is ready and a JDK is available.
+
+### Option 2: Using startup scripts
 
 **Unix/macOS:**
 
@@ -37,14 +45,6 @@ chmod +x start.sh
 ```cmd
 start.bat
 ```
-
-### Option 2: Direct JAR execution
-
-```bash
-java -jar oop-local-executor-1.0.0.jar
-```
-
-The server starts on `ws://localhost:9876`. Open the OOP Learning Platform in your browser — it will automatically connect to the local executor.
 
 ### Custom Port
 
@@ -67,17 +67,13 @@ start.bat 9999
 ## Building from Source
 
 ```bash
-# Unix/macOS
-./gradlew shadowJar
-
-# Windows
-gradlew.bat shadowJar
+mvn clean package
 ```
 
 The fat JAR (with all dependencies included) will be generated at:
 
 ```
-build/libs/oop-local-executor-1.0.0.jar
+target/oop-local-executor-1.0.0.jar
 ```
 
 ## Architecture
@@ -99,6 +95,16 @@ The executor communicates with the browser via JSON messages over WebSocket.
 
 ### Request (Browser → Executor)
 
+Readiness check:
+
+```json
+{
+  "type": "status"
+}
+```
+
+Execution request:
+
 ```json
 {
   "type": "compile_and_run",
@@ -111,6 +117,17 @@ The executor communicates with the browser via JSON messages over WebSocket.
 ```
 
 ### Response (Executor → Browser)
+
+Ready:
+
+```json
+{
+  "type": "status",
+  "ready": true,
+  "version": "1.0.0",
+  "jdkAvailable": true
+}
+```
 
 **Success:**
 ```json

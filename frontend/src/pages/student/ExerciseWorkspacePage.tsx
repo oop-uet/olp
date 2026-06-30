@@ -5,6 +5,7 @@ import { api } from '../../lib/api'
 import { PageLoader, Spinner, CheckCircleIcon, XCircleIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { AntiCheatMonitor } from '../../components/student/AntiCheatMonitor'
+import { useLocalExecutor } from '../../hooks/useLocalExecutor'
 
 interface TestCase {
   id: string
@@ -69,12 +70,25 @@ export function ExerciseWorkspacePage() {
   const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null)
   const [activePanel, setActivePanel] = useState<'description' | 'testcases'>('description')
   const zeroSubmissionSentRef = useRef(false)
+  const {
+    status: executorStatus,
+    connectionError: executorError,
+    isConnected: executorReady,
+    connect: connectExecutor,
+    compileAndRun,
+  } = useLocalExecutor()
 
   useEffect(() => {
     if (id) {
       fetchExercise(id)
     }
   }, [id])
+
+  useEffect(() => {
+    if (exercise) {
+      connectExecutor()
+    }
+  }, [connectExecutor, exercise])
 
   async function fetchExercise(exerciseId: string) {
     try {
@@ -115,57 +129,44 @@ export function ExerciseWorkspacePage() {
     setExecutionResult(null)
 
     try {
-      // Connect to local executor via WebSocket
-      const ws = new WebSocket('ws://localhost:9876')
-
-      ws.onopen = () => {
-        ws.send(
-          JSON.stringify({
-            type: 'compile_and_run',
-            code,
-            testCases: exercise.testCases.map((tc) => ({
-              id: tc.id,
-              input: tc.input,
-              expectedOutput: tc.expectedOutput,
-            })),
-          })
-        )
+      if (!executorReady) {
+        toast.error('Hãy chạy Local Executor và chờ trạng thái sẵn sàng trước khi làm bài.')
+        connectExecutor()
+        return
       }
 
-      ws.onmessage = (event) => {
-        const result = JSON.parse(event.data)
-        setExecutionResult(result)
-        setRunning(false)
-        ws.close()
-      }
+      const result = await compileAndRun(
+        code,
+        exercise.testCases.map((tc) => ({
+          id: tc.id,
+          input: tc.input,
+          expectedOutput: tc.expectedOutput,
+          timeLimit: 5,
+        }))
+      )
 
-      ws.onerror = () => {
-        setExecutionResult(null)
-        toast.error(
-          'Không thể kết nối tới Local Executor. Hãy đảm bảo executor JAR đang chạy ở cổng 9876.'
-        )
-        setRunning(false)
-      }
-
-      ws.onclose = (event) => {
-        if (!event.wasClean && !executionResult) {
-          setRunning(false)
-        }
-      }
-
-      // Timeout after 30 seconds
-      setTimeout(() => {
-        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-          ws.close()
-          setRunning(false)
-          toast.error('Quá thời gian thực thi.')
-        }
-      }, 30000)
-    } catch {
-      toast.error('Không thể kết nối tới Local Executor. Vui lòng đảm bảo nó đang chạy.')
+      setExecutionResult({
+        compiled: result.compiled,
+        errors: result.errors,
+        testResults: result.testResults?.map((r) => ({
+          testCaseId: r.id,
+          passed: r.status === 'passed',
+          actualOutput: r.actualOutput ?? '',
+          status: r.status,
+          executionTimeMs: r.executionTimeMs,
+        })),
+      })
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'Không thể kết nối tới Local Executor. Hãy đảm bảo executor JAR đang chạy ở cổng 9876.'
+      toast.error(message)
+      connectExecutor()
+    } finally {
       setRunning(false)
     }
-  }, [code, exercise, executionResult])
+  }, [code, compileAndRun, connectExecutor, executorReady, exercise])
 
   const handleSubmit = useCallback(async () => {
     if (!exercise) return
@@ -366,6 +367,17 @@ export function ExerciseWorkspacePage() {
     </div>
   )
 
+  if (!executorReady) {
+    return (
+      <ExecutorGate
+        status={executorStatus}
+        errorMessage={executorError?.message}
+        setupInstructions={executorError?.setupInstructions}
+        onRetry={connectExecutor}
+      />
+    )
+  }
+
   return (
     <AntiCheatMonitor
       isAssessment={exercise.isAssessment}
@@ -379,6 +391,84 @@ export function ExerciseWorkspacePage() {
 }
 
 /* --- Sub-components --- */
+
+function ExecutorGate({
+  status,
+  errorMessage,
+  setupInstructions,
+  onRetry,
+}: {
+  status: string
+  errorMessage?: string
+  setupInstructions?: string
+  onRetry: () => void
+}) {
+  const isConnecting = status === 'connecting'
+
+  return (
+    <div className="-m-6 flex min-h-[calc(100vh-8.25rem)] items-center justify-center bg-slate-100 p-6">
+      <div className="w-full max-w-2xl rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-teal-700">
+              Local Executor
+            </p>
+            <h1 className="mt-1 text-xl font-bold text-slate-900">
+              Cần chạy Local Executor trước khi bắt đầu làm bài
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Hệ thống sẽ biên dịch và chạy Java trên máy cá nhân của sinh viên. Mở terminal
+              hoặc command prompt, chạy file JAR ở cổng 9876, sau đó thử kết nối lại.
+            </p>
+          </div>
+          <span
+            className={`rounded-md px-3 py-1.5 text-xs font-bold ${
+              isConnecting
+                ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'
+                : 'bg-red-50 text-red-700 ring-1 ring-red-200'
+            }`}
+          >
+            {isConnecting ? 'Đang kiểm tra' : 'Chưa sẵn sàng'}
+          </span>
+        </div>
+
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+          <p className="text-sm font-bold text-slate-800">Lệnh chạy trên Mac, Windows, Linux</p>
+          <pre className="mt-2 overflow-x-auto rounded-md bg-slate-950 p-3 text-sm text-emerald-300">
+            java -jar oop-local-executor-1.0.0.jar
+          </pre>
+          <p className="mt-2 text-xs text-slate-500">
+            File JAR yêu cầu JDK 17+ và sẽ mở WebSocket tại ws://localhost:9876.
+          </p>
+        </div>
+
+        {errorMessage && (
+          <div className="mt-4 rounded-md border border-red-200 bg-red-50 p-4">
+            <p className="text-sm font-semibold text-red-800">{errorMessage}</p>
+            {setupInstructions && (
+              <pre className="mt-2 whitespace-pre-wrap text-xs leading-5 text-red-700">
+                {setupInstructions}
+              </pre>
+            )}
+          </div>
+        )}
+
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <a
+            href="/downloads/oop-local-executor-1.0.0.jar"
+            className="btn-secondary h-10 px-4 text-sm"
+            download
+          >
+            Tải Local Executor
+          </a>
+          <button onClick={onRetry} className="btn-primary h-10 px-4 text-sm">
+            {isConnecting ? 'Đang kiểm tra...' : 'Thử kết nối lại'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function DescriptionPanel({ exercise }: { exercise: ExerciseDetail }) {
   return (

@@ -22,7 +22,7 @@ if not exist "%JAR_PATH%" (
     echo ERROR: %JAR_NAME% not found in %SCRIPT_DIR%
     echo.
     echo Build it from source:
-    echo   gradlew.bat shadowJar
+    echo   mvn clean package
     echo.
     echo Or download it from the releases page.
     pause

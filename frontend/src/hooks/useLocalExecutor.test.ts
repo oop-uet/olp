@@ -74,6 +74,16 @@ describe('useLocalExecutor', () => {
       MockWebSocket.instances[0].simulateOpen()
     })
 
+    expect(MockWebSocket.instances[0].send).toHaveBeenCalledWith(JSON.stringify({ type: 'status' }))
+
+    act(() => {
+      MockWebSocket.instances[0].simulateMessage({
+        type: 'status',
+        ready: true,
+        jdkAvailable: true,
+      })
+    })
+
     expect(result.current.status).toBe('connected')
     expect(result.current.isConnected).toBe(true)
   })
@@ -94,6 +104,35 @@ describe('useLocalExecutor', () => {
     expect(result.current.connectionError?.setupInstructions).toBeDefined()
   })
 
+  it('keeps executor unavailable when status reports missing JDK', () => {
+    const { result } = renderHook(() => useLocalExecutor())
+
+    act(() => {
+      result.current.connect()
+    })
+    act(() => {
+      MockWebSocket.instances[0].simulateOpen()
+    })
+    act(() => {
+      MockWebSocket.instances[0].simulateMessage({
+        type: 'status',
+        ready: false,
+        jdkAvailable: false,
+        code: 'JDK_NOT_FOUND',
+        message: 'JDK not found',
+        setupInstructions: 'Install JDK 17+',
+      })
+    })
+
+    expect(result.current.status).toBe('error')
+    expect(result.current.isConnected).toBe(false)
+    expect(result.current.connectionError).toEqual({
+      code: 'JDK_NOT_FOUND',
+      message: 'JDK not found',
+      setupInstructions: 'Install JDK 17+',
+    })
+  })
+
   it('handles compile_and_run request and receives success result', async () => {
     const { result } = renderHook(() => useLocalExecutor())
 
@@ -102,6 +141,13 @@ describe('useLocalExecutor', () => {
     })
     act(() => {
       MockWebSocket.instances[0].simulateOpen()
+    })
+    act(() => {
+      MockWebSocket.instances[0].simulateMessage({
+        type: 'status',
+        ready: true,
+        jdkAvailable: true,
+      })
     })
 
     let promise: Promise<Awaited<ReturnType<typeof result.current.compileAndRun>>>
@@ -112,7 +158,7 @@ describe('useLocalExecutor', () => {
       ])
     })
 
-    expect(MockWebSocket.instances[0].send).toHaveBeenCalledWith(
+    expect(MockWebSocket.instances[0].send).toHaveBeenLastCalledWith(
       JSON.stringify({
         type: 'compile_and_run',
         code: 'public class Main {}',
@@ -146,6 +192,13 @@ describe('useLocalExecutor', () => {
     act(() => {
       MockWebSocket.instances[0].simulateOpen()
     })
+    act(() => {
+      MockWebSocket.instances[0].simulateMessage({
+        type: 'status',
+        ready: true,
+        jdkAvailable: true,
+      })
+    })
 
     let promise: Promise<Awaited<ReturnType<typeof result.current.compileAndRun>>>
 
@@ -178,6 +231,13 @@ describe('useLocalExecutor', () => {
     })
     act(() => {
       MockWebSocket.instances[0].simulateOpen()
+    })
+    act(() => {
+      MockWebSocket.instances[0].simulateMessage({
+        type: 'status',
+        ready: true,
+        jdkAvailable: true,
+      })
     })
 
     let promise: Promise<Awaited<ReturnType<typeof result.current.compileAndRun>>>
@@ -219,6 +279,13 @@ describe('useLocalExecutor', () => {
       MockWebSocket.instances[0].simulateOpen()
     })
     act(() => {
+      MockWebSocket.instances[0].simulateMessage({
+        type: 'status',
+        ready: true,
+        jdkAvailable: true,
+      })
+    })
+    act(() => {
       MockWebSocket.instances[0].simulateClose()
     })
 
@@ -241,6 +308,13 @@ describe('useLocalExecutor', () => {
     })
     act(() => {
       MockWebSocket.instances[0].simulateOpen()
+    })
+    act(() => {
+      MockWebSocket.instances[0].simulateMessage({
+        type: 'status',
+        ready: true,
+        jdkAvailable: true,
+      })
     })
     act(() => {
       MockWebSocket.instances[0].simulateClose()

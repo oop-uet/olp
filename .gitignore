@@ -38,6 +38,7 @@ coverage/
 local-executor/build/
 local-executor/.gradle/
 local-executor/bin/
+local-executor/target/
 
 # Turso local
 *.db

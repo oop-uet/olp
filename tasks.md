@@ -28,11 +28,11 @@ This plan implements a zero-cost OOP learning platform for UET-VNU students. The
     - Set up Tailwind with UET-VNU brand colors (blue #003366, white #FFFFFF)
     - _Requirements: 9.1, 11.1, 11.8_
 
-  - [x] 1.4 Scaffold Local Executor project (Java + Gradle)
-    - Create `local-executor/` directory with Gradle build configuration
+  - [x] 1.4 Scaffold Local Executor project (Java + Maven)
+    - Create `local-executor/` directory with Maven build configuration
     - Set up `src/main/java/` source structure with package `vn.uet.oop.executor`
     - Add Java WebSocket library dependency (e.g., `java-websocket`)
-    - Configure Gradle to produce fat JAR for distribution
+    - Configure Maven Shade to produce fat JAR for distribution
     - _Requirements: 6.3_
 
 - [x] 2. Database schema and ORM setup (Turso + Drizzle)
@@ -339,7 +339,7 @@ This plan implements a zero-cost OOP learning platform for UET-VNU students. The
     - _Requirements: 6.3, 6.4, 6.5, 6.6_
 
   - [x] 16.3 Build distributable JAR and write usage documentation
-    - Configure Gradle to build fat JAR with all dependencies
+    - Configure Maven Shade to build fat JAR with all dependencies
     - Create `README.md` with download link, JDK requirements, and startup instructions
     - Add startup scripts for Windows (`start.bat`) and Unix (`start.sh`)
     - _Requirements: 6.3_

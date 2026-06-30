@@ -89,7 +89,12 @@ export function useLocalExecutor() {
   }, [])
 
   const connectInternal = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      setStatus('connecting')
+      setConnectionError(null)
+      wsRef.current.send(JSON.stringify({ type: 'status' }))
+      return
+    }
 
     cleanup()
     setStatus('connecting')
@@ -100,9 +105,7 @@ export function useLocalExecutor() {
       wsRef.current = ws
 
       ws.onopen = () => {
-        setStatus('connected')
-        setConnectionError(null)
-        reconnectDelayRef.current = INITIAL_RECONNECT_DELAY
+        ws.send(JSON.stringify({ type: 'status' }))
       }
 
       ws.onclose = () => {
@@ -114,15 +117,35 @@ export function useLocalExecutor() {
       ws.onerror = () => {
         setStatus('error')
         setConnectionError({
-          message: 'Cannot connect to Local Executor. Make sure the executor is running on your machine.',
+          message:
+            'Không thể kết nối tới Local Executor. Hãy đảm bảo executor JAR đang chạy ở cổng 9876.',
           setupInstructions:
-            'Download and run the Local Executor:\n1. Download local-executor.jar from the course page\n2. Ensure JDK 17+ is installed (run: javac --version)\n3. Run: java -jar local-executor.jar\n4. Click "Retry" to reconnect',
+            'Tải và chạy Local Executor:\n1. Tải oop-local-executor-1.0.0.jar từ trang bài tập\n2. Cài JDK 17+ và kiểm tra bằng javac --version\n3. Chạy: java -jar oop-local-executor-1.0.0.jar\n4. Bấm thử kết nối lại',
         })
       }
 
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)
+
+          if (data.type === 'status') {
+            reconnectDelayRef.current = INITIAL_RECONNECT_DELAY
+
+            if (data.ready) {
+              setStatus('connected')
+              setConnectionError(null)
+            } else {
+              setStatus('error')
+              setConnectionError({
+                code: data.code,
+                message:
+                  data.message ||
+                  'Local Executor chưa sẵn sàng. Hãy kiểm tra JDK 17+ trên máy của bạn.',
+                setupInstructions: data.setupInstructions,
+              })
+            }
+            return
+          }
 
           if (data.type === 'error') {
             const err: ConnectionError = {

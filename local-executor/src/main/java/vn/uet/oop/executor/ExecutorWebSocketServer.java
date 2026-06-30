@@ -17,8 +17,9 @@ import java.net.InetSocketAddress;
  * Listens on localhost:9876 and processes compile_and_run requests.
  * 
  * Message routing by "type" field:
- * - "compile_and_run" → delegates to code execution (placeholder for now)
- * - "ping" → responds with {type: "pong"}
+ * - "status" -> reports whether the executor and JDK are ready
+ * - "compile_and_run" -> delegates to code execution
+ * - "ping" -> responds with {type: "pong"}
  */
 public class ExecutorWebSocketServer extends WebSocketServer {
 
@@ -97,13 +98,17 @@ public class ExecutorWebSocketServer extends WebSocketServer {
                 handlePing(conn);
                 break;
 
+            case "status":
+                handleStatus(conn);
+                break;
+
             case "compile_and_run":
                 handleCompileAndRun(conn, request);
                 break;
 
             default:
                 sendError(conn, "UNKNOWN_TYPE",
-                        "Unknown message type: '" + type + "'. Supported types: ping, compile_and_run");
+                        "Unknown message type: '" + type + "'. Supported types: ping, status, compile_and_run");
                 break;
         }
     }
@@ -114,6 +119,28 @@ public class ExecutorWebSocketServer extends WebSocketServer {
     private void handlePing(WebSocket conn) {
         JsonObject response = new JsonObject();
         response.addProperty("type", "pong");
+        sendJson(conn, response);
+    }
+
+    /**
+     * Reports readiness to the browser before students can start an exercise.
+     */
+    private void handleStatus(WebSocket conn) {
+        JsonObject response = new JsonObject();
+        response.addProperty("type", "status");
+        response.addProperty("ready", jdkAvailable);
+        response.addProperty("port", getPort());
+        response.addProperty("version", Main.VERSION);
+        response.addProperty("jdkAvailable", jdkAvailable);
+        if (jdkPath != null && !jdkPath.isBlank()) {
+            response.addProperty("jdkPath", jdkPath);
+        }
+        if (!jdkAvailable) {
+            response.addProperty("code", "JDK_NOT_FOUND");
+            response.addProperty("message",
+                    "JDK (Java Development Kit) is not installed or not detected on this machine.");
+            response.addProperty("setupInstructions", JdkDetector.getSetupInstructions());
+        }
         sendJson(conn, response);
     }
 

@@ -22,7 +22,7 @@ if [ ! -f "$JAR_PATH" ]; then
     echo "ERROR: $JAR_NAME not found in $SCRIPT_DIR"
     echo ""
     echo "Build it from source:"
-    echo "  ./gradlew shadowJar"
+    echo "  mvn clean package"
     echo ""
     echo "Or download it from the releases page."
     exit 1
