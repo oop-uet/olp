@@ -76,9 +76,9 @@ describe('AntiCheatMonitor', () => {
       )
     })
 
-    expect(screen.getByText('Fullscreen Mode Required')).toBeInTheDocument()
+    expect(screen.getByText('Cần bật chế độ toàn màn hình')).toBeInTheDocument()
     expect(
-      screen.getByText(/This assessment requires fullscreen mode/)
+      screen.getByText(/Bài kiểm tra yêu cầu chế độ toàn màn hình/)
     ).toBeInTheDocument()
   })
 
@@ -92,7 +92,7 @@ describe('AntiCheatMonitor', () => {
     })
 
     expect(screen.getByTestId('workspace')).toBeInTheDocument()
-    expect(screen.getByText('Warnings: 0/3')).toBeInTheDocument()
+    expect(screen.getByText('Cảnh báo: 0/3')).toBeInTheDocument()
   })
 
   it('does not show warning indicator for non-assessment exercises', () => {
@@ -102,7 +102,7 @@ describe('AntiCheatMonitor', () => {
       </AntiCheatMonitor>
     )
 
-    expect(screen.queryByText(/Warnings:/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Cảnh báo:/)).not.toBeInTheDocument()
   })
 
   it('shows notification and increments warning on fullscreenchange event', async () => {
@@ -125,8 +125,8 @@ describe('AntiCheatMonitor', () => {
       document.dispatchEvent(new Event('fullscreenchange'))
     })
 
-    expect(screen.getByText('Warnings: 1/3')).toBeInTheDocument()
-    expect(screen.getByText('⚠️ Warning: Fullscreen exit detected!')).toBeInTheDocument()
+    expect(screen.getByText('Cảnh báo: 1/3')).toBeInTheDocument()
+    expect(screen.getByText('Bạn đã thoát khỏi chế độ toàn màn hình.')).toBeInTheDocument()
   })
 
   it('shows notification on visibilitychange event', async () => {
@@ -149,8 +149,8 @@ describe('AntiCheatMonitor', () => {
       document.dispatchEvent(new Event('visibilitychange'))
     })
 
-    expect(screen.getByText('Warnings: 1/3')).toBeInTheDocument()
-    expect(screen.getByText('⚠️ Warning: Tab switch detected!')).toBeInTheDocument()
+    expect(screen.getByText('Cảnh báo: 1/3')).toBeInTheDocument()
+    expect(screen.getByText('Bạn đã chuyển sang tab hoặc ứng dụng khác.')).toBeInTheDocument()
   })
 
   it('shows notification on window blur event', async () => {
@@ -166,8 +166,8 @@ describe('AntiCheatMonitor', () => {
       window.dispatchEvent(new Event('blur'))
     })
 
-    expect(screen.getByText('Warnings: 1/3')).toBeInTheDocument()
-    expect(screen.getByText('⚠️ Warning: Window lost focus!')).toBeInTheDocument()
+    expect(screen.getByText('Cảnh báo: 1/3')).toBeInTheDocument()
+    expect(screen.getByText('Cửa sổ làm bài không còn được focus.')).toBeInTheDocument()
   })
 
   it('shows nullification message and locks session at threshold', async () => {
@@ -194,9 +194,11 @@ describe('AntiCheatMonitor', () => {
       window.dispatchEvent(new Event('blur'))
     })
 
-    expect(screen.getByText('Assessment Session Locked')).toBeInTheDocument()
-    expect(screen.getByText(/Your score has been nullified/)).toBeInTheDocument()
-    expect(screen.getByText('Warnings: 2/2')).toBeInTheDocument()
+    expect(screen.getByText('Phiên làm bài đã khóa')).toBeInTheDocument()
+    expect(screen.getByText('Bài làm đã được ghi nhận 0 điểm')).toBeInTheDocument()
+    expect(screen.getByText('Cảnh báo: 2/2')).toBeInTheDocument()
+    expect(screen.getByText('Quay lại danh sách bài tập')).toBeInTheDocument()
+    expect(screen.getByText('Xem bài nộp')).toBeInTheDocument()
   })
 
   it('calls onNullified callback when score is nullified', async () => {

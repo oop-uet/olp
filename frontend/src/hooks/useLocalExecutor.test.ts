@@ -183,6 +183,45 @@ describe('useLocalExecutor', () => {
     })
   })
 
+  it('sends multi-file compile_and_run requests', async () => {
+    const { result } = renderHook(() => useLocalExecutor())
+
+    act(() => {
+      result.current.connect()
+    })
+    act(() => {
+      MockWebSocket.instances[0].simulateOpen()
+    })
+    act(() => {
+      MockWebSocket.instances[0].simulateMessage({
+        type: 'status',
+        ready: true,
+        jdkAvailable: true,
+      })
+    })
+
+    act(() => {
+      void result.current.compileAndRun(
+        [
+          { name: 'Main.java', content: 'public class Main {}' },
+          { name: 'Helper.java', content: 'public class Helper {}' },
+        ],
+        [{ id: '1', input: '', expectedOutput: '', timeLimit: 5 }]
+      ).catch(() => {})
+    })
+
+    expect(MockWebSocket.instances[0].send).toHaveBeenLastCalledWith(
+      JSON.stringify({
+        type: 'compile_and_run',
+        files: [
+          { name: 'Main.java', content: 'public class Main {}' },
+          { name: 'Helper.java', content: 'public class Helper {}' },
+        ],
+        testCases: [{ id: '1', input: '', expectedOutput: '', timeLimit: 5 }],
+      })
+    )
+  })
+
   it('handles compilation error response', async () => {
     const { result } = renderHook(() => useLocalExecutor())
 

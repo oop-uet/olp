@@ -9,6 +9,11 @@ export interface TestCase {
   timeLimit: number
 }
 
+export interface SourceFile {
+  name: string
+  content: string
+}
+
 export interface TestResult {
   id: string
   status: 'passed' | 'failed' | 'timeout' | 'error'
@@ -200,7 +205,7 @@ export function useLocalExecutor() {
   }, [cleanup])
 
   const compileAndRun = useCallback(
-    (code: string, testCases: TestCase[]): Promise<ExecutionResult> => {
+    (codeOrFiles: string | SourceFile[], testCases: TestCase[]): Promise<ExecutionResult> => {
       return new Promise((resolve, reject) => {
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
           reject(new Error('Not connected to Local Executor'))
@@ -221,11 +226,11 @@ export function useLocalExecutor() {
 
         pendingRequestRef.current = { resolve, reject, timeoutId }
 
-        const message = JSON.stringify({
-          type: 'compile_and_run',
-          code,
-          testCases,
-        })
+        const message = JSON.stringify(
+          Array.isArray(codeOrFiles)
+            ? { type: 'compile_and_run', files: codeOrFiles, testCases }
+            : { type: 'compile_and_run', code: codeOrFiles, testCases }
+        )
 
         wsRef.current.send(message)
       })

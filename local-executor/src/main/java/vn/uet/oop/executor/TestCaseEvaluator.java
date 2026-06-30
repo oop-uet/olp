@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
+import java.util.List;
 
 /**
  * Compares actual program output against expected output for each test case.
@@ -32,11 +33,18 @@ public class TestCaseEvaluator {
      * @return structured JSON result with compilation status and test results
      */
     public JsonObject evaluate(String code, JsonArray testCases) {
+        return evaluate(List.of(new CodeCompiler.SourceFile(extractClassName(code) + ".java", code)), null, testCases);
+    }
+
+    /**
+     * Evaluates one or more Java source files against a set of test cases.
+     */
+    public JsonObject evaluate(List<CodeCompiler.SourceFile> files, String requestedMainClass, JsonArray testCases) {
         JsonObject result = new JsonObject();
         result.addProperty("type", "result");
 
         // Step 1: Compile the code
-        CodeCompiler.CompilationResult compilationResult = compiler.compile(code);
+        CodeCompiler.CompilationResult compilationResult = compiler.compileFiles(files);
 
         if (!compilationResult.isSuccess()) {
             // Compilation failed - return errors
@@ -55,7 +63,9 @@ public class TestCaseEvaluator {
         JsonArray testResults = new JsonArray();
 
         Path workDir = compilationResult.getWorkDir();
-        String className = extractClassName(code);
+        String className = requestedMainClass != null && !requestedMainClass.isBlank()
+                ? requestedMainClass
+                : findMainClass(files);
 
         for (int i = 0; i < testCases.size(); i++) {
             JsonObject testCase = testCases.get(i).getAsJsonObject();
@@ -132,5 +142,23 @@ public class TestCaseEvaluator {
             return matcher.group(1);
         }
         return "Main";
+    }
+
+    private String findMainClass(List<CodeCompiler.SourceFile> files) {
+        for (CodeCompiler.SourceFile file : files) {
+            if (file.content().contains("public static void main")) {
+                return file.name().replaceFirst("\\.java$", "");
+            }
+        }
+
+        for (CodeCompiler.SourceFile file : files) {
+            java.util.regex.Pattern classPattern = java.util.regex.Pattern.compile("public\\s+class\\s+(\\w+)");
+            java.util.regex.Matcher matcher = classPattern.matcher(file.content());
+            if (matcher.find()) {
+                return matcher.group(1);
+            }
+        }
+
+        return files.isEmpty() ? "Main" : files.get(0).name().replaceFirst("\\.java$", "");
     }
 }

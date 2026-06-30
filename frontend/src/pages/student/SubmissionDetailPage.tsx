@@ -24,6 +24,32 @@ interface SubmissionDetail {
   testCaseResults: TestCaseResult[]
 }
 
+interface SubmittedSourceFile {
+  name: string
+  content: string
+}
+
+function parseSubmittedFiles(code: string): SubmittedSourceFile[] {
+  try {
+    const parsed = JSON.parse(code) as {
+      format?: string
+      files?: Array<{ name?: string; content?: string }>
+    }
+
+    if (parsed.format === 'oop-java-files' && Array.isArray(parsed.files)) {
+      const files = parsed.files
+        .filter((file) => file.name && typeof file.content === 'string')
+        .map((file) => ({ name: file.name as string, content: file.content as string }))
+
+      if (files.length > 0) return files
+    }
+  } catch {
+    // Legacy single-file submissions are stored as raw source code.
+  }
+
+  return [{ name: 'Main.java', content: code }]
+}
+
 function formatTimestamp(ts: string): string {
   const date = new Date(ts)
   return date.toLocaleDateString('vi-VN', {
@@ -67,10 +93,17 @@ export function SubmissionDetailPage() {
   const [submission, setSubmission] = useState<SubmissionDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activeSubmittedFile, setActiveSubmittedFile] = useState('Main.java')
 
   useEffect(() => {
     if (id) fetchSubmission(id)
   }, [id])
+
+  useEffect(() => {
+    if (submission) {
+      setActiveSubmittedFile(parseSubmittedFiles(submission.code)[0]?.name ?? 'Main.java')
+    }
+  }, [submission])
 
   async function fetchSubmission(submissionId: string) {
     try {
@@ -105,6 +138,9 @@ export function SubmissionDetailPage() {
   const earnedPoints = submission.testCaseResults
     .filter((tc) => tc.passed)
     .reduce((sum, tc) => sum + tc.pointValue, 0)
+  const submittedFiles = parseSubmittedFiles(submission.code)
+  const currentSubmittedFile =
+    submittedFiles.find((file) => file.name === activeSubmittedFile) ?? submittedFiles[0]
 
   return (
     <div className="space-y-6">
@@ -172,14 +208,31 @@ export function SubmissionDetailPage() {
 
       {/* Submitted code */}
       <div className="card overflow-hidden">
-        <div className="border-b border-gray-100 px-5 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
           <h2 className="text-lg font-semibold text-gray-900">Mã nguồn đã nộp</h2>
+          {submittedFiles.length > 1 && (
+            <div className="flex max-w-full gap-1 overflow-x-auto">
+              {submittedFiles.map((file) => (
+                <button
+                  key={file.name}
+                  onClick={() => setActiveSubmittedFile(file.name)}
+                  className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
+                    currentSubmittedFile.name === file.name
+                      ? 'bg-primary-50 text-primary-700 ring-1 ring-primary-100'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {file.name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <div className="h-[400px]">
           <Editor
             height="100%"
             language="java"
-            value={submission.code}
+            value={currentSubmittedFile?.content ?? ''}
             theme="vs-dark"
             options={{
               readOnly: true,

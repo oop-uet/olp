@@ -11,6 +11,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * WebSocket server that handles connections from the OOP Learning Platform browser client.
@@ -160,9 +162,9 @@ public class ExecutorWebSocketServer extends WebSocketServer {
             return;
         }
 
-        // Validate required fields
-        if (!request.has("code") || request.get("code").getAsString().isBlank()) {
-            sendError(conn, "INVALID_REQUEST", "Request must contain a non-empty 'code' field");
+        if ((!request.has("code") || request.get("code").getAsString().isBlank())
+                && (!request.has("files") || !request.get("files").isJsonArray())) {
+            sendError(conn, "INVALID_REQUEST", "Request must contain a non-empty 'code' field or a 'files' array");
             return;
         }
 
@@ -171,17 +173,58 @@ public class ExecutorWebSocketServer extends WebSocketServer {
             return;
         }
 
-        String code = request.get("code").getAsString();
         JsonArray testCases = request.getAsJsonArray("testCases");
+        String mainClass = request.has("mainClass") ? request.get("mainClass").getAsString() : null;
 
-        logger.info("Received compile_and_run request: {} chars of code, {} test cases",
-                code.length(), testCases.size());
-
-        // Execute compilation and test evaluation
         TestCaseEvaluator evaluator = new TestCaseEvaluator(jdkPath);
-        JsonObject result = evaluator.evaluate(code, testCases);
+        JsonObject result;
+
+        if (request.has("files") && request.get("files").isJsonArray()) {
+            List<CodeCompiler.SourceFile> files;
+            try {
+                files = parseSourceFiles(request.getAsJsonArray("files"));
+            } catch (IllegalArgumentException e) {
+                sendError(conn, "INVALID_REQUEST", e.getMessage());
+                return;
+            }
+            if (files.isEmpty()) {
+                sendError(conn, "INVALID_REQUEST", "Request 'files' array must contain at least one Java source file");
+                return;
+            }
+            logger.info("Received compile_and_run request: {} files, {} test cases",
+                    files.size(), testCases.size());
+            result = evaluator.evaluate(files, mainClass, testCases);
+        } else {
+            String code = request.get("code").getAsString();
+            logger.info("Received compile_and_run request: {} chars of code, {} test cases",
+                    code.length(), testCases.size());
+            result = evaluator.evaluate(code, testCases);
+        }
 
         sendJson(conn, result);
+    }
+
+    private List<CodeCompiler.SourceFile> parseSourceFiles(JsonArray fileArray) {
+        List<CodeCompiler.SourceFile> files = new ArrayList<>();
+
+        for (int i = 0; i < fileArray.size(); i++) {
+            JsonObject file = fileArray.get(i).getAsJsonObject();
+            if (!file.has("name") || !file.has("content")) {
+                throw new IllegalArgumentException("Each source file must include name and content");
+            }
+
+            String name = file.get("name").getAsString();
+            String content = file.get("content").getAsString();
+            if (!name.matches("[A-Za-z_$][\\w$]*\\.java")) {
+                throw new IllegalArgumentException("Invalid Java file name: " + name);
+            }
+            if (content.isBlank()) {
+                continue;
+            }
+            files.add(new CodeCompiler.SourceFile(name, content));
+        }
+
+        return files;
     }
 
     /**

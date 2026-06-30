@@ -8,6 +8,8 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -63,23 +65,35 @@ public class CodeCompiler {
      * @return CompilationResult with success status and any errors
      */
     public CompilationResult compile(String code) {
+        String className = extractClassName(code);
+        return compileFiles(List.of(new SourceFile(className + ".java", code)));
+    }
+
+    /**
+     * Compiles multiple Java source files in the same temporary workspace.
+     */
+    public CompilationResult compileFiles(List<SourceFile> files) {
         Path tempDir = null;
         try {
             // Create a temporary directory for compilation
             tempDir = Files.createTempDirectory("oop-executor-");
             logger.debug("Created temp directory: {}", tempDir);
 
-            // Extract class name from source code
-            String className = extractClassName(code);
-            Path sourceFile = tempDir.resolve(className + ".java");
-
-            // Write code to temp file
-            Files.writeString(sourceFile, code);
-            logger.debug("Wrote source to: {}", sourceFile);
+            List<String> sourceNames = new ArrayList<>();
+            for (SourceFile file : files) {
+                String safeName = sanitizeJavaFileName(file.name());
+                Path sourceFile = tempDir.resolve(safeName);
+                Files.writeString(sourceFile, file.content());
+                sourceNames.add(safeName);
+                logger.debug("Wrote source to: {}", sourceFile);
+            }
 
             // Build javac command
             String javacPath = getJavacPath();
-            ProcessBuilder pb = new ProcessBuilder(javacPath, sourceFile.getFileName().toString());
+            List<String> command = new ArrayList<>();
+            command.add(javacPath);
+            command.addAll(sourceNames);
+            ProcessBuilder pb = new ProcessBuilder(command);
             pb.directory(tempDir.toFile());
             pb.redirectErrorStream(true);
 
@@ -108,6 +122,8 @@ public class CodeCompiler {
         }
     }
 
+    public record SourceFile(String name, String content) {}
+
     /**
      * Extracts the public class name from Java source code.
      * Falls back to "Main" if no public class declaration is found.
@@ -119,6 +135,14 @@ public class CodeCompiler {
             return matcher.group(1);
         }
         return "Main";
+    }
+
+    private String sanitizeJavaFileName(String name) {
+        String trimmed = name == null ? "" : name.trim();
+        if (!trimmed.matches("[A-Za-z_$][\\w$]*\\.java")) {
+            throw new IllegalArgumentException("Invalid Java file name: " + name);
+        }
+        return trimmed;
     }
 
     /**

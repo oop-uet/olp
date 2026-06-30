@@ -52,16 +52,73 @@ interface ExecutionResult {
   testResults?: TestResult[]
 }
 
+interface SourceFile {
+  id: string
+  name: string
+  content: string
+}
+
 const difficultyConfig = {
   easy: { label: 'Dễ', className: 'badge-green' },
   medium: { label: 'Trung bình', className: 'badge-yellow' },
   hard: { label: 'Khó', className: 'badge-red' },
 }
 
+function createInitialSourceFile(code: string): SourceFile {
+  const className = code.match(/public\s+class\s+([A-Za-z_$][\w$]*)/)?.[1] ?? 'Main'
+  return {
+    id: `${className}-${Date.now()}`,
+    name: `${className}.java`,
+    content: code,
+  }
+}
+
+function createNewSourceFile(existingFiles: SourceFile[]): SourceFile {
+  let index = existingFiles.length + 1
+  let name = `Class${index}.java`
+
+  while (existingFiles.some((file) => file.name === name)) {
+    index += 1
+    name = `Class${index}.java`
+  }
+
+  const className = name.replace(/\.java$/i, '')
+  return {
+    id: `${className}-${Date.now()}`,
+    name,
+    content: `public class ${className} {\n}\n`,
+  }
+}
+
+function filesForExecution(files: SourceFile[]) {
+  return files
+    .map((file) => ({ name: file.name.trim(), content: file.content }))
+    .filter((file) => file.name.endsWith('.java') && file.content.trim().length > 0)
+}
+
+function serializeSubmissionFiles(files: Array<{ name: string; content: string }>): string {
+  if (files.length === 1) {
+    return files[0].content
+  }
+
+  return JSON.stringify(
+    {
+      format: 'oop-java-files',
+      version: 1,
+      files,
+    },
+    null,
+    2
+  )
+}
+
 export function ExerciseWorkspacePage() {
   const { id } = useParams<{ id: string }>()
   const [exercise, setExercise] = useState<ExerciseDetail | null>(null)
-  const [code, setCode] = useState('')
+  const [files, setFiles] = useState<SourceFile[]>(() => [
+    { id: 'main', name: 'Main.java', content: '' },
+  ])
+  const [activeFileId, setActiveFileId] = useState('main')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -115,7 +172,9 @@ export function ExerciseWorkspacePage() {
         })),
       }
       setExercise(detail)
-      setCode(detail.starterCode || '')
+      const starterFile = createInitialSourceFile(detail.starterCode || '')
+      setFiles([starterFile])
+      setActiveFileId(starterFile.id)
     } catch {
       setError('Không thể tải bài tập. Vui lòng thử lại.')
     } finally {
@@ -125,6 +184,12 @@ export function ExerciseWorkspacePage() {
 
   const handleRun = useCallback(async () => {
     if (!exercise) return
+    const sourceFiles = filesForExecution(files)
+    if (sourceFiles.length === 0) {
+      toast.error('Cần có ít nhất một file Java có nội dung.')
+      return
+    }
+
     setRunning(true)
     setExecutionResult(null)
 
@@ -136,7 +201,7 @@ export function ExerciseWorkspacePage() {
       }
 
       const result = await compileAndRun(
-        code,
+        sourceFiles,
         exercise.testCases.map((tc) => ({
           id: tc.id,
           input: tc.input,
@@ -166,10 +231,11 @@ export function ExerciseWorkspacePage() {
     } finally {
       setRunning(false)
     }
-  }, [code, compileAndRun, connectExecutor, executorReady, exercise])
+  }, [compileAndRun, connectExecutor, executorReady, exercise, files])
 
   const handleSubmit = useCallback(async () => {
     if (!exercise) return
+    const sourceFiles = filesForExecution(files)
 
     // Require the user to run the code before submitting.
     if (!executionResult?.testResults || executionResult.testResults.length === 0) {
@@ -183,7 +249,7 @@ export function ExerciseWorkspacePage() {
       const response = await api.post('/api/submissions', {
         exercise_id: exercise.id,
         section_id: exercise.sectionId,
-        code,
+        code: serializeSubmissionFiles(sourceFiles),
         test_results: executionResult.testResults.map((r) => ({
           test_case_id: r.testCaseId,
           actual_output: r.actualOutput ?? '',
@@ -202,7 +268,7 @@ export function ExerciseWorkspacePage() {
     } finally {
       setSubmitting(false)
     }
-  }, [antiCheatNullified, code, exercise, executionResult])
+  }, [antiCheatNullified, exercise, executionResult, files])
 
   const handleAntiCheatNullified = useCallback(async () => {
     if (!exercise || zeroSubmissionSentRef.current) return
@@ -211,15 +277,18 @@ export function ExerciseWorkspacePage() {
     setAntiCheatNullified(true)
 
     if (exercise.testCases.length === 0) {
-      toast.error('Phiên làm bài đã bị khóa do vượt quá ngưỡng cảnh báo.')
       return
     }
 
     try {
+      const sourceFiles = filesForExecution(files)
       await api.post('/api/submissions', {
         exercise_id: exercise.id,
         section_id: exercise.sectionId,
-        code: code.trim() || '// Phiên làm bài bị khóa do vượt ngưỡng cảnh báo chống gian lận.',
+        code:
+          sourceFiles.length > 0
+            ? serializeSubmissionFiles(sourceFiles)
+            : '// Phiên làm bài bị khóa do vượt ngưỡng cảnh báo chống gian lận.',
         test_results: exercise.testCases.map((tc) => ({
           test_case_id: tc.id,
           actual_output: '',
@@ -228,11 +297,10 @@ export function ExerciseWorkspacePage() {
         })),
         anti_cheat_nullified: true,
       })
-      toast.error('Bạn đã vượt quá ngưỡng cảnh báo. Bài làm được ghi nhận 0 điểm.')
     } catch {
       toast.error('Phiên làm bài đã bị khóa. Không thể tự động ghi nhận bài nộp 0 điểm.')
     }
-  }, [code, exercise])
+  }, [exercise, files])
 
   if (loading) {
     return <PageLoader label="Đang tải bài tập..." />
@@ -283,7 +351,7 @@ export function ExerciseWorkspacePage() {
         <div className="flex shrink-0 items-center gap-2">
           <button
             onClick={handleRun}
-            disabled={running || !code.trim()}
+            disabled={running || filesForExecution(files).length === 0}
             className="btn-success h-10 px-4 text-sm"
           >
             {running ? <Spinner /> : <span aria-hidden="true">▶</span>}
@@ -291,7 +359,7 @@ export function ExerciseWorkspacePage() {
           </button>
           <button
             onClick={handleSubmit}
-            disabled={submitting || !code.trim()}
+            disabled={submitting || filesForExecution(files).length === 0}
             className="btn-primary h-10 px-4 text-sm"
           >
             {submitting ? <Spinner /> : <span aria-hidden="true">↑</span>}
@@ -339,12 +407,38 @@ export function ExerciseWorkspacePage() {
 
         <section className="flex min-w-0 flex-col gap-4 overflow-hidden">
           <div className="min-h-[420px] flex-1 overflow-hidden rounded-lg border border-slate-800 bg-[#1e1e1e] shadow-sm">
+            <FileTabs
+              files={files}
+              activeFileId={activeFileId}
+              onSelect={setActiveFileId}
+              onAdd={() => {
+                const nextFile = createNewSourceFile(files)
+                setFiles((current) => [...current, nextFile])
+                setActiveFileId(nextFile.id)
+              }}
+              onRemove={(fileId) => {
+                setFiles((current) => {
+                  if (current.length === 1) return current
+                  const next = current.filter((file) => file.id !== fileId)
+                  if (fileId === activeFileId) {
+                    setActiveFileId(next[0]?.id ?? 'main')
+                  }
+                  return next
+                })
+              }}
+            />
             <Editor
-              height="100%"
+              height="calc(100% - 45px)"
               language="java"
               theme="vs-dark"
-              value={code}
-              onChange={(value) => setCode(value || '')}
+              value={files.find((file) => file.id === activeFileId)?.content ?? ''}
+              onChange={(value) =>
+                setFiles((current) =>
+                  current.map((file) =>
+                    file.id === activeFileId ? { ...file, content: value || '' } : file
+                  )
+                )
+              }
               options={{
                 minimap: { enabled: false },
                 fontSize: 14,
@@ -391,6 +485,61 @@ export function ExerciseWorkspacePage() {
 }
 
 /* --- Sub-components --- */
+
+function FileTabs({
+  files,
+  activeFileId,
+  onSelect,
+  onAdd,
+  onRemove,
+}: {
+  files: SourceFile[]
+  activeFileId: string
+  onSelect: (fileId: string) => void
+  onAdd: () => void
+  onRemove: (fileId: string) => void
+}) {
+  return (
+    <div className="flex h-[45px] items-center gap-1 border-b border-slate-800 bg-slate-900 px-2">
+      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+        {files.map((file) => (
+          <div
+            key={file.id}
+            className={`group flex h-8 shrink-0 items-center gap-2 rounded-md px-3 text-xs font-semibold transition ${
+              activeFileId === file.id
+                ? 'bg-slate-700 text-white'
+                : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
+            }`}
+          >
+            <button onClick={() => onSelect(file.id)} className="h-full text-left">
+              {file.name}
+            </button>
+            {files.length > 1 && (
+              <button
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onRemove(file.id)
+                }}
+                className="rounded px-1 text-slate-400 hover:bg-slate-600 hover:text-white"
+                aria-label={`Xóa ${file.name}`}
+              >
+                ×
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+      <button
+        onClick={onAdd}
+        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-700 text-slate-300 transition hover:border-teal-400 hover:bg-teal-500/10 hover:text-teal-200"
+        aria-label="Thêm file Java"
+        title="Thêm file Java"
+      >
+        +
+      </button>
+    </div>
+  )
+}
 
 function ExecutorGate({
   status,

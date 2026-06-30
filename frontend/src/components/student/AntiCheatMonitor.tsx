@@ -93,20 +93,20 @@ export function AntiCheatMonitor({
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement) {
         recordWarning('fullscreen_exit')
-        showNotification('⚠️ Warning: Fullscreen exit detected!')
+        showNotification('Bạn đã thoát khỏi chế độ toàn màn hình.')
       }
     }
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         recordWarning('visibility_hidden')
-        showNotification('⚠️ Warning: Tab switch detected!')
+        showNotification('Bạn đã chuyển sang tab hoặc ứng dụng khác.')
       }
     }
 
     const handleWindowBlur = () => {
       recordWarning('window_blur')
-      showNotification('⚠️ Warning: Window lost focus!')
+      showNotification('Cửa sổ làm bài không còn được focus.')
     }
 
     document.addEventListener('fullscreenchange', handleFullscreenChange)
@@ -161,11 +161,11 @@ export function AntiCheatMonitor({
       >
         <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center">
           <h2 className="text-lg font-semibold text-red-800">
-            Fullscreen Mode Required
+            Cần bật chế độ toàn màn hình
           </h2>
           <p className="mt-2 text-red-700">
-            This assessment requires fullscreen mode to proceed. Please allow
-            fullscreen access and refresh the page to start the assessment.
+            Bài kiểm tra yêu cầu chế độ toàn màn hình. Hãy cho phép trình duyệt mở toàn màn
+            hình rồi tải lại trang để bắt đầu làm bài.
           </p>
         </div>
       </div>
@@ -187,17 +187,25 @@ export function AntiCheatMonitor({
           role="alert"
           aria-live="assertive"
         >
-          <div className="rounded-lg border border-red-300 bg-red-50 p-8 text-center shadow-lg">
-            <h2 className="text-xl font-bold text-red-800">
-              Assessment Session Locked
+          <div className="w-full max-w-2xl rounded-lg border border-red-200 bg-white p-6 text-center shadow-lg">
+            <p className="text-xs font-bold uppercase tracking-wide text-red-700">
+              Phiên làm bài đã khóa
+            </p>
+            <h2 className="mt-2 text-xl font-bold text-slate-900">
+              Bài làm đã được ghi nhận 0 điểm
             </h2>
-            <p className="mt-3 text-red-700">
-              Your score has been nullified due to exceeding the maximum number
-              of warnings ({threshold}). You received {warningCount} warning(s).
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              Bạn đã vượt quá ngưỡng cảnh báo chống gian lận ({warningCount}/{threshold}).
+              Trình soạn thảo và nút nộp bài đã bị khóa cho phiên này.
             </p>
-            <p className="mt-2 text-sm text-red-600">
-              Score: 0%. The code editor and submission are disabled.
-            </p>
+            <div className="mt-5 flex flex-wrap justify-center gap-3">
+              <a href="/student/exercises" className="btn-primary h-10 px-4 text-sm">
+                Quay lại danh sách bài tập
+              </a>
+              <a href="/student/submissions" className="btn-secondary h-10 px-4 text-sm">
+                Xem bài nộp
+              </a>
+            </div>
           </div>
         </div>
 
@@ -257,9 +265,9 @@ function WarningBadge({
   return (
     <div
       className={`rounded-lg border px-3 py-2 text-sm font-bold shadow-lg ${bgColor}`}
-      aria-label={`Warnings: ${count} of ${threshold}`}
+      aria-label={`Cảnh báo: ${count} trên ${threshold}`}
     >
-      Warnings: {count}/{threshold}
+      Cảnh báo: {count}/{threshold}
     </div>
   )
 }

@@ -103,7 +103,7 @@ Readiness check:
 }
 ```
 
-Execution request:
+Single-file execution request:
 
 ```json
 {
@@ -115,6 +115,23 @@ Execution request:
   "timeoutSeconds": 10
 }
 ```
+
+Multi-file execution request:
+
+```json
+{
+  "type": "compile_and_run",
+  "files": [
+    { "name": "Main.java", "content": "public class Main { ... }" },
+    { "name": "Student.java", "content": "public class Student { ... }" }
+  ],
+  "testCases": [
+    { "id": "tc-1", "input": "5\n3", "expectedOutput": "8", "timeLimit": 5 }
+  ]
+}
+```
+
+When `files` is provided, the executor writes all `.java` files into the same temporary directory and compiles them together. It runs the file containing `public static void main`, or the first public class if no main method is detected.
 
 ### Response (Executor → Browser)
 
