@@ -1,16 +1,44 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import Editor from '@monaco-editor/react'
 import { api } from '../../lib/api'
 import { PageLoader, CheckCircleIcon, XCircleIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
-import Editor from '@monaco-editor/react'
+
+type ResultStatus = 'passed' | 'failed' | 'timeout' | 'error'
+type ReviewTab = 'source' | 'results' | 'details'
+
+interface ApiTestCaseInfo {
+  inputData?: string | null
+  expectedOutput?: string | null
+  pointValue?: number | null
+  isVisible?: number | boolean
+}
+
+interface ApiResult {
+  id?: string
+  passed?: boolean | number
+  status?: ResultStatus
+  actualOutput?: string | null
+  actual_output?: string | null
+  executionTimeMs?: number | null
+  execution_time_ms?: number | null
+  pointValue?: number
+  point_value?: number
+  testCaseLabel?: string
+  testCase?: ApiTestCaseInfo | null
+}
 
 interface TestCaseResult {
   id: string
   passed: boolean
-  status: 'passed' | 'failed' | 'timeout' | 'error'
+  status: ResultStatus
   pointValue: number
   testCaseLabel: string
+  inputData: string
+  expectedOutput: string
+  actualOutput: string
+  executionTimeMs: number | null
 }
 
 interface SubmissionDetail {
@@ -19,6 +47,8 @@ interface SubmissionDetail {
   exerciseTitle: string
   code: string
   score: number
+  manualScore: number | null
+  feedback: string | null
   attemptNumber: number
   submittedAt: string
   testCaseResults: TestCaseResult[]
@@ -31,6 +61,9 @@ type SubmissionDetailResponse = Partial<SubmissionDetail> & {
   exercise_id?: string
   attempt_number?: number
   submitted_at?: string
+  effectiveScore?: number | null
+  results?: ApiResult[]
+  testCaseResults?: ApiResult[]
 }
 
 interface SubmittedSourceFile {
@@ -38,16 +71,44 @@ interface SubmittedSourceFile {
   content: string
 }
 
+function isPassed(value: boolean | number | undefined): boolean {
+  return value === true || value === 1
+}
+
+function normalizeResult(result: ApiResult, index: number): TestCaseResult {
+  const pointValue = Number(result.pointValue ?? result.point_value ?? result.testCase?.pointValue ?? 0)
+  const status = result.status ?? (isPassed(result.passed) ? 'passed' : 'failed')
+  return {
+    id: result.id ?? `result-${index}`,
+    passed: isPassed(result.passed) || status === 'passed',
+    status,
+    pointValue,
+    testCaseLabel: result.testCaseLabel ?? `Test case ${index + 1}`,
+    inputData: result.testCase?.inputData ?? '',
+    expectedOutput: result.testCase?.expectedOutput ?? '',
+    actualOutput: result.actualOutput ?? result.actual_output ?? '',
+    executionTimeMs: result.executionTimeMs ?? result.execution_time_ms ?? null,
+  }
+}
+
 function normalizeSubmissionDetail(data: SubmissionDetailResponse): SubmissionDetail {
+  const rawResults = Array.isArray(data.testCaseResults)
+    ? data.testCaseResults
+    : Array.isArray(data.results)
+      ? data.results
+      : []
+
   return {
     id: data.id ?? '',
     exerciseId: data.exerciseId ?? data.exercise_id ?? '',
     exerciseTitle: data.exerciseTitle ?? data.exercise?.title ?? 'Bài tập',
     code: data.code ?? '',
-    score: Number(data.score ?? 0),
+    score: Number(data.effectiveScore ?? data.manualScore ?? data.score ?? 0),
+    manualScore: data.manualScore ?? null,
+    feedback: data.feedback ?? null,
     attemptNumber: Number(data.attemptNumber ?? data.attempt_number ?? 1),
     submittedAt: data.submittedAt ?? data.submitted_at ?? new Date().toISOString(),
-    testCaseResults: Array.isArray(data.testCaseResults) ? data.testCaseResults : [],
+    testCaseResults: rawResults.map(normalizeResult),
   }
 }
 
@@ -74,6 +135,7 @@ function parseSubmittedFiles(code: string): SubmittedSourceFile[] {
 
 function formatTimestamp(ts: string): string {
   const date = new Date(ts)
+  if (Number.isNaN(date.getTime())) return ts
   return date.toLocaleDateString('vi-VN', {
     day: '2-digit',
     month: '2-digit',
@@ -85,23 +147,23 @@ function formatTimestamp(ts: string): string {
 }
 
 function getScoreColor(score: number): string {
-  if (score >= 80) return 'text-success-700'
-  if (score >= 50) return 'text-warning-700'
-  return 'text-danger-700'
+  if (score >= 80) return 'text-emerald-700'
+  if (score >= 50) return 'text-amber-700'
+  return 'text-rose-700'
 }
 
-function getStatusBadge(status: string, passed: boolean) {
+function getStatusBadge(status: ResultStatus, passed: boolean) {
   if (passed) {
     return (
       <span className="badge-green">
         <CheckCircleIcon className="h-3.5 w-3.5" />
-        Đạt
+        Accepted
       </span>
     )
   }
 
   const statusLabel =
-    status === 'timeout' ? 'Quá thời gian' : status === 'error' ? 'Lỗi' : 'Không đạt'
+    status === 'timeout' ? 'Timeout' : status === 'error' ? 'Runtime error' : 'Wrong answer'
   return (
     <span className="badge-red">
       <XCircleIcon className="h-3.5 w-3.5" />
@@ -110,12 +172,31 @@ function getStatusBadge(status: string, passed: boolean) {
   )
 }
 
+function downloadTextFile(fileName: string, content: string) {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+function buildAllFilesDownload(files: SubmittedSourceFile[]) {
+  return files
+    .map((file) => `// ===== ${file.name} =====\n${file.content.trimEnd()}\n`)
+    .join('\n')
+}
+
 export function SubmissionDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [submission, setSubmission] = useState<SubmissionDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeSubmittedFile, setActiveSubmittedFile] = useState('Main.java')
+  const [activeTab, setActiveTab] = useState<ReviewTab>('source')
 
   useEffect(() => {
     if (id) fetchSubmission(id)
@@ -141,6 +222,16 @@ export function SubmissionDetailPage() {
     }
   }
 
+  const review = useMemo(() => {
+    const results = submission?.testCaseResults ?? []
+    const totalPoints = results.reduce((sum, tc) => sum + tc.pointValue, 0)
+    const earnedPoints = results
+      .filter((tc) => tc.passed)
+      .reduce((sum, tc) => sum + tc.pointValue, 0)
+    const passedCount = results.filter((tc) => tc.passed).length
+    return { results, totalPoints, earnedPoints, passedCount }
+  }, [submission])
+
   if (loading) {
     return <PageLoader label="Đang tải bài nộp..." />
   }
@@ -156,14 +247,11 @@ export function SubmissionDetailPage() {
     )
   }
 
-  const testCaseResults = submission.testCaseResults ?? []
-  const totalPoints = testCaseResults.reduce((sum, tc) => sum + tc.pointValue, 0)
-  const earnedPoints = testCaseResults
-    .filter((tc) => tc.passed)
-    .reduce((sum, tc) => sum + tc.pointValue, 0)
   const submittedFiles = parseSubmittedFiles(submission.code)
   const currentSubmittedFile =
     submittedFiles.find((file) => file.name === activeSubmittedFile) ?? submittedFiles[0]
+  const accepted = submission.score >= 100 || (review.results.length > 0 && review.passedCount === review.results.length)
+  const hasPublicResults = review.results.length > 0
 
   return (
     <div className="-m-6 min-h-[calc(100vh-8.25rem)] bg-slate-100">
@@ -172,105 +260,279 @@ export function SubmissionDetailPage() {
           <div className="flex min-w-0 items-center gap-3">
             <Link
               to="/student/submissions"
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
               aria-label="Quay lại danh sách bài nộp"
             >
               ←
             </Link>
             <div className="min-w-0">
-              <h1 className="truncate text-lg font-bold text-slate-900">
-                {submission.exerciseTitle}
+              <h1 className="truncate text-xl font-bold text-slate-900">
+                #{submission.id.slice(0, 8)}: {submission.exerciseTitle}
               </h1>
               <p className="text-xs font-medium text-slate-500">
                 Lần nộp #{submission.attemptNumber} · {formatTimestamp(submission.submittedAt)}
               </p>
             </div>
           </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-right">
-            <p className={`text-2xl font-bold ${getScoreColor(submission.score)}`}>
-              {submission.score.toFixed(1)}%
-            </p>
-            <p className="text-xs font-medium text-slate-500">
-              {earnedPoints}/{totalPoints} điểm
-            </p>
-          </div>
+          <button
+            type="button"
+            onClick={() =>
+              downloadTextFile(
+                submittedFiles.length === 1 ? submittedFiles[0].name : `submission-${submission.id}.txt`,
+                submittedFiles.length === 1 ? submittedFiles[0].content : buildAllFilesDownload(submittedFiles)
+              )
+            }
+            className="btn-primary h-10 px-4 text-sm"
+          >
+            Tải mã nguồn
+          </button>
         </div>
       </div>
 
-      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 p-4 lg:grid-cols-[360px_minmax(0,1fr)]">
-        <aside className="rounded-lg border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 px-4 py-3">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">
-              Kết quả test case
-            </h2>
-            <p className="mt-0.5 text-xs text-slate-500">Chỉ hiển thị test case công khai</p>
-          </div>
-          <div className="divide-y divide-slate-100">
-            {testCaseResults.length === 0 ? (
-              <p className="px-4 py-4 text-sm text-slate-500">
-                Không có test case công khai cho bài tập này.
-              </p>
-            ) : (
-              testCaseResults.map((tc, index) => (
-                <div key={tc.id} className="px-4 py-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800">
-                        {tc.testCaseLabel || `Test case ${index + 1}`}
-                      </p>
-                      <p className="mt-0.5 text-xs text-slate-500">{tc.pointValue} điểm</p>
-                    </div>
-                    {getStatusBadge(tc.status, tc.passed)}
-                  </div>
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 p-4 xl:grid-cols-[360px_minmax(0,1fr)]">
+        <aside className="space-y-4">
+          <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+            <div className="bg-gradient-to-r from-teal-600 to-cyan-500 px-4 py-3">
+              <h2 className="text-sm font-bold uppercase tracking-wide text-white">
+                Chi tiết bài nộp
+              </h2>
+            </div>
+            <div className="space-y-3 p-4 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-semibold text-slate-500">Trạng thái</span>
+                {accepted ? (
+                  <span className="badge-green">Accepted</span>
+                ) : (
+                  <span className="badge-red">Chưa đạt</span>
+                )}
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-semibold text-slate-500">Điểm chức năng</span>
+                <span className="font-bold text-slate-900">
+                  {review.earnedPoints}/{review.totalPoints || 0}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-semibold text-slate-500">Test public đạt</span>
+                <span className="font-bold text-slate-900">
+                  {review.passedCount}/{review.results.length}
+                </span>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-right">
+                <p className={`text-3xl font-extrabold ${getScoreColor(submission.score)}`}>
+                  {submission.score.toFixed(1)}%
+                </p>
+                <p className="text-xs font-semibold text-slate-500">Điểm tổng</p>
+              </div>
+              {submission.feedback && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs font-medium text-amber-800">
+                  {submission.feedback}
                 </div>
-              ))
-            )}
-          </div>
+              )}
+            </div>
+          </section>
+
+          <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+            <div className="bg-gradient-to-r from-teal-600 to-cyan-500 px-4 py-3">
+              <h2 className="text-sm font-bold uppercase tracking-wide text-white">
+                Bài đã nộp
+              </h2>
+            </div>
+            <div className="divide-y divide-slate-100 p-3">
+              {submittedFiles.map((file) => (
+                <button
+                  key={file.name}
+                  type="button"
+                  onClick={() => {
+                    setActiveSubmittedFile(file.name)
+                    setActiveTab('source')
+                  }}
+                  className={`flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm font-semibold transition ${
+                    currentSubmittedFile.name === file.name
+                      ? 'bg-amber-100 text-amber-800'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-teal-700'
+                  }`}
+                >
+                  <span className="truncate">{file.name}</span>
+                  <span className="text-[10px] text-slate-400">{file.content.split('\n').length} dòng</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+            <div className="bg-gradient-to-r from-teal-600 to-cyan-500 px-4 py-3">
+              <h2 className="text-sm font-bold uppercase tracking-wide text-white">
+                Quy tắc lập trình
+              </h2>
+            </div>
+            <div className="p-4 text-sm leading-6 text-slate-600">
+              Kiểm tra định dạng, biên dịch và các test case công khai được hiển thị theo dữ liệu bài nộp.
+              Các test ẩn chỉ được tính vào điểm tổng.
+            </div>
+          </section>
         </aside>
 
-        <section className="min-w-0 overflow-hidden rounded-lg border border-slate-800 bg-slate-950 shadow-sm">
-          <div className="flex h-11 items-center justify-between gap-2 border-b border-slate-800 bg-slate-900 px-3">
-            <h2 className="shrink-0 text-xs font-bold uppercase tracking-wide text-slate-300">
-              Mã nguồn đã nộp
-            </h2>
-            {submittedFiles.length > 1 && (
-              <div className="flex min-w-0 gap-1 overflow-x-auto">
-                {submittedFiles.map((file) => (
+        <main className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 bg-white">
+            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+              <div className="flex flex-wrap gap-1">
+                {[
+                  ['source', 'Mã nguồn'],
+                  ['results', `Yêu cầu chức năng (${review.passedCount}/${review.results.length})`],
+                  ['details', 'Chi tiết test cases'],
+                ].map(([tab, label]) => (
                   <button
-                    key={file.name}
-                    onClick={() => setActiveSubmittedFile(file.name)}
-                    className={`h-8 shrink-0 rounded-md px-3 text-xs font-semibold ${
-                      currentSubmittedFile.name === file.name
-                        ? 'bg-slate-700 text-white'
-                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
+                    key={tab}
+                    type="button"
+                    onClick={() => setActiveTab(tab as ReviewTab)}
+                    className={`h-9 rounded-md px-3 text-sm font-bold transition ${
+                      activeTab === tab
+                        ? 'bg-amber-100 text-amber-800'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                     }`}
                   >
-                    {file.name}
+                    {label}
                   </button>
                 ))}
               </div>
-            )}
+              <span className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                {currentSubmittedFile.name}
+              </span>
+            </div>
           </div>
-          <div className="h-[calc(100vh-16rem)] min-h-[480px]">
-            <Editor
-              height="100%"
-              language="java"
-              value={currentSubmittedFile?.content ?? ''}
-              theme="vs-dark"
-              options={{
-                readOnly: true,
-                minimap: { enabled: false },
-                scrollBeyondLastLine: false,
-                fontSize: 14,
-                lineHeight: 22,
-                lineNumbers: 'on',
-                wordWrap: 'on',
-                automaticLayout: true,
-              }}
-            />
-          </div>
-        </section>
+
+          {activeTab === 'source' && (
+            <div className="h-[calc(100vh-17rem)] min-h-[560px] bg-slate-950">
+              <Editor
+                height="100%"
+                language="java"
+                value={currentSubmittedFile?.content ?? ''}
+                theme="vs-dark"
+                options={{
+                  readOnly: true,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  fontSize: 14,
+                  lineHeight: 23,
+                  lineNumbers: 'on',
+                  wordWrap: 'on',
+                  automaticLayout: true,
+                }}
+              />
+            </div>
+          )}
+
+          {activeTab === 'results' && (
+            <div className="min-h-[560px] p-4">
+              {!hasPublicResults ? (
+                <EmptyResults />
+              ) : (
+                <div className="grid gap-3 md:grid-cols-2">
+                  {review.results.map((tc, index) => (
+                    <div
+                      key={tc.id}
+                      className={`rounded-lg border p-4 ${
+                        tc.passed
+                          ? 'border-emerald-200 bg-emerald-50'
+                          : 'border-rose-200 bg-rose-50'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-bold text-slate-900">
+                            {tc.testCaseLabel || `Test case ${index + 1}`}
+                          </p>
+                          <p className="mt-1 text-xs font-medium text-slate-500">
+                            {tc.pointValue} điểm
+                            {tc.executionTimeMs != null ? ` · ${tc.executionTimeMs} ms` : ''}
+                          </p>
+                        </div>
+                        {getStatusBadge(tc.status, tc.passed)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'details' && (
+            <div className="min-h-[560px] space-y-4 p-4">
+              {!hasPublicResults ? (
+                <EmptyResults />
+              ) : (
+                review.results.map((tc, index) => (
+                  <div key={tc.id} className="rounded-lg border border-slate-200 bg-white">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900">
+                          {tc.testCaseLabel || `Test case ${index + 1}`}
+                        </h3>
+                        <p className="text-xs font-medium text-slate-500">
+                          {tc.pointValue} điểm
+                          {tc.executionTimeMs != null ? ` · ${tc.executionTimeMs} ms` : ''}
+                        </p>
+                      </div>
+                      {getStatusBadge(tc.status, tc.passed)}
+                    </div>
+                    <div className="grid gap-3 p-4 lg:grid-cols-3">
+                      <CodePreview title="Đầu vào" value={tc.inputData || 'Không có stdin công khai.'} />
+                      <CodePreview title="Kết quả mong đợi" value={tc.expectedOutput || 'Không công khai.'} />
+                      <CodePreview
+                        title="Kết quả thực tế"
+                        value={tc.actualOutput || (tc.passed ? 'Đã khớp kết quả mong đợi.' : 'Không có output.')}
+                        tone={tc.passed ? 'success' : 'danger'}
+                      />
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </main>
       </div>
+    </div>
+  )
+}
+
+function EmptyResults() {
+  return (
+    <div className="flex min-h-[320px] items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+      <div>
+        <p className="text-sm font-bold text-slate-700">Không có test case công khai</p>
+        <p className="mt-1 text-sm text-slate-500">
+          Bài nộp có thể chỉ được chấm bằng test ẩn hoặc bị ghi nhận 0 điểm do phiên làm bài.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function CodePreview({
+  title,
+  value,
+  tone = 'default',
+}: {
+  title: string
+  value: string
+  tone?: 'default' | 'success' | 'danger'
+}) {
+  const toneClass =
+    tone === 'success'
+      ? 'border-emerald-100 text-emerald-800'
+      : tone === 'danger'
+        ? 'border-rose-100 text-rose-800'
+        : 'border-slate-200 text-slate-800'
+
+  return (
+    <div>
+      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{title}</p>
+      <pre
+        className={`mt-2 max-h-72 overflow-auto rounded-md border bg-slate-50 p-3 text-xs leading-5 ${toneClass}`}
+      >
+        {value}
+      </pre>
     </div>
   )
 }

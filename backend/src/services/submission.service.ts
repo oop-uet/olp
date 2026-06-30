@@ -365,6 +365,12 @@ export async function getSubmissionById(id: string, database: Database = default
           email: true,
         },
       },
+      exercise: {
+        columns: {
+          id: true,
+          title: true,
+        },
+      },
       results: {
         with: {
           testCase: {
