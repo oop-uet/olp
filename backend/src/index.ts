@@ -78,8 +78,10 @@ app.use('/api/anticheat', authMiddleware(), requireRole('student'), studentAntic
 app.use('/api/sections/:id/leaderboard', authMiddleware(), requireRole('instructor', 'student'), leaderboardRoutes);
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`[server] Backend running on port ${PORT}`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`[server] Backend running on port ${PORT}`);
+  });
+}
 
 export default app;

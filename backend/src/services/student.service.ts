@@ -33,6 +33,7 @@ export interface StudentExerciseListItem {
   sectionId: string;
   sectionName: string;
   deadline: string | null;
+  week: number;
   isAssessment: boolean;
   bestScore: number | null;
   attemptCount: number;
@@ -219,8 +220,8 @@ export async function listStudentExercises(
 
     const relevant = mySubmissions.filter(
       (s: any) =>
-        s.exerciseId === assignment.exerciseId &&
-        s.sectionId === assignment.sectionId
+          s.exerciseId === assignment.exerciseId &&
+          s.sectionId === assignment.sectionId
     );
 
     const attemptCount = relevant.length;
@@ -241,6 +242,7 @@ export async function listStudentExercises(
       sectionId: section.id,
       sectionName: section.name,
       deadline: assignment.deadline ?? null,
+      week: assignment.week,
       isAssessment: assignment.isAssessment === 1,
       bestScore,
       attemptCount,

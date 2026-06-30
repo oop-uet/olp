@@ -1,758 +1,282 @@
-# Design Document
+# Design Document: OOP Learning Platform (UET OASIS Parity)
 
-## Purpose
+## 1. Purpose & Product Shape
 
-This design describes an OASIS-like OOP practice platform for UET. The system must feel and behave like an operational teaching assistant system: course sections first, weekly practice work second, submissions/ranking/review always visible to instructors, and a compact table-driven interface. It also adds local Java execution and anti-cheat assessment mode for modern AI-assisted learning conditions.
+This design specification describes the architecture, data schemas, API contracts, and user interface workflows for the OOP Learning Platform. The platform replicates the workflows of the original **UET OASIS** system (oasis.uet.vnu.edu.vn) for Java Object-Oriented Programming practice, optimized with student-side local execution and anti-cheat exam sessions.
 
-The design intentionally avoids turning the product into a broad LMS, public course site, or generic online judge.
+### Core OASIS User Interfaces & Workflows
+The platform implements a dense, table-driven administrative and workspace UI based on the original OASIS platform:
+- **`/#/dashboard`:** Displays semesters containing enrolled or managed course sections (`CÁC LỚP HỌC PHẦN`) alongside a sidebar leaderboard.
+- **`/#/course/:id`:** Organizes exercises under weekly lanes (`TUẦN 1` through `TUẦN 15`) with submission indicators and visibility checkmarks.
+- **`/#/teacher/pickproblem/:id`:** Split lanes enabling deadlines setup per week (left) and assigning problems from the exercise library (right).
+- **`/#/submissions`:** Full list of submissions with sub-header text filters for each column.
+- **`/#/submissions_detail/:id`:** Left panel with metadata and status. Right panel containing manual grade checkboxes (SE/PE/CE), code editor read-only view, functional results breakdown, and terminal logs.
+- **`/#/ranking`:** A grid-based class standings sheet, highlighting scores for each exercise across student rows.
 
-## Product Shape
+---
 
-### Core OASIS Concepts
-
-The original OASIS public application identifies itself as "UET OASIS - OOP Assistant System" and "He thong ho tro giang day thuc hanh Lap trinh huong doi tuong". Public bundle strings expose these core concepts:
-
-- Course section list: "CAC LOP HOC PHAN".
-- Course ranking endpoints and ranking pages.
-- Weekly exercise grouping: "TUAN".
-- Deadline display: "Han nop".
-- Exercise controls: max submit count, allow submit, show exercise, choose exercise.
-
-The new platform should center its information architecture around those concepts.
-
-### Primary Navigation
-
-Admin:
-- Dashboard
-- Lop hoc phan
-- Import/export sinh vien
-- Quan ly giang vien
-- Quan ly sinh vien
-- Thu vien bai tap
-- Cau hinh he thong
-- Quota/trang thai dich vu
-
-Instructor:
-- Lop hoc phan cua toi
-- Phan bai theo tuan
-- Quan ly bai tap
-- Test cases
-- Bai nop/cham bai
-- Bang xep hang
-- Kiem tra ma nguon
-
-Student:
-- Lop hoc phan/bai tap
-- Workspace lam bai
-- Lich su nop bai
-- Tien do
-- Bang xep hang
-
-## Architecture
+## 2. Architecture & Data Flow
 
 ```mermaid
 graph TB
-    subgraph StudentDevice[Student computer]
-      Browser[React SPA]
-      Executor[Local Java Executor<br/>localhost:9876]
-      JDK[JDK]
+    subgraph StudentDevice[Student Client machine]
+      Browser[React SPA / Vite]
+      ExecutorAgent[Local Java Executor WS Server<br/>localhost:9876]
+      JDK17[JDK 17 / java / javac]
     end
 
-    subgraph StaticHost[GitHub Pages]
-      Frontend[Built frontend assets]
+    subgraph Hosting[Production Deployment]
+      FrontendPages[GitHub Pages CDN]
+      APIHost[Render Node.js API Web Service]
+      Database[(Turso / SQLite via Drizzle ORM)]
     end
 
-    subgraph BackendHost[Render or equivalent]
-      API[Express API]
-    end
-
-    subgraph DataLayer[Managed database]
-      DB[(SQLite/libSQL via Drizzle)]
-    end
-
-    subgraph Storage[Object storage optional]
-      Files[Imports/attachments]
-    end
-
-    Browser --> Frontend
-    Browser -->|JWT REST API| API
-    Browser -->|WebSocket| Executor
-    Executor --> JDK
-    API --> DB
-    API --> Files
+    Browser -->|Fetches Static Assets| FrontendPages
+    Browser -->|REST API over JWT| APIHost
+    Browser -->|WebSocket Connection| ExecutorAgent
+    ExecutorAgent -->|Local Compilation & Run| JDK17
+    APIHost -->|Queries & Updates| Database
 ```
 
 ### Architectural Rules
-
-1. Course section is the top-level teaching unit for almost every feature.
-2. Exercise assignment is distinct from exercise content. Visibility, deadline, week, max submit count, and assessment mode belong to the assignment.
-3. Submissions are append-only attempts.
-4. Submission results are snapshots and do not change when test cases are later edited.
-5. Ranking is computed from best score per assignment, not raw attempt sum.
-6. Local execution is for student feedback and classroom scalability; the backend still stores authoritative submission records and scores based on submitted test results/expected outputs.
-7. Anti-cheat is tied to assessment assignments and produces audit events plus zero-score nullification.
-
-## Current Technology Baseline
-
-Frontend:
-- React + TypeScript + Vite
-- React Router
-- Zustand
-- Tailwind CSS
-- Monaco Editor
-- Axios
-
-Backend:
-- Node.js 20
-- Express
-- Drizzle ORM
-- SQLite/libSQL compatible schema
-- Zod validation
-- JWT + bcrypt
-- Vitest/Supertest
-
-Local executor:
-- Java/Gradle project
-- WebSocket server on `ws://localhost:9876`
-- Uses local `javac` and `java`
-
-Deployment:
-- GitHub Actions
-- Frontend deploys to GitHub Pages on `main` changes under `frontend/**`
-- Backend workflow builds/tests and calls Render deploy hook on `main` changes under `backend/**`
-
-## Domain Model
-
-### Users
-
-Fields:
-- id
-- username
-- email
-- password_hash
-- role: student, instructor, admin
-- full_name
-- must_change_password
-- failed_login_attempts
-- locked_until
-- timestamps
-
-Notes:
-- Student ID should be represented either by username or a dedicated student_external_id on enrollment.
-- Instructor display name should use full_name where available.
-
-### Course Sections
-
-Fields:
-- id
-- name
-- semester
-- instructor_id
-- status: active/archive, if implemented
-- created_at
-
-Relationships:
-- Has many enrollments.
-- Has many exercise assignments.
-- Has many weekly schedule rows.
-- Has many submissions through assignments.
-
-### Section Enrollments
-
-Fields:
-- id
-- section_id
-- student_id
-- student_external_id
-- enrolled_at
-
-Rules:
-- Unique section_id + student_id.
-- student_external_id stores MSSV/imported student code for display/export.
-
-### Exercises
-
-Fields:
-- id
-- title
-- description
-- difficulty
-- starter_code
-- is_library
-- oop_tags JSON
-- created_by
-- timestamps
-
-Rules:
-- Exercise content can be reused.
-- Assignments decide where/when/how it is used.
-
-### Exercise Assignments
-
-Fields:
-- id
-- exercise_id
-- section_id
-- week
-- deadline
-- is_assessment
-- is_visible
-- allow_submit
-- max_submissions_override
-- assigned_at
-
-Current schema already includes week and is_assessment. Add `is_visible`, `allow_submit`, and `max_submissions_override` when implementing full OASIS parity.
-
-### Section Weeks
-
-Fields:
-- id
-- section_id
-- week
-- deadline
-
-Rules:
-- Default weeks: 1 to 15.
-- Week deadline is inherited by assignments unless assignment deadline overrides it.
-
-### Test Cases
-
-Fields:
-- id
-- exercise_id
-- input_data
-- expected_output
-- is_visible
-- point_value
-- time_limit_seconds
-- created_at
-
-Rules:
-- Hidden tests are scoring-only.
-- Historical submission results keep old outcomes.
-
-### Submissions
-
-Fields:
-- id
-- student_id
-- exercise_id
-- section_id
-- code
-- score
-- manual_score
-- feedback
-- attempt_number
-- submitted_at
-
-Rules:
-- Append-only for attempts.
-- manual_score overrides display/export if set, but automatic score remains visible.
-
-### Submission Results
-
-Fields:
-- id
-- submission_id
-- test_case_id
-- passed
-- actual_output
-- status
-- execution_time_ms
-
-Rules:
-- Stores grading snapshot for every test in that submission.
-
-### Anti-Cheat Events
-
-Fields:
-- id
-- submission_id nullable
-- student_id
-- exercise_id
-- event_type
-- warning_count_at_event
-- occurred_at
-
-Rules:
-- Instructor sees event log on submission detail.
-- Threshold reached creates or marks a zero-score submission for the assessment.
-
-### System Config
-
-Keys:
-- warning_threshold: 1-10, default 3
-- time_limit: 1-180 minutes or equivalent executor setting
-- max_submissions: 1-100
-- default_week_count: default 15
-- optional default deadline policy
-
-## Backend API Design
-
-Endpoint names should follow the existing codebase where already implemented. New endpoints should be added only where gaps exist.
-
-### Auth
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| POST | `/api/auth/login` | Login |
-| POST | `/api/auth/refresh` | Refresh token |
-| POST | `/api/auth/logout` | Logout |
-| POST | `/api/auth/change-password` | Change required password |
-
-### Admin Sections and Roster
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| GET | `/api/admin/sections` | List sections |
-| POST | `/api/admin/sections` | Create section |
-| GET | `/api/admin/sections/:id` | Section detail |
-| PUT | `/api/admin/sections/:id` | Update section |
-| DELETE | `/api/admin/sections/:id` | Delete/archive section |
-| POST | `/api/admin/sections/:id/import-students` | Import roster |
-| GET | `/api/admin/sections/:id/export-students` | Export roster |
-| PUT | `/api/admin/sections/:id/instructor` | Assign instructor |
-
-### Section Schedule
-
-Use both Admin and Instructor route prefixes, enforcing permissions:
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| GET | `/api/{role}/sections/:id/schedule` | Get 15-week schedule, unscheduled exercises, pool |
-| POST | `/api/{role}/sections/:id/schedule/assign` | Assign exercise to week |
-| POST | `/api/{role}/sections/:id/schedule/unassign` | Remove exercise from week |
-| PUT | `/api/{role}/sections/:id/schedule/deadline` | Set week deadline |
-| PUT | `/api/{role}/sections/:id/assignments/:assignmentId` | Update visibility, allow submit, max submit, assessment |
-
-### Exercises and Library
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| GET | `/api/exercises` | Instructor exercise list |
-| POST | `/api/exercises` | Create exercise |
-| GET | `/api/exercises/library` | Browse library |
-| POST | `/api/exercises/:id/clone` | Clone library/custom exercise |
-| PUT | `/api/exercises/:id` | Update exercise |
-| DELETE | `/api/exercises/:id` | Delete/archive exercise |
-| POST | `/api/exercises/:id/assign` | Assign to section |
-
-Admin may use `/api/admin/exercises` for global library management.
-
-### Test Cases
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| GET | `/api/exercises/:exerciseId/testcases` | List test cases |
-| POST | `/api/exercises/:exerciseId/testcases` | Create test case |
-| PUT | `/api/testcases/:id` | Update test case |
-| DELETE | `/api/testcases/:id` | Delete test case |
-
-### Student
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| GET | `/api/students/sections` | My sections |
-| GET | `/api/students/exercises` | My visible assignments |
-| GET | `/api/students/exercises/:id` | Workspace details |
-| POST | `/api/submissions` | Submit solution |
-| GET | `/api/submissions` | My submissions |
-| GET | `/api/submissions/:id` | My submission detail |
-| GET | `/api/students/progress` | Progress for section |
-
-Student exercise endpoints must account for assignment visibility, allow_submit, deadline, week, and max submissions.
-
-### Instructor Review
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| GET | `/api/submissions` | Instructor filtered submission list |
-| GET | `/api/submissions/:id` | Instructor submission detail |
-| PUT | `/api/submissions/:id/review` | Feedback/manual score |
-| GET | `/api/submissions/:id/anticheat-log` | Anti-cheat events |
-| GET | `/api/sections/:id/leaderboard` | Course ranking |
-| GET | `/api/sections/:id/leaderboard/export` | Export ranking |
-| POST | `/api/sections/:id/plagiarism` | Run similarity check |
-| GET | `/api/sections/:id/plagiarism` | List reports/results |
-
-### Admin Config and Status
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| GET | `/api/admin/config` | List config |
-| PUT | `/api/admin/config` | Update config |
-| GET | `/api/admin/quota-status` | Service quota/status |
-
-## Frontend Page Design
-
-### Login
-
-Purpose:
-- Fast role-based entry.
-- UET/OASIS branding.
-- No public marketing content.
-
-States:
-- invalid credential
-- account locked
-- expired session
-- forced password change
-
-### Admin Dashboard
-
-Content:
-- Section count
-- Student count
-- Instructor count
-- Submission count
-- Recent import/deploy/quota warnings
-
-### Admin Sections
-
-List:
-- name
-- semester
-- instructor
-- student count
-- assigned exercise count
-- status
-- actions
-
-Detail tabs:
-- Roster
-- Schedule
-- Exercises
-- Ranking
-- Imports/exports
-
-### Student Import
-
-Flow:
-1. Choose section.
-2. Upload CSV/XLS/XLSX.
-3. Preview detected columns.
-4. Confirm import.
-5. Show report with imported/skipped/duplicates/errors.
-6. Export report if needed.
-
-### Weekly Schedule Page
-
-Layout:
-- Left: weeks 1-15 as dense lanes/cards.
-- Right: exercise pool/library search.
-- Each week shows deadline and assigned exercises.
-- Each assignment shows visible state, allow submit state, assessment badge, max submissions.
-
-Interactions:
-- Drag/drop or action menu to assign exercise to week.
-- Save week deadline.
-- Edit assignment settings.
-- Remove from week.
-
-### Instructor Exercise Manager
-
-Views:
-- My exercises
-- Library
-- Create/edit
-- Test cases
-
-Exercise form:
-- title
-- difficulty
-- tags
-- description
-- starter code
-- library flag if Admin
-
-### Submission Review
-
-Filters:
-- section
-- week
-- exercise
-- student
-- score range
-- attempt
-- assessment/anti-cheat status
-
-Detail:
-- source code
-- compile/run results
-- test result table
-- score and manual score
-- feedback
-- anti-cheat event table
-- plagiarism links
-
-### Ranking
-
-Course ranking table:
-- rank
-- student ID
-- student name
-- total score
-- completed assignments
-- last/earliest relevant submission time
-- per-assignment score columns when useful
-
-Behavior:
-- Filter by section.
-- Export CSV/XLSX.
-- Refresh after submissions.
-
-### Student Exercise List
-
-Group by:
-- section
-- week
-
-Columns:
-- title
-- topic tags
-- deadline
-- status
-- best score
-- attempts/max attempts
-- assessment badge
-
-### Student Workspace
-
-Panels:
-- Exercise statement
-- Visible test cases
-- Code editor
-- Local run output
-- Submit result
-- Anti-cheat warning badge when assessment
-
-Rules:
-- For assessment, fullscreen monitor wraps the workspace.
-- If local executor cannot connect, show setup instructions.
-- Submission button disabled when not allowed, overdue, max attempts reached, or session nullified.
-
-### Student History and Progress
-
-History:
-- Group by exercise.
-- Attempts sorted newest first.
-- Link to detail.
-
-Progress:
-- Section selector.
-- completed count
-- average score
-- rank
-- best scores
-- missing work
-
-## Key Workflows
-
-### OASIS-Style Weekly Assignment
-
-1. Instructor opens course section.
-2. Instructor opens weekly schedule.
-3. Instructor selects exercise from library or custom pool.
-4. Instructor assigns it to week.
-5. Instructor sets deadline, visible, allow_submit, max submissions, assessment flag.
-6. Student sees it under the matching week only when visible.
-7. Student submits only when allow_submit and other policies pass.
-8. Ranking uses the student's best score for that assignment.
-
-### Student Submission
-
-```mermaid
-sequenceDiagram
-    participant S as Student SPA
-    participant L as Local Executor
-    participant API as Backend
-    participant DB as Database
-
-    S->>API: GET exercise detail
-    API->>DB: Check enrollment + assignment visibility
-    API-->>S: Exercise + visible tests + policy
-    S->>L: compile_and_run visible tests
-    L-->>S: compile/runtime/test results
-    S->>API: POST submission
-    API->>DB: Check deadline, allow_submit, attempts
-    API->>DB: Store submission + result snapshot
-    API-->>S: Score and attempt
-```
-
-### Assessment Nullification
-
-```mermaid
-stateDiagram-v2
-    [*] --> RequestFullscreen
-    RequestFullscreen --> Blocked: denied
-    RequestFullscreen --> Working: granted
-    Working --> Warning: blur/hidden/fullscreen_exit
-    Warning --> Working: warnings < threshold
-    Warning --> Nullified: warnings >= threshold
-    Nullified --> ZeroSubmission
-    ZeroSubmission --> Locked
-```
-
-### Plagiarism Review
-
-1. Instructor selects section and exercise.
-2. Backend loads latest/best submissions.
-3. Service normalizes code and removes known starter code where possible.
-4. Similarity pairs are computed.
-5. Instructor sees suspicious pairs and opens side-by-side comparison.
-6. Instructor decides whether to adjust manual score or feedback.
-
-## Ranking Design
-
-For each assignment in a section:
-- Choose each student's highest score.
-- If manual_score exists and policy says manual overrides, use manual_score for ranking display/export.
-- Sum scores across assignments.
-- Completed count is number of assignments with best score > 0.
-- Tie break:
-  1. Higher total score.
-  2. More completed assignments.
-  3. Earlier timestamp for the submissions contributing to best scores.
-  4. Student external ID.
-
-## Validation Rules
-
-### Exercise
-
-- title required, max 200 chars
-- description required
-- difficulty one of easy/medium/hard
-- 1 to 5 OOP tags recommended
-- starter code optional
-
-### Assignment
-
-- section and exercise required
-- week 1 to configured default_week_count
-- max submissions 1 to 100
-- visible and allow_submit booleans
-- assessment boolean
-- deadline optional but recommended
-
-### Test Case
-
-- 1 to 50 per exercise
-- input max 10KB
-- expected output max 10KB
-- point value 1 to 100
-- time limit positive when set
-
-### Config
-
-- warning_threshold: 1 to 10
-- time_limit: 1 to 180
-- max_submissions: 1 to 100
-- default_week_count: 1 to 30, default 15
-
-## Security and Permissions
-
-1. JWT is required for all protected routes.
-2. Role guard protects Admin, Instructor, Student areas.
-3. Section access is checked by ownership/enrollment:
-   - Student must be enrolled.
-   - Instructor must be assigned.
-   - Admin can access all.
-4. Roster import must not expose generated passwords in logs.
-5. Credential files must never be committed.
-6. Source code submissions are visible only to the student owner, assigned instructor, and admin.
-7. Plagiarism reports are instructor/admin only.
-8. Anti-cheat logs are instructor/admin only, except student warning count shown during assessment.
-
-## Error Handling
-
-Standard response:
-
+1. **Course Section Centric:** Almost all endpoints and frontend views are parameterized by a `course_id`. Access control is validated against course enrollment/assignment.
+2. **Assignments vs. Exercises:** An `Exercise` is a reusable library entity. An `Assignment` binds an `Exercise` to a `Course Section` for a specific `Week`, setting a `deadline`, `visibility`, `submission permissions`, and `assessment mode`.
+3. **Local Code Execution:** Student code compiles and runs locally on their computer using the `Local Executor` WebSocket agent, protecting the backend server from compiling untrusted Java code. The final score evaluation is authoritative on the backend.
+4. **Immutable Runs:** Once submitted, a submission's code, attempt counter, score, and test outcomes are archived immutably.
+5. **Anti-Cheat Monitoring:** Enabled exclusively for assignments marked as `assessment`. A student’s warning events (fullscreen exits, tab shifts, window blurs) are written to the database. Reaching the warning threshold locks the assessment workspace and registers a 0-score attempt.
+
+---
+
+## 3. Database Schema Design (SQLite / Drizzle)
+
+The database schema utilizes standard SQLite fields mapped with Drizzle ORM.
+
+### 3.1 Users (`users`)
+Stores Admin, Instructor, and Student accounts.
+* `id`: `text` (UUID), primary key.
+* `username`: `text`, unique, indexed (used for logging in - Student Code or Instructor shortname).
+* `email`: `text`, unique.
+* `password_hash`: `text`.
+* `role`: `text` (enum: `'student'`, `'instructor'`, `'admin'`).
+* `full_name`: `text`.
+* `must_change_password`: `integer` (boolean, default 0).
+* `failed_login_attempts`: `integer` (default 0).
+* `locked_until`: `text` (ISO Timestamp, nullable).
+* `created_at`: `text` (ISO Timestamp).
+* `updated_at`: `text` (ISO Timestamp).
+
+### 3.2 Course Sections (`sections`)
+Course groups managed by instructors.
+* `id`: `text` (UUID), primary key.
+* `name`: `text` (e.g. `OOP Lớp INT2204 8`).
+* `semester`: `text` (e.g. `Học kỳ I năm học 2025-2026`).
+* `instructor_id`: `text`, foreign key to `users(id)`.
+* `created_at`: `text` (ISO Timestamp).
+
+### 3.3 Enrollments (`enrollments`)
+Enrollment records connecting students to sections.
+* `id`: `text` (UUID), primary key.
+* `section_id`: `text`, foreign key to `sections(id)`, indexed.
+* `student_id`: `text`, foreign key to `users(id)`, indexed.
+* `student_external_id`: `text` (MSSV code, e.g. `20021287`).
+* `enrolled_at`: `text` (ISO Timestamp).
+* *Unique constraint:* `(section_id, student_id)`.
+
+### 3.4 Exercises (`exercises`)
+Shared library or custom programming problems.
+* `id`: `text` (UUID), primary key.
+* `title`: `text`.
+* `description`: `text` (Markdown content).
+* `difficulty`: `text` (enum: `'easy'`, `'medium'`, `'hard'`).
+* `starter_code`: `text` (Java boilerplate).
+* `oop_tags`: `text` (JSON array of strings).
+* `is_library`: `integer` (boolean, default 0).
+* `created_by`: `text`, foreign key to `users(id)`.
+* `created_at`: `text` (ISO Timestamp).
+
+### 3.5 Test Cases (`test_cases`)
+Inputs and expectations associated with exercises.
+* `id`: `text` (UUID), primary key.
+* `exercise_id`: `text`, foreign key to `exercises(id)`, cascade delete.
+* `input_data`: `text`.
+* `expected_output`: `text`.
+* `is_visible`: `integer` (boolean, default 1).
+* `point_value`: `integer` (default 10).
+* `time_limit_ms`: `integer` (default 5000).
+
+### 3.6 Assignments (`assignments`)
+Links an exercise to a section for a specific week.
+* `id`: `text` (UUID), primary key.
+* `section_id`: `text`, foreign key to `sections(id)`, cascade delete.
+* `exercise_id`: `text`, foreign key to `exercises(id)`, cascade delete.
+* `week`: `integer` (1 to 15).
+* `deadline`: `text` (ISO Timestamp, nullable).
+* `is_visible`: `integer` (boolean, default 1).
+* `allow_submit`: `integer` (boolean, default 1).
+* `is_assessment`: `integer` (boolean, default 0).
+* `max_submissions`: `integer` (default 10).
+* *Unique constraint:* `(section_id, exercise_id)`.
+
+### 3.7 Submissions (`submissions`)
+Students' code submissions.
+* `id`: `text` (UUID), primary key.
+* `student_id`: `text`, foreign key to `users(id)`.
+* `exercise_id`: `text`, foreign key to `exercises(id)`.
+* `section_id`: `text`, foreign key to `sections(id)`.
+* `code`: `text`.
+* `score`: `real` (computed percentage, 0.0 to 100.0).
+* `manual_score`: `real` (instructor manual grade, nullable).
+* `feedback`: `text` (instructor feedback, nullable).
+* `has_se`: `integer` (boolean, Structure Error, default 0).
+* `has_pe`: `integer` (boolean, Presentation Error, default 0).
+* `has_ce`: `integer` (boolean, Compilation Error, default 0).
+* `attempt_number`: `integer`.
+* `submitted_at`: `text` (ISO Timestamp).
+
+### 3.8 Submission Results (`submission_results`)
+Snapshots of test case runs for historical tracking.
+* `id`: `text` (UUID), primary key.
+* `submission_id`: `text`, foreign key to `submissions(id)`, cascade delete.
+* `test_case_id`: `text`, foreign key to `test_cases(id)`.
+* `passed`: `integer` (boolean).
+* `actual_output`: `text` (nullable).
+* `status`: `text` (enum: `'passed'`, `'failed'`, `'timeout'`, `'error'`).
+* `execution_time_ms`: `integer`.
+
+### 3.9 Anti-Cheat Events (`anticheat_events`)
+Tracks exam violations during assessments.
+* `id`: `text` (UUID), primary key.
+* `student_id`: `text`, foreign key to `users(id)`, indexed.
+* `exercise_id`: `text`, foreign key to `exercises(id)`.
+* `section_id`: `text`, foreign key to `sections(id)`.
+* `event_type`: `text` (enum: `'fullscreen_exit'`, `'visibility_hidden'`, `'window_blur'`).
+* `warning_count_at_event`: `integer`.
+* `occurred_at`: `text` (ISO Timestamp).
+
+### 3.10 System Configurations (`system_config`)
+Global setup variables.
+* `key`: `text`, primary key.
+* `value`: `text`.
+*(Pre-seeded keys: `'warning_threshold'`, `'default_max_submissions'`)*
+
+---
+
+## 4. Backend REST API Contracts
+
+### 4.1 Authentication Endpoints
+* **`POST /api/auth/login`**
+  - Request: `{ "username": "20021287", "password": "..." }`
+  - Response: `{ "token": "JWT_TOKEN", "user": { "id": "...", "username": "20021287", "role": "student", "fullName": "Lê Hải Anh" } }`
+* **`POST /api/auth/change-password`**
+  - Request: `{ "oldPassword": "...", "newPassword": "..." }`
+  - Response: `{ "message": "Đổi mật khẩu thành công" }`
+
+### 4.2 Class Section Management (Admin / Instructor)
+* **`GET /api/admin/sections`**
+  - Response: `[{ "id": "...", "name": "OOP Lớp INT2204 8", "semester": "...", "instructorName": "Kiều Văn Tuyên" }]`
+* **`POST /api/admin/sections`**
+  - Request: `{ "name": "...", "semester": "...", "instructorId": "..." }`
+  - Response: Created section object.
+* **`POST /api/admin/sections/:id/import-students`**
+  - Request: `multipart/form-data` with roster sheet.
+  - Response: `{ "imported": 45, "skipped": 2, "details": ["Dòng 5: Trùng mã sinh viên", "Dòng 12: Thiếu email"] }`
+* **`GET /api/admin/sections/:id/export-students`**
+  - Response: Excel file attachment containing roster lists and attempt statistics.
+* **`POST /api/instructor/sections/:id/students`** (Add Student Custom)
+  - Request: `{ "studentId": "20021287", "fullName": "...", "email": "..." }`
+* **`DELETE /api/instructor/sections/:id/students/:studentId`** (Remove Student)
+
+### 4.3 Assignment & Week Scheduling
+* **`GET /api/instructor/sections/:id/assignments`**
+  - Response: Full 15-week list with assigned exercises, deadlines, visibility flags.
+* **`POST /api/instructor/sections/:id/assignments`** (Assign Exercise)
+  - Request: `{ "exerciseId": "...", "week": 3, "deadline": "...", "isAssessment": true }`
+* **`DELETE /api/instructor/sections/:id/assignments/:assignmentId`** (Unassign Exercise)
+* **`PATCH /api/instructor/sections/:id/assignments/:assignmentId`** (Update settings)
+  - Request: `{ "is_visible": true, "allow_submit": false, "max_submissions": 5 }`
+
+### 4.4 Submissions & Grading
+* **`GET /api/submissions`** (Instructor submissions log)
+  - Query parameters: `exercise_id`, `student_name`, `score_min`, `score_max`, `page`, `limit`.
+  - Response: `[{ "id": "...", "studentName": "...", "exerciseTitle": "...", "score": 85.0, "submittedAt": "..." }]`
+* **`GET /api/submissions/:id`** (Submission Review Detail)
+  - Response: Detailed object containing the submitted source code, test case evaluations, manual score adjustments, and any logged anti-cheat records.
+* **`PATCH /api/submissions/:id/grade`** (Instructor Manual Override)
+  - Request: `{ "feedback": "...", "score": 80.0, "hasSe": true, "hasPe": false, "hasCe": false }`
+* **`GET /api/submissions/:id/anticheat-log`**
+  - Response: List of anti-cheat logs logged during the submission window.
+
+---
+
+## 5. Local Code Executor Protocol (WebSocket)
+
+When students compile and run their Java files, the frontend establishes a connection to the local daemon:
+- **WebSocket URL:** `ws://localhost:9876`
+
+### 5.1 Compilation and Execution Request (Client to Executor)
 ```json
 {
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Human-readable message",
-    "details": []
-  }
+  "type": "compile_and_run",
+  "code": "public class Main {\n  public static void main(String[] args) {\n    System.out.println(\"Hello World\");\n  }\n}",
+  "testCases": [
+    { "id": "tc-1", "input": "", "expectedOutput": "Hello World" }
+  ],
+  "timeoutSeconds": 5
 }
 ```
 
-Important cases:
-- `UNAUTHENTICATED`: login required
-- `FORBIDDEN`: role/section access denied
-- `NOT_FOUND`: missing or inaccessible entity
-- `DEADLINE_PASSED`: submission rejected
-- `SUBMISSION_DISABLED`: allow_submit is false
-- `MAX_SUBMISSIONS_REACHED`: attempt limit reached
-- `ASSESSMENT_NULLIFIED`: score is zero due to anti-cheat
-- `LOCAL_EXECUTOR_UNAVAILABLE`: browser cannot connect to local agent
+### 5.2 Success Response (Executor to Client)
+```json
+{
+  "type": "result",
+  "compiled": true,
+  "testResults": [
+    {
+      "id": "tc-1",
+      "passed": true,
+      "status": "passed",
+      "actualOutput": "Hello World\n",
+      "executionTimeMs": 142
+    }
+  ]
+}
+```
 
-## Deployment Design
+### 5.3 Compilation Failure Response (Executor to Client)
+```json
+{
+  "type": "result",
+  "compiled": false,
+  "errors": [
+    {
+      "line": 3,
+      "message": "';' expected"
+    }
+  ]
+}
+```
 
-### GitHub Actions
+---
 
-Frontend workflow:
-- Trigger: push to `main` affecting `frontend/**`
-- Install dependencies
-- Build frontend
-- Upload GitHub Pages artifact
-- Deploy Pages
+## 6. Anti-Cheating Event Flow & Monitoring
 
-Backend workflow:
-- Trigger: push to `main` affecting `backend/**`
-- Install dependencies
-- Build backend
-- Run backend tests
-- Call Render deploy hook when `RENDER_DEPLOY_HOOK_URL` is configured
+```mermaid
+stateDiagram-v2
+    [*] --> WorkspaceLoaded
+    WorkspaceLoaded --> RequestFullscreen : Is assessment mode?
+    RequestFullscreen --> BlockedScreen : Denied or Escaped
+    RequestFullscreen --> MonitorActive : Fullscreen Entered
+    
+    MonitorActive --> WarningLogged : Event: window.onblur / visibilitychange / fullscreenchange
+    WarningLogged --> MonitorActive : Warning Count < Threshold
+    WarningLogged --> WorkspaceLocked : Warning Count >= Threshold
+    
+    WorkspaceLocked --> PostZeroScore : Locks Code Editor
+    PostZeroScore --> [*] : Locked (Score = 0)
+```
 
-### Environment Variables
-
-Backend:
-- database URL/token
-- JWT secret
-- CORS origin
-- optional storage credentials
-- Render deploy hook stored only in GitHub secrets
-
-Frontend:
-- API base URL
-- app base path for GitHub Pages
-
-### Deployment Constraints
-
-- Do not commit `.env`, credential files, student credential samples, or generated secrets.
-- Database migrations must be explicit and reviewed.
-- Frontend must support GitHub Pages base path.
-- Backend health endpoint must be available for deployment checks.
-
-## Testing Strategy
-
-Backend:
-- auth and role guard tests
-- section and roster import/export tests
-- schedule assignment tests
-- exercise/test case tests
-- submission scoring tests
-- deadline/max submission tests
-- anti-cheat nullification tests
-- leaderboard ordering tests
-- plagiarism service tests
-
-Frontend:
-- auth routing tests
-- schedule page interaction tests
-- workspace/local executor hook tests
-- anti-cheat monitor tests
-- submission/history/progress rendering tests
-- admin import/config form tests
-
-Manual smoke after deploy:
-1. Login as admin, instructor, student.
-2. Create or open a section.
-3. Import roster.
-4. Assign exercise to a week.
-5. Toggle visible/allow submit.
-6. Submit as student.
-7. Confirm instructor sees submission and ranking.
-8. Confirm assessment anti-cheat can record zero score.
-
+### Event Listeners (React hook: `useAntiCheat.ts`)
+- **Fullscreen exit:** Listens to `fullscreenchange`. If `document.fullscreenElement` is null, trigger a warning.
+- **Tab Switched:** Listens to `visibilitychange`. If `document.visibilityState === 'hidden'`, trigger a warning.
+- **Lost Focus:** Listens to window `blur` events. If the student selects another window, trigger a warning.
+- **Warning Threshold Handler:** Upon warning trigger, the count increments. When it equals `warning_threshold`, the front-end hits `POST /api/submissions/nullify` with the zero-score payload, locking the UI with an overlay message.

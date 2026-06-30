@@ -1,234 +1,171 @@
-# Requirements Document
+# Requirements Document: OOP Learning Platform (UET OASIS Parity)
 
-## Introduction
+## 1. Introduction
 
-The OOP Learning Platform is an OASIS-like system for supporting Java Object-Oriented Programming practice at UET-VNU. The core product is not a generic online judge or MOOC site. It must primarily reproduce the teaching workflows of the original UET OASIS site: course sections, weekly practical exercises, assignment visibility/submission controls, student submission attempts, course ranking, instructor review, and class progress tracking.
+The OOP Learning Platform is a web-based educational system designed for Java Object-Oriented Programming practice at UET-VNU. It is built as a modernized, high-performance parity of the university's original **OASIS** platform (oasis.uet.vnu.edu.vn). 
 
-The platform also adds one new requirement caused by modern AI-assisted coding: assessment sessions can require fullscreen monitoring and can run Java code on each student's own computer through a local executor. These extensions must not replace the OASIS-style course workflow; they sit inside it.
+The platform’s core goal is to faithfully reproduce all teaching workflows, administrative features, and student capabilities of the original UET OASIS platform while incorporating modern enhancements:
+1. **Local Java Code Execution:** Student code compiles and executes on their personal machines via a local WebSocket agent, reducing server compute costs to zero.
+2. **Anti-Cheating Enforcement:** Integrated fullscreen monitoring, tab switching, and focus detection with configurable thresholds and score nullification to ensure exam integrity.
+3. **Vietnamese Language Support:** All user-facing text, indicators, tooltips, and reports are fully localized in Vietnamese, matching the native experience.
+4. **Enhanced UI/UX:** A highly cohesive, premium tech layout utilizing UET-VNU brand colors (Navy blue `#003366` and orange `#f37021`) and optimized layout components.
 
-Public metadata and bundle strings from the original site identify it as "UET OASIS - OOP Assistant System" and "He thong ho tro giang day thuc hanh Lap trinh huong doi tuong". Public bundle strings also show OASIS concepts including course sections, ranking by course, weekly exercises, deadlines, max submit count, exercise visibility, submission permission, and exercise selection. These concepts are treated as product parity requirements.
+---
 
-## Product Scope
+## 2. Product Scope
 
 ### In Scope
+- **User Authentication & Role-Based Routing:** Full security controls for Admin, Instructor, and Student roles with appropriate workspace redirects.
+- **Roster & Class Section Management:** Student account importing, custom registration, search filters, and class list exports.
+- **15-Week Practical Schedule:** Weekly groupings of exercises, custom deadlines, and visibility/submission overrides.
+- **Pre-seeded Exercise Library:** 14 practical exercises covering all 7 core OOP topics from the UET syllabus (week 1 to week 12) with custom test case management.
+- **Submission Reviews & Manual Grading:** Detailed submission logs with search inputs, per-column filters, and manual error classification checkboxes (SE/PE/CE).
+- **Course-wide Rankings:** A grid-based leaderboard showing students' ranks, IDs, names, total scores, and week-by-week exercise completions.
+- **Plagiarism Checker:** Side-by-side similarity highlighting to investigate source code copying.
+- **Quota & Status Dashboard:** Quota usage warnings (Supabase, Render, Cloudflare R2) to stay within free-tier limits.
 
-- Role-based web application for Admin, Instructor, and Student.
-- UET/OASIS-style course section management.
-- Weekly OOP practice schedule, normally 15 weeks per course section.
-- Exercise library and custom exercise creation.
-- Java code editing, local execution, submission, scoring, and submission history.
-- Instructor review of submissions, source code, scores, attempts, and anti-cheat logs.
-- Course ranking/leaderboard similar to OASIS ranking views.
-- Import/export of class rosters.
-- Admin configuration for submission limits, deadlines/time limits, anti-cheat threshold, and course defaults.
-- Plagiarism/source-code similarity support for instructors.
-- GitHub Actions deployment workflow for frontend and backend.
+### Out of Scope
+- Generic multi-language online judging (restricted exclusively to Java OOP).
+- Direct server-side sandbox code compilation as the default (relies on student local agent).
+- Discussion forums, course slide readers, attendance check-ins, or video lessons.
 
-### Out of Scope Unless Explicitly Requested Later
+---
 
-- A public marketing landing page.
-- Discussion forums, chat, LMS content pages, quizzes unrelated to programming practice, payment, attendance check-in, video lessons, or social features.
-- Arbitrary multi-language online judging. Java OOP is the primary language.
-- Server-side execution of untrusted student code as the default mode.
+## 3. Detailed Functional Requirements
 
-## Roles
+### Requirement 1: User Authentication & Security Invariants
+1. **Roles:** The system must enforce roles for **Admin**, **Instructor**, and **Student** both in the React frontend routing and on the Node.js API endpoints.
+2. **Credentials:** Access is authenticated via Username/Code (Student code e.g. `20021287` or Instructor account name e.g. `tuyenkv`) and Password.
+3. **Lockout Policy:** If an account fails authentication 5 consecutive times, it is locked for 15 minutes.
+4. **Session Expiry:** A session is invalidated and redirected to the login screen after 30 minutes of inactivity.
+5. **Route Guards:** Attempting to access protected routes without a valid JWT token redirects the user to the login portal and preserves their original destination.
+6. **Password Change:** Users must be able to change their password, and Admin can enforce a "Must change password on first login" policy.
 
-### Admin
+### Requirement 2: Admin Class Section Management
+1. **Section Schema:** Admin can create course sections containing:
+   - Unique Course ID
+   - Class Name (e.g. `OOP Lớp INT2204 8`)
+   - Semester Label (e.g. `Học kỳ I năm học 2026-2027`)
+   - Assigned Instructor
+2. **Management Actions:** Admin can view, edit course names/semesters, assign/reassign instructors, archive, or delete course sections.
+3. ** Roster Overview:** Admin can view a detailed section page displaying the student roster, assigned exercise schedule, submission statistics, and a link to the leaderboard.
 
-Admin operates the platform for a semester: creates course sections, manages instructors and students, imports/export rosters, seeds/maintains the shared exercise library, sets global policies, and monitors service status.
+### Requirement 3: Roster Import, Export, and Student Accounts
+1. **Roster Import:** Admin can import class rosters from CSV, XLS, or XLSX files.
+   - Expected columns: Student Code (`student_id` / `MSSV`), Full Name (`full_name` / `ho_ten`), Email (`email`).
+   - The import parser must auto-detect header variations in Vietnamese or English.
+2. **Validation Rules:**
+   - Rows missing student ID or name are skipped.
+   - Malformed email formats are skipped and reported.
+   - Student IDs already enrolled in the section are flagged as duplicates and skipped.
+3. **Import Report:** The UI displays a detailed breakdown: successfully imported students count, skipped rows count, and reasons for each skip.
+4. **Roster Export:** Admin and Instructors can export the student list as an Excel/CSV file containing: student code, full name, email, enrollment date, total score, and ranking.
+5. **Roster Controls:** In the class roster list (`/#/manage-course?course=<course_id>`), the instructor can:
+   - **Search:** Filter students instantly using a text search bar.
+   - **Add Student:** Open a modal with inputs for Student Code, Full Name, and Email.
+   - **Edit Student:** Modify student name and email details in a modal.
+   - **Reset Password:** Clear the password to the default student code with a confirmation prompt.
+   - **Delete Student:** Remove enrollment from the section.
 
-### Instructor
+### Requirement 4: Weekly Course Schedule & Visibility
+1. **Week Groupings:** Assigned exercises are grouped under weekly dividers from `TUẦN 1` to `TUẦN 15` (matching the UET syllabus weeks).
+2. **Course detail page (`/#/course/<course_id>`):**
+   - Renders week headers showing deadlines (e.g. `Hạn nộp: 23:59 24/09/2026`).
+   - Lists assigned exercises with submission status badges.
+   - Displays a dropdown indicator showing the number of submissions made for each exercise.
+   - Features a checkmark icon to toggle exercise visibility for students.
+3. **Pick Problem / Assign Exercise Page (`/#/teacher/pickproblem/<course_id>`):**
+   - **Left Panel (Weeks config):** Lists weeks 1 to 15. Each week header has a selection checkbox, week name, deadline picker, and a save button to persist the week’s deadline. Under each week, assigned exercises are listed with a trash can icon to unassign.
+   - **Right Panel (Exercise Library):** Lists all available exercises from the shared library. Instructors click a green/red `+` icon button to assign an exercise to the selected week.
+   - **Header:** Features a `Quay về trang bài tập` navigation link returning to the course page.
 
-Instructor operates one or more assigned course sections: schedules weekly exercises, creates or reuses exercises, edits test cases, controls visibility and submission permission, reviews submissions, checks ranking, and investigates plagiarism/anti-cheat events.
+### Requirement 5: Exercise Library and Test Case Editor
+1. **Syllabus Coverage:** The system must pre-seed 14 exercises covering the UET OOP practical guide:
+   - *Week 2-3 (Classes & Objects):* Student Class Creation, Bank Account Operations.
+   - *Week 5 (Inheritance):* Shape Hierarchy, Employee Payroll.
+   - *Week 6 (Polymorphism):* Animal Sound, Payment Method.
+   - *Week 6 (Abstraction):* Vehicle Fleet, Database Connector.
+   - *Week 4 (Encapsulation):* Temperature Converter, Library Book.
+   - *Week 7 (Interfaces):* Sortable Interface, Multiple Interface.
+   - *Week 8 (Exceptions):* Custom Exception, File Exception.
+2. **Exercise Schema:** Each exercise requires: title (max 200 chars), description (max 5000 chars), difficulty (Easy, Medium, Hard), OOP topic tags, starter code template, and test cases.
+3. **Test Case Editor:** Instructors can configure up to 50 test cases per exercise:
+   - Input and expected output (supporting up to 10KB text each).
+   - Visibility flag (visible to students for testing or hidden for actual grading).
+   - Point value (positive integer, 1 to 100).
+   - Optional time limit in seconds.
+4. **Scoring Formula:**
+   $$\text{Score} = \left( \frac{\sum \text{passed test case point values}}{\sum \text{total test case point values}} \right) \times 100$$
+   Rounded to two decimal places.
+5. **Immutability Invariant:** Editing an exercise's test cases must not retroactively change the scores of past student submissions.
 
-### Student
+### Requirement 6: Student Workspace & Local Java Agent
+1. **Workspace Layout:**
+   - **Left Panel:** Tab selectors for **Mô tả** (problem statement, deadline, attempts, tags) and **Test case** (showing inputs and expected outputs of visible tests).
+   - **Center Panel:** Monaco Code Editor configured with the dark theme (`vs-dark`) and Java syntax highlighting.
+   - **Bottom Panel:** Local execution output log (showing terminal compilations and test failures).
+2. **Local Code Executor:** Runs code locally on the student's computer:
+   - Resolves connection via WebSocket to `ws://localhost:9876`.
+   - If disconnected, displays setup guide, troubleshooting steps, and JDK 17 installation download link.
+   - Compiles Java source and runs test cases. Returns standard outputs (`stdout`/`stderr`), compilation failures with line numbers, timeouts, or execution times.
+3. **Submit Logic:** Student clicks "Nộp bài" to upload their source code to the server. The submission is evaluated against all hidden and visible test cases.
+   - If overdue or attempts exceed the max threshold, the submission is rejected.
 
-Student joins assigned course sections, views weekly exercises, writes Java code, runs it locally, submits within limits, sees scores/history/progress/ranking, and follows assessment anti-cheat rules when enabled.
+### Requirement 7: Instructor Submission Review & Grading
+1. **Submissions Log (`/#/submissions`):**
+   - Displays a table showing: Submission ID, Student Name, Exercise, Time, Score, and Result Badge.
+   - Column filters: Features inline text search filters directly under column headers.
+   - Support pagination and course filter dropdowns.
+2. **Submissions Detail (`/#/submissions_detail/<submission_id>`):**
+   - **Left Panel:** Details card with student metadata, submission status, and score breakdown: **Điểm chức năng** (Functional score) and **Điểm code style** (Style score). Lists submitted file names.
+   - **Right Panel (Grading & Code Workspace):**
+     - Manual override panel: Checkboxes to flag standard errors: **Lỗi cấu trúc mã nguồn (SE)**, **Lỗi quy tắc lập trình (PE)**, and **Lỗi biên dịch (CE)**. Text area for instructor feedback.
+     - Information Tabs:
+       - `Mã nguồn`: Monaco Editor in read-only mode displaying the source code.
+       - `Yêu cầu chức năng`: Detailed point score for each test case.
+       - `Lỗi khác`: Standard error outputs or compilation stack traces.
+       - `Chi tiết test cases`: Terminal test reports.
 
-## Requirement 1: Authentication, Session, and Role Routing
+### Requirement 8: Plagiarism and Source Similarity
+1. **Similarity Comparison:** Instructors can trigger a plagiarism scan for a course section and exercise.
+2. **Analysis Report:** Compares code matches across all student submissions, producing a list of suspicious student pairs sorted by similarity percentage.
+3. **Side-by-Side Review:** Renders a side-by-side code diff viewer highlighting copied segments. It should ignore common starter templates.
 
-1. The platform shall authenticate users by username or student/instructor code and password.
-2. The platform shall support Admin, Instructor, and Student roles.
-3. After login, the platform shall redirect each role to its own default workspace:
-   - Student: assigned exercises or course dashboard.
-   - Instructor: assigned course sections or exercise management.
-   - Admin: course section management/dashboard.
-4. Unauthenticated users shall be redirected to login and then returned to the originally requested page after successful login.
-5. A user session inactive for more than 30 minutes shall expire.
-6. Five consecutive failed login attempts for the same account shall lock that account for 15 minutes.
-7. Users shall be able to change their password when required by Admin-created accounts.
-8. API endpoints shall enforce role checks on the server, not only in the frontend.
+### Requirement 9: Anti-Cheating Assessment Monitor
+1. **Assessment Mode:** Instructors can flag any assigned exercise as an "Assessment" (Exam).
+2. **Locking & Monitoring:**
+   - Starting the exam forces Fullscreen Mode via the Fullscreen API. Denial blocks the workspace.
+   - Listens for: Fullscreen exit, Visibility change (tab switches), and Window blur (leaves editor focus).
+   - Shows a persistent warning indicator "Warnings: X/T".
+   - Exceeding the threshold (Admin-configurable, default 3) locks the workspace with an overlay and automatically submits a 0-point score to the backend.
+3. **Event Logs:** All anti-cheat events (warning counts, types, times) are logged and displayed to instructors in the submission detail view.
 
-## Requirement 2: Admin Course Section Management
+### Requirement 10: Course Rankings & Leaderboards
+1. **Leaderboard View (`/#/ranking`):**
+   - Displays students ranked by total score (sum of highest scores per exercise) in descending order.
+   - Tie-breaker: Earliest completion timestamp, followed by alphanumeric Student ID.
+   - Table details: Rank, Student Name, Student ID, Total Score, Completed Exercises count.
+   - Renders exercise columns horizontally, allowing instructors to scan scores week-by-week.
 
-1. Admin shall create, edit, archive, and delete course sections.
-2. Each course section shall store at minimum: name, semester, instructor, created date, enrollment count, and active/archive status.
-3. Course sections shall support OASIS-style naming such as course code, group/class code, and semester label.
-4. Admin shall assign or change the instructor for a course section.
-5. Admin shall view a course section detail page containing roster, assigned exercises, weekly schedule, submission statistics, and ranking link.
-6. Deleting a course section shall either be blocked when submissions exist or require an explicit destructive confirmation and cascade plan.
-7. Instructor access shall be limited to assigned course sections unless Admin grants broader permissions.
+---
 
-## Requirement 3: Roster Import, Export, and Student Accounts
+## 4. UI Route and Navigation Mappings
 
-1. Admin shall import rosters from CSV, XLS, or XLSX files.
-2. Import shall accept columns equivalent to: student_id, full_name, email. It should also tolerate common Vietnamese roster variants when unambiguous, such as MSSV, ho_ten, ten, lop, email.
-3. Import shall create missing student accounts and enroll existing student accounts into the target section.
-4. Import shall produce a report with imported rows, skipped rows, duplicate rows, malformed rows, and reasons.
-5. Rows missing student_id or full_name shall be skipped.
-6. Malformed email shall be skipped unless Admin explicitly allows email generation or blank email policy.
-7. Duplicate student_id inside the file or already enrolled in the section shall be skipped and reported.
-8. Admin shall export a section roster as CSV/XLSX with student_id, full_name, email, enrollment_date, attempt summary, current score, and rank.
-9. Student default passwords shall be generated or imported according to Admin policy, and users may be forced to change password on first login.
+The platform must enforce the following exact route configurations for visual consistency:
 
-## Requirement 4: Course Week Schedule
-
-1. Each course section shall have a weekly schedule, defaulting to 15 weeks.
-2. Admin or Instructor shall assign exercises to a specific week.
-3. The schedule view shall show "TUAN n" style week groupings, exercise cards, deadlines, visibility state, and submission permission state.
-4. Admin or Instructor shall set a deadline per week and/or per assignment.
-5. Exercises not assigned to a week shall appear in an unscheduled pool.
-6. Moving an exercise between weeks shall preserve existing submissions and scores.
-7. Students shall see exercises grouped by week and course section.
-8. Past, current, and upcoming weeks shall be visually distinguishable.
-9. A week deadline change shall apply to assignments in that week unless a specific assignment overrides it.
-
-## Requirement 5: Exercise Library and OOP Coverage
-
-1. The platform shall provide an exercise library modeled on the provided "Thuc hanh OOP.pdf" practical content and OASIS-style reusable exercise selection.
-2. The library shall include exercises for: classes/objects, encapsulation, inheritance, polymorphism, abstraction, interfaces, exceptions, collections, file I/O where relevant, and common OOP modeling tasks.
-3. Each library exercise shall include: title, topic tags, difficulty, description, starter code, visible examples, hidden tests, and default point weights.
-4. Instructors shall browse, search, filter, and select library exercises for a section/week.
-5. Instructors shall clone a library exercise into their own editable copy without mutating the original.
-6. Admin shall manage the global library and mark exercises as active/inactive.
-7. The library shall support Vietnamese exercise text and Java code formatting.
-
-## Requirement 6: Instructor Exercise and Assignment Management
-
-1. Instructor shall create custom exercises with title, description, difficulty, OOP tags, starter code, and test cases.
-2. Title shall be required and limited to 200 characters.
-3. Description shall be required and support formatted text or Markdown suitable for code/problem statements.
-4. An exercise shall have 1 to 50 test cases before it can be assigned for scoring.
-5. Instructor shall assign an exercise to one or more assigned course sections.
-6. Each assignment shall store: section, exercise, week, deadline, max submit count, visible/hidden status, allow_submit status, assessment flag, and assigned date.
-7. Instructor shall be able to toggle "show exercise" independently from "allow students to submit".
-8. Instructor shall be able to update max submit count per assignment, overriding the system default.
-9. If show exercise is false, students shall not see the assignment.
-10. If allow_submit is false, students may view the assignment only when visible but cannot submit.
-11. Instructor shall preview the student view of an assignment.
-12. Editing exercise text/test cases shall not retroactively change already stored submission scores.
-
-## Requirement 7: Test Case Management and Scoring
-
-1. Instructor shall create visible and hidden test cases.
-2. Each test case shall contain input data, expected output, point value, visibility, and optional time limit.
-3. Input and expected output shall each support at least 10KB.
-4. Point value shall be a positive integer from 1 to 100.
-5. The platform shall calculate score as passed_points / total_points * 100, rounded to two decimals.
-6. Visible tests may be shown to students before submission.
-7. Hidden tests shall be used for scoring but not reveal expected output to students.
-8. Submission detail for instructors shall show all test results.
-9. Submission detail for students shall show only visible test results unless policy allows more.
-10. Test case execution results shall be stored per submission to preserve historical grading.
-
-## Requirement 8: Student Exercise Workspace and Local Java Execution
-
-1. Student shall open an assigned exercise from a course/week list.
-2. The workspace shall show problem statement, deadline, attempt count, max submissions, visible examples, and Java editor.
-3. The editor shall provide Java syntax highlighting and stable layout for long code.
-4. Student shall run code through a local executor on their own computer.
-5. Local executor shall compile Java using the student's installed JDK.
-6. Local executor shall run each visible test independently and return compile errors, runtime errors, timeout, actual output, pass/fail, and execution time.
-7. If the local executor is unavailable, the workspace shall clearly state that the local agent/JDK is required and provide setup instructions/download link.
-8. Student shall be able to submit only when assignment is visible, submission is allowed, deadline has not passed, and max submit count has not been exceeded.
-9. Student submission shall store source code, attempt number, timestamp, section, exercise, score, and test results.
-10. Student shall receive immediate score feedback after submission.
-
-## Requirement 9: Student Submission History, Progress, and Ranking
-
-1. Student shall view all submissions grouped by exercise and ordered by newest submission first.
-2. Student shall open a past submission and view submitted source code, attempt number, timestamp, score, and visible test results.
-3. Student shall view progress per course section: completed exercises, total assigned exercises, average score, best scores, and rank.
-4. Student shall view class ranking for sections they are enrolled in.
-5. Ranking shall show rank, student name, student ID, total score, completed count, and relevant timestamps.
-6. Empty states shall be shown when no exercises or submissions exist.
-
-## Requirement 10: Instructor Submission Review and Course Ranking
-
-1. Instructor shall view submissions filtered by section, exercise, student, week, score range, and time.
-2. Submission lists shall be sorted newest first by default.
-3. Instructor shall open a submission and view student identity, source code, attempt number, timestamp, score, per-test results, feedback, and anti-cheat log.
-4. Instructor shall manually add feedback.
-5. Instructor may set a manual score when policy allows; manual score shall be distinguishable from automatic score.
-6. Course ranking shall rank students by total score using each student's best score per assignment.
-7. Tie-breaking shall use earlier relevant completion/submission time, then student ID for deterministic order.
-8. Ranking shall update within 5 seconds of a new submission or after page refresh.
-9. Instructor shall export ranking/grade data as CSV/XLSX.
-10. Ranking pages shall support OASIS-style course ranking navigation from the course section list.
-
-## Requirement 11: Plagiarism and Source Similarity Review
-
-1. Instructor shall run source similarity checks for a section and exercise.
-2. The check shall compare submissions across students for the same assignment.
-3. The result shall list suspicious pairs/groups with similarity percentage and links to submissions.
-4. The result shall allow side-by-side source comparison.
-5. The similarity check shall ignore common starter code when possible.
-6. The feature shall not automatically change scores; it supports instructor investigation.
-7. Reports shall be preserved or reproducible for audit.
-
-## Requirement 12: Assessment Mode and Anti-Cheating
-
-1. Instructor shall mark an assignment as assessment mode.
-2. When a student starts an assessment assignment, the workspace shall request fullscreen.
-3. If fullscreen is denied, the assessment shall not start.
-4. While active, the monitor shall detect fullscreen exit, tab hidden, and window blur.
-5. Each violation shall be logged with event type, timestamp, warning count, student, exercise, and optional submission/session.
-6. The warning threshold shall be configurable by Admin, default 3, range 1 to 10.
-7. When warning count reaches threshold, the platform shall immediately lock the session and record a 0 score for that assessment.
-8. Instructor shall see anti-cheat events on submission detail.
-9. Anti-cheat shall be clearly labeled as a deterrence and audit tool, not a perfect proctoring system.
-
-## Requirement 13: Admin System Configuration
-
-1. Admin shall configure warning_threshold, default_time_limit, default_max_submissions, default_week_count, and default_deadline_policy.
-2. warning_threshold shall accept integers 1 to 10.
-3. default_time_limit shall accept 1 to 180 minutes or equivalent seconds for executor/test-case use.
-4. default_max_submissions shall accept 1 to 100.
-5. Invalid config values shall be rejected and previous values retained.
-6. Config changes shall apply to new sessions/assignments and shall not unexpectedly mutate historical submissions.
-7. Admin shall see quota/status warnings relevant to deployment services.
-
-## Requirement 14: UI, Navigation, and OASIS Visual Parity
-
-1. The UI shall use a restrained UET/OASIS visual language with UET branding, blue/white base colors, dense tables, and operational layouts.
-2. The authenticated layout shall provide role-specific navigation.
-3. Student navigation shall include course/exercises, submissions, progress, and ranking.
-4. Instructor navigation shall include course sections, weekly schedule, exercise management, submissions, ranking, and plagiarism/source check.
-5. Admin navigation shall include dashboard, sections, roster import/export, users, exercise library, config, and quota/status.
-6. Tables shall support search/filter/pagination where lists can exceed one screen.
-7. Loading states shall appear quickly and avoid blank pages.
-8. Error states shall include retry actions when useful.
-9. The UI shall support Vietnamese text throughout.
-10. The UI shall be responsive for laptop/desktop classroom use from 1024px to 2560px without horizontal page scrolling.
-
-## Requirement 15: Data Integrity, Audit, and Permissions
-
-1. All mutations shall store created/updated timestamps where relevant.
-2. Submissions, submission results, anti-cheat events, and historical scores shall be immutable except for explicit instructor/admin overrides recorded separately.
-3. A student shall access only their own submissions and sections.
-4. An instructor shall access only assigned sections and their related exercises/submissions unless Admin grants additional permission.
-5. Admin shall have platform-wide access.
-6. Destructive actions shall require confirmation.
-7. Import, export, scoring override, assignment visibility changes, and config updates should be auditable.
-
-## Requirement 16: Deployment and CI/CD
-
-1. Frontend shall be deployed as a static SPA to GitHub Pages under the oop-uet organization.
-2. Backend shall be deployed to the configured Render service or equivalent Node.js host.
-3. Persistent data shall use the configured managed database compatible with the existing Drizzle schema.
-4. File uploads/import artifacts shall use the configured storage backend when enabled.
-5. GitHub Actions shall build and deploy on push to main.
-6. Frontend and backend workflows shall run build/tests before deploy.
-7. Deployment shall use repository secrets and shall not commit credentials.
-8. The system shall remain usable for at least one class section of 80 students under normal practical-session load.
-
+| Role | Route URL | View / Screen | Key Components |
+|---|---|---|---|
+| All | `/olp/login` | Login Portal | Split-screen branding & input card |
+| All | `/#/dashboard` | Dashboard | Course section cards, semester tabs, rankings sidebar |
+| Inst / Stud | `/#/course/:id` | Course Detail | Weekly dividers, deadline info, visibility toggles |
+| Inst | `/#/teacher/pickproblem/:id` | Assign Exercise | Split layout: week deadline config vs. exercise library |
+| Inst | `/#/submissions` | Submissions Log | Dense table, inline column filters, pagination |
+| Inst | `/#/submissions_detail/:id` | SubReview | manual grade checks (SE/PE/CE), code tabs |
+| Inst / Stud | `/#/ranking` | Leaderboard | Grid ranking, week columns, Excel/CSV export |
+| Inst | `/#/plagiarism` | Plagiarism | Similarity matrix and diff compare views |
+| Stud | `/#/codingPage/:exerciseId/:slug/:runId` | Workspace | Description, Test Cases, Monaco vs-dark, Local run |
+| Stud | `/#/submissions` | My Submissions | Attempts log grouped by exercise |
+| Stud | `/#/submissions_detail/:id` | Submission Detail | Read-only code editor, test case results |
+| Admin | `/#/sections` | Admin Sections | Section CRUD lists, instructor dropdowns |
+| Admin | `/#/config` | System Config | Warning threshold inputs, defaults configurations |
+| Admin | `/#/quota` | Quota Status | Supabase/Render/R2 resource graphs |
