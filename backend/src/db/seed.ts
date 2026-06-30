@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { db } from "./index.js";
-import { users, systemConfig } from "./schema.js";
+import { users, systemConfig, classSections, sectionEnrollments, exercises, exerciseAssignments } from "./schema.js";
 import bcrypt from "bcrypt";
 import crypto from "node:crypto";
 
@@ -29,6 +29,80 @@ async function seed() {
     .onConflictDoNothing();
 
   console.log("✅ Default admin account created (username: admin)");
+
+  // ─── Seed UET Instructor (credentials.txt) ───────────────────────────────────
+
+  const instructorId = crypto.randomUUID();
+  const instructorPasswordHash = await bcrypt.hash("@Kvt0789369259", 12);
+
+  await db
+    .insert(users)
+    .values({
+      id: instructorId,
+      username: "tuyenkv",
+      email: "tuyenkv@uet.vnu.edu.vn",
+      fullName: "Nguyễn Văn Tuyên",
+      passwordHash: instructorPasswordHash,
+      role: "instructor",
+      failedLoginAttempts: 0,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+
+  console.log("✅ Instructor account created (username: tuyenkv)");
+
+  // ─── Seed UET Student (student_credential.text) ──────────────────────────────
+
+  const studentId = crypto.randomUUID();
+  const studentPasswordHash = await bcrypt.hash("20021287", 12);
+
+  await db
+    .insert(users)
+    .values({
+      id: studentId,
+      username: "20021287",
+      email: "20021287@vnu.edu.vn",
+      fullName: "Phạm Văn Minh",
+      passwordHash: studentPasswordHash,
+      role: "student",
+      failedLoginAttempts: 0,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+
+  console.log("✅ Student account created (username: 20021287)");
+
+  // ─── Seed Class Section ──────────────────────────────────────────────────────
+
+  const sectionId = crypto.randomUUID();
+  await db
+    .insert(classSections)
+    .values({
+      id: sectionId,
+      name: "OOP Lớp INT2204 8",
+      semester: "Học kỳ 1 2026-2027",
+      instructorId: instructorId,
+      createdAt: now,
+    })
+    .onConflictDoNothing();
+
+  console.log("✅ Class section created: OOP Lớp INT2204 8");
+
+  // Enroll Student
+  await db
+    .insert(sectionEnrollments)
+    .values({
+      id: crypto.randomUUID(),
+      sectionId: sectionId,
+      studentId: studentId,
+      studentExternalId: "20021287",
+      enrolledAt: now,
+    })
+    .onConflictDoNothing();
+
+  console.log("✅ Enrolled student 20021287 into class section");
 
   // ─── Seed system_config defaults ─────────────────────────────────────────────
 
@@ -61,9 +135,28 @@ async function seed() {
   }
 
   console.log("✅ System configuration defaults seeded");
-  console.log("   - warning_threshold: 3 (range 1-10)");
-  console.log("   - time_limit: 60 (range 1-180)");
-  console.log("   - max_submissions: 10 (range 1-100)");
+
+  // ─── Assign Exercises to Section ─────────────────────────────────────────────
+
+  const libraryExercises = await db.select().from(exercises);
+  if (libraryExercises.length > 0) {
+    for (const ex of libraryExercises) {
+      // Set some as assessments to showcase anti-cheat monitoring
+      const isAssessment = ex.title.includes("Creation") || ex.title.includes("Operations") ? 1 : 0;
+      await db
+        .insert(exerciseAssignments)
+        .values({
+          id: crypto.randomUUID(),
+          exerciseId: ex.id,
+          sectionId: sectionId,
+          isAssessment,
+          deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 days
+          assignedAt: now,
+        })
+        .onConflictDoNothing();
+    }
+    console.log(`✅ Assigned ${libraryExercises.length} exercises to class section`);
+  }
 
   console.log("\n🎉 Seeding complete!");
   process.exit(0);

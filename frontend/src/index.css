@@ -34,74 +34,74 @@
 @layer components {
   /* ─── Buttons ──────────────────────────────────────────────────────────── */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.98];
   }
   .btn-primary {
-    @apply btn bg-primary text-white shadow-sm hover:bg-primary-700 focus:ring-primary-300;
+    @apply btn bg-[#003366] text-white shadow-sm hover:bg-[#002146] focus:ring-[#003366]/50;
   }
   .btn-secondary {
-    @apply btn border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-gray-200;
+    @apply btn border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 focus:ring-gray-100;
   }
   .btn-success {
-    @apply btn bg-success-600 text-white shadow-sm hover:bg-success-700 focus:ring-success-500;
+    @apply btn bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 focus:ring-emerald-500/50;
   }
   .btn-danger {
-    @apply btn bg-danger-600 text-white shadow-sm hover:bg-danger-700 focus:ring-danger-500;
+    @apply btn bg-rose-600 text-white shadow-sm hover:bg-rose-700 focus:ring-rose-500/50;
   }
   .btn-ghost {
     @apply btn text-gray-600 hover:bg-gray-100 focus:ring-gray-200;
   }
   .btn-sm {
-    @apply px-3 py-1.5 text-xs;
+    @apply px-3.5 py-1.5 text-xs rounded-lg;
   }
   .btn-lg {
-    @apply px-6 py-2.5 text-base;
+    @apply px-6 py-3 text-base rounded-2xl;
   }
 
   /* ─── Cards ────────────────────────────────────────────────────────────── */
   .card {
-    @apply rounded-xl border border-gray-200 bg-white shadow-card;
+    @apply rounded-xl border border-slate-100 bg-white shadow-sm transition-all duration-200;
   }
   .card-hover {
-    @apply card transition-shadow hover:shadow-card-hover;
+    @apply card hover:shadow-md hover:translate-y-[-2px] hover:border-slate-200;
   }
 
   /* ─── Inputs ───────────────────────────────────────────────────────────── */
   .input {
-    @apply block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm transition-colors placeholder:text-gray-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500;
+    @apply block w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 shadow-sm transition-all placeholder:text-slate-400 focus:border-[#003366] focus:outline-none focus:ring-2 focus:ring-[#003366]/10 hover:border-slate-300;
   }
   .input-error {
-    @apply border-danger-500 focus:border-danger-500 focus:ring-danger-500;
+    @apply border-rose-400 focus:border-rose-500 focus:ring-rose-500/10;
   }
   .label {
-    @apply mb-1.5 block text-sm font-medium text-gray-700;
+    @apply mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-600;
   }
 
   /* ─── Badges ───────────────────────────────────────────────────────────── */
   .badge {
-    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+    @apply inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold tracking-wide uppercase;
   }
   .badge-blue {
-    @apply badge bg-primary-50 text-primary-700;
+    @apply badge bg-blue-50 text-blue-700 ring-1 ring-blue-700/10;
   }
   .badge-green {
-    @apply badge bg-success-100 text-success-700;
+    @apply badge bg-emerald-50 text-emerald-700 ring-1 ring-emerald-700/10;
   }
   .badge-yellow {
-    @apply badge bg-warning-100 text-warning-700;
+    @apply badge bg-amber-50 text-amber-700 ring-1 ring-amber-700/10;
   }
   .badge-red {
-    @apply badge bg-danger-100 text-danger-700;
+    @apply badge bg-rose-50 text-rose-700 ring-1 ring-rose-700/10;
   }
   .badge-gray {
-    @apply badge bg-gray-100 text-gray-600;
+    @apply badge bg-slate-50 text-slate-700 ring-1 ring-slate-700/10;
   }
 
   /* ─── Tables ───────────────────────────────────────────────────────────── */
   .table-th {
-    @apply px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500;
+    @apply px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-500 bg-slate-50 border-b border-slate-100;
   }
   .table-td {
-    @apply whitespace-nowrap px-5 py-3.5 text-sm text-gray-700;
+    @apply whitespace-nowrap px-6 py-4 text-sm text-slate-700 border-b border-slate-50;
   }
 }

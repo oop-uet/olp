@@ -329,11 +329,11 @@ export function ExerciseWorkspacePage() {
         {/* Center: Code editor + output */}
         <div className="flex flex-1 flex-col gap-4 min-w-0 overflow-hidden">
           {/* Monaco Editor */}
-          <div className="flex-1 rounded-xl border border-gray-200 overflow-hidden min-h-0">
+          <div className="flex-1 rounded-xl border border-slate-200 overflow-hidden min-h-0 shadow-sm">
             <Editor
               height="100%"
               language="java"
-              theme="vs-light"
+              theme="vs-dark"
               value={code}
               onChange={(value) => setCode(value || '')}
               options={{

@@ -99,23 +99,28 @@ export function TopNav() {
   }
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition-colors ${
-      isActive ? 'bg-white/20 text-white' : 'text-white/80 hover:bg-white/10 hover:text-white'
+    `flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 ${
+      isActive
+        ? 'bg-white/15 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] border border-white/20'
+        : 'text-white/85 hover:bg-white/5 hover:text-white border border-transparent'
     }`
 
   return (
-    <header className="bg-gradient-to-r from-teal-600 to-green-600 text-white shadow">
+    <header className="relative bg-[#003366] text-white shadow-md border-b border-white/10">
+      {/* Signature UET Orange Bottom Accent Bar */}
+      <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#003366] via-[#f37021] to-[#003366]"></div>
+      
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 lg:px-6">
         {/* Brand */}
         <NavLink to="/" className="flex shrink-0 items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-white">
+          <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-white ring-2 ring-white/20 shadow-sm">
             <LeafLogo className="h-9 w-9 object-cover" />
           </span>
-          <span className="text-lg font-bold tracking-wide">UET OASIS</span>
+          <span className="text-lg font-bold tracking-wide bg-gradient-to-r from-white to-gray-200 bg-clip-text text-transparent">UET OASIS</span>
         </NavLink>
 
         {/* Desktop menu */}
-        <nav className="hidden flex-1 items-center gap-1 lg:flex">
+        <nav className="hidden flex-1 items-center gap-2 lg:flex ml-8">
           {menuItems.map((item) => {
             const Icon = item.icon
             return (
@@ -138,22 +143,22 @@ export function TopNav() {
               aria-expanded={userMenuOpen}
             >
               <span className="hidden text-right sm:block">
-                <span className="block text-sm font-medium leading-tight text-white">
+                <span className="block text-sm font-semibold leading-tight text-white">
                   {displayName}
                 </span>
                 <span className="block text-xs leading-tight text-white/70">
                   {roleLabels[user.role]}
                 </span>
               </span>
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-sm font-semibold text-white ring-1 ring-white/40">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-sm font-semibold text-white ring-1 ring-white/40 shadow-inner">
                 {initial}
               </span>
             </button>
 
             {userMenuOpen && (
-              <div className="absolute right-0 z-50 mt-2 w-56 rounded-lg border border-gray-200 bg-white py-1 text-gray-700 shadow-lg">
-                <div className="border-b border-gray-100 px-4 py-3">
-                  <p className="text-sm font-medium text-gray-800">{displayName}</p>
+              <div className="absolute right-0 z-50 mt-2 w-56 rounded-xl border border-gray-100 bg-white py-1 text-gray-700 shadow-xl ring-1 ring-black/5 animate-fade-in">
+                <div className="border-b border-gray-100 px-4 py-3 bg-gray-50/50 rounded-t-xl">
+                  <p className="text-sm font-semibold text-gray-800">{displayName}</p>
                   <p className="text-xs text-gray-500">{user.email}</p>
                 </div>
                 <button
@@ -161,13 +166,13 @@ export function TopNav() {
                     setUserMenuOpen(false)
                     navigate('/change-password')
                   }}
-                  className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                  className="block w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   Đổi mật khẩu
                 </button>
                 <button
                   onClick={handleLogout}
-                  className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
                 >
                   <LogoutIcon className="h-4 w-4" />
                   Đăng xuất
@@ -191,7 +196,7 @@ export function TopNav() {
 
       {/* Mobile dropdown menu */}
       {mobileOpen && (
-        <nav className="border-t border-white/15 bg-teal-700/95 px-4 py-3 lg:hidden">
+        <nav className="border-t border-white/10 bg-[#002b56] px-4 py-3 lg:hidden shadow-inner">
           <ul className="space-y-1">
             {menuItems.map((item) => {
               const Icon = item.icon
@@ -203,8 +208,8 @@ export function TopNav() {
                     className={({ isActive }) =>
                       `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                         isActive
-                          ? 'bg-white/20 text-white'
-                          : 'text-white/80 hover:bg-white/10 hover:text-white'
+                          ? 'bg-white/10 text-white border border-white/15'
+                          : 'text-white/80 hover:bg-white/5 hover:text-white'
                       }`
                     }
                   >
