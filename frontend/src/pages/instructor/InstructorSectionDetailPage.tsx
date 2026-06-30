@@ -316,7 +316,7 @@ export function InstructorSectionDetailPage() {
       
       {/* Authentic UET Breadcrumb Navigation */}
       <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-[#fafafa] border-b border-slate-100 rounded flex gap-1.5 items-center">
-        <Link to="/instructor/classes" className="text-[#17a2b8] hover:underline">Trang chủ</Link>
+        <Link to="/instructor/classes" className="text-teal-600 hover:underline">Trang chủ</Link>
         <span>/</span>
         <span className="text-slate-400">Quản lý lớp học</span>
       </div>
@@ -325,12 +325,12 @@ export function InstructorSectionDetailPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold text-gray-800">{section.name}</h1>
-          <span className="bg-[#4f81bd] text-white text-xs px-2.5 py-0.5 rounded font-bold">{section.semester}</span>
+          <span className="badge-blue font-bold">{section.semester}</span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link
             to={`/instructor/course/${section.id}`}
-            className="btn bg-[#4f81bd] text-white hover:bg-[#3d6594] btn-sm inline-flex items-center gap-1.5"
+            className="btn-primary btn-sm inline-flex items-center gap-1.5"
           >
             {/* Book Icon */}
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -360,31 +360,29 @@ export function InstructorSectionDetailPage() {
       {/* Students Card - Styled exactly as UET OASIS green/teal banner */}
       <div className="card overflow-hidden">
         {/* Banner header */}
-        <div className="flex flex-wrap items-center justify-between bg-[#17a2b8] text-white px-5 py-3.5">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">☰</span>
-            <h2 className="font-bold text-sm tracking-wide uppercase">Danh Sách Sinh Viên ({students.length})</h2>
-            <span className="bg-[#4f81bd] text-white text-[11px] font-bold px-2 py-0.5 rounded ml-2">
-              {section.name}
-            </span>
-          </div>
+        <div className="panel-header">
+          <h2 className="panel-title uppercase">
+            <span>☰</span>
+            Danh Sách Sinh Viên ({students.length})
+            <span className="badge-blue ml-2 font-bold normal-case">{section.name}</span>
+          </h2>
           <div className="flex flex-wrap items-center gap-1.5 mt-2 sm:mt-0">
             <button
               onClick={() => setShowAddModal(true)}
-              className="bg-[#00868b] hover:bg-[#007075] text-white text-xs font-bold px-3 py-1.5 rounded transition-all active:scale-95"
+              className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all active:scale-95 shadow-sm"
             >
               Thêm Sinh Viên
             </button>
             <button
               onClick={triggerExcelImport}
               disabled={importing}
-              className="bg-[#00868b] hover:bg-[#007075] text-white text-xs font-bold px-3 py-1.5 rounded transition-all active:scale-95 disabled:opacity-50"
+              className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all active:scale-95 disabled:opacity-50 shadow-sm"
             >
               {importing ? 'Đang import...' : 'Import từ Excel'}
             </button>
             <button
               onClick={handleExportRoster}
-              className="bg-[#00868b] hover:bg-[#007075] text-white text-xs font-bold px-3 py-1.5 rounded transition-all active:scale-95"
+              className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all active:scale-95 shadow-sm"
             >
               Xuất ra Excel
             </button>
@@ -402,7 +400,7 @@ export function InstructorSectionDetailPage() {
                   setPageSize(Number(e.target.value))
                   setCurrentPage(1)
                 }}
-                className="border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#17a2b8]"
+                className="border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-teal-500"
               >
                 <option value={10}>10</option>
                 <option value={20}>20</option>
@@ -422,7 +420,7 @@ export function InstructorSectionDetailPage() {
                   setCurrentPage(1)
                 }}
                 placeholder="Tìm tên, mã sinh viên, email..."
-                className="border border-slate-200 rounded px-2.5 py-1.5 w-full sm:w-60 focus:outline-none focus:ring-1 focus:ring-[#17a2b8]"
+                className="border border-slate-200 rounded px-2.5 py-1.5 w-full sm:w-60 focus:outline-none focus:ring-1 focus:ring-teal-500"
               />
             </div>
           </div>
@@ -526,7 +524,7 @@ export function InstructorSectionDetailPage() {
                     onClick={() => setCurrentPage(i + 1)}
                     className={`px-2.5 py-1 border rounded font-bold ${
                       currentPage === i + 1
-                        ? 'bg-[#17a2b8] text-white border-[#17a2b8]'
+                        ? 'bg-teal-600 text-white border-teal-600'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                   >
@@ -551,9 +549,9 @@ export function InstructorSectionDetailPage() {
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-xl shadow-lg border border-slate-100 w-full max-w-md overflow-hidden animate-fade-in">
-            <div className="flex items-center justify-between bg-[#17a2b8] text-white px-5 py-3.5">
-              <h3 className="font-bold text-sm uppercase tracking-wide">Thêm Sinh Viên Thủ Công</h3>
-              <button onClick={() => setShowAddModal(false)} className="text-white hover:text-slate-200 font-bold text-sm">✕</button>
+            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-5 py-3.5 border-l-4 border-teal-600">
+              <h3 className="font-bold text-xs uppercase tracking-wide text-slate-700">Thêm Sinh Viên Thủ Công</h3>
+              <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600 font-bold text-sm">✕</button>
             </div>
             <form onSubmit={handleAddStudent} className="p-5 space-y-4">
               <div>
@@ -607,9 +605,9 @@ export function InstructorSectionDetailPage() {
       {showEditModal && editingStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-xl shadow-lg border border-slate-100 w-full max-w-md overflow-hidden animate-fade-in">
-            <div className="flex items-center justify-between bg-[#17a2b8] text-white px-5 py-3.5">
-              <h3 className="font-bold text-sm uppercase tracking-wide">Cập Nhật Thông Tin Sinh Viên</h3>
-              <button onClick={() => setShowEditModal(false)} className="text-white hover:text-slate-200 font-bold text-sm">✕</button>
+            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-5 py-3.5 border-l-4 border-teal-600">
+              <h3 className="font-bold text-xs uppercase tracking-wide text-slate-700">Cập Nhật Thông Tin Sinh Viên</h3>
+              <button onClick={() => setShowEditModal(false)} className="text-slate-400 hover:text-slate-600 font-bold text-sm">✕</button>
             </div>
             <form onSubmit={handleEditStudent} className="p-5 space-y-4">
               <div>
@@ -664,11 +662,11 @@ export function InstructorSectionDetailPage() {
             className="bg-white rounded-xl shadow-lg border border-slate-100 w-full max-w-md overflow-hidden animate-fade-in"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between bg-[#17a2b8] text-white px-5 py-3.5">
-              <h3 className="font-bold text-sm uppercase tracking-wide">
+            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-5 py-3.5 border-l-4 border-teal-600">
+              <h3 className="font-bold text-xs uppercase tracking-wide text-slate-700">
                 Tiến độ — {progressStudent.fullName || progressStudent.username} ({progressStudent.studentId})
               </h3>
-              <button onClick={closeProgress} className="text-white hover:text-slate-200 font-bold text-sm">✕</button>
+              <button onClick={closeProgress} className="text-slate-400 hover:text-slate-600 font-bold text-sm">✕</button>
             </div>
             <div className="p-5">
               {loadingProgress ? (
@@ -678,7 +676,7 @@ export function InstructorSectionDetailPage() {
               ) : progressData ? (
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div className="rounded-lg bg-gray-50 p-4">
-                    <p className="text-2xl font-bold text-[#17a2b8]">
+                    <p className="text-2xl font-bold text-teal-600">
                       {progressData.completedExercises}
                     </p>
                     <p className="mt-1 text-xs text-gray-500 font-semibold uppercase">Bài hoàn thành</p>

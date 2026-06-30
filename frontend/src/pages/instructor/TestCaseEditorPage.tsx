@@ -200,9 +200,9 @@ export function TestCaseEditorPage() {
       
       {/* Breadcrumb */}
       <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-[#fafafa] border-b border-slate-100 rounded flex gap-1.5 items-center">
-        <span className="text-[#17a2b8] cursor-default">Trang chủ</span>
+        <span className="text-teal-600 cursor-default">Trang chủ</span>
         <span>/</span>
-        <button onClick={() => navigate(`/instructor/exercises`)} className="text-[#17a2b8] hover:underline">Quản lý bài tập</button>
+        <button onClick={() => navigate(`/instructor/exercises`)} className="text-teal-600 hover:underline">Quản lý bài tập</button>
         <span>/</span>
         <span className="text-slate-400">Trình soạn bộ test</span>
       </div>
@@ -328,7 +328,7 @@ export function TestCaseEditorPage() {
                     onChange={(e) =>
                       setFormData((prev) => ({ ...prev, is_visible: e.target.checked }))
                     }
-                    className="rounded border-slate-300 text-teal-600 focus:ring-[#17a2b8] h-4.5 w-4.5"
+                    className="rounded border-slate-300 text-teal-600 focus:ring-teal-500 h-4.5 w-4.5"
                   />
                   Hiển thị bộ test cho sinh viên
                 </label>
@@ -368,11 +368,11 @@ export function TestCaseEditorPage() {
       ) : (
         <div className="card overflow-hidden border border-slate-100 shadow-sm">
           {/* Header banner */}
-          <div className="bg-[#17a2b8] text-white px-5 py-3.5 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">☰</span>
-              <h3 className="font-bold text-sm uppercase tracking-wide">Danh Sách Các Bộ Test Cases</h3>
-            </div>
+          <div className="panel-header">
+            <h3 className="panel-title">
+              <span>☰</span>
+              Danh Sách Các Bộ Test Cases
+            </h3>
           </div>
 
           <div className="overflow-x-auto">
@@ -433,7 +433,7 @@ export function TestCaseEditorPage() {
         <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 flex items-center justify-between text-xs font-bold text-slate-500 shadow-sm">
           <span>
             TỔNG ĐIỂM BỘ TEST:{' '}
-            <span className="text-[#17a2b8] text-sm">
+            <span className="text-teal-600 text-sm">
               {testCases.reduce((sum, tc) => sum + tc.point_value, 0)} điểm
             </span>
           </span>

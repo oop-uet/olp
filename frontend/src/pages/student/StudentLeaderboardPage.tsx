@@ -101,7 +101,7 @@ export function StudentLeaderboardPage() {
     <div className="space-y-6 animate-fade-in">
       {/* Breadcrumb */}
       <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-[#fafafa] border-b border-slate-100 rounded flex gap-1.5 items-center">
-        <span className="text-[#17a2b8] cursor-default">Trang chủ</span>
+        <span className="text-teal-600 cursor-default">Trang chủ</span>
         <span>/</span>
         <span className="text-slate-400">Bảng xếp hạng</span>
       </div>
@@ -141,9 +141,11 @@ export function StudentLeaderboardPage() {
       {!loadingBoard && entries.length > 0 && (
         <div className="card overflow-hidden border border-slate-100 shadow-sm">
           {/* Table Header Banner */}
-          <div className="bg-[#17a2b8] text-white px-5 py-3.5 flex items-center gap-2">
-            <span className="text-lg">🏆</span>
-            <h3 className="font-bold text-sm uppercase tracking-wide">Danh Sách Xếp Hạng Lớp</h3>
+          <div className="panel-header">
+            <h3 className="panel-title">
+              <span>🏆</span>
+              Danh Sách Xếp Hạng Lớp
+            </h3>
           </div>
 
           <div className="overflow-x-auto">
@@ -168,11 +170,11 @@ export function StudentLeaderboardPage() {
                       <td className="px-5 py-3 text-center font-bold">{getRankBadge(entry.rank)}</td>
                       <td className="px-5 py-3 font-semibold text-slate-800">
                         {entry.studentName}
-                        {mine && <span className="ml-2 bg-[#17a2b8]/10 text-[#17a2b8] text-[9px] font-extrabold rounded-full px-1.5 py-0.2">Bạn</span>}
+                        {mine && <span className="ml-2 bg-teal-50 text-teal-700 text-[9px] font-extrabold rounded-full px-1.5 py-0.2 ring-1 ring-teal-700/10">Bạn</span>}
                       </td>
                       <td className="px-5 py-3 font-medium text-slate-400">{entry.studentId}</td>
                       <td className="px-5 py-3 text-right">
-                        <span className={`font-bold text-sm text-[#17a2b8]`}>
+                        <span className="font-bold text-sm text-teal-600">
                           {entry.totalScore.toFixed(1)}
                         </span>
                       </td>
