@@ -45,9 +45,10 @@ interface PendingRequest {
   timeoutId: ReturnType<typeof setTimeout>
 }
 
-const WS_URL = 'ws://localhost:9876'
+const WS_URLS = ['ws://127.0.0.1:9876', 'ws://localhost:9876']
 const INITIAL_RECONNECT_DELAY = 1000
 const MAX_RECONNECT_DELAY = 30000
+const STATUS_TIMEOUT = 3000
 const REQUEST_TIMEOUT = 60000
 
 export function useLocalExecutor() {
@@ -58,12 +59,18 @@ export function useLocalExecutor() {
   const pendingRequestRef = useRef<PendingRequest | null>(null)
   const reconnectDelayRef = useRef(INITIAL_RECONNECT_DELAY)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const shouldReconnectRef = useRef(false)
+  const connectionAttemptRef = useRef(0)
 
   const cleanup = useCallback(() => {
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current)
       reconnectTimerRef.current = null
+    }
+    if (statusTimerRef.current) {
+      clearTimeout(statusTimerRef.current)
+      statusTimerRef.current = null
     }
     if (pendingRequestRef.current) {
       clearTimeout(pendingRequestRef.current.timeoutId)
@@ -104,91 +111,130 @@ export function useLocalExecutor() {
     cleanup()
     setStatus('connecting')
     setConnectionError(null)
+    connectionAttemptRef.current += 1
+    const attemptId = connectionAttemptRef.current
 
-    try {
-      const ws = new WebSocket(WS_URL)
-      wsRef.current = ws
+    const tryUrl = (urlIndex: number) => {
+      const url = WS_URLS[urlIndex]
+      let settled = false
 
-      ws.onopen = () => {
-        ws.send(JSON.stringify({ type: 'status' }))
-      }
+      const failAndTryNext = () => {
+        if (settled || attemptId !== connectionAttemptRef.current) return
+        settled = true
+        if (statusTimerRef.current) {
+          clearTimeout(statusTimerRef.current)
+          statusTimerRef.current = null
+        }
 
-      ws.onclose = () => {
-        wsRef.current = null
-        setStatus('disconnected')
-        scheduleReconnect()
-      }
+        if (wsRef.current) {
+          wsRef.current.onopen = null
+          wsRef.current.onclose = null
+          wsRef.current.onerror = null
+          wsRef.current.onmessage = null
+          wsRef.current.close()
+          wsRef.current = null
+        }
 
-      ws.onerror = () => {
+        if (urlIndex + 1 < WS_URLS.length) {
+          tryUrl(urlIndex + 1)
+          return
+        }
+
         setStatus('error')
         setConnectionError({
           message:
-            'Không thể kết nối tới Local Executor. Hãy đảm bảo executor JAR đang chạy ở cổng 9876.',
+            'Không thể kết nối tới Local Executor dù terminal đang chạy. Trình duyệt đã thử 127.0.0.1 và localhost ở cổng 9876.',
           setupInstructions:
-            'Tải và chạy Local Executor:\n1. Tải oop-local-executor-1.0.0.jar từ trang bài tập\n2. Cài JDK 17+ và kiểm tra bằng javac --version\n3. Chạy: java -jar oop-local-executor-1.0.0.jar\n4. Bấm thử kết nối lại',
+            '1. Giữ cửa sổ Local Executor đang mở\n2. Bấm "Thử kết nối lại"\n3. Nếu vẫn lỗi, tải lại bản Local Executor mới nhất và chạy lại\n4. Nếu trình duyệt hỏi quyền truy cập localhost, hãy cho phép',
         })
+        scheduleReconnect()
       }
 
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
+      try {
+        const ws = new WebSocket(url)
+        wsRef.current = ws
 
-          if (data.type === 'status') {
-            reconnectDelayRef.current = INITIAL_RECONNECT_DELAY
+        ws.onopen = () => {
+          ws.send(JSON.stringify({ type: 'status' }))
+          statusTimerRef.current = setTimeout(failAndTryNext, STATUS_TIMEOUT)
+        }
 
-            if (data.ready) {
-              setStatus('connected')
-              setConnectionError(null)
-            } else {
-              setStatus('error')
-              setConnectionError({
-                code: data.code,
-                message:
-                  data.message ||
-                  'Local Executor chưa sẵn sàng. Hãy kiểm tra JDK 17+ trên máy của bạn.',
-                setupInstructions: data.setupInstructions,
-              })
-            }
+        ws.onclose = () => {
+          if (!settled) {
+            failAndTryNext()
             return
           }
+          wsRef.current = null
+          setStatus('disconnected')
+          scheduleReconnect()
+        }
 
-          if (data.type === 'error') {
-            const err: ConnectionError = {
-              code: data.code,
-              message: data.message,
-              setupInstructions: data.setupInstructions,
+        ws.onerror = failAndTryNext
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
+
+            if (data.type === 'status') {
+              settled = true
+              if (statusTimerRef.current) {
+                clearTimeout(statusTimerRef.current)
+                statusTimerRef.current = null
+              }
+              reconnectDelayRef.current = INITIAL_RECONNECT_DELAY
+
+              if (data.ready) {
+                setStatus('connected')
+                setConnectionError(null)
+              } else {
+                setStatus('error')
+                setConnectionError({
+                  code: data.code,
+                  message:
+                    data.message ||
+                    'Local Executor chưa sẵn sàng. Hãy kiểm tra JDK 17+ trên máy của bạn.',
+                  setupInstructions: data.setupInstructions,
+                })
+              }
+              return
             }
-            setConnectionError(err)
 
-            if (pendingRequestRef.current) {
+            if (data.type === 'error') {
+              const err: ConnectionError = {
+                code: data.code,
+                message: data.message,
+                setupInstructions: data.setupInstructions,
+              }
+              setConnectionError(err)
+
+              if (pendingRequestRef.current) {
+                clearTimeout(pendingRequestRef.current.timeoutId)
+                pendingRequestRef.current.reject(new Error(data.message))
+                pendingRequestRef.current = null
+              }
+              return
+            }
+
+            if (data.type === 'result' && pendingRequestRef.current) {
               clearTimeout(pendingRequestRef.current.timeoutId)
-              pendingRequestRef.current.reject(new Error(data.message))
+              const result: ExecutionResult = {
+                compiled: data.compiled,
+                testResults: data.testResults,
+                errors: data.errors,
+              }
+              pendingRequestRef.current.resolve(result)
               pendingRequestRef.current = null
             }
-            return
+          } catch {
+            // Ignore malformed messages
           }
-
-          if (data.type === 'result' && pendingRequestRef.current) {
-            clearTimeout(pendingRequestRef.current.timeoutId)
-            const result: ExecutionResult = {
-              compiled: data.compiled,
-              testResults: data.testResults,
-              errors: data.errors,
-            }
-            pendingRequestRef.current.resolve(result)
-            pendingRequestRef.current = null
-          }
-        } catch {
-          // Ignore malformed messages
         }
+      } catch {
+        failAndTryNext()
       }
-    } catch {
-      setStatus('error')
-      setConnectionError({
-        message: 'Failed to create WebSocket connection',
-      })
-      scheduleReconnect()
     }
+
+    tryUrl(0)
   }, [cleanup, scheduleReconnect])
 
   const connect = useCallback(() => {

@@ -99,9 +99,44 @@ describe('useLocalExecutor', () => {
       MockWebSocket.instances[0].simulateError()
     })
 
+    expect(result.current.status).toBe('connecting')
+
+    act(() => {
+      MockWebSocket.instances[1].simulateError()
+    })
+
     expect(result.current.status).toBe('error')
     expect(result.current.connectionError).not.toBeNull()
     expect(result.current.connectionError?.setupInstructions).toBeDefined()
+  })
+
+  it('falls back to localhost when 127.0.0.1 cannot connect', () => {
+    const { result } = renderHook(() => useLocalExecutor())
+
+    act(() => {
+      result.current.connect()
+    })
+
+    expect(MockWebSocket.instances[0].url).toBe('ws://127.0.0.1:9876')
+
+    act(() => {
+      MockWebSocket.instances[0].simulateError()
+    })
+
+    expect(MockWebSocket.instances[1].url).toBe('ws://localhost:9876')
+
+    act(() => {
+      MockWebSocket.instances[1].simulateOpen()
+    })
+    act(() => {
+      MockWebSocket.instances[1].simulateMessage({
+        type: 'status',
+        ready: true,
+        jdkAvailable: true,
+      })
+    })
+
+    expect(result.current.status).toBe('connected')
   })
 
   it('keeps executor unavailable when status reports missing JDK', () => {

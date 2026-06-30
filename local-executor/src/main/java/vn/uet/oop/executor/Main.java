@@ -56,7 +56,7 @@ public class Main {
         ExecutorWebSocketServer server = new ExecutorWebSocketServer(port, jdkAvailable, jdkLocation);
         server.start();
 
-        System.out.println("Server started. Waiting for connections at ws://localhost:" + port);
+        System.out.println("Server started. Waiting for connections at ws://127.0.0.1:" + port);
         System.out.println("Press Ctrl+C to stop.");
 
         // Add shutdown hook for graceful shutdown

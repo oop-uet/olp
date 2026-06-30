@@ -5,7 +5,7 @@ A lightweight Java WebSocket server that compiles and runs student Java code loc
 ## System Requirements
 
 - **Java JDK 17** or higher installed and accessible via `JAVA_HOME` or system PATH
-- Port **9876** available on localhost (or specify a custom port)
+- Port **9876** available on local loopback `127.0.0.1` (or specify a custom port)
 - Supported operating systems: Windows 10+, macOS 12+, Linux (Ubuntu 20.04+)
 
 To verify your JDK installation:
@@ -41,7 +41,7 @@ Keep the opened terminal window running while doing the exercise.
 java -jar oop-local-executor-1.0.0.jar
 ```
 
-The server starts on `ws://localhost:9876`. Open the OOP Learning Platform in your browser. The exercise workspace only opens after the platform verifies that this executor is ready and a JDK is available.
+The server starts on `ws://127.0.0.1:9876`. Open the OOP Learning Platform in your browser. The exercise workspace only opens after the platform verifies that this executor is ready and a JDK is available.
 
 ### Option 3: Using repository startup scripts
 
@@ -214,7 +214,7 @@ If port 9876 is already in use:
 
 - Make sure the executor JAR is running before opening the platform
 - Verify the port matches what the platform expects (default: 9876)
-- Check that no firewall is blocking localhost connections
+- Check that no firewall is blocking local loopback connections
 
 ### Java version too old
 

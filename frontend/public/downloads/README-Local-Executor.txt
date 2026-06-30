@@ -13,5 +13,5 @@ Cach chay nhanh:
 Cach chay bang terminal:
 java -jar oop-local-executor-1.0.0.jar
 
-Khi thay dong "Server started. Waiting for connections at ws://localhost:9876",
+Khi thay dong "Server started. Waiting for connections at ws://127.0.0.1:9876",
 quay lai trang bai lam va bam "Thu ket noi lai".

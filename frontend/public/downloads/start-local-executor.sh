@@ -17,6 +17,6 @@ if ! command -v java >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "Dang khoi dong Local Executor tai ws://localhost:9876"
+echo "Dang khoi dong Local Executor tai ws://127.0.0.1:9876"
 echo "Giu terminal nay mo trong luc lam bai. Nhan Ctrl+C de dung."
 java -jar "$JAR_NAME"

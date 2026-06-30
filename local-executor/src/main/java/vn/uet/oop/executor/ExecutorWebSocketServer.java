@@ -16,7 +16,7 @@ import java.util.List;
 
 /**
  * WebSocket server that handles connections from the OOP Learning Platform browser client.
- * Listens on localhost:9876 and processes compile_and_run requests.
+ * Listens on 127.0.0.1:9876 and processes compile_and_run requests.
  * 
  * Message routing by "type" field:
  * - "status" -> reports whether the executor and JDK are ready
@@ -31,7 +31,7 @@ public class ExecutorWebSocketServer extends WebSocketServer {
     private final String jdkPath;
 
     public ExecutorWebSocketServer(int port, boolean jdkAvailable, String jdkPath) {
-        super(new InetSocketAddress("localhost", port));
+        super(new InetSocketAddress("127.0.0.1", port));
         this.jdkAvailable = jdkAvailable;
         this.jdkPath = jdkPath;
         // Set connection lost timeout

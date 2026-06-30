@@ -596,7 +596,7 @@ function ExecutorGate({
             java -jar oop-local-executor-1.0.0.jar
           </pre>
           <p className="mt-2 text-xs text-slate-500">
-            File JAR yêu cầu JDK 17+ và sẽ mở WebSocket tại ws://localhost:9876.
+            File JAR yêu cầu JDK 17+ và sẽ mở WebSocket tại ws://127.0.0.1:9876.
           </p>
         </div>
 

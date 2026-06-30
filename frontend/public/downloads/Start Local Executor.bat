@@ -26,7 +26,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo Dang khoi dong Local Executor tai ws://localhost:9876
+echo Dang khoi dong Local Executor tai ws://127.0.0.1:9876
 echo Giu cua so nay mo trong luc lam bai.
 echo Nhan Ctrl+C de dung.
 echo.
