@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { api } from '../../lib/api'
+import { cachedGet } from '../../lib/api'
 import { PageLoader, ExerciseIcon, LeaderboardIcon, CalendarIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 
@@ -65,8 +65,8 @@ export function StudentCourseDetailPage() {
     try {
       // Fetch sections list to find current section name
       const [sectionsRes, exercisesRes] = await Promise.all([
-        api.get('/api/students/sections'),
-        api.get('/api/students/exercises'),
+        cachedGet('/api/students/sections'),
+        cachedGet('/api/students/exercises'),
       ])
 
       const sections: SectionInfo[] = sectionsRes.data ?? []

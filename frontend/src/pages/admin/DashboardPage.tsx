@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { api } from '../../lib/api'
+import { cachedGet } from '../../lib/api'
 import {
   PageLoader,
   DashboardIcon,
@@ -48,7 +48,7 @@ export function DashboardPage() {
   const fetchStats = useCallback(async () => {
     setLoading(true)
     try {
-      const response = await api.get('/api/admin/stats')
+      const response = await cachedGet('/api/admin/stats', undefined, { ttlMs: 30_000 })
       setStats(response.data)
     } catch {
       toast.error('Không thể tải số liệu tổng quan. Vui lòng thử lại.')

@@ -1,6 +1,6 @@
 import { useState, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { api } from '../lib/api'
+import { api, cachedGet } from '../lib/api'
 import { useAuthStore } from '../stores/auth.store'
 import { useRedirectStore } from '../stores/redirect.store'
 import { getRoleDashboardPath } from '../router/AuthGuard'
@@ -30,6 +30,7 @@ export function LoginPage() {
 
       const intendedDestination = clearIntendedDestination()
       const redirectPath = intendedDestination || getRoleDashboardPath(user.role)
+      prefetchAfterLogin(user.role)
       navigate(redirectPath, { replace: true })
     } catch (err) {
       const axiosError = err as AxiosError
@@ -192,4 +193,29 @@ export function LoginPage() {
       </div>
     </div>
   )
+}
+
+function prefetchAfterLogin(role: 'student' | 'instructor' | 'admin') {
+  if (role === 'student') {
+    void Promise.all([
+      cachedGet('/api/students/sections'),
+      cachedGet('/api/students/exercises'),
+      import('./student/StudentCourseDetailPage'),
+    ]).catch(() => undefined)
+    return
+  }
+
+  if (role === 'instructor') {
+    void Promise.all([
+      cachedGet('/api/instructor/sections'),
+      cachedGet('/api/exercises', undefined, { ttlMs: 60_000 }),
+      import('./instructor/ExerciseManagerPage'),
+    ]).catch(() => undefined)
+    return
+  }
+
+  void Promise.all([
+    cachedGet('/api/admin/stats', undefined, { ttlMs: 30_000 }),
+    import('./admin/DashboardPage'),
+  ]).catch(() => undefined)
 }

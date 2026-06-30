@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { api } from '../../lib/api'
+import { cachedGet } from '../../lib/api'
 import { PageLoader, SectionIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 
@@ -31,7 +31,7 @@ export function InstructorSectionsPage() {
   async function fetchSections() {
     setLoading(true)
     try {
-      const response = await api.get('/api/instructor/sections')
+      const response = await cachedGet('/api/instructor/sections')
       setSections(response.data)
     } catch {
       toast.error('Không thể tải danh sách lớp. Vui lòng thử lại.')

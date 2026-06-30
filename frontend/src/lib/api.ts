@@ -1,4 +1,4 @@
-import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
+import axios, { AxiosError, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import { useAuthStore } from '../stores/auth.store'
 import { toast } from '../stores/toast.store'
 
@@ -10,6 +10,121 @@ export const api = axios.create({
     'Content-Type': 'application/json',
   },
 })
+
+const CACHE_PREFIX = 'oop-api-cache:v1:'
+const DEFAULT_CACHE_TTL_MS = 60_000
+const LONG_CACHE_TTL_MS = 5 * 60_000
+const inflightGetRequests = new Map<string, Promise<AxiosResponse>>()
+
+const LONG_CACHE_PATHS = [
+  '/api/students/sections',
+  '/api/students/exercises',
+  '/api/instructor/sections',
+  '/api/exercises/library',
+]
+
+function stableParams(params: unknown): string {
+  if (!params || typeof params !== 'object') return ''
+  return JSON.stringify(
+    Object.keys(params as Record<string, unknown>)
+      .sort()
+      .reduce<Record<string, unknown>>((acc, key) => {
+        acc[key] = (params as Record<string, unknown>)[key]
+        return acc
+      }, {})
+  )
+}
+
+function getCacheKey(url: string, config?: AxiosRequestConfig): string {
+  const userId = useAuthStore.getState().user?.id ?? 'anonymous'
+  return `${CACHE_PREFIX}${userId}:${url}:${stableParams(config?.params)}`
+}
+
+function getCacheTtl(url: string, ttlMs?: number): number {
+  if (typeof ttlMs === 'number') return ttlMs
+  return LONG_CACHE_PATHS.some((path) => url.startsWith(path))
+    ? LONG_CACHE_TTL_MS
+    : DEFAULT_CACHE_TTL_MS
+}
+
+function readCachedData<T>(key: string): T | null {
+  try {
+    const raw = sessionStorage.getItem(key)
+    if (!raw) return null
+    const cached = JSON.parse(raw) as { expiresAt: number; data: T }
+    if (Date.now() > cached.expiresAt) {
+      sessionStorage.removeItem(key)
+      return null
+    }
+    return cached.data
+  } catch {
+    sessionStorage.removeItem(key)
+    return null
+  }
+}
+
+function writeCachedData<T>(key: string, data: T, ttlMs: number) {
+  try {
+    sessionStorage.setItem(
+      key,
+      JSON.stringify({
+        expiresAt: Date.now() + ttlMs,
+        data,
+      })
+    )
+  } catch {
+    // Storage can be full or disabled; performance cache is best-effort.
+  }
+}
+
+export function clearApiCache() {
+  inflightGetRequests.clear()
+  try {
+    for (let i = sessionStorage.length - 1; i >= 0; i -= 1) {
+      const key = sessionStorage.key(i)
+      if (key?.startsWith(CACHE_PREFIX)) {
+        sessionStorage.removeItem(key)
+      }
+    }
+  } catch {
+    // Best-effort cache cleanup.
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function cachedGet<T = any>(
+  url: string,
+  config?: AxiosRequestConfig,
+  options: { ttlMs?: number; force?: boolean } = {}
+): Promise<AxiosResponse<T>> {
+  const key = getCacheKey(url, config)
+  const ttlMs = getCacheTtl(url, options.ttlMs)
+
+  if (!options.force) {
+    const cachedData = readCachedData<T>(key)
+    if (cachedData !== null) {
+      return {
+        data: cachedData,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: config ?? {},
+      } as AxiosResponse<T>
+    }
+
+    const inflight = inflightGetRequests.get(key) as Promise<AxiosResponse<T>> | undefined
+    if (inflight) return inflight
+  }
+
+  const request = api.get<T>(url, config).then((response) => {
+    writeCachedData(key, response.data, ttlMs)
+    return response
+  })
+
+  inflightGetRequests.set(key, request)
+  request.finally(() => inflightGetRequests.delete(key))
+  return request
+}
 
 // Request interceptor: attach Authorization header
 api.interceptors.request.use(
@@ -117,3 +232,11 @@ api.interceptors.response.use(
     }
   }
 )
+
+api.interceptors.response.use((response) => {
+  const method = response.config.method?.toLowerCase()
+  if (method && method !== 'get') {
+    clearApiCache()
+  }
+  return response
+})

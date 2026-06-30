@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api } from '../../lib/api'
+import { cachedGet } from '../../lib/api'
 import {
   PageLoader,
   ProgressIcon,
@@ -50,7 +50,7 @@ export function ProgressPage() {
   async function fetchSections() {
     try {
       setLoadingSections(true)
-      const response = await api.get('/api/students/sections')
+      const response = await cachedGet('/api/students/sections')
       const data: SectionOption[] = response.data ?? []
       setSections(data)
       if (data.length > 0) {
@@ -66,7 +66,7 @@ export function ProgressPage() {
   async function fetchProgress() {
     try {
       setLoadingProgress(true)
-      const response = await api.get('/api/students/progress')
+      const response = await cachedGet('/api/students/progress', undefined, { ttlMs: 30_000 })
       setProgress(response.data)
     } catch {
       toast.error('Không thể tải tiến độ. Vui lòng thử lại.')

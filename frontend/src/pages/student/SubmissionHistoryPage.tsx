@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api } from '../../lib/api'
+import { cachedGet } from '../../lib/api'
 import { PageLoader, SubmissionIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 
@@ -52,7 +52,7 @@ export function SubmissionHistoryPage() {
       // Fetch exercise titles to label each group (best-effort).
       const titleById = new Map<string, string>()
       try {
-        const exercisesRes = await api.get('/api/students/exercises')
+        const exercisesRes = await cachedGet('/api/students/exercises')
         const exercises: Array<{ id: string; title: string }> =
           exercisesRes.data.exercises ?? []
         for (const ex of exercises) {
@@ -62,7 +62,7 @@ export function SubmissionHistoryPage() {
         // If titles can't be loaded, fall back to a generic label below.
       }
 
-      const response = await api.get('/api/submissions')
+      const response = await cachedGet('/api/submissions', undefined, { ttlMs: 30_000 })
       const grouped: Record<string, Submission[]> = response.data.grouped ?? {}
 
       const result: ExerciseSubmissionGroup[] = Object.entries(grouped).map(

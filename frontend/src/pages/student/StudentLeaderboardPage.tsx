@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { api } from '../../lib/api'
+import { cachedGet } from '../../lib/api'
 import { PageLoader, LeaderboardIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { useAuthStore } from '../../stores/auth.store'
@@ -37,7 +37,7 @@ export function StudentLeaderboardPage() {
   async function fetchSections() {
     try {
       setLoadingSections(true)
-      const response = await api.get('/api/students/sections')
+      const response = await cachedGet('/api/students/sections')
       const data: SectionOption[] = response.data ?? []
       setSections(data)
       if (data.length > 0) {
@@ -53,7 +53,9 @@ export function StudentLeaderboardPage() {
   const fetchLeaderboard = useCallback(async (sectionId: string) => {
     try {
       setLoadingBoard(true)
-      const response = await api.get(`/api/sections/${sectionId}/leaderboard`)
+      const response = await cachedGet(`/api/sections/${sectionId}/leaderboard`, undefined, {
+        ttlMs: 30_000,
+      })
       // Endpoint may return either a bare array or { leaderboard: [...] }.
       const data: LeaderboardEntry[] = response.data.leaderboard ?? response.data ?? []
       setEntries(data)
