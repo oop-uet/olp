@@ -17,6 +17,7 @@ The platform’s core goal is to faithfully reproduce all teaching workflows, ad
 ### In Scope
 - **User Authentication & Role-Based Routing:** Full security controls for Admin, Instructor, and Student roles with appropriate workspace redirects.
 - **Roster & Class Section Management:** Student account importing, custom registration, search filters, and class list exports.
+- **Single-Section Student Enrollment:** A Student belongs to exactly one active class section at a time; only Admin/Instructor roles manage or switch between multiple sections.
 - **15-Week Practical Schedule:** Weekly groupings of exercises, custom deadlines, and visibility/submission overrides.
 - **Pre-seeded Exercise Library:** 14 practical exercises covering all 7 core OOP topics from the UET syllabus (week 1 to week 12) with custom test case management.
 - **Submission Reviews & Manual Grading:** Detailed submission logs with search inputs, per-column filters, and manual error classification checkboxes (SE/PE/CE).
@@ -58,6 +59,7 @@ The platform’s core goal is to faithfully reproduce all teaching workflows, ad
    - Rows missing student ID or name are skipped.
    - Malformed email formats are skipped and reported.
    - Student IDs already enrolled in the section are flagged as duplicates and skipped.
+   - Student IDs already enrolled in another active section are skipped and reported; the student must be removed/transferred before being imported into a different section.
 3. **Import Report:** The UI displays a detailed breakdown: successfully imported students count, skipped rows count, and reasons for each skip.
 4. **Roster Export:** Admin and Instructors can export the student list as an Excel/CSV file containing: student code, full name, email, enrollment date, total score, and ranking.
 5. **Roster Controls:** In the class roster list (`/#/manage-course?course=<course_id>`), the instructor can:

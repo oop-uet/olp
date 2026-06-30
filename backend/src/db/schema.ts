@@ -54,6 +54,7 @@ export const sectionEnrollments = sqliteTable(
       table.sectionId,
       table.studentId
     ),
+    studentIdx: uniqueIndex("enrollments_student_unique").on(table.studentId),
   })
 );
 

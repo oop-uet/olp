@@ -41,9 +41,10 @@ graph TB
 ### Architectural Rules
 1. **Course Section Centric:** Almost all endpoints and frontend views are parameterized by a `course_id`. Access control is validated against course enrollment/assignment.
 2. **Assignments vs. Exercises:** An `Exercise` is a reusable library entity. An `Assignment` binds an `Exercise` to a `Course Section` for a specific `Week`, setting a `deadline`, `visibility`, `submission permissions`, and `assessment mode`.
-3. **Local Code Execution:** Student code compiles and runs locally on their computer using the `Local Executor` WebSocket agent, protecting the backend server from compiling untrusted Java code. The final score evaluation is authoritative on the backend.
-4. **Immutable Runs:** Once submitted, a submission's code, attempt counter, score, and test outcomes are archived immutably.
-5. **Anti-Cheat Monitoring:** Enabled exclusively for assignments marked as `assessment`. A student’s warning events (fullscreen exits, tab shifts, window blurs) are written to the database. Reaching the warning threshold locks the assessment workspace and registers a 0-score attempt.
+3. **Single Student Section:** A Student account has exactly one active enrollment. Student pages resolve the current section from that enrollment and do not show section-switching controls.
+4. **Local Code Execution:** Student code compiles and runs locally on their computer using the `Local Executor` WebSocket agent, protecting the backend server from compiling untrusted Java code. The final score evaluation is authoritative on the backend.
+5. **Immutable Runs:** Once submitted, a submission's code, attempt counter, score, and test outcomes are archived immutably.
+6. **Anti-Cheat Monitoring:** Enabled exclusively for assignments marked as `assessment`. A student’s warning events (fullscreen exits, tab shifts, window blurs) are written to the database. Reaching the warning threshold locks the assessment workspace and registers a 0-score attempt.
 
 ---
 
@@ -81,6 +82,9 @@ Enrollment records connecting students to sections.
 * `student_external_id`: `text` (MSSV code, e.g. `20021287`).
 * `enrolled_at`: `text` (ISO Timestamp).
 * *Unique constraint:* `(section_id, student_id)`.
+* *Unique constraint:* `(student_id)` to enforce one active class section per student.
+
+Student transfer is modeled as removing or archiving the old enrollment before creating the new one. Roster import must reject a student who already has an enrollment in another active section.
 
 ### 3.4 Exercises (`exercises`)
 Shared library or custom programming problems.
@@ -179,7 +183,7 @@ Global setup variables.
   - Response: Created section object.
 * **`POST /api/admin/sections/:id/import-students`**
   - Request: `multipart/form-data` with roster sheet.
-  - Response: `{ "imported": 45, "skipped": 2, "details": ["Dòng 5: Trùng mã sinh viên", "Dòng 12: Thiếu email"] }`
+  - Response: `{ "imported": 45, "skipped": 2, "details": ["Dòng 5: Trùng mã sinh viên hoặc đã thuộc lớp khác", "Dòng 12: Thiếu email"] }`
 * **`GET /api/admin/sections/:id/export-students`**
   - Response: Excel file attachment containing roster lists and attempt statistics.
 * **`POST /api/instructor/sections/:id/students`** (Add Student Custom)

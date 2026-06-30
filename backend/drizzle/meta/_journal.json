@@ -8,6 +8,41 @@
       "when": 1717000000000,
       "tag": "0000_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1717000001000,
+      "tag": "0001_add_user_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1717000002000,
+      "tag": "0002_add_submission_feedback",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1717000003000,
+      "tag": "0003_add_assignment_week",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1717000004000,
+      "tag": "0004_single_student_section",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1717000005000,
+      "tag": "0005_add_assignment_visibility",
+      "breakpoints": true
     }
   ]
 }

@@ -253,6 +253,23 @@ describe("importStudents", () => {
     expect(report.skipped[0].reason).toContain("already enrolled");
   });
 
+  it("should skip students already enrolled in another section", async () => {
+    const db = getDb();
+    seedSection("section-2");
+    seedStudentWithEnrollment("section-2", "21020001", "user-existing-1", "existing@uet.vnu.edu.vn");
+
+    const rows = [
+      { student_id: "21020001", full_name: "Existing Student", email: "existing@uet.vnu.edu.vn" },
+      { student_id: "21020002", full_name: "New Student", email: "new2@uet.vnu.edu.vn" },
+    ];
+
+    const report = await importStudents("section-1", rows, db as any);
+
+    expect(report.imported).toBe(1);
+    expect(report.skipped).toHaveLength(1);
+    expect(report.skipped[0].reason).toContain("already enrolled in another section");
+  });
+
   it("should skip in-batch duplicate student_ids", async () => {
     const db = getDb();
     const rows = [

@@ -38,7 +38,6 @@ function getRankBadge(rank: number): string {
 
 export function ProgressPage() {
   const [sections, setSections] = useState<SectionOption[]>([])
-  const [selectedSectionId, setSelectedSectionId] = useState<string>('')
   const [progress, setProgress] = useState<ProgressData | null>(null)
   const [loadingSections, setLoadingSections] = useState(true)
   const [loadingProgress, setLoadingProgress] = useState(false)
@@ -48,13 +47,6 @@ export function ProgressPage() {
     fetchSections()
   }, [])
 
-  // Fetch progress whenever the selected section changes.
-  useEffect(() => {
-    if (selectedSectionId) {
-      fetchProgress(selectedSectionId)
-    }
-  }, [selectedSectionId])
-
   async function fetchSections() {
     try {
       setLoadingSections(true)
@@ -62,7 +54,7 @@ export function ProgressPage() {
       const data: SectionOption[] = response.data ?? []
       setSections(data)
       if (data.length > 0) {
-        setSelectedSectionId(data[0].id)
+        await fetchProgress()
       }
     } catch {
       toast.error('Không thể tải danh sách lớp học. Vui lòng thử lại.')
@@ -71,12 +63,10 @@ export function ProgressPage() {
     }
   }
 
-  async function fetchProgress(sectionId: string) {
+  async function fetchProgress() {
     try {
       setLoadingProgress(true)
-      const response = await api.get('/api/students/progress', {
-        params: { section_id: sectionId },
-      })
+      const response = await api.get('/api/students/progress')
       setProgress(response.data)
     } catch {
       toast.error('Không thể tải tiến độ. Vui lòng thử lại.')
@@ -111,6 +101,8 @@ export function ProgressPage() {
     )
   }
 
+  const currentSection = sections[0]
+
   return (
     <div className="space-y-6">
       {/* Page header */}
@@ -121,23 +113,16 @@ export function ProgressPage() {
         </p>
       </div>
 
-      {/* Section picker */}
-      <div className="flex items-center gap-3">
-        <label htmlFor="section-picker" className="label mb-0">
-          Lớp học:
-        </label>
-        <select
-          id="section-picker"
-          value={selectedSectionId}
-          onChange={(e) => setSelectedSectionId(e.target.value)}
-          className="input max-w-xs"
-        >
-          {sections.map((sec) => (
-            <option key={sec.id} value={sec.id}>
-              {sec.name} ({sec.semester})
-            </option>
-          ))}
-        </select>
+      {/* Student has exactly one course section. */}
+      <div className="card flex items-center justify-between gap-3 p-4">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+            Lớp học phần
+          </p>
+          <p className="mt-1 text-sm font-semibold text-gray-800">
+            {currentSection.name} ({currentSection.semester})
+          </p>
+        </div>
       </div>
 
       {loadingProgress || !progress ? (

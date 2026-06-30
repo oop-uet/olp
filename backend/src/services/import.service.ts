@@ -122,7 +122,8 @@ export function validateStudentImportRow(row: ImportRow): string | null {
  * - For each valid row, creates a user (if not already existing by email) and enrolls in the section.
  * - Default password: student_id (hashed with bcrypt 12 rounds)
  * - Username: student_id (external student ID)
- * - Skips: missing required fields, malformed emails, duplicates in target section
+ * - Skips: missing required fields, malformed emails, duplicates in target section,
+ *   students already enrolled in another section
  */
 export async function importStudents(
   sectionId: string,
@@ -147,6 +148,19 @@ export async function importStudents(
       .map((e) => e.studentExternalId)
       .filter((id): id is string => id !== null)
   );
+  const allEnrollments = await database.query.sectionEnrollments.findMany({
+    with: {
+      section: true,
+    },
+  });
+  const enrollmentByExternalId = new Map<string, any>();
+  const enrollmentByStudentId = new Map<string, any>();
+  for (const enrollment of allEnrollments) {
+    if (enrollment.studentExternalId) {
+      enrollmentByExternalId.set(enrollment.studentExternalId, enrollment);
+    }
+    enrollmentByStudentId.set(enrollment.studentId, enrollment);
+  }
 
   const report: ImportReport = {
     imported: 0,
@@ -196,6 +210,21 @@ export async function importStudents(
       where: eq(users.email, email),
     });
 
+    const existingEnrollment = user
+      ? enrollmentByStudentId.get(user.id)
+      : enrollmentByExternalId.get(studentId);
+
+    if (existingEnrollment && existingEnrollment.sectionId !== sectionId) {
+      const sectionName = existingEnrollment.section?.name
+        ? ` '${existingEnrollment.section.name}'`
+        : "";
+      report.skipped.push({
+        row: rowNumber,
+        reason: `Student ID '${studentId}' is already enrolled in another section${sectionName}`,
+      });
+      continue;
+    }
+
     if (!user) {
       // Create new user with student_id as username and default password
       const userId = crypto.randomUUID();
@@ -233,6 +262,16 @@ export async function importStudents(
 
     // Track that this student_id is now enrolled
     enrolledExternalIds.add(studentId);
+    enrollmentByExternalId.set(studentId, {
+      sectionId,
+      studentId: user.id,
+      studentExternalId: studentId,
+    });
+    enrollmentByStudentId.set(user.id, {
+      sectionId,
+      studentId: user.id,
+      studentExternalId: studentId,
+    });
     report.imported++;
   }
 

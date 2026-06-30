@@ -30,6 +30,7 @@ CREATE TABLE `section_enrollments` (
 );
 
 CREATE UNIQUE INDEX `enrollments_section_student_unique` ON `section_enrollments` (`section_id`, `student_id`);
+CREATE UNIQUE INDEX `enrollments_student_unique` ON `section_enrollments` (`student_id`);
 
 CREATE TABLE `exercises` (
   `id` text PRIMARY KEY NOT NULL,

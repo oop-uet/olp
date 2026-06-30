@@ -52,7 +52,8 @@ beforeAll(() => {
       student_id TEXT NOT NULL REFERENCES users(id),
       student_external_id TEXT,
       enrolled_at TEXT DEFAULT (datetime('now')),
-      UNIQUE(section_id, student_id)
+      UNIQUE(section_id, student_id),
+      UNIQUE(student_id)
     );
 
     CREATE TABLE IF NOT EXISTS exercises (
@@ -74,6 +75,7 @@ beforeAll(() => {
       section_id TEXT NOT NULL REFERENCES class_sections(id),
       deadline TEXT,
       is_assessment INTEGER DEFAULT 0,
+      is_visible INTEGER DEFAULT 1,
       week INTEGER,
       assigned_at TEXT DEFAULT (datetime('now'))
     );

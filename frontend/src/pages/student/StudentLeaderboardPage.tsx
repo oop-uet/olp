@@ -26,7 +26,6 @@ export function StudentLeaderboardPage() {
   const user = useAuthStore((state) => state.user)
   const [entries, setEntries] = useState<LeaderboardEntry[]>([])
   const [sections, setSections] = useState<SectionOption[]>([])
-  const [selectedSectionId, setSelectedSectionId] = useState<string>('')
   const [loadingSections, setLoadingSections] = useState(true)
   const [loadingBoard, setLoadingBoard] = useState(false)
 
@@ -35,15 +34,6 @@ export function StudentLeaderboardPage() {
     fetchSections()
   }, [])
 
-  // Fetch leaderboard whenever the selected section changes.
-  useEffect(() => {
-    if (selectedSectionId) {
-      fetchLeaderboard(selectedSectionId)
-    } else {
-      setEntries([])
-    }
-  }, [selectedSectionId])
-
   async function fetchSections() {
     try {
       setLoadingSections(true)
@@ -51,7 +41,7 @@ export function StudentLeaderboardPage() {
       const data: SectionOption[] = response.data ?? []
       setSections(data)
       if (data.length > 0) {
-        setSelectedSectionId(data[0].id)
+        await fetchLeaderboard(data[0].id)
       }
     } catch {
       toast.error('Không thể tải danh sách lớp học. Vui lòng thử lại.')
@@ -105,6 +95,8 @@ export function StudentLeaderboardPage() {
     )
   }
 
+  const currentSection = sections[0]
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Breadcrumb */}
@@ -124,23 +116,14 @@ export function StudentLeaderboardPage() {
         </div>
       </div>
 
-      {/* Section filter */}
-      <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm flex items-center gap-3">
-        <label htmlFor="section-filter" className="text-xs font-bold uppercase tracking-wider text-slate-600">
-          Lớp học phần:
-        </label>
-        <select
-          id="section-filter"
-          value={selectedSectionId}
-          onChange={(e) => setSelectedSectionId(e.target.value)}
-          className="input py-1.5 px-3 max-w-xs text-xs font-semibold"
-        >
-          {sections.map((sec) => (
-            <option key={sec.id} value={sec.id}>
-              {sec.name} ({sec.semester})
-            </option>
-          ))}
-        </select>
+      {/* Current course section */}
+      <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+          Lớp học phần
+        </p>
+        <p className="mt-1 text-sm font-bold text-slate-800">
+          {currentSection.name} ({currentSection.semester})
+        </p>
       </div>
 
       {/* Loading */}
