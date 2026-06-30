@@ -199,7 +199,7 @@ export function TestCaseEditorPage() {
     <div className="space-y-6 animate-fade-in">
       
       {/* Breadcrumb */}
-      <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-[#fafafa] border-b border-slate-100 rounded flex gap-1.5 items-center">
+      <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-slate-50 border-b border-slate-100 rounded flex gap-1.5 items-center">
         <span className="text-teal-600 cursor-default">Trang chủ</span>
         <span>/</span>
         <button onClick={() => navigate(`/instructor/exercises`)} className="text-teal-600 hover:underline">Quản lý bài tập</button>

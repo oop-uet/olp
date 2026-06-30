@@ -354,7 +354,7 @@ export function SubmissionReviewPage() {
       <div className="space-y-6 animate-fade-in">
         
         {/* Breadcrumb */}
-        <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-[#fafafa] border-b border-slate-100 rounded flex gap-1.5 items-center">
+        <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-slate-50 border-b border-slate-100 rounded flex gap-1.5 items-center">
           <button onClick={handleBackToList} className="text-teal-600 hover:underline">Bài nộp</button>
           <span>/</span>
           <span className="text-slate-400">Chi tiết bài làm</span>
@@ -544,7 +544,7 @@ export function SubmissionReviewPage() {
     <div className="space-y-6 animate-fade-in">
       
       {/* Breadcrumb */}
-      <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-[#fafafa] border-b border-slate-100 rounded flex gap-1.5 items-center">
+      <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-slate-50 border-b border-slate-100 rounded flex gap-1.5 items-center">
         <span className="text-teal-600 cursor-default">Trang chủ</span>
         <span>/</span>
         <span className="text-slate-400">Chấm bài</span>

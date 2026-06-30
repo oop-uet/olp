@@ -52,7 +52,7 @@ export function LoginPage() {
         
         {/* FIT UET Header Panel */}
         <div className="flex items-center gap-4 border-b border-slate-100 pb-5">
-          <div className="flex h-12 w-12 items-center justify-center bg-[#003366] text-white font-bold rounded-lg shrink-0">
+          <div className="flex h-12 w-12 items-center justify-center bg-primary text-white font-bold rounded-lg shrink-0">
             <span className="text-xs tracking-tighter">FIT UET</span>
           </div>
           <div>

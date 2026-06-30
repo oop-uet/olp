@@ -190,7 +190,7 @@ export function TopNav() {
 
       {/* Mobile dropdown menu */}
       {mobileOpen && (
-        <nav className="border-t border-white/10 bg-[#002b56] px-4 py-3 lg:hidden shadow-inner">
+        <nav className="border-t border-white/10 bg-primary-700 px-4 py-3 lg:hidden shadow-inner">
           <ul className="space-y-1">
             {menuItems.map((item) => {
               const Icon = item.icon

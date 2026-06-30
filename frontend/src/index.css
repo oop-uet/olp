@@ -80,7 +80,7 @@
 
   /* ─── Inputs ───────────────────────────────────────────────────────────── */
   .input {
-    @apply block w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 shadow-sm transition-all placeholder:text-slate-400 focus:border-[#003366] focus:outline-none focus:ring-2 focus:ring-[#003366]/10 hover:border-slate-300;
+    @apply block w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 shadow-sm transition-all placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10 hover:border-slate-300;
   }
   .input-error {
     @apply border-rose-400 focus:border-rose-500 focus:ring-rose-500/10;

@@ -315,7 +315,7 @@ export function InstructorSectionDetailPage() {
     <div className="space-y-6">
       
       {/* Authentic UET Breadcrumb Navigation */}
-      <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-[#fafafa] border-b border-slate-100 rounded flex gap-1.5 items-center">
+      <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-slate-50 border-b border-slate-100 rounded flex gap-1.5 items-center">
         <Link to="/instructor/classes" className="text-teal-600 hover:underline">Trang chủ</Link>
         <span>/</span>
         <span className="text-slate-400">Quản lý lớp học</span>
@@ -452,7 +452,7 @@ export function InstructorSectionDetailPage() {
                         <td className="px-4 py-2.5">
                           <button
                             onClick={() => handleViewProgress(student)}
-                            className="font-bold text-[#00bcd4] hover:underline hover:text-[#4f81bd]"
+                            className="font-bold text-primary hover:underline hover:text-primary/80"
                           >
                             {student.studentId}
                           </button>
@@ -460,7 +460,7 @@ export function InstructorSectionDetailPage() {
                         <td className="px-4 py-2.5">
                           <button
                             onClick={() => handleViewProgress(student)}
-                            className="font-semibold text-[#00bcd4] hover:underline hover:text-[#4f81bd]"
+                            className="font-semibold text-primary hover:underline hover:text-primary/80"
                           >
                             {student.fullName || student.username}
                           </button>
