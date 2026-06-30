@@ -53,16 +53,7 @@ const roleLabels: Record<string, string> = {
   admin: 'Quản trị',
 }
 
-/** Original leaf/sprout brand mark (not copied from any third party). */
-function LeafLogo({ className }: { className?: string }) {
-  return (
-    <img
-      src="/olp/uet-logo.jpg"
-      alt="UET Logo"
-      className={className}
-    />
-  )
-}
+
 
 /**
  * Top horizontal navigation bar emulating the UET OASIS visual language:
@@ -106,17 +97,20 @@ export function TopNav() {
     }`
 
   return (
-    <header className="relative bg-[#003366] text-white shadow-md border-b border-white/10">
-      {/* Signature UET Orange Bottom Accent Bar */}
-      <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#003366] via-[#f37021] to-[#003366]"></div>
-      
+    <header className="relative bg-[#4f81bd] text-white shadow-md border-b border-white/10">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 lg:px-6">
         {/* Brand */}
         <NavLink to="/" className="flex shrink-0 items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-white ring-2 ring-white/20 shadow-sm">
-            <LeafLogo className="h-9 w-9 object-cover" />
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#00a65a] shadow-sm">
+            <svg viewBox="0 0 100 100" className="h-6 w-6 text-white" stroke="currentColor" fill="none" strokeWidth="6">
+              <path d="M 48 80 Q 50 48 50 35" strokeWidth="8" />
+              <path d="M 50 35 Q 35 30 30 42" strokeWidth="6" />
+              <path d="M 50 35 Q 40 20 50 18" strokeWidth="6" />
+              <path d="M 50 35 Q 60 20 50 18" strokeWidth="6" />
+              <path d="M 50 35 Q 65 30 70 42" strokeWidth="6" />
+            </svg>
           </span>
-          <span className="text-lg font-bold tracking-wide bg-gradient-to-r from-white to-gray-200 bg-clip-text text-transparent">UET OASIS</span>
+          <span className="text-lg font-bold tracking-wide text-white">UET OASIS</span>
         </NavLink>
 
         {/* Desktop menu */}
