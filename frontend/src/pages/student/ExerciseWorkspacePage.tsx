@@ -553,6 +553,9 @@ function ExecutorGate({
   onRetry: () => void
 }) {
   const isConnecting = status === 'connecting'
+  const downloadBaseUrl = import.meta.env.BASE_URL
+  const executorJarUrl = `${downloadBaseUrl}downloads/oop-local-executor-1.0.0.jar`
+  const executorBundleUrl = `${downloadBaseUrl}downloads/oop-local-executor-1.0.0.zip`
 
   return (
     <div className="-m-6 flex min-h-[calc(100vh-8.25rem)] items-center justify-center bg-slate-100 p-6">
@@ -582,7 +585,13 @@ function ExecutorGate({
         </div>
 
         <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-          <p className="text-sm font-bold text-slate-800">Lệnh chạy trên Mac, Windows, Linux</p>
+          <p className="text-sm font-bold text-slate-800">Cách chạy nhanh</p>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            Tải bản ZIP, giải nén, rồi double-click file phù hợp với hệ điều hành:
+            <span className="font-semibold"> Start Local Executor.command</span> trên macOS,
+            <span className="font-semibold"> Start Local Executor.bat</span> trên Windows.
+          </p>
+          <p className="mt-4 text-sm font-bold text-slate-800">Lệnh chạy thủ công</p>
           <pre className="mt-2 overflow-x-auto rounded-md bg-slate-950 p-3 text-sm text-emerald-300">
             java -jar oop-local-executor-1.0.0.jar
           </pre>
@@ -604,11 +613,18 @@ function ExecutorGate({
 
         <div className="mt-5 flex flex-wrap items-center gap-3">
           <a
-            href="/downloads/oop-local-executor-1.0.0.jar"
+            href={executorBundleUrl}
+            className="btn-primary h-10 px-4 text-sm"
+            download
+          >
+            Tải bản chạy nhanh
+          </a>
+          <a
+            href={executorJarUrl}
             className="btn-secondary h-10 px-4 text-sm"
             download
           >
-            Tải Local Executor
+            Tải riêng file JAR
           </a>
           <button onClick={onRetry} className="btn-primary h-10 px-4 text-sm">
             {isConnecting ? 'Đang kiểm tra...' : 'Thử kết nối lại'}

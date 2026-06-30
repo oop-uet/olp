@@ -19,11 +19,23 @@ Both commands should report version 17 or higher.
 
 ## Download
 
-Download `oop-local-executor-1.0.0.jar` from the [Releases page](https://github.com/oop-uet/olp/releases/latest).
+Download `oop-local-executor-1.0.0.zip` from the exercise page for the easiest start. The ZIP contains the JAR and one-click startup scripts for macOS, Windows, and Linux.
+
+You can also download `oop-local-executor-1.0.0.jar` only if you prefer running it manually.
 
 ## Quick Start
 
-### Option 1: Direct JAR execution
+### Option 1: One-click startup bundle
+
+Extract `oop-local-executor-1.0.0.zip`, then run:
+
+- macOS: double-click `Start Local Executor.command`
+- Windows: double-click `Start Local Executor.bat`
+- Linux: run `./start-local-executor.sh`
+
+Keep the opened terminal window running while doing the exercise.
+
+### Option 2: Direct JAR execution
 
 ```bash
 java -jar oop-local-executor-1.0.0.jar
@@ -31,7 +43,7 @@ java -jar oop-local-executor-1.0.0.jar
 
 The server starts on `ws://localhost:9876`. Open the OOP Learning Platform in your browser. The exercise workspace only opens after the platform verifies that this executor is ready and a JDK is available.
 
-### Option 2: Using startup scripts
+### Option 3: Using repository startup scripts
 
 **Unix/macOS:**
 
