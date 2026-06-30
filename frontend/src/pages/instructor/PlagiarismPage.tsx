@@ -54,8 +54,6 @@ function formatPercent(similarity: number): string {
   return `${(similarity * 100).toFixed(1)}%`
 }
 
-// --- Component ---
-
 export function PlagiarismPage() {
   const [exercises, setExercises] = useState<ExerciseOption[]>([])
   const [sections, setSections] = useState<SectionOption[]>([])
@@ -163,27 +161,35 @@ export function PlagiarismPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
+      
+      {/* Breadcrumb */}
+      <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-[#fafafa] border-b border-slate-100 rounded flex gap-1.5 items-center">
+        <span className="text-[#17a2b8] cursor-default">Trang chủ</span>
+        <span>/</span>
+        <span className="text-slate-400">Kiểm tra mã nguồn</span>
+      </div>
+
       {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-800">Kiểm tra mã nguồn</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Phát hiện các bài nộp có mã nguồn giống nhau bất thường.
+      <div className="bg-white border border-slate-100 rounded-xl p-5 shadow-sm">
+        <h1 className="text-2xl font-bold text-slate-800 font-sans">Kiểm tra mã nguồn</h1>
+        <p className="mt-1 text-xs font-semibold text-slate-400">
+          Phát hiện các bài nộp có mức độ tương đồng mã nguồn bất thường (chống gian lận).
         </p>
       </div>
 
-      {/* Controls */}
-      <div className="card p-5">
+      {/* Controls Form */}
+      <div className="card p-5 bg-white border border-slate-100 shadow-sm space-y-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label htmlFor="exercise-select" className="label">
-              Bài tập
+            <label htmlFor="exercise-select" className="label text-slate-600">
+              Bài tập thực hành
             </label>
             <select
               id="exercise-select"
               value={selectedExerciseId}
               onChange={(e) => setSelectedExerciseId(e.target.value)}
-              className="input"
+              className="input py-2 px-3 text-xs font-semibold"
             >
               <option value="">-- Chọn bài tập --</option>
               {exercises.map((ex) => (
@@ -195,14 +201,14 @@ export function PlagiarismPage() {
           </div>
 
           <div>
-            <label htmlFor="section-select" className="label">
-              Lớp (tùy chọn)
+            <label htmlFor="section-select" className="label text-slate-600">
+              Lớp học phần (Tùy chọn)
             </label>
             <select
               id="section-select"
               value={selectedSectionId}
               onChange={(e) => setSelectedSectionId(e.target.value)}
-              className="input"
+              className="input py-2 px-3 text-xs font-semibold"
             >
               <option value="">Tất cả các lớp</option>
               {sections.map((s) => (
@@ -214,144 +220,168 @@ export function PlagiarismPage() {
           </div>
         </div>
 
-        <div className="mt-4 flex justify-end">
+        <div className="flex justify-end pt-2 border-t border-slate-50">
           <button
             onClick={handleCheck}
             disabled={checking || !selectedExerciseId}
-            className="btn-primary"
+            className="btn-primary px-4 py-2 text-xs font-bold"
           >
             {checking ? (
               <>
-                <Spinner /> Đang kiểm tra...
+                <Spinner /> Đang quét trùng lặp...
               </>
             ) : (
-              'Kiểm tra'
+              'Bắt đầu kiểm tra'
             )}
           </button>
         </div>
       </div>
 
-      {/* Results */}
-      {checking ? (
-        <PageLoader label="Đang phân tích các bài nộp..." />
-      ) : report ? (
-        <div className="space-y-4">
-          {/* Metadata */}
-          <div className="flex flex-wrap gap-3">
-            <div className="card flex-1 min-w-[200px] p-4">
-              <p className="text-xs text-gray-500">Số bài nộp đã so sánh</p>
-              <p className="mt-1 text-2xl font-bold text-gray-900">
-                {report.totalSubmissions}
-              </p>
+      {/* Checking Loader */}
+      {checking && (
+        <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-2">
+          <Spinner /> Đang phân tích mã nguồn hệ thống...
+        </div>
+      )}
+
+      {/* Results details */}
+      {!checking && report && (
+        <div className="space-y-6">
+          
+          {/* Metadata Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="card p-5 bg-white border border-slate-100 shadow-sm flex flex-col justify-between">
+              <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Số bài nộp đã so sánh</p>
+              <h2 className="text-3xl font-bold text-slate-800 mt-2">{report.totalSubmissions}</h2>
             </div>
-            <div className="card flex-1 min-w-[200px] p-4">
-              <p className="text-xs text-gray-500">Số cặp nghi vấn</p>
-              <p className="mt-1 text-2xl font-bold text-gray-900">
-                {report.pairs.length}
-              </p>
+            
+            <div className="card p-5 bg-white border border-slate-100 shadow-sm flex flex-col justify-between">
+              <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Số cặp trùng lặp nghi vấn</p>
+              <h2 className="text-3xl font-bold text-rose-600 mt-2">{report.pairs.length}</h2>
+            </div>
+
+            <div className="card p-5 bg-white border border-slate-100 shadow-sm flex flex-col justify-between">
+              <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Ngưỡng tương đồng (Threshold)</p>
+              <h2 className="text-3xl font-bold text-[#17a2b8] mt-2">{(report.threshold * 100).toFixed(0)}%</h2>
             </div>
           </div>
 
+          {/* List of Plagiarised Pairs */}
           {report.pairs.length === 0 ? (
-            <div className="card flex flex-col items-center justify-center p-12 text-center">
-              <SubmissionIcon className="mb-3 h-10 w-10 text-gray-300" />
-              <p className="text-gray-500">
-                Không phát hiện cặp bài nào giống nhau đáng kể.
+            <div className="card flex flex-col items-center justify-center p-12 text-center border border-slate-100 shadow-sm">
+              <SubmissionIcon className="mb-3 h-10 w-10 text-slate-300" />
+              <p className="text-slate-500 font-medium">
+                Không phát hiện cặp bài nào trùng lặp vượt ngưỡng quy định.
               </p>
             </div>
           ) : (
-            <div className="card overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="table-th">Sinh viên A</th>
-                    <th className="table-th">Sinh viên B</th>
-                    <th className="table-th">Mức độ giống nhau</th>
-                    <th className="table-th text-right">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {report.pairs.map((pair) => (
-                    <tr
-                      key={`${pair.submissionAId}-${pair.submissionBId}`}
-                      className="hover:bg-gray-50"
-                    >
-                      <td className="table-td font-medium text-gray-900">
-                        {pair.studentAName}
-                      </td>
-                      <td className="table-td font-medium text-gray-900">
-                        {pair.studentBName}
-                      </td>
-                      <td className="table-td">
-                        <span className={similarityBadgeClass(pair.similarity)}>
-                          {formatPercent(pair.similarity)}
-                        </span>
-                      </td>
-                      <td className="table-td text-right">
-                        <button
-                          onClick={() => handleViewComparison(pair)}
-                          className="btn-secondary btn-sm"
-                        >
-                          Xem
-                        </button>
-                      </td>
+            <div className="card overflow-hidden border border-slate-100 shadow-sm">
+              {/* Header banner */}
+              <div className="bg-[#17a2b8] text-white px-5 py-3.5 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">☰</span>
+                  <h3 className="font-bold text-sm uppercase tracking-wide">Danh sách các cặp bài nộp trùng nhau</h3>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-100">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-bold uppercase">
+                      <th className="px-5 py-3 text-left">Sinh viên A</th>
+                      <th className="px-5 py-3 text-left">Sinh viên B</th>
+                      <th className="px-5 py-3 text-center w-48">Mức độ tương đồng</th>
+                      <th className="px-5 py-3 text-right w-36">Thao tác</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs text-slate-700 bg-white">
+                    {report.pairs.map((pair) => (
+                      <tr
+                        key={`${pair.submissionAId}-${pair.submissionBId}`}
+                        className="hover:bg-slate-50/50 transition-colors"
+                      >
+                        <td className="px-5 py-3 font-semibold text-slate-800">
+                          {pair.studentAName} ({pair.studentAId})
+                        </td>
+                        <td className="px-5 py-3 font-semibold text-slate-800">
+                          {pair.studentBName} ({pair.studentBId})
+                        </td>
+                        <td className="px-5 py-3 text-center">
+                          <span className={similarityBadgeClass(pair.similarity)}>
+                            {formatPercent(pair.similarity)}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 text-right">
+                          <button
+                            onClick={() => handleViewComparison(pair)}
+                            className="btn-secondary btn-sm font-bold text-teal-600 hover:text-teal-700"
+                          >
+                            So sánh mã
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
-      ) : null}
+      )}
 
-      {/* Comparison modal */}
+      {/* Comparison Modal details */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="flex h-[85vh] w-full max-w-6xl flex-col rounded-lg bg-white shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="flex h-[85vh] w-full max-w-6xl flex-col rounded-xl bg-white shadow-xl overflow-hidden animate-fade-in border border-slate-100">
             {/* Modal header */}
-            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-              <h2 className="text-lg font-semibold text-gray-900">
+            <div className="flex items-center justify-between bg-[#17a2b8] text-white px-5 py-3.5">
+              <h2 className="font-bold text-sm uppercase tracking-wide flex items-center gap-2">
                 So sánh mã nguồn
                 {comparison && (
-                  <span className={`ml-3 ${similarityBadgeClass(comparison.pair.similarity)}`}>
-                    {formatPercent(comparison.pair.similarity)}
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${similarityBadgeClass(comparison.pair.similarity)}`}>
+                    Tương đồng: {formatPercent(comparison.pair.similarity)}
                   </span>
                 )}
               </h2>
               <button
                 onClick={closeModal}
-                className="text-gray-400 transition-colors hover:text-gray-600"
-                aria-label="Đóng"
+                className="text-white hover:text-slate-200 transition-colors"
+                aria-label="Đóng modal"
               >
                 <XCircleIcon className="h-6 w-6" />
               </button>
             </div>
 
             {/* Modal body */}
-            <div className="flex-1 overflow-hidden p-5">
+            <div className="flex-1 overflow-hidden p-5 bg-slate-50">
               {loadingModal ? (
-                <div className="flex h-full items-center justify-center">
+                <div className="flex h-full items-center justify-center gap-2 text-slate-400 text-sm font-semibold">
                   <Spinner />
-                  <span className="ml-2 text-sm text-gray-500">Đang tải mã nguồn...</span>
+                  <span>Đang phân tích và nạp mã nguồn...</span>
                 </div>
               ) : comparison ? (
-                <div className="grid h-full grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="flex h-full flex-col">
-                    <p className="mb-2 text-sm font-medium text-gray-700">
-                      {comparison.pair.studentAName}
+                <div className="grid h-full grid-cols-1 gap-4 md:grid-cols-2 overflow-hidden">
+                  
+                  {/* Student A code panel */}
+                  <div className="flex h-full flex-col overflow-hidden bg-white border border-slate-200 rounded-lg p-3">
+                    <p className="mb-2 text-xs font-bold text-slate-700 border-b border-slate-100 pb-2">
+                      Sinh viên A: <span className="text-[#17a2b8]">{comparison.pair.studentAName} ({comparison.pair.studentAId})</span>
                     </p>
-                    <pre className="flex-1 overflow-auto rounded-md bg-gray-900 p-4 text-xs leading-relaxed text-gray-100">
+                    <pre className="flex-1 overflow-auto rounded-lg bg-slate-900 p-4 text-[11px] font-mono leading-relaxed text-slate-200">
                       <code>{comparison.submissionA.code}</code>
                     </pre>
                   </div>
-                  <div className="flex h-full flex-col">
-                    <p className="mb-2 text-sm font-medium text-gray-700">
-                      {comparison.pair.studentBName}
+
+                  {/* Student B code panel */}
+                  <div className="flex h-full flex-col overflow-hidden bg-white border border-slate-200 rounded-lg p-3">
+                    <p className="mb-2 text-xs font-bold text-slate-700 border-b border-slate-100 pb-2">
+                      Sinh viên B: <span className="text-[#17a2b8]">{comparison.pair.studentBName} ({comparison.pair.studentBId})</span>
                     </p>
-                    <pre className="flex-1 overflow-auto rounded-md bg-gray-900 p-4 text-xs leading-relaxed text-gray-100">
+                    <pre className="flex-1 overflow-auto rounded-lg bg-slate-900 p-4 text-[11px] font-mono leading-relaxed text-slate-200">
                       <code>{comparison.submissionB.code}</code>
                     </pre>
                   </div>
+
                 </div>
               ) : null}
             </div>
