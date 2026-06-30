@@ -46,6 +46,7 @@ interface PendingRequest {
 }
 
 const WS_URLS = ['ws://127.0.0.1:9876', 'ws://localhost:9876']
+const HTTP_URLS = ['http://127.0.0.1:9877', 'http://localhost:9877']
 const INITIAL_RECONNECT_DELAY = 1000
 const MAX_RECONNECT_DELAY = 30000
 const STATUS_TIMEOUT = 3000
@@ -62,6 +63,7 @@ export function useLocalExecutor() {
   const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const shouldReconnectRef = useRef(false)
   const connectionAttemptRef = useRef(0)
+  const httpBaseUrlRef = useRef<string | null>(null)
 
   const cleanup = useCallback(() => {
     if (reconnectTimerRef.current) {
@@ -87,6 +89,49 @@ export function useLocalExecutor() {
     }
   }, [])
 
+  const tryHttpFallback = useCallback(async () => {
+    for (const baseUrl of HTTP_URLS) {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), STATUS_TIMEOUT)
+
+      try {
+        const response = await fetch(`${baseUrl}/status`, {
+          method: 'GET',
+          cache: 'no-store',
+          signal: controller.signal,
+        })
+        if (!response.ok) continue
+
+        const data = await response.json()
+        if (data.type !== 'status') continue
+
+        if (data.ready) {
+          httpBaseUrlRef.current = baseUrl
+          reconnectDelayRef.current = INITIAL_RECONNECT_DELAY
+          setStatus('connected')
+          setConnectionError(null)
+          return true
+        }
+
+        setStatus('error')
+        setConnectionError({
+          code: data.code,
+          message:
+            data.message ||
+            'Local Executor chưa sẵn sàng. Hãy kiểm tra JDK 17+ trên máy của bạn.',
+          setupInstructions: data.setupInstructions,
+        })
+        return true
+      } catch {
+        // Try next local endpoint.
+      } finally {
+        clearTimeout(timeoutId)
+      }
+    }
+
+    return false
+  }, [])
+
   const scheduleReconnect = useCallback(() => {
     if (!shouldReconnectRef.current) return
 
@@ -109,6 +154,7 @@ export function useLocalExecutor() {
     }
 
     cleanup()
+    httpBaseUrlRef.current = null
     setStatus('connecting')
     setConnectionError(null)
     connectionAttemptRef.current += 1
@@ -140,14 +186,17 @@ export function useLocalExecutor() {
           return
         }
 
-        setStatus('error')
-        setConnectionError({
-          message:
-            'Không thể kết nối tới Local Executor dù terminal đang chạy. Trình duyệt đã thử 127.0.0.1 và localhost ở cổng 9876.',
-          setupInstructions:
-            '1. Giữ cửa sổ Local Executor đang mở\n2. Bấm "Thử kết nối lại"\n3. Nếu vẫn lỗi, tải lại bản Local Executor mới nhất và chạy lại\n4. Nếu trình duyệt hỏi quyền truy cập localhost, hãy cho phép',
+        void tryHttpFallback().then((connected) => {
+          if (connected) return
+          setStatus('error')
+          setConnectionError({
+            message:
+              'Không thể kết nối tới Local Executor dù terminal đang chạy. Trình duyệt đã thử WebSocket 9876 và HTTP 9877 trên 127.0.0.1/localhost.',
+            setupInstructions:
+              '1. Tải lại bản Local Executor mới nhất\n2. Giữ cửa sổ Local Executor đang mở\n3. Kiểm tra terminal có dòng HTTP fallback available at http://127.0.0.1:9877/status\n4. Nếu dùng Safari và vẫn không có popup cho phép kết nối local, hãy dùng Edge/Chrome cho phiên làm bài',
+          })
+          scheduleReconnect()
         })
-        scheduleReconnect()
       }
 
       try {
@@ -235,7 +284,7 @@ export function useLocalExecutor() {
     }
 
     tryUrl(0)
-  }, [cleanup, scheduleReconnect])
+  }, [cleanup, scheduleReconnect, tryHttpFallback])
 
   const connect = useCallback(() => {
     shouldReconnectRef.current = true
@@ -254,7 +303,39 @@ export function useLocalExecutor() {
     (codeOrFiles: string | SourceFile[], testCases: TestCase[]): Promise<ExecutionResult> => {
       return new Promise((resolve, reject) => {
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-          reject(new Error('Not connected to Local Executor'))
+          if (!httpBaseUrlRef.current) {
+            reject(new Error('Not connected to Local Executor'))
+            return
+          }
+
+          const body = Array.isArray(codeOrFiles)
+            ? { files: codeOrFiles, testCases }
+            : { code: codeOrFiles, testCases }
+
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT)
+          fetch(`${httpBaseUrlRef.current}/compile-and-run`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+            signal: controller.signal,
+          })
+            .then(async (response) => {
+              const data = await response.json()
+              if (!response.ok || data.type === 'error') {
+                throw new Error(data.message || 'Local Executor returned an error')
+              }
+              return {
+                compiled: data.compiled,
+                testResults: data.testResults,
+                errors: data.errors,
+              } as ExecutionResult
+            })
+            .then(resolve)
+            .catch((error) => {
+              reject(error instanceof Error ? error : new Error('Execution failed'))
+            })
+            .finally(() => clearTimeout(timeoutId))
           return
         }
 

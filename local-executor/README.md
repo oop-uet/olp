@@ -41,7 +41,7 @@ Keep the opened terminal window running while doing the exercise.
 java -jar oop-local-executor-1.0.0.jar
 ```
 
-The server starts on `ws://127.0.0.1:9876`. Open the OOP Learning Platform in your browser. The exercise workspace only opens after the platform verifies that this executor is ready and a JDK is available.
+The server starts on `ws://127.0.0.1:9876` and also exposes an HTTP fallback at `http://127.0.0.1:9877/status`. Open the OOP Learning Platform in your browser. The exercise workspace only opens after the platform verifies that this executor is ready and a JDK is available.
 
 ### Option 3: Using repository startup scripts
 
@@ -215,6 +215,7 @@ If port 9876 is already in use:
 - Make sure the executor JAR is running before opening the platform
 - Verify the port matches what the platform expects (default: 9876)
 - Check that no firewall is blocking local loopback connections
+- Safari may block local app connections without showing a permission prompt. Edge/Chrome usually show a permission prompt for localhost/private network access; allow it when asked.
 
 ### Java version too old
 

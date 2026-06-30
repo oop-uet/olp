@@ -13,6 +13,7 @@ public class Main {
 
     public static final String VERSION = "1.0.0";
     public static final int DEFAULT_PORT = 9876;
+    public static final int DEFAULT_HTTP_PORT = 9877;
 
     public static void main(String[] args) {
         int port = DEFAULT_PORT;
@@ -55,14 +56,27 @@ public class Main {
 
         ExecutorWebSocketServer server = new ExecutorWebSocketServer(port, jdkAvailable, jdkLocation);
         server.start();
+        LocalHttpServer httpServer = null;
+        try {
+            httpServer = new LocalHttpServer(DEFAULT_HTTP_PORT, jdkAvailable, jdkLocation);
+            httpServer.start();
+        } catch (Exception e) {
+            System.err.println("WARNING: HTTP fallback server could not start on port " + DEFAULT_HTTP_PORT + ".");
+            System.err.println("Reason: " + e.getMessage());
+        }
 
         System.out.println("Server started. Waiting for connections at ws://127.0.0.1:" + port);
+        System.out.println("HTTP fallback available at http://127.0.0.1:" + DEFAULT_HTTP_PORT + "/status");
         System.out.println("Press Ctrl+C to stop.");
 
         // Add shutdown hook for graceful shutdown
+        LocalHttpServer finalHttpServer = httpServer;
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             System.out.println("\nShutting down server...");
             try {
+                if (finalHttpServer != null) {
+                    finalHttpServer.stop();
+                }
                 server.stop(1000);
                 System.out.println("Server stopped.");
             } catch (InterruptedException e) {

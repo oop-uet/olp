@@ -41,10 +41,18 @@ class MockWebSocket {
   }
 }
 
+async function flushAsyncUpdates() {
+  await act(async () => {
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+}
+
 describe('useLocalExecutor', () => {
   beforeEach(() => {
     MockWebSocket.instances = []
     vi.stubGlobal('WebSocket', MockWebSocket)
+    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('Local executor unavailable'))))
     vi.useFakeTimers()
   })
 
@@ -88,7 +96,7 @@ describe('useLocalExecutor', () => {
     expect(result.current.isConnected).toBe(true)
   })
 
-  it('transitions to error status on connection failure', () => {
+  it('transitions to error status on connection failure', async () => {
     const { result } = renderHook(() => useLocalExecutor())
 
     act(() => {
@@ -105,9 +113,41 @@ describe('useLocalExecutor', () => {
       MockWebSocket.instances[1].simulateError()
     })
 
+    await flushAsyncUpdates()
     expect(result.current.status).toBe('error')
     expect(result.current.connectionError).not.toBeNull()
     expect(result.current.connectionError?.setupInstructions).toBeDefined()
+  })
+
+  it('falls back to HTTP status when WebSocket is blocked', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        type: 'status',
+        ready: true,
+        jdkAvailable: true,
+        transport: 'http',
+      }),
+    } as Response)
+
+    const { result } = renderHook(() => useLocalExecutor())
+
+    act(() => {
+      result.current.connect()
+    })
+    act(() => {
+      MockWebSocket.instances[0].simulateError()
+    })
+    act(() => {
+      MockWebSocket.instances[1].simulateError()
+    })
+
+    await flushAsyncUpdates()
+    expect(result.current.status).toBe('connected')
+    expect(fetch).toHaveBeenCalledWith(
+      'http://127.0.0.1:9877/status',
+      expect.objectContaining({ method: 'GET', cache: 'no-store' })
+    )
   })
 
   it('falls back to localhost when 127.0.0.1 cannot connect', () => {

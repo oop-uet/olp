@@ -15,3 +15,6 @@ java -jar oop-local-executor-1.0.0.jar
 
 Khi thay dong "Server started. Waiting for connections at ws://127.0.0.1:9876",
 quay lai trang bai lam va bam "Thu ket noi lai".
+
+Neu trinh duyet chan WebSocket, ban moi co them dong HTTP fallback:
+http://127.0.0.1:9877/status

@@ -101,6 +101,12 @@ export function LocalExecutorStatusButton() {
             </p>
           )}
 
+          {connectionError?.setupInstructions && (
+            <pre className="mt-2 whitespace-pre-wrap rounded-md border border-amber-100 bg-amber-50 p-2 text-xs leading-5 text-amber-800">
+              {connectionError.setupInstructions}
+            </pre>
+          )}
+
           <pre className="mt-3 overflow-x-auto rounded-md bg-slate-950 p-3 text-xs text-emerald-300">
             java -jar oop-local-executor-1.0.0.jar
           </pre>
