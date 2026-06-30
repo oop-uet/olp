@@ -8,6 +8,7 @@ import {
   exerciseAssignments,
   systemConfig,
   sectionEnrollments,
+  anticheatEvents,
 } from "../db/schema.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -25,6 +26,7 @@ export interface CreateSubmissionInput {
   sectionId: string;
   code: string;
   testResults: TestResultInput[];
+  antiCheatNullified?: boolean;
 }
 
 export interface SubmissionFilters {
@@ -80,6 +82,38 @@ export function calculateScore(
   return Math.round(score * 100) / 100;
 }
 
+async function getWarningThreshold(database: Database): Promise<number> {
+  const warningThresholdConfig = await database.query.systemConfig.findFirst({
+    where: eq(systemConfig.key, "warning_threshold"),
+  });
+
+  const warningThreshold = warningThresholdConfig
+    ? parseInt(warningThresholdConfig.value, 10)
+    : 3;
+
+  return Number.isNaN(warningThreshold) ? 3 : warningThreshold;
+}
+
+async function hasExceededAntiCheatThreshold(
+  studentId: string,
+  exerciseId: string,
+  database: Database
+): Promise<boolean> {
+  const warningThreshold = await getWarningThreshold(database);
+  const rows = await database
+    .select({ count: count() })
+    .from(anticheatEvents)
+    .where(
+      and(
+        eq(anticheatEvents.studentId, studentId),
+        eq(anticheatEvents.exerciseId, exerciseId)
+      )
+    );
+
+  const warningCount = rows[0]?.count ?? 0;
+  return warningCount >= warningThreshold;
+}
+
 // ─── Database type ───────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -105,7 +139,7 @@ export async function createSubmission(
   input: CreateSubmissionInput,
   database: Database = defaultDb
 ): Promise<SubmissionError | Record<string, unknown>> {
-  const { studentId, exerciseId, sectionId, code, testResults } = input;
+  const { studentId, exerciseId, sectionId, code, testResults, antiCheatNullified } = input;
 
   // 1. Verify exercise assignment exists for exercise+section
   const assignment = await database.query.exerciseAssignments.findFirst({
@@ -181,7 +215,10 @@ export async function createSubmission(
     pointValue: tc.pointValue,
   }));
 
-  const score = calculateScore(testCaseRecords, testResults);
+  const isAntiCheatZero =
+    assignment.isAssessment === 1 &&
+    (antiCheatNullified || (await hasExceededAntiCheatThreshold(studentId, exerciseId, database)));
+  const score = isAntiCheatZero ? 0 : calculateScore(testCaseRecords, testResults);
 
   // 5. Store submission with score
   const attemptNumber = currentCount + 1;
@@ -197,6 +234,9 @@ export async function createSubmission(
       sectionId,
       code,
       score,
+      feedback: isAntiCheatZero
+        ? "Điểm bị hủy do vượt quá ngưỡng cảnh báo chống gian lận."
+        : null,
       attemptNumber,
       submittedAt,
     });
@@ -234,6 +274,9 @@ export async function createSubmission(
     sectionId,
     code,
     score,
+    feedback: isAntiCheatZero
+      ? "Điểm bị hủy do vượt quá ngưỡng cảnh báo chống gian lận."
+      : null,
     attemptNumber,
     submittedAt,
     results: resultRecords.map((r) => ({

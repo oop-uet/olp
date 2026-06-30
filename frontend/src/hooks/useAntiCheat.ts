@@ -61,11 +61,10 @@ export function useAntiCheat({
     async (type: AntiCheatEventType, currentWarningCount: number) => {
       try {
         await api.post('/api/anticheat/events', {
-          exerciseId,
-          submissionId,
-          eventType: type,
-          warningCountAtEvent: currentWarningCount,
-          occurredAt: new Date().toISOString(),
+          exercise_id: exerciseId,
+          submission_id: submissionId,
+          event_type: type,
+          warning_count: currentWarningCount,
         })
       } catch {
         // Silently fail — don't disrupt assessment if backend is unreachable

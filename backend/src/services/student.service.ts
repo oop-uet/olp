@@ -60,6 +60,7 @@ export interface StudentExerciseDetail {
   sectionName: string;
   deadline: string | null;
   isAssessment: boolean;
+  warningThreshold: number;
   attemptCount: number;
   maxSubmissions: number;
   bestScore: number | null;
@@ -113,6 +114,19 @@ async function getMaxSubmissions(database: Database): Promise<number> {
   if (!config) return 10;
   const parsed = parseInt(config.value, 10);
   return Number.isNaN(parsed) ? 10 : parsed;
+}
+
+/**
+ * Read the configured anti-cheat warning threshold (default 3 if missing/invalid).
+ */
+async function getWarningThreshold(database: Database): Promise<number> {
+  const config = await database.query.systemConfig.findFirst({
+    where: eq(systemConfig.key, "warning_threshold"),
+  });
+
+  if (!config) return 3;
+  const parsed = parseInt(config.value, 10);
+  return Number.isNaN(parsed) ? 3 : parsed;
 }
 
 /**
@@ -299,7 +313,10 @@ export async function getStudentExercise(
     ),
   });
 
-  const maxSubmissions = await getMaxSubmissions(database);
+  const [maxSubmissions, warningThreshold] = await Promise.all([
+    getMaxSubmissions(database),
+    getWarningThreshold(database),
+  ]);
 
   const relevant = await database
     .select({ score: submissions.score })
@@ -332,6 +349,7 @@ export async function getStudentExercise(
     sectionName: section.name,
     deadline: assignment.deadline ?? null,
     isAssessment: assignment.isAssessment === 1,
+    warningThreshold,
     attemptCount,
     maxSubmissions,
     bestScore,

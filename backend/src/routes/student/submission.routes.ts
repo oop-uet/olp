@@ -23,6 +23,7 @@ export const createSubmissionSchema = z.object({
   test_results: z
     .array(testResultSchema)
     .min(1, "At least one test result is required"),
+  anti_cheat_nullified: z.boolean().optional(),
 });
 
 // ─── Router ──────────────────────────────────────────────────────────────────
@@ -40,7 +41,7 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       const { userId } = req.user!;
-      const { exercise_id, section_id, code, test_results } = req.body;
+      const { exercise_id, section_id, code, test_results, anti_cheat_nullified } = req.body;
 
       const result = await createSubmission({
         studentId: userId,
@@ -48,6 +49,7 @@ router.post(
         sectionId: section_id,
         code,
         testResults: test_results,
+        antiCheatNullified: anti_cheat_nullified,
       });
 
       if (isSubmissionError(result)) {

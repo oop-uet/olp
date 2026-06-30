@@ -1,9 +1,10 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 import { api } from '../../lib/api'
 import { PageLoader, Spinner, CheckCircleIcon, XCircleIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
+import { AntiCheatMonitor } from '../../components/student/AntiCheatMonitor'
 
 interface TestCase {
   id: string
@@ -30,6 +31,8 @@ interface ExerciseDetail {
   starterCode: string | null
   sectionId: string
   deadline: string | null
+  isAssessment: boolean
+  warningThreshold: number
   oopTags: string[]
   testCases: TestCase[]
 }
@@ -62,8 +65,10 @@ export function ExerciseWorkspacePage() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [running, setRunning] = useState(false)
+  const [antiCheatNullified, setAntiCheatNullified] = useState(false)
   const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null)
   const [activePanel, setActivePanel] = useState<'description' | 'testcases'>('description')
+  const zeroSubmissionSentRef = useRef(false)
 
   useEffect(() => {
     if (id) {
@@ -85,6 +90,8 @@ export function ExerciseWorkspacePage() {
         starterCode: data.starterCode ?? null,
         sectionId: data.sectionId,
         deadline: data.deadline ?? null,
+        isAssessment: Boolean(data.isAssessment),
+        warningThreshold: data.warningThreshold ?? 3,
         oopTags: data.oopTags ?? [],
         testCases: (data.testCases ?? []).map((tc: ApiTestCase) => ({
           id: tc.id,
@@ -182,6 +189,7 @@ export function ExerciseWorkspacePage() {
           execution_time_ms: r.executionTimeMs ?? 0,
           status: r.status,
         })),
+        anti_cheat_nullified: antiCheatNullified,
       })
       const score = response.data.score
       toast.success(`Nộp bài thành công! Điểm: ${score.toFixed(1)}%`)
@@ -193,7 +201,37 @@ export function ExerciseWorkspacePage() {
     } finally {
       setSubmitting(false)
     }
-  }, [code, exercise, executionResult])
+  }, [antiCheatNullified, code, exercise, executionResult])
+
+  const handleAntiCheatNullified = useCallback(async () => {
+    if (!exercise || zeroSubmissionSentRef.current) return
+
+    zeroSubmissionSentRef.current = true
+    setAntiCheatNullified(true)
+
+    if (exercise.testCases.length === 0) {
+      toast.error('Phiên làm bài đã bị khóa do vượt quá ngưỡng cảnh báo.')
+      return
+    }
+
+    try {
+      await api.post('/api/submissions', {
+        exercise_id: exercise.id,
+        section_id: exercise.sectionId,
+        code: code.trim() || '// Phiên làm bài bị khóa do vượt ngưỡng cảnh báo chống gian lận.',
+        test_results: exercise.testCases.map((tc) => ({
+          test_case_id: tc.id,
+          actual_output: '',
+          execution_time_ms: 0,
+          status: 'failed',
+        })),
+        anti_cheat_nullified: true,
+      })
+      toast.error('Bạn đã vượt quá ngưỡng cảnh báo. Bài làm được ghi nhận 0 điểm.')
+    } catch {
+      toast.error('Phiên làm bài đã bị khóa. Không thể tự động ghi nhận bài nộp 0 điểm.')
+    }
+  }, [code, exercise])
 
   if (loading) {
     return <PageLoader label="Đang tải bài tập..." />
@@ -210,7 +248,7 @@ export function ExerciseWorkspacePage() {
     )
   }
 
-  return (
+  const workspace = (
     <div className="flex h-full flex-col gap-4 -m-6 p-4">
       {/* Top bar with exercise title and actions */}
       <div className="card flex items-center justify-between px-4 py-3">
@@ -317,6 +355,17 @@ export function ExerciseWorkspacePage() {
         </div>
       </div>
     </div>
+  )
+
+  return (
+    <AntiCheatMonitor
+      isAssessment={exercise.isAssessment}
+      exerciseId={exercise.id}
+      warningThreshold={exercise.warningThreshold}
+      onNullified={handleAntiCheatNullified}
+    >
+      {workspace}
+    </AntiCheatMonitor>
   )
 }
 

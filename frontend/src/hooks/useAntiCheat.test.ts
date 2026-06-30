@@ -147,10 +147,10 @@ describe('useAntiCheat', () => {
     })
 
     expect(api.post).toHaveBeenCalledWith('/api/anticheat/events', expect.objectContaining({
-      exerciseId: 'ex-1',
-      submissionId: 'sub-1',
-      eventType: 'window_blur',
-      warningCountAtEvent: 1,
+      exercise_id: 'ex-1',
+      submission_id: 'sub-1',
+      event_type: 'window_blur',
+      warning_count: 1,
     }))
   })
 

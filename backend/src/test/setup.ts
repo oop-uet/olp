@@ -30,6 +30,8 @@ beforeAll(() => {
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL CHECK(role IN ('student', 'instructor', 'admin')),
+      full_name TEXT,
+      must_change_password INTEGER DEFAULT 0,
       failed_login_attempts INTEGER DEFAULT 0,
       locked_until TEXT,
       created_at TEXT DEFAULT (datetime('now')),
@@ -72,6 +74,7 @@ beforeAll(() => {
       section_id TEXT NOT NULL REFERENCES class_sections(id),
       deadline TEXT,
       is_assessment INTEGER DEFAULT 0,
+      week INTEGER,
       assigned_at TEXT DEFAULT (datetime('now'))
     );
 
@@ -93,6 +96,8 @@ beforeAll(() => {
       section_id TEXT NOT NULL REFERENCES class_sections(id),
       code TEXT NOT NULL,
       score REAL,
+      manual_score REAL,
+      feedback TEXT,
       attempt_number INTEGER,
       submitted_at TEXT DEFAULT (datetime('now'))
     );

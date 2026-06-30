@@ -330,6 +330,74 @@ describe("createSubmission", () => {
     expect((result as any).score).toBe(100);
   });
 
+  it("should nullify assessment score when anti-cheat warning threshold is reached", async () => {
+    const { studentId, exerciseId, sectionId, testCaseId1, testCaseId2, testCaseId3 } =
+      seedSubmissionTestData();
+    const db = getDb();
+    const sqlite = getTestSqlite();
+    const now = new Date().toISOString();
+
+    sqlite.prepare(
+      `UPDATE exercise_assignments SET is_assessment = 1 WHERE exercise_id = ? AND section_id = ?`
+    ).run(exerciseId, sectionId);
+
+    for (let i = 1; i <= 3; i++) {
+      sqlite.prepare(
+        `INSERT INTO anticheat_events (id, student_id, exercise_id, event_type, warning_count_at_event, occurred_at)
+         VALUES (?, ?, ?, ?, ?, ?)`
+      ).run(randomUUID(), studentId, exerciseId, "window_blur", i, now);
+    }
+
+    const result = await createSubmission(
+      {
+        studentId,
+        exerciseId,
+        sectionId,
+        code: "correct code",
+        testResults: [
+          { test_case_id: testCaseId1, actual_output: "1", execution_time_ms: 10, status: "passed" },
+          { test_case_id: testCaseId2, actual_output: "2", execution_time_ms: 10, status: "passed" },
+          { test_case_id: testCaseId3, actual_output: "2\n1", execution_time_ms: 10, status: "passed" },
+        ],
+      },
+      db
+    );
+
+    expect(isSubmissionError(result)).toBe(false);
+    expect((result as any).score).toBe(0);
+    expect((result as any).feedback).toContain("vượt quá ngưỡng cảnh báo");
+  });
+
+  it("should nullify assessment score when client reports anti-cheat lock", async () => {
+    const { studentId, exerciseId, sectionId, testCaseId1, testCaseId2, testCaseId3 } =
+      seedSubmissionTestData();
+    const db = getDb();
+    const sqlite = getTestSqlite();
+
+    sqlite.prepare(
+      `UPDATE exercise_assignments SET is_assessment = 1 WHERE exercise_id = ? AND section_id = ?`
+    ).run(exerciseId, sectionId);
+
+    const result = await createSubmission(
+      {
+        studentId,
+        exerciseId,
+        sectionId,
+        code: "correct code",
+        antiCheatNullified: true,
+        testResults: [
+          { test_case_id: testCaseId1, actual_output: "1", execution_time_ms: 10, status: "passed" },
+          { test_case_id: testCaseId2, actual_output: "2", execution_time_ms: 10, status: "passed" },
+          { test_case_id: testCaseId3, actual_output: "2\n1", execution_time_ms: 10, status: "passed" },
+        ],
+      },
+      db
+    );
+
+    expect(isSubmissionError(result)).toBe(false);
+    expect((result as any).score).toBe(0);
+  });
+
   it("should allow submission when no deadline is set", async () => {
     const sqlite = getTestSqlite();
     const db = getDb();
