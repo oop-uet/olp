@@ -6,7 +6,7 @@ import { testCases, exercises } from "../db/schema.js";
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const MAX_INPUT_DATA_SIZE = 10240; // 10KB in bytes/chars
-const MAX_EXPECTED_OUTPUT_SIZE = 10240; // 10KB in bytes/chars
+const MAX_EXPECTED_OUTPUT_SIZE = 65536; // 64KB in bytes/chars, enough for JUnit test files
 const MAX_TEST_CASES_PER_EXERCISE = 50;
 const MIN_POINT_VALUE = 1;
 const MAX_POINT_VALUE = 100;

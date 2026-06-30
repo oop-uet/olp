@@ -39,6 +39,8 @@ export interface SubmissionError {
   error: { code: string; message: string };
 }
 
+const JAVA_TEST_MARKER = "__OOP_JAVA_TEST__";
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 export function isSubmissionError(value: unknown): value is SubmissionError {
@@ -69,6 +71,11 @@ export function calculateScore(
   for (const tc of testCaseRecords) {
     const result = testResults.find((r) => r.test_case_id === tc.id);
     if (result) {
+      if (result.status === "passed") {
+        earnedPoints += tc.pointValue;
+        continue;
+      }
+
       // Compare actual_output (trimmed) with expected_output (trimmed)
       const actualTrimmed = (result.actual_output || "").trim();
       const expectedTrimmed = (tc.expectedOutput || "").trim();
@@ -248,7 +255,8 @@ export async function createSubmission(
     const actualOutput = result?.actual_output || "";
     const actualTrimmed = actualOutput.trim();
     const expectedTrimmed = (tc.expectedOutput || "").trim();
-    const passed = actualTrimmed === expectedTrimmed ? 1 : 0;
+    const isJavaTest = typeof tc.inputData === "string" && tc.inputData.startsWith(JAVA_TEST_MARKER);
+    const passed = result?.status === "passed" || (!isJavaTest && actualTrimmed === expectedTrimmed) ? 1 : 0;
     const status = passed ? "passed" : (result?.status || "failed");
 
     resultRecords.push({

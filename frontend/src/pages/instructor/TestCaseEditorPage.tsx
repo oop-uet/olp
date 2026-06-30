@@ -1,13 +1,15 @@
-import { useState, useEffect, FormEvent } from 'react'
+import { useState, useEffect, FormEvent, ChangeEvent } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 
 const MAX_FIELD_LENGTH = 10240 // 10KB
+const MAX_JAVA_TEST_LENGTH = 65536 // 64KB
 const MAX_TEST_CASES = 50
 const MIN_POINTS = 1
 const MAX_POINTS = 100
+const JAVA_TEST_MARKER = '__OOP_JAVA_TEST__'
 
 interface TestCase {
   id: string
@@ -30,6 +32,19 @@ interface FormErrors {
   input_data?: string
   expected_output?: string
   point_value?: string
+}
+
+function javaTestInput(fileName: string) {
+  return `${JAVA_TEST_MARKER}\n${fileName || 'MyTest.java'}`
+}
+
+function isJavaTestInput(input: string) {
+  return input.startsWith(JAVA_TEST_MARKER)
+}
+
+function getJavaTestFileName(input: string) {
+  if (!isJavaTestInput(input)) return 'MyTest.java'
+  return input.split(/\r?\n/, 2)[1]?.trim() || 'MyTest.java'
 }
 
 const emptyForm: TestCaseFormData = {
@@ -81,8 +96,12 @@ export function TestCaseEditorPage() {
 
     if (!data.expected_output.trim()) {
       errors.expected_output = 'Kết quả mong đợi là bắt buộc'
-    } else if (data.expected_output.length > MAX_FIELD_LENGTH) {
-      errors.expected_output = `Kết quả mong đợi tối đa ${MAX_FIELD_LENGTH} ký tự (10KB)`
+    } else if (data.expected_output.length > MAX_JAVA_TEST_LENGTH) {
+      errors.expected_output = `Nội dung tối đa ${MAX_JAVA_TEST_LENGTH} ký tự (64KB)`
+    }
+
+    if (isJavaTestInput(data.input_data) && !data.expected_output.includes('@Test')) {
+      errors.expected_output = 'File test Java/JUnit cần có ít nhất một phương thức @Test'
     }
 
     if (
@@ -113,6 +132,36 @@ export function TestCaseEditorPage() {
     setFormData(emptyForm)
     setFormErrors({})
     setShowForm(false)
+  }
+
+  function applyJavaTestContent(content: string, fileName = 'MyTest.java') {
+    const safeFileName = fileName.endsWith('.java') ? fileName : 'MyTest.java'
+    setFormData((prev) => ({
+      ...prev,
+      input_data: javaTestInput(safeFileName),
+      expected_output: content,
+      is_visible: false,
+    }))
+    setFormErrors({})
+  }
+
+  async function handleJavaFileImport(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+
+    if (!file.name.endsWith('.java')) {
+      toast.error('Chỉ hỗ trợ import file .java.')
+      return
+    }
+
+    const content = await file.text()
+    if (content.length > MAX_JAVA_TEST_LENGTH) {
+      toast.error(`File test tối đa ${MAX_JAVA_TEST_LENGTH} ký tự (64KB).`)
+      return
+    }
+    applyJavaTestContent(content, file.name)
+    toast.success(`Đã nạp ${file.name}.`)
   }
 
   function handleNewTestCase() {
@@ -240,11 +289,46 @@ export function TestCaseEditorPage() {
           </h2>
 
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            <div className="rounded-lg border border-slate-200 bg-white p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-700">
+                    Test Java/JUnit kiểu OASIS
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Import file .java hoặc paste nội dung như MyTest.java. Hệ thống sẽ lưu thành bộ test ẩn.
+                  </p>
+                </div>
+                <label className="btn-secondary h-9 cursor-pointer px-3 text-xs font-bold">
+                  Import .java
+                  <input type="file" accept=".java,text/x-java-source" onChange={handleJavaFileImport} className="sr-only" />
+                </label>
+              </div>
+
+              {isJavaTestInput(formData.input_data) && (
+                <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+                  Đang dùng test Java/JUnit: {getJavaTestFileName(formData.input_data)}
+                </div>
+              )}
+
+              <label htmlFor="java_test_source" className="label mt-3 text-slate-600">
+                Dán nội dung file test Java/JUnit
+              </label>
+              <textarea
+                id="java_test_source"
+                value={isJavaTestInput(formData.input_data) ? formData.expected_output : ''}
+                onChange={(e) => applyJavaTestContent(e.target.value, getJavaTestFileName(formData.input_data))}
+                rows={8}
+                className="input font-mono px-3.5 py-2.5 text-xs"
+                placeholder="import org.junit.Assert;&#10;import org.junit.Test;&#10;&#10;public class MyTest { ... }"
+              />
+            </div>
+
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {/* Input Data */}
               <div>
                 <label htmlFor="input_data" className="label text-slate-600">
-                  Dữ liệu đầu vào (stdin)
+                  {isJavaTestInput(formData.input_data) ? 'Metadata test Java/JUnit' : 'Dữ liệu đầu vào (stdin)'}
                 </label>
                 <textarea
                   id="input_data"
@@ -253,7 +337,8 @@ export function TestCaseEditorPage() {
                     setFormData((prev) => ({ ...prev, input_data: e.target.value }))
                   }
                   rows={5}
-                  className={`input font-mono py-2.5 px-3.5 text-xs ${formErrors.input_data ? 'input-error' : ''}`}
+                  readOnly={isJavaTestInput(formData.input_data)}
+                  className={`input font-mono py-2.5 px-3.5 text-xs ${isJavaTestInput(formData.input_data) ? 'bg-slate-100 text-slate-500' : ''} ${formErrors.input_data ? 'input-error' : ''}`}
                   placeholder="Mỗi tham số trên một dòng (stdin)..."
                 />
                 <div className="mt-1 flex justify-between">
@@ -269,7 +354,7 @@ export function TestCaseEditorPage() {
               {/* Expected Output */}
               <div>
                 <label htmlFor="expected_output" className="label text-slate-600">
-                  Kết quả mong đợi (stdout) <span className="text-rose-500">*</span>
+                  {isJavaTestInput(formData.input_data) ? 'Nội dung file test Java/JUnit' : 'Kết quả mong đợi (stdout)'} <span className="text-rose-500">*</span>
                 </label>
                 <textarea
                   id="expected_output"
@@ -286,7 +371,7 @@ export function TestCaseEditorPage() {
                     <p className="text-xs text-rose-600 font-semibold">{formErrors.expected_output}</p>
                   )}
                   <p className="ml-auto text-xs text-slate-400">
-                    {formData.expected_output.length}/{MAX_FIELD_LENGTH}
+                    {formData.expected_output.length}/{MAX_JAVA_TEST_LENGTH}
                   </p>
                 </div>
               </div>

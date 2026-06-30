@@ -19,7 +19,7 @@ export const createTestCaseSchema = z.object({
   expected_output: z
     .string()
     .min(1, "expected_output is required")
-    .max(10240, "expected_output must be at most 10240 characters (10KB)"),
+    .max(65536, "expected_output must be at most 65536 characters (64KB)"),
   is_visible: z.boolean().default(false),
   point_value: z
     .number()
@@ -42,7 +42,7 @@ export const updateTestCaseSchema = z.object({
   expected_output: z
     .string()
     .min(1, "expected_output cannot be empty")
-    .max(10240, "expected_output must be at most 10240 characters (10KB)")
+    .max(65536, "expected_output must be at most 65536 characters (64KB)")
     .optional(),
   is_visible: z.boolean().optional(),
   point_value: z

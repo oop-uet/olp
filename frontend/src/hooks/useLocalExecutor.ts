@@ -7,6 +7,8 @@ export interface TestCase {
   input: string
   expectedOutput: string
   timeLimit: number
+  type?: 'stdio' | 'java_junit'
+  testFileName?: string
 }
 
 export interface SourceFile {

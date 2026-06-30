@@ -12,6 +12,8 @@ interface TestCase {
   input: string
   expectedOutput: string
   pointValue: number
+  type: 'stdio' | 'java_junit'
+  testFileName?: string
 }
 
 // Raw test case shape returned by GET /api/students/exercises/:id
@@ -22,6 +24,20 @@ interface ApiTestCase {
   isVisible: true
   pointValue: number
   timeLimitSeconds: number | null
+}
+
+const JAVA_TEST_MARKER = '__OOP_JAVA_TEST__'
+
+function parseJavaTestMetadata(inputData: string) {
+  if (!inputData.startsWith(JAVA_TEST_MARKER)) {
+    return { type: 'stdio' as const, testFileName: undefined }
+  }
+
+  const [, fileName] = inputData.split(/\r?\n/, 2)
+  return {
+    type: 'java_junit' as const,
+    testFileName: fileName?.trim() || 'MyTest.java',
+  }
 }
 
 interface ExerciseDetail {
@@ -190,12 +206,17 @@ export function ExerciseWorkspacePage() {
         isAssessment: Boolean(data.isAssessment),
         warningThreshold: data.warningThreshold ?? 3,
         oopTags: data.oopTags ?? [],
-        testCases: (data.testCases ?? []).map((tc: ApiTestCase) => ({
-          id: tc.id,
-          input: tc.inputData,
-          expectedOutput: tc.expectedOutput,
-          pointValue: tc.pointValue,
-        })),
+        testCases: (data.testCases ?? []).map((tc: ApiTestCase) => {
+          const metadata = parseJavaTestMetadata(tc.inputData)
+          return {
+            id: tc.id,
+            input: tc.inputData,
+            expectedOutput: tc.expectedOutput,
+            pointValue: tc.pointValue,
+            type: metadata.type,
+            testFileName: metadata.testFileName,
+          }
+        }),
       }
       setExercise(detail)
       const starterFiles = parseStarterFiles(detail.starterCode || '')
@@ -235,6 +256,8 @@ export function ExerciseWorkspacePage() {
           input: tc.input,
           expectedOutput: tc.expectedOutput,
           timeLimit: 5,
+          type: tc.type,
+          testFileName: tc.testFileName,
         }))
       )
 
@@ -805,7 +828,11 @@ function TestCasesPanel({
               </div>
 
               <div className="space-y-1.5">
-                {tc.input ? (
+                {tc.type === 'java_junit' ? (
+                  <div className="rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600">
+                    Bộ test Java/JUnit: {tc.testFileName ?? 'MyTest.java'}
+                  </div>
+                ) : tc.input ? (
                   <div>
                     <p className="text-xs font-bold text-slate-500">Đầu vào</p>
                     <pre className="mt-1 rounded-md bg-white p-2 text-xs text-slate-800 border border-slate-200 overflow-x-auto">
@@ -817,12 +844,14 @@ function TestCasesPanel({
                     Test tự tạo dữ liệu trong chương trình, không cần nhập stdin.
                   </div>
                 )}
-                <div>
-                  <p className="text-xs font-bold text-slate-500">Đầu ra mong đợi</p>
-                  <pre className="mt-1 rounded-md bg-white p-2 text-xs text-slate-800 border border-slate-200 overflow-x-auto">
-                    {tc.expectedOutput}
-                  </pre>
-                </div>
+                {tc.type === 'stdio' && (
+                  <div>
+                    <p className="text-xs font-bold text-slate-500">Đầu ra mong đợi</p>
+                    <pre className="mt-1 rounded-md bg-white p-2 text-xs text-slate-800 border border-slate-200 overflow-x-auto">
+                      {tc.expectedOutput}
+                    </pre>
+                  </div>
+                )}
                 {result && !result.passed && result.actualOutput && (
                   <div>
                     <p className="text-xs font-bold text-danger-600">Đầu ra thực tế</p>
