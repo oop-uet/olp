@@ -15,6 +15,7 @@ import {
   MenuIcon,
   LogoutIcon,
 } from '../ui/Icon'
+import { LocalExecutorStatusButton } from '../student/LocalExecutorStatusButton'
 
 interface MenuItem {
   label: string
@@ -128,6 +129,8 @@ export function TopNav() {
 
         {/* Right side: user dropdown + mobile hamburger */}
         <div className="flex items-center gap-2">
+          {user.role === 'student' && <LocalExecutorStatusButton />}
+
           <div className="relative" ref={userMenuRef}>
             <button
               onClick={() => setUserMenuOpen((v) => !v)}
