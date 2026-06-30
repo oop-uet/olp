@@ -4,6 +4,7 @@ import {
   assignExerciseToWeek,
   removeAssignment,
   setWeekDeadline,
+  toggleExerciseVisibility,
   isScheduleError,
 } from "../services/schedule.service.js";
 
@@ -28,6 +29,7 @@ function statusFor(code: string): number {
  *   POST   /:id/schedule/assign      { exercise_id, week }
  *   POST   /:id/schedule/unassign    { exercise_id }
  *   PUT    /:id/schedule/deadline    { week, deadline }
+ *   PUT    /:id/schedule/visibility  { exercise_id, is_visible }
  */
 export function registerScheduleRoutes(router: Router): void {
   router.get("/:id/schedule", async (req: Request, res: Response) => {
@@ -90,6 +92,31 @@ export function registerScheduleRoutes(router: Router): void {
         req.params.id,
         Number(week),
         deadline ?? null,
+        userId,
+        role
+      );
+      if (isScheduleError(result)) {
+        res.status(statusFor(result.error.code)).json({ error: result.error });
+        return;
+      }
+      res.status(200).json(result);
+    } catch {
+      res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } });
+    }
+  });
+
+  router.put("/:id/schedule/visibility", async (req: Request, res: Response) => {
+    try {
+      const { userId, role } = req.user!;
+      const { exercise_id, is_visible } = req.body;
+      if (!exercise_id) {
+        res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "exercise_id là bắt buộc." } });
+        return;
+      }
+      const result = await toggleExerciseVisibility(
+        req.params.id,
+        exercise_id,
+        Boolean(is_visible),
         userId,
         role
       );

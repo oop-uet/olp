@@ -124,8 +124,9 @@ export function SectionDetailPage() {
       await api.delete(`/api/admin/sections/${id}/students/${student.userId}`)
       toast.success('Đã gỡ sinh viên khỏi lớp.')
       await fetchDetail()
-    } catch (err: any) {
-      toast.error(err.response?.data?.error?.message || 'Không thể gỡ sinh viên.')
+    } catch (err) {
+      const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
+      toast.error(axiosErr.response?.data?.error?.message || 'Không thể gỡ sinh viên.')
     } finally {
       setBusyKey(null)
     }
@@ -139,8 +140,9 @@ export function SectionDetailPage() {
       await api.delete(`/api/admin/sections/${id}/exercises/${exercise.exerciseId}`)
       toast.success('Đã gỡ bài tập khỏi lớp.')
       await fetchDetail()
-    } catch (err: any) {
-      toast.error(err.response?.data?.error?.message || 'Không thể gỡ bài tập.')
+    } catch (err) {
+      const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
+      toast.error(axiosErr.response?.data?.error?.message || 'Không thể gỡ bài tập.')
     } finally {
       setBusyKey(null)
     }
@@ -160,9 +162,10 @@ export function SectionDetailPage() {
     try {
       const response = await api.get('/api/admin/exercises')
       setAvailableExercises(response.data)
-    } catch (err: any) {
+    } catch (err) {
+      const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
       toast.error(
-        err.response?.data?.error?.message || 'Không thể tải danh sách bài tập.'
+        axiosErr.response?.data?.error?.message || 'Không thể tải danh sách bài tập.'
       )
     }
   }
@@ -180,8 +183,9 @@ export function SectionDetailPage() {
       toast.success('Đã gán bài tập.')
       setShowAssignForm(false)
       await fetchDetail()
-    } catch (err: any) {
-      toast.error(err.response?.data?.error?.message || 'Không thể gán bài tập.')
+    } catch (err) {
+      const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
+      toast.error(axiosErr.response?.data?.error?.message || 'Không thể gán bài tập.')
     } finally {
       setAssignSubmitting(false)
     }

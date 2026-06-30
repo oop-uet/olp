@@ -3,7 +3,7 @@ import { eq, and } from "drizzle-orm";
 import crypto from "node:crypto";
 import bcrypt from "bcrypt";
 import { db } from "../../db/index.js";
-import { classSections, sectionEnrollments, users } from "../../db/schema.js";
+import { classSections, sectionEnrollments, users, exerciseAssignments, exercises, submissions } from "../../db/schema.js";
 import { getSectionDetail, unassignExercise, isSectionError } from "../../services/section.service.js";
 import { getStudentProgress } from "../../services/submission.service.js";
 import { registerScheduleRoutes } from "../schedule.helper.js";
@@ -373,6 +373,99 @@ router.get("/:id/students/:studentId/progress", async (req: Request, res: Respon
     const progress = await getStudentProgress(req.params.studentId, req.params.id);
     res.status(200).json(progress);
   } catch {
+    res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } });
+  }
+});
+
+/**
+ * GET /api/instructor/sections/:id/stats
+ * Aggregate submission and completion stats for each assigned exercise.
+ */
+router.get("/:id/stats", async (req: Request, res: Response) => {
+  try {
+    const { userId, role } = req.user!;
+    const sectionId = req.params.id;
+
+    const section = await db.query.classSections.findFirst({
+      where: eq(classSections.id, sectionId),
+    });
+    if (!section) {
+      res.status(404).json({ error: { code: "NOT_FOUND", message: "Không tìm thấy lớp." } });
+      return;
+    }
+    if (role !== "admin" && section.instructorId !== userId) {
+      res.status(403).json({ error: { code: "FORBIDDEN", message: "Bạn không phụ trách lớp này." } });
+      return;
+    }
+
+    // Get all enrolled students
+    const enrollments = await db.query.sectionEnrollments.findMany({
+      where: eq(sectionEnrollments.sectionId, sectionId),
+    });
+    const totalStudents = enrollments.length;
+
+    // Get all assigned exercises
+    const assigned = await db
+      .select({
+        assignmentId: exerciseAssignments.id,
+        exerciseId: exerciseAssignments.exerciseId,
+        title: exercises.title,
+        difficulty: exercises.difficulty,
+      })
+      .from(exerciseAssignments)
+      .innerJoin(exercises, eq(exerciseAssignments.exerciseId, exercises.id))
+      .where(eq(exerciseAssignments.sectionId, sectionId));
+
+    // For each exercise, calculate attempts and completion
+    const statsList = [];
+    for (const ex of assigned) {
+      // Find highest score per student for this exercise and section
+      const studentSubmissions = await db
+        .select({
+          studentId: submissions.studentId,
+          score: submissions.score,
+        })
+        .from(submissions)
+        .where(
+          and(
+            eq(submissions.sectionId, sectionId),
+            eq(submissions.exerciseId, ex.exerciseId)
+          )
+        );
+
+      const highestScoresByStudent = new Map<string, number>();
+      for (const sub of studentSubmissions) {
+        const currentBest = highestScoresByStudent.get(sub.studentId) ?? 0;
+        highestScoresByStudent.set(sub.studentId, Math.max(currentBest, sub.score ?? 0));
+      }
+
+      let attemptedCount = 0;
+      let completedCount = 0;
+      let totalScoreSum = 0;
+
+      highestScoresByStudent.forEach((score) => {
+        attemptedCount++;
+        if (score >= 100) completedCount++;
+        totalScoreSum += score;
+      });
+
+      const averageScore = attemptedCount > 0 ? totalScoreSum / attemptedCount : 0;
+
+      statsList.push({
+        exerciseId: ex.exerciseId,
+        title: ex.title,
+        difficulty: ex.difficulty,
+        attemptedCount,
+        completedCount,
+        averageScore,
+      });
+    }
+
+    res.status(200).json({
+      totalStudents,
+      exercises: statsList,
+    });
+  } catch (error) {
     res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } });
   }
 });

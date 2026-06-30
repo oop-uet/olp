@@ -30,10 +30,10 @@ const menusByRole: Record<UserRole, MenuItem[]> = {
     { label: 'Bảng xếp hạng', path: '/student/leaderboard', icon: LeaderboardIcon },
   ],
   instructor: [
-    { label: 'Quản lý bài tập', path: '/instructor/exercises', icon: ExerciseIcon },
-    { label: 'Lớp của tôi', path: '/instructor/classes', icon: SectionIcon },
-    { label: 'Chấm bài', path: '/instructor/submissions', icon: SubmissionIcon },
-    { label: 'Bảng xếp hạng', path: '/instructor/leaderboard', icon: LeaderboardIcon },
+    { label: 'Bài Nộp', path: '/instructor/submissions', icon: SubmissionIcon },
+    { label: 'Xếp Hạng', path: '/instructor/leaderboard', icon: LeaderboardIcon },
+    { label: 'Thống Kê', path: '/instructor/statistic', icon: ProgressIcon },
+    { label: 'Quản Lý Lớp Học', path: '/instructor/classes', icon: SectionIcon },
     { label: 'Kiểm tra mã nguồn', path: '/instructor/plagiarism', icon: ConfigIcon },
   ],
   admin: [

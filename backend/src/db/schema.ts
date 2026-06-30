@@ -86,6 +86,7 @@ export const exerciseAssignments = sqliteTable(
       .references(() => classSections.id),
     deadline: text("deadline"),
     isAssessment: integer("is_assessment").notNull().default(0),
+    isVisible: integer("is_visible").notNull().default(1),
     week: integer("week"),
     assignedAt: text("assigned_at").notNull(),
   },

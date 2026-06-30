@@ -190,7 +190,10 @@ export async function listStudentExercises(
 
   // All assignments across the student's enrolled sections.
   const assignments = await database.query.exerciseAssignments.findMany({
-    where: inArray(exerciseAssignments.sectionId, sectionIds),
+    where: and(
+      inArray(exerciseAssignments.sectionId, sectionIds),
+      eq(exerciseAssignments.isVisible, 1)
+    ),
     with: { exercise: true },
   });
 

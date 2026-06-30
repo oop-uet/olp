@@ -71,8 +71,9 @@ export function AdminExercisesPage() {
       await api.delete(`/api/admin/exercises/${exercise.id}`)
       setExercises((prev) => prev.filter((e) => e.id !== exercise.id))
       toast.success('Đã xóa bài tập.')
-    } catch (err: any) {
-      toast.error(err.response?.data?.error?.message || 'Không thể xóa bài tập.')
+    } catch (err) {
+      const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
+      toast.error(axiosErr.response?.data?.error?.message || 'Không thể xóa bài tập.')
     } finally {
       setDeletingId(null)
     }

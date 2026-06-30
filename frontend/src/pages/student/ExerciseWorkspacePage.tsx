@@ -102,7 +102,7 @@ export function ExerciseWorkspacePage() {
       }
       setExercise(detail)
       setCode(detail.starterCode || '')
-    } catch (err) {
+    } catch {
       setError('Không thể tải bài tập. Vui lòng thử lại.')
     } finally {
       setLoading(false)

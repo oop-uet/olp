@@ -126,9 +126,10 @@ export function StudentManagementPage() {
       }
       closeForm()
       fetchUsers(search.trim())
-    } catch (err: any) {
+    } catch (err) {
+      const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
       const message =
-        err.response?.data?.error?.message ||
+        axiosErr.response?.data?.error?.message ||
         `Không thể ${editing ? 'cập nhật' : 'tạo'} sinh viên.`
       toast.error(message)
     } finally {
@@ -147,9 +148,10 @@ export function StudentManagementPage() {
     try {
       await api.post(`/api/admin/users/${user.id}/reset-password`, {})
       toast.success('Đã đặt lại mật khẩu về tên đăng nhập')
-    } catch (err: any) {
+    } catch (err) {
+      const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
       toast.error(
-        err.response?.data?.error?.message || 'Không thể đặt lại mật khẩu.'
+        axiosErr.response?.data?.error?.message || 'Không thể đặt lại mật khẩu.'
       )
     } finally {
       setBusyId(null)
@@ -164,8 +166,9 @@ export function StudentManagementPage() {
       await api.delete(`/api/admin/users/${user.id}`)
       setUsers((prev) => prev.filter((u) => u.id !== user.id))
       toast.success('Đã xóa sinh viên.')
-    } catch (err: any) {
-      toast.error(err.response?.data?.error?.message || 'Không thể xóa sinh viên.')
+    } catch (err) {
+      const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
+      toast.error(axiosErr.response?.data?.error?.message || 'Không thể xóa sinh viên.')
     } finally {
       setBusyId(null)
     }

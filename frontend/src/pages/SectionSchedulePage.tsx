@@ -131,8 +131,9 @@ export function SectionSchedulePage() {
       })
       toast.success(`Đã xếp bài tập vào tuần ${week}.`)
       await fetchSchedule()
-    } catch (err: any) {
-      toast.error(err.response?.data?.error?.message || 'Không thể xếp bài tập.')
+    } catch (err) {
+      const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
+      toast.error(axiosErr.response?.data?.error?.message || 'Không thể xếp bài tập.')
     }
   }
 
@@ -144,8 +145,9 @@ export function SectionSchedulePage() {
       })
       toast.success('Đã gỡ bài tập khỏi lịch.')
       await fetchSchedule()
-    } catch (err: any) {
-      toast.error(err.response?.data?.error?.message || 'Không thể gỡ bài tập.')
+    } catch (err) {
+      const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
+      toast.error(axiosErr.response?.data?.error?.message || 'Không thể gỡ bài tập.')
     }
   }
 
@@ -160,8 +162,9 @@ export function SectionSchedulePage() {
       })
       toast.success(`Đã lưu hạn nộp tuần ${week}.`)
       await fetchSchedule()
-    } catch (err: any) {
-      toast.error(err.response?.data?.error?.message || 'Không thể lưu hạn nộp.')
+    } catch (err) {
+      const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
+      toast.error(axiosErr.response?.data?.error?.message || 'Không thể lưu hạn nộp.')
     } finally {
       setSavingWeek(null)
     }

@@ -59,7 +59,7 @@ export function ExerciseListPage() {
       setError(null)
       const response = await api.get('/api/students/exercises')
       setExercises(response.data.exercises ?? [])
-    } catch (err) {
+    } catch {
       setError('Không thể tải danh sách bài tập. Vui lòng thử lại.')
       toast.error('Không thể tải danh sách bài tập. Vui lòng thử lại.')
     } finally {

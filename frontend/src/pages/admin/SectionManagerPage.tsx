@@ -121,9 +121,10 @@ export function SectionManagerPage() {
       closeForm()
       // Refresh to get full data with instructor relations
       fetchSections()
-    } catch (err: any) {
+    } catch (err) {
+      const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
       const message =
-        err.response?.data?.error?.message ||
+        axiosErr.response?.data?.error?.message ||
         `Không thể ${editingSection ? 'cập nhật' : 'tạo'} lớp.`
       toast.error(message)
     } finally {
@@ -141,9 +142,10 @@ export function SectionManagerPage() {
       await api.delete(`/api/admin/sections/${id}`)
       setSections((prev) => prev.filter((s) => s.id !== id))
       toast.success('Đã xóa lớp.')
-    } catch (err: any) {
+    } catch (err) {
+      const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
       const message =
-        err.response?.data?.error?.message || 'Không thể xóa lớp.'
+        axiosErr.response?.data?.error?.message || 'Không thể xóa lớp.'
       toast.error(message)
     } finally {
       setDeletingId(null)
@@ -167,9 +169,10 @@ export function SectionManagerPage() {
       toast.success('Đã phân công giảng viên.')
       // Refresh to get updated instructor relation data
       fetchSections()
-    } catch (err: any) {
+    } catch (err) {
+      const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
       const message =
-        err.response?.data?.error?.message || 'Không thể phân công giảng viên.'
+        axiosErr.response?.data?.error?.message || 'Không thể phân công giảng viên.'
       toast.error(message)
     }
   }
@@ -202,8 +205,9 @@ export function SectionManagerPage() {
       toast.success('Nhập danh sách lớp thành công.')
       // Refresh sections list
       fetchSections()
-    } catch (err: any) {
-      toast.error(err.response?.data?.error?.message || 'Nhập danh sách thất bại')
+    } catch (err) {
+      const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
+      toast.error(axiosErr.response?.data?.error?.message || 'Nhập danh sách thất bại')
     } finally {
       setRosterImporting(false)
     }

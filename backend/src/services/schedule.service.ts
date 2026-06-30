@@ -311,3 +311,36 @@ export async function setWeekDeadline(
 
   return { success: true, week, deadline: normalized };
 }
+
+/**
+ * Toggle the visibility of an exercise assignment in a section.
+ */
+export async function toggleExerciseVisibility(
+  sectionId: string,
+  exerciseId: string,
+  isVisible: boolean,
+  userId: string,
+  role: string,
+  database: Database = defaultDb
+): Promise<{ success: true; exerciseId: string; isVisible: boolean } | ScheduleError> {
+  const loaded = await loadSectionForUser(sectionId, userId, role, database);
+  if (isScheduleError(loaded)) return loaded;
+
+  const existing = await database.query.exerciseAssignments.findFirst({
+    where: and(
+      eq(exerciseAssignments.exerciseId, exerciseId),
+      eq(exerciseAssignments.sectionId, sectionId)
+    ),
+  });
+
+  if (!existing) {
+    return { error: { code: "NOT_FOUND", message: "Bài tập chưa được gán vào lớp." } };
+  }
+
+  await database
+    .update(exerciseAssignments)
+    .set({ isVisible: isVisible ? 1 : 0 })
+    .where(eq(exerciseAssignments.id, existing.id));
+
+  return { success: true, exerciseId, isVisible };
+}
