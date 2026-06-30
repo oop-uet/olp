@@ -13,7 +13,6 @@ const LoginPage = lazy(() => import('../pages/LoginPage').then((m) => ({ default
 const ChangePasswordPage = lazy(() => import('../pages/ChangePasswordPage').then((m) => ({ default: m.ChangePasswordPage })))
 
 // Student
-const StudentSectionsPage = lazy(() => import('../pages/student/StudentSectionsPage').then((m) => ({ default: m.StudentSectionsPage })))
 const StudentCourseDetailPage = lazy(() => import('../pages/student/StudentCourseDetailPage').then((m) => ({ default: m.StudentCourseDetailPage })))
 const ExerciseWorkspacePage = lazy(() => import('../pages/student/ExerciseWorkspacePage').then((m) => ({ default: m.ExerciseWorkspacePage })))
 const SubmissionHistoryPage = lazy(() => import('../pages/student/SubmissionHistoryPage').then((m) => ({ default: m.SubmissionHistoryPage })))
@@ -73,7 +72,7 @@ export const router = createBrowserRouter(
         </AuthGuard>
       ),
       children: [
-        { path: 'exercises', element: withSuspense(<StudentSectionsPage />) },
+        { path: 'exercises', element: withSuspense(<StudentCourseDetailPage />) },
         { path: 'classes/:id', element: withSuspense(<StudentCourseDetailPage />) },
         { path: 'exercises/:id', element: withSuspense(<ExerciseWorkspacePage />) },
         { path: 'submissions', element: withSuspense(<SubmissionHistoryPage />) },

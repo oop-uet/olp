@@ -12,7 +12,7 @@ interface Exercise {
   sectionId: string
   sectionName: string
   deadline: string | null
-  week: number
+  week: number | null
   isAssessment: boolean
   bestScore: number | null
   attemptCount: number
@@ -57,9 +57,7 @@ export function StudentCourseDetailPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (id) {
-      fetchSectionAndExercises()
-    }
+    fetchSectionAndExercises()
   }, [id])
 
   async function fetchSectionAndExercises() {
@@ -71,14 +69,17 @@ export function StudentCourseDetailPage() {
         api.get('/api/students/exercises'),
       ])
 
-      const foundSection = sectionsRes.data.find((s: SectionInfo) => s.id === id)
+      const sections: SectionInfo[] = sectionsRes.data ?? []
+      const foundSection = id ? sections.find((s) => s.id === id) : sections[0]
       if (foundSection) {
         setSection(foundSection)
       }
 
       // Filter exercises belonging to this section
       const allExercises = exercisesRes.data.exercises ?? []
-      const sectionExercises = allExercises.filter((ex: Exercise) => ex.sectionId === id)
+      const sectionExercises = foundSection
+        ? allExercises.filter((ex: Exercise) => ex.sectionId === foundSection.id)
+        : []
       setExercises(sectionExercises)
     } catch {
       toast.error('Không thể tải bài học phần. Vui lòng thử lại.')
@@ -96,7 +97,7 @@ export function StudentCourseDetailPage() {
       <div className="card flex flex-col items-center justify-center p-12 text-center border border-slate-100">
         <p className="text-slate-500 font-medium">Không tìm thấy lớp học phần hoặc bạn chưa được ghi danh.</p>
         <Link to="/student/exercises" className="btn-primary mt-4 btn-sm">
-          ← Quay lại danh sách lớp
+          Tải lại danh sách bài tập
         </Link>
       </div>
     )
@@ -105,9 +106,14 @@ export function StudentCourseDetailPage() {
   // Group exercises by week lanes (1 to 15)
   const weeks = Array.from({ length: 15 }, (_, i) => i + 1)
   const exercisesByWeek = new Map<number, Exercise[]>()
+  const unscheduledExercises: Exercise[] = []
   weeks.forEach((w) => exercisesByWeek.set(w, []))
 
   exercises.forEach((ex) => {
+    if (!ex.week || ex.week < 1 || ex.week > 15) {
+      unscheduledExercises.push(ex)
+      return
+    }
     const list = exercisesByWeek.get(ex.week) || []
     list.push(ex)
     exercisesByWeek.set(ex.week, list)
@@ -118,16 +124,6 @@ export function StudentCourseDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Back navigation */}
-      <div>
-        <Link
-          to="/student/exercises"
-          className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
-        >
-          ← Quay lại danh sách lớp
-        </Link>
-      </div>
-
       {/* Course Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-white border border-slate-100 rounded-xl p-5 shadow-sm">
         <div className="space-y-1">
@@ -158,92 +154,27 @@ export function StudentCourseDetailPage() {
               <p className="text-sm text-slate-400 mt-1">Vui lòng quay lại sau khi giảng viên gán bài tập thực hành.</p>
             </div>
           ) : (
-            weeks.map((weekNum) => {
+            <>
+              {unscheduledExercises.length > 0 && (
+                <ExerciseWeekCard
+                  title="CHƯA XẾP TUẦN"
+                  exercises={unscheduledExercises}
+                />
+              )}
+
+              {weeks.map((weekNum) => {
               const weekExercises = exercisesByWeek.get(weekNum) ?? []
               if (weekExercises.length === 0) return null
 
               return (
-                <div key={weekNum} className="card p-0 border border-slate-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
-                  {/* Week title bar */}
-                  <div className="bg-slate-50/80 border-b border-slate-100 px-5 py-3.5 flex items-center justify-between border-l-4 border-teal-600">
-                    <span className="text-sm font-bold text-slate-700 tracking-wide uppercase">
-                      TUẦN {weekNum}
-                    </span>
-                  </div>
-
-                  {/* Exercises list */}
-                  <div className="divide-y divide-slate-100">
-                    {weekExercises.map((ex) => (
-                      <div key={ex.id} className="p-5 hover:bg-slate-50/40 transition-colors duration-150 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div className="space-y-1.5 min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Link
-                              to={`/student/exercises/${ex.id}`}
-                              className="text-base font-semibold text-slate-800 hover:text-primary hover:underline truncate"
-                            >
-                              {ex.title}
-                            </Link>
-                            {ex.isAssessment && (
-                              <span className="badge-yellow text-xs font-semibold">Kiểm tra</span>
-                            )}
-                          </div>
-                          
-                          {/* Metadata row */}
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-500">
-                            <span className="flex items-center gap-1">
-                              <CalendarIcon className="h-3.5 w-3.5" />
-                              {formatDeadline(ex.deadline)}
-                            </span>
-                            <span className="flex items-center gap-1 font-medium">
-                              Độ khó: 
-                              <span className={difficultyConfig[ex.difficulty].className}>
-                                {difficultyConfig[ex.difficulty].label}
-                              </span>
-                            </span>
-                          </div>
-
-                          {/* Tags */}
-                          {ex.oopTags && ex.oopTags.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {ex.oopTags.map((tag) => (
-                                <span key={tag} className="badge-gray text-[10px]">
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Status, score and submit link */}
-                        <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-3 shrink-0">
-                          <div className="flex items-center gap-2.5">
-                            {ex.bestScore !== null && (
-                              <span className="text-sm font-bold text-slate-700">
-                                {ex.bestScore.toFixed(1)}%
-                              </span>
-                            )}
-                            <span className={statusConfig[ex.status].className}>
-                              {statusConfig[ex.status].label}
-                            </span>
-                          </div>
-                          
-                          <div className="text-xs text-slate-400">
-                            Lần nộp: <span className="font-semibold text-slate-600">{ex.attemptCount}</span>/{ex.maxSubmissions}
-                          </div>
-
-                          <Link
-                            to={`/student/exercises/${ex.id}`}
-                            className="btn-secondary btn-xs inline-flex items-center"
-                          >
-                            Vào làm bài →
-                          </Link>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <ExerciseWeekCard
+                  key={weekNum}
+                  title={`TUẦN ${weekNum}`}
+                  exercises={weekExercises}
+                />
               )
-            })
+            })}
+            </>
           )}
         </div>
 
@@ -274,6 +205,95 @@ export function StudentCourseDetailPage() {
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  )
+}
+
+function ExerciseWeekCard({
+  title,
+  exercises,
+}: {
+  title: string
+  exercises: Exercise[]
+}) {
+  return (
+    <div className="card p-0 border border-slate-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
+      <div className="bg-slate-50/80 border-b border-slate-100 px-5 py-3.5 flex items-center justify-between border-l-4 border-teal-600">
+        <span className="text-sm font-bold text-slate-700 tracking-wide uppercase">
+          {title}
+        </span>
+      </div>
+
+      <div className="divide-y divide-slate-100">
+        {exercises.map((ex) => (
+          <div
+            key={ex.id}
+            className="p-5 hover:bg-slate-50/40 transition-colors duration-150 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+          >
+            <div className="space-y-1.5 min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  to={`/student/exercises/${ex.id}`}
+                  className="text-base font-semibold text-slate-800 hover:text-primary hover:underline truncate"
+                >
+                  {ex.title}
+                </Link>
+                {ex.isAssessment && (
+                  <span className="badge-yellow text-xs font-semibold">Kiểm tra</span>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-500">
+                <span className="flex items-center gap-1">
+                  <CalendarIcon className="h-3.5 w-3.5" />
+                  {formatDeadline(ex.deadline)}
+                </span>
+                <span className="flex items-center gap-1 font-medium">
+                  Độ khó:
+                  <span className={difficultyConfig[ex.difficulty].className}>
+                    {difficultyConfig[ex.difficulty].label}
+                  </span>
+                </span>
+              </div>
+
+              {ex.oopTags && ex.oopTags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {ex.oopTags.map((tag) => (
+                    <span key={tag} className="badge-gray text-[10px]">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-3 shrink-0">
+              <div className="flex items-center gap-2.5">
+                {ex.bestScore !== null && (
+                  <span className="text-sm font-bold text-slate-700">
+                    {ex.bestScore.toFixed(1)}%
+                  </span>
+                )}
+                <span className={statusConfig[ex.status].className}>
+                  {statusConfig[ex.status].label}
+                </span>
+              </div>
+
+              <div className="text-xs text-slate-400">
+                Lần nộp: <span className="font-semibold text-slate-600">{ex.attemptCount}</span>/
+                {ex.maxSubmissions}
+              </div>
+
+              <Link
+                to={`/student/exercises/${ex.id}`}
+                className="btn-secondary btn-xs inline-flex items-center"
+              >
+                Vào làm bài →
+              </Link>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )
