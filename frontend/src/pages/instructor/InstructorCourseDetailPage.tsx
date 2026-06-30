@@ -216,7 +216,7 @@ export function InstructorCourseDetailPage() {
       
       {/* Breadcrumb */}
       <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-[#fafafa] border-b border-slate-100 rounded flex gap-1.5 items-center">
-        <Link to="/instructor/classes" className="text-[#17a2b8] hover:underline">Trang chủ</Link>
+        <Link to="/instructor/classes" className="text-teal-600 hover:underline">Trang chủ</Link>
         <span>/</span>
         <span className="text-slate-400">Xem khóa học</span>
       </div>
@@ -228,7 +228,7 @@ export function InstructorCourseDetailPage() {
           
           <div className="bg-white border border-slate-100 rounded-xl p-5 shadow-sm">
             <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <svg className="h-5 w-5 text-[#17a2b8]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <svg className="h-5 w-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
               Bài tập tuần: {section.name}
@@ -287,7 +287,7 @@ export function InstructorCourseDetailPage() {
                                     type="checkbox"
                                     checked={ex.isVisible}
                                     onChange={() => handleToggleVisibility(ex.exerciseId, ex.isVisible)}
-                                    className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-[#17a2b8]"
+                                    className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
                                     aria-label={`Hiển thị bài ${ex.title}`}
                                   />
                                   <span>Hiện bài</span>
@@ -296,10 +296,10 @@ export function InstructorCourseDetailPage() {
                                 {/* Dropdown Submissions Count */}
                                 <button
                                   onClick={() => toggleSubmissionsList(ex.exerciseId)}
-                                  className="flex items-center gap-1 bg-[#17a2b8]/10 hover:bg-[#17a2b8]/20 text-[#17a2b8] font-bold px-2.5 py-1 rounded transition-colors text-[11px]"
+                                  className="flex items-center gap-1 bg-teal-50 hover:bg-teal-100/60 text-teal-700 font-bold px-2.5 py-1 rounded transition-colors text-[11px]"
                                 >
                                   Bài nộp
-                                  <span className="bg-[#17a2b8] text-white px-1.5 py-0.2 rounded-full text-[9px]">
+                                  <span className="bg-teal-600 text-white px-1.5 py-0.2 rounded-full text-[9px]">
                                     {isLoadingList ? '...' : (list.length || 0)}
                                   </span>
                                   <span>{isExpanded ? '▲' : '▼'}</span>
@@ -339,7 +339,7 @@ export function InstructorCourseDetailPage() {
                                             <td className="px-3 py-2 font-semibold">
                                               <Link
                                                 to={`/instructor/submissions`}
-                                                className="text-[#17a2b8] hover:underline"
+                                                className="text-teal-600 hover:underline"
                                               >
                                                 {sub.studentUsername}
                                               </Link>
@@ -348,7 +348,7 @@ export function InstructorCourseDetailPage() {
                                             <td className="px-3 py-2 text-slate-500 font-medium">
                                               {new Date(sub.submittedAt).toLocaleString('vi-VN')}
                                             </td>
-                                            <td className="px-3 py-2 text-right font-bold text-[#17a2b8]">
+                                            <td className="px-3 py-2 text-right font-bold text-teal-600">
                                               {sub.score != null ? sub.score.toFixed(1) : '—'}
                                             </td>
                                           </tr>
@@ -406,12 +406,9 @@ export function InstructorCourseDetailPage() {
 
           {/* Mini-leaderboard Widget */}
           <div className="card p-0 bg-white border border-slate-100 shadow-sm overflow-hidden">
-            <div className="bg-[#17a2b8] text-white px-4 py-3">
-              <h3 className="font-bold text-xs uppercase tracking-wide flex items-center gap-1.5">
-                {/* Trophy Icon */}
-                <svg className="h-4 w-4 text-amber-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5a2 2 0 10-2 2h2zm0 0h4m-4 0H8m12 0a2 2 0 10-2-2v2h2zm-2 0V6a2 2 0 10-2-2v2h2zm-8-2v2h2v-2H8zm-2 0v2h2v-2H6zm0 0a2 2 0 11-2-2v2h2zm-2 0V6a2 2 0 10-2-2v2h2z" />
-                </svg>
+            <div className="panel-header py-3 px-4">
+              <h3 className="panel-title">
+                <span>🏆</span>
                 Bảng Xếp Hạng
               </h3>
             </div>
@@ -435,7 +432,7 @@ export function InstructorCourseDetailPage() {
                           {item.studentName}
                         </span>
                       </div>
-                      <span className="font-bold text-[#17a2b8]">{item.totalScore.toFixed(1)}</span>
+                      <span className="font-bold text-teal-600">{item.totalScore.toFixed(1)}</span>
                     </li>
                   ))}
                 </ul>

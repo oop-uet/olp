@@ -66,10 +66,16 @@
 
   /* ─── Cards ────────────────────────────────────────────────────────────── */
   .card {
-    @apply rounded-xl border border-slate-100 bg-white shadow-sm transition-all duration-200;
+    @apply rounded-xl border border-slate-100 bg-white shadow-sm transition-all duration-200 overflow-hidden;
   }
   .card-hover {
     @apply card hover:shadow-md hover:translate-y-[-2px] hover:border-slate-200;
+  }
+  .panel-header {
+    @apply flex flex-wrap items-center justify-between border-b border-slate-100 bg-slate-50/80 px-5 py-3.5 border-l-4 border-teal-600;
+  }
+  .panel-title {
+    @apply text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2;
   }
 
   /* ─── Inputs ───────────────────────────────────────────────────────────── */
