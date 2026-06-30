@@ -24,9 +24,31 @@ interface SubmissionDetail {
   testCaseResults: TestCaseResult[]
 }
 
+type SubmissionDetailResponse = Partial<SubmissionDetail> & {
+  exercise?: {
+    title?: string
+  }
+  exercise_id?: string
+  attempt_number?: number
+  submitted_at?: string
+}
+
 interface SubmittedSourceFile {
   name: string
   content: string
+}
+
+function normalizeSubmissionDetail(data: SubmissionDetailResponse): SubmissionDetail {
+  return {
+    id: data.id ?? '',
+    exerciseId: data.exerciseId ?? data.exercise_id ?? '',
+    exerciseTitle: data.exerciseTitle ?? data.exercise?.title ?? 'Bài tập',
+    code: data.code ?? '',
+    score: Number(data.score ?? 0),
+    attemptNumber: Number(data.attemptNumber ?? data.attempt_number ?? 1),
+    submittedAt: data.submittedAt ?? data.submitted_at ?? new Date().toISOString(),
+    testCaseResults: Array.isArray(data.testCaseResults) ? data.testCaseResults : [],
+  }
 }
 
 function parseSubmittedFiles(code: string): SubmittedSourceFile[] {
@@ -110,7 +132,7 @@ export function SubmissionDetailPage() {
       setLoading(true)
       setError(null)
       const response = await api.get(`/api/submissions/${submissionId}`)
-      setSubmission(response.data)
+      setSubmission(normalizeSubmissionDetail(response.data))
     } catch {
       setError('Không thể tải chi tiết bài nộp. Vui lòng thử lại.')
       toast.error('Không thể tải chi tiết bài nộp. Vui lòng thử lại.')
@@ -134,8 +156,9 @@ export function SubmissionDetailPage() {
     )
   }
 
-  const totalPoints = submission.testCaseResults.reduce((sum, tc) => sum + tc.pointValue, 0)
-  const earnedPoints = submission.testCaseResults
+  const testCaseResults = submission.testCaseResults ?? []
+  const totalPoints = testCaseResults.reduce((sum, tc) => sum + tc.pointValue, 0)
+  const earnedPoints = testCaseResults
     .filter((tc) => tc.passed)
     .reduce((sum, tc) => sum + tc.pointValue, 0)
   const submittedFiles = parseSubmittedFiles(submission.code)
@@ -183,12 +206,12 @@ export function SubmissionDetailPage() {
             <p className="mt-0.5 text-xs text-slate-500">Chỉ hiển thị test case công khai</p>
           </div>
           <div className="divide-y divide-slate-100">
-            {submission.testCaseResults.length === 0 ? (
+            {testCaseResults.length === 0 ? (
               <p className="px-4 py-4 text-sm text-slate-500">
                 Không có test case công khai cho bài tập này.
               </p>
             ) : (
-              submission.testCaseResults.map((tc, index) => (
+              testCaseResults.map((tc, index) => (
                 <div key={tc.id} className="px-4 py-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>

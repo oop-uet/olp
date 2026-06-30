@@ -1,4 +1,6 @@
 import { render, screen, act } from '@testing-library/react'
+import type { ReactElement } from 'react'
+import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { AntiCheatMonitor } from './AntiCheatMonitor'
 
@@ -8,6 +10,10 @@ vi.mock('../../lib/api', () => ({
     post: vi.fn().mockResolvedValue({ data: {} }),
   },
 }))
+
+function renderWithRouter(ui: ReactElement) {
+  return render(<MemoryRouter>{ui}</MemoryRouter>)
+}
 
 describe('AntiCheatMonitor', () => {
   beforeEach(() => {
@@ -39,7 +45,7 @@ describe('AntiCheatMonitor', () => {
   })
 
   it('renders children directly for non-assessment exercises', () => {
-    render(
+    renderWithRouter(
       <AntiCheatMonitor isAssessment={false} exerciseId="ex-1">
         <div data-testid="workspace">Workspace Content</div>
       </AntiCheatMonitor>
@@ -54,7 +60,7 @@ describe('AntiCheatMonitor', () => {
       .fn()
       .mockReturnValue(new Promise(() => {}))
 
-    render(
+    renderWithRouter(
       <AntiCheatMonitor isAssessment={true} exerciseId="ex-1">
         <div>Workspace</div>
       </AntiCheatMonitor>
@@ -69,7 +75,7 @@ describe('AntiCheatMonitor', () => {
       .mockRejectedValue(new Error('User denied'))
 
     await act(async () => {
-      render(
+      renderWithRouter(
         <AntiCheatMonitor isAssessment={true} exerciseId="ex-1">
           <div>Workspace</div>
         </AntiCheatMonitor>
@@ -84,7 +90,7 @@ describe('AntiCheatMonitor', () => {
 
   it('renders workspace with warning indicator when fullscreen is granted', async () => {
     await act(async () => {
-      render(
+      renderWithRouter(
         <AntiCheatMonitor isAssessment={true} exerciseId="ex-1" warningThreshold={3}>
           <div data-testid="workspace">Workspace Content</div>
         </AntiCheatMonitor>
@@ -96,7 +102,7 @@ describe('AntiCheatMonitor', () => {
   })
 
   it('does not show warning indicator for non-assessment exercises', () => {
-    render(
+    renderWithRouter(
       <AntiCheatMonitor isAssessment={false} exerciseId="ex-1">
         <div data-testid="workspace">Workspace Content</div>
       </AntiCheatMonitor>
@@ -107,7 +113,7 @@ describe('AntiCheatMonitor', () => {
 
   it('shows notification and increments warning on fullscreenchange event', async () => {
     await act(async () => {
-      render(
+      renderWithRouter(
         <AntiCheatMonitor isAssessment={true} exerciseId="ex-1" warningThreshold={3}>
           <div data-testid="workspace">Workspace</div>
         </AntiCheatMonitor>
@@ -131,7 +137,7 @@ describe('AntiCheatMonitor', () => {
 
   it('shows notification on visibilitychange event', async () => {
     await act(async () => {
-      render(
+      renderWithRouter(
         <AntiCheatMonitor isAssessment={true} exerciseId="ex-1" warningThreshold={3}>
           <div data-testid="workspace">Workspace</div>
         </AntiCheatMonitor>
@@ -155,7 +161,7 @@ describe('AntiCheatMonitor', () => {
 
   it('shows notification on window blur event', async () => {
     await act(async () => {
-      render(
+      renderWithRouter(
         <AntiCheatMonitor isAssessment={true} exerciseId="ex-1" warningThreshold={3}>
           <div data-testid="workspace">Workspace</div>
         </AntiCheatMonitor>
@@ -172,7 +178,7 @@ describe('AntiCheatMonitor', () => {
 
   it('shows nullification message and locks session at threshold', async () => {
     await act(async () => {
-      render(
+      renderWithRouter(
         <AntiCheatMonitor isAssessment={true} exerciseId="ex-1" warningThreshold={2}>
           <div data-testid="workspace">Workspace</div>
         </AntiCheatMonitor>
@@ -205,7 +211,7 @@ describe('AntiCheatMonitor', () => {
     const onNullified = vi.fn()
 
     await act(async () => {
-      render(
+      renderWithRouter(
         <AntiCheatMonitor
           isAssessment={true}
           exerciseId="ex-1"
@@ -232,7 +238,7 @@ describe('AntiCheatMonitor', () => {
 
   it('locks workspace with pointer-events-none when nullified', async () => {
     await act(async () => {
-      render(
+      renderWithRouter(
         <AntiCheatMonitor isAssessment={true} exerciseId="ex-1" warningThreshold={1}>
           <div data-testid="workspace">Workspace</div>
         </AntiCheatMonitor>

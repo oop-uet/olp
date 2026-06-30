@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAntiCheat } from '../../hooks/useAntiCheat'
 
 interface AntiCheatMonitorProps {
@@ -51,6 +52,12 @@ export function AntiCheatMonitor({
   const [isInitializing, setIsInitializing] = useState(isAssessment)
   const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hasCalledNullifiedRef = useRef(false)
+
+  const exitFullscreenIfNeeded = useCallback(() => {
+    if (document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => undefined)
+    }
+  }, [])
 
   // Show a temporary notification
   const showNotification = useCallback((message: string, duration = 4000) => {
@@ -124,9 +131,10 @@ export function AntiCheatMonitor({
   useEffect(() => {
     if (isNullified && !hasCalledNullifiedRef.current) {
       hasCalledNullifiedRef.current = true
+      exitFullscreenIfNeeded()
       onNullified?.()
     }
-  }, [isNullified, onNullified])
+  }, [exitFullscreenIfNeeded, isNullified, onNullified])
 
   // Cleanup notification timer on unmount
   useEffect(() => {
@@ -199,12 +207,20 @@ export function AntiCheatMonitor({
               Trình soạn thảo và nút nộp bài đã bị khóa cho phiên này.
             </p>
             <div className="mt-5 flex flex-wrap justify-center gap-3">
-              <a href="/student/exercises" className="btn-primary h-10 px-4 text-sm">
+              <Link
+                to="/student/exercises"
+                onClick={exitFullscreenIfNeeded}
+                className="btn-primary h-10 px-4 text-sm"
+              >
                 Quay lại danh sách bài tập
-              </a>
-              <a href="/student/submissions" className="btn-secondary h-10 px-4 text-sm">
+              </Link>
+              <Link
+                to="/student/submissions"
+                onClick={exitFullscreenIfNeeded}
+                className="btn-secondary h-10 px-4 text-sm"
+              >
                 Xem bài nộp
-              </a>
+              </Link>
             </div>
           </div>
         </div>
