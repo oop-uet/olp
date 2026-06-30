@@ -74,11 +74,7 @@ export function StudentLeaderboardPage() {
     }
   }, [])
 
-  function getScoreColor(score: number): string {
-    if (score >= 80) return 'text-success-700'
-    if (score >= 50) return 'text-warning-700'
-    return 'text-danger-700'
-  }
+
 
   function getRankBadge(rank: number): React.ReactNode {
     if (rank === 1) return <span className="text-lg">🥇</span>
@@ -110,20 +106,34 @@ export function StudentLeaderboardPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Page header */}
-      <h1 className="text-2xl font-semibold text-gray-800">Bảng xếp hạng</h1>
+    <div className="space-y-6 animate-fade-in">
+      {/* Breadcrumb */}
+      <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-[#fafafa] border-b border-slate-100 rounded flex gap-1.5 items-center">
+        <span className="text-[#17a2b8] cursor-default">Trang chủ</span>
+        <span>/</span>
+        <span className="text-slate-400">Bảng xếp hạng</span>
+      </div>
 
-      {/* Section picker */}
-      <div className="flex items-center gap-3">
-        <label htmlFor="section-filter" className="text-sm font-medium text-gray-700">
-          Lớp học:
+      {/* Page header */}
+      <div className="bg-white border border-slate-100 rounded-xl p-5 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 font-sans">Bảng Xếp Hạng Lớp Học</h1>
+          <p className="mt-1 text-xs font-semibold text-slate-400">
+            Xem thứ hạng và tiến độ thực hành của bạn trong lớp học phần.
+          </p>
+        </div>
+      </div>
+
+      {/* Section filter */}
+      <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm flex items-center gap-3">
+        <label htmlFor="section-filter" className="text-xs font-bold uppercase tracking-wider text-slate-600">
+          Lớp học phần:
         </label>
         <select
           id="section-filter"
           value={selectedSectionId}
           onChange={(e) => setSelectedSectionId(e.target.value)}
-          className="input max-w-xs"
+          className="input py-1.5 px-3 max-w-xs text-xs font-semibold"
         >
           {sections.map((sec) => (
             <option key={sec.id} value={sec.id}>
@@ -138,52 +148,58 @@ export function StudentLeaderboardPage() {
 
       {/* Empty */}
       {!loadingBoard && entries.length === 0 && (
-        <div className="card flex flex-col items-center justify-center p-12 text-center">
-          <LeaderboardIcon className="mb-3 h-10 w-10 text-gray-300" />
-          <p className="text-gray-500">Chưa có dữ liệu bảng xếp hạng cho lớp này.</p>
+        <div className="card flex flex-col items-center justify-center p-12 text-center border border-slate-100 shadow-sm">
+          <LeaderboardIcon className="mb-3 h-10 w-10 text-slate-300" />
+          <p className="text-slate-500 font-medium">Chưa có dữ liệu bảng xếp hạng cho lớp này.</p>
         </div>
       )}
 
       {/* Leaderboard table */}
       {!loadingBoard && entries.length > 0 && (
-        <div className="card overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="table-th text-center">Hạng</th>
-                <th className="table-th">Tên</th>
-                <th className="table-th">Mã sinh viên</th>
-                <th className="table-th text-right">Tổng điểm</th>
-                <th className="table-th text-right">Bài đã hoàn thành</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {entries.map((entry) => {
-                const mine = isCurrentUser(entry)
-                return (
-                  <tr
-                    key={entry.studentId}
-                    className={mine ? 'bg-primary-50' : 'hover:bg-gray-50'}
-                  >
-                    <td className="table-td text-center">{getRankBadge(entry.rank)}</td>
-                    <td className="table-td font-medium text-gray-900">
-                      {entry.studentName}
-                      {mine && <span className="ml-2 badge-blue">Bạn</span>}
-                    </td>
-                    <td className="table-td text-gray-500">{entry.studentId}</td>
-                    <td className="table-td text-right">
-                      <span className={`text-sm font-bold ${getScoreColor(entry.totalScore)}`}>
-                        {entry.totalScore.toFixed(1)}
-                      </span>
-                    </td>
-                    <td className="table-td text-right text-gray-700">
-                      {entry.completedExercises}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+        <div className="card overflow-hidden border border-slate-100 shadow-sm">
+          {/* Table Header Banner */}
+          <div className="bg-[#17a2b8] text-white px-5 py-3.5 flex items-center gap-2">
+            <span className="text-lg">🏆</span>
+            <h3 className="font-bold text-sm uppercase tracking-wide">Danh Sách Xếp Hạng Lớp</h3>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-100">
+              <thead>
+                <tr className="bg-slate-50">
+                  <th className="px-5 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-500 w-24">Hạng</th>
+                  <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500">Họ và Tên</th>
+                  <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500 w-44">Mã sinh viên</th>
+                  <th className="px-5 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-500 w-36">Tổng điểm</th>
+                  <th className="px-5 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-500 w-48">Bài đã hoàn thành</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-xs text-slate-700 bg-white">
+                {entries.map((entry) => {
+                  const mine = isCurrentUser(entry)
+                  return (
+                    <tr
+                      key={entry.studentId}
+                      className={mine ? 'bg-teal-50/20' : 'hover:bg-slate-50/50 transition-colors'}
+                    >
+                      <td className="px-5 py-3 text-center font-bold">{getRankBadge(entry.rank)}</td>
+                      <td className="px-5 py-3 font-semibold text-slate-800">
+                        {entry.studentName}
+                        {mine && <span className="ml-2 bg-[#17a2b8]/10 text-[#17a2b8] text-[9px] font-extrabold rounded-full px-1.5 py-0.2">Bạn</span>}
+                      </td>
+                      <td className="px-5 py-3 font-medium text-slate-400">{entry.studentId}</td>
+                      <td className="px-5 py-3 text-right">
+                        <span className={`font-bold text-sm text-[#17a2b8]`}>
+                          {entry.totalScore.toFixed(1)}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-right font-bold text-slate-600">{entry.completedExercises}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

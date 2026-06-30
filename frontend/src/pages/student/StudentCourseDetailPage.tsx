@@ -129,12 +129,12 @@ export function StudentCourseDetailPage() {
       </div>
 
       {/* Course Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-[#003366]/5 border border-[#003366]/10 p-6 rounded-2xl">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-white border border-slate-100 rounded-xl p-5 shadow-sm">
         <div className="space-y-1">
           <div className="flex items-center gap-2.5">
             <span className="badge-blue font-semibold">{section.semester}</span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-800">{section.name}</h1>
+          <h1 className="text-xl font-bold text-slate-800">{section.name}</h1>
         </div>
         <div>
           <Link
@@ -163,9 +163,9 @@ export function StudentCourseDetailPage() {
               if (weekExercises.length === 0) return null
 
               return (
-                <div key={weekNum} className="card p-0 border border-slate-100 shadow-sm overflow-hidden">
+                <div key={weekNum} className="card p-0 border border-slate-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
                   {/* Week title bar */}
-                  <div className="bg-slate-50/80 border-b border-slate-100 px-5 py-3.5 flex items-center justify-between">
+                  <div className="bg-slate-50/80 border-b border-slate-100 px-5 py-3.5 flex items-center justify-between border-l-4 border-teal-600">
                     <span className="text-sm font-bold text-slate-700 tracking-wide uppercase">
                       TUẦN {weekNum}
                     </span>
