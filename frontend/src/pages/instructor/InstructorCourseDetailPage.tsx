@@ -244,9 +244,9 @@ export function InstructorCourseDetailPage() {
               const weekExercises = exercisesByWeek[weekNum] || []
 
               return (
-                <div key={weekNum} className="card overflow-hidden bg-white border border-slate-100 shadow-sm rounded-xl">
+                <div key={weekNum} className="card overflow-hidden bg-white border border-slate-100 shadow-sm rounded-xl hover:shadow-md transition-shadow">
                   {/* Week divider line */}
-                  <div className="flex items-center justify-between bg-[#17a2b8]/5 border-b border-slate-100 px-5 py-3">
+                  <div className="flex items-center justify-between bg-slate-50/70 border-b border-slate-100 px-5 py-3.5 border-l-4 border-teal-600">
                     <h3 className="font-bold text-sm text-slate-800 tracking-wide">
                       TUẦN {weekNum}
                     </h3>
