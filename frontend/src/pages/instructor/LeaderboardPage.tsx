@@ -105,11 +105,7 @@ export function LeaderboardPage() {
     fetchLeaderboard(sectionId).finally(() => setLoading(false))
   }
 
-  function getScoreColor(score: number): string {
-    if (score >= 80) return 'text-success-700'
-    if (score >= 50) return 'text-warning-700'
-    return 'text-danger-700'
-  }
+
 
   function getRankBadge(rank: number): React.ReactNode {
     if (rank === 1) {
@@ -125,34 +121,44 @@ export function LeaderboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
+      {/* Breadcrumb */}
+      <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-[#fafafa] border-b border-slate-100 rounded flex gap-1.5 items-center">
+        <span className="text-[#17a2b8] cursor-default">Trang chủ</span>
+        <span>/</span>
+        <span className="text-slate-400">Bảng xếp hạng</span>
+      </div>
+
       {/* Page header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-gray-800">Bảng xếp hạng</h1>
-        {lastRefreshed && (
-          <p className="text-xs text-gray-400">
-            Tự động làm mới mỗi 10s · Cập nhật lần cuối:{' '}
-            {lastRefreshed.toLocaleTimeString('vi-VN', {
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-            })}
+      <div className="bg-white border border-slate-100 rounded-xl p-5 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 font-sans">Bảng Xếp Hạng Lớp Học</h1>
+          <p className="mt-1 text-xs font-semibold text-slate-400">
+            Xem thứ hạng và tiến độ thực hành của sinh viên trong lớp học phần.
           </p>
+        </div>
+        {lastRefreshed && (
+          <div className="text-right text-[11px] font-semibold text-slate-400 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 self-start md:self-auto">
+            Tự động cập nhật mỗi 10s · Lần cuối:{' '}
+            <span className="text-teal-600 font-bold">
+              {lastRefreshed.toLocaleTimeString('vi-VN')}
+            </span>
+          </div>
         )}
       </div>
 
       {/* Section filter */}
-      <div className="flex items-center gap-3">
-        <label htmlFor="section-filter" className="text-sm font-medium text-gray-700">
-          Lớp học:
+      <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm flex items-center gap-3">
+        <label htmlFor="section-filter" className="text-xs font-bold uppercase tracking-wider text-slate-600">
+          Lớp học phần:
         </label>
         <select
           id="section-filter"
           value={selectedSectionId}
           onChange={(e) => handleSectionChange(e.target.value)}
-          className="input max-w-xs"
+          className="input py-1.5 px-3 max-w-xs text-xs font-semibold"
         >
-          <option value="">Chọn lớp học</option>
+          <option value="">-- Chọn lớp học --</option>
           {sections.map((sec) => (
             <option key={sec.id} value={sec.id}>
               {sec.name} ({sec.semester})
@@ -163,9 +169,9 @@ export function LeaderboardPage() {
 
       {/* No section selected */}
       {!selectedSectionId && !loading && (
-        <div className="card flex flex-col items-center justify-center p-12 text-center">
-          <LeaderboardIcon className="mb-3 h-10 w-10 text-gray-300" />
-          <p className="text-gray-500">Chọn một lớp học để xem bảng xếp hạng.</p>
+        <div className="card flex flex-col items-center justify-center p-12 text-center border border-slate-100 shadow-sm">
+          <LeaderboardIcon className="mb-3 h-10 w-10 text-slate-300" />
+          <p className="text-slate-500 font-medium">Chọn một lớp học để xem bảng xếp hạng.</p>
         </div>
       )}
 
@@ -174,39 +180,47 @@ export function LeaderboardPage() {
 
       {/* Leaderboard table */}
       {selectedSectionId && !loading && entries.length === 0 && (
-        <div className="card flex flex-col items-center justify-center p-12 text-center">
-          <p className="text-gray-500">Chưa có dữ liệu bảng xếp hạng cho lớp này.</p>
+        <div className="card flex flex-col items-center justify-center p-12 text-center border border-slate-100 shadow-sm">
+          <p className="text-slate-500 font-medium">Chưa có dữ liệu bảng xếp hạng cho lớp này.</p>
         </div>
       )}
 
       {selectedSectionId && !loading && entries.length > 0 && (
-        <div className="card overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="table-th text-center">Hạng</th>
-                <th className="table-th">Tên</th>
-                <th className="table-th">Mã sinh viên</th>
-                <th className="table-th text-right">Tổng điểm</th>
-                <th className="table-th text-right">Bài đã hoàn thành</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {entries.map((entry) => (
-                <tr key={entry.studentId} className="hover:bg-gray-50">
-                  <td className="table-td text-center">{getRankBadge(entry.rank)}</td>
-                  <td className="table-td font-medium text-gray-900">{entry.studentName}</td>
-                  <td className="table-td text-gray-500">{entry.studentId}</td>
-                  <td className="table-td text-right">
-                    <span className={`text-sm font-bold ${getScoreColor(entry.totalScore)}`}>
-                      {entry.totalScore.toFixed(1)}
-                    </span>
-                  </td>
-                  <td className="table-td text-right text-gray-700">{entry.completedExercises}</td>
+        <div className="card overflow-hidden border border-slate-100 shadow-sm">
+          {/* Table Header Banner */}
+          <div className="bg-[#17a2b8] text-white px-5 py-3.5 flex items-center gap-2">
+            <span className="text-lg">🏆</span>
+            <h3 className="font-bold text-sm uppercase tracking-wide">Danh Sách Xếp Hạng Sinh Viên</h3>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-100">
+              <thead>
+                <tr className="bg-slate-50">
+                  <th className="px-5 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-500 w-24">Hạng</th>
+                  <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500">Họ và Tên</th>
+                  <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500 w-44">Mã sinh viên</th>
+                  <th className="px-5 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-500 w-36">Tổng điểm</th>
+                  <th className="px-5 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-500 w-48">Bài đã hoàn thành</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-xs text-slate-700 bg-white">
+                {entries.map((entry) => (
+                  <tr key={entry.studentId} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-5 py-3 text-center font-bold">{getRankBadge(entry.rank)}</td>
+                    <td className="px-5 py-3 font-semibold text-slate-800">{entry.studentName}</td>
+                    <td className="px-5 py-3 font-medium text-slate-400">{entry.studentId}</td>
+                    <td className="px-5 py-3 text-right">
+                      <span className={`font-bold text-sm text-[#17a2b8]`}>
+                        {entry.totalScore.toFixed(1)}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-right font-bold text-slate-600">{entry.completedExercises}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

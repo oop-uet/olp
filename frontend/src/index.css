@@ -34,31 +34,34 @@
 @layer components {
   /* ─── Buttons ──────────────────────────────────────────────────────────── */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded px-3 py-1.5 text-xs font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.98];
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-bold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.97];
   }
   .btn-primary {
-    @apply btn bg-[#17a2b8] text-white shadow-sm hover:bg-[#138496] focus:ring-[#17a2b8]/50;
+    @apply btn bg-teal-600 text-white shadow-sm hover:bg-teal-700 focus:ring-teal-500/50;
   }
   .btn-secondary {
     @apply btn border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 focus:ring-slate-100;
   }
   .btn-success {
-    @apply btn bg-[#2eb82e] text-white shadow-sm hover:bg-[#249224] focus:ring-[#2eb82e]/50;
+    @apply btn bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 focus:ring-emerald-500/50;
   }
   .btn-danger {
-    @apply btn bg-[#ffa500] text-white shadow-sm hover:bg-[#e09000] focus:ring-[#ffa500]/50;
+    @apply btn bg-rose-600 text-white shadow-sm hover:bg-rose-700 focus:ring-rose-500/50;
+  }
+  .btn-warning {
+    @apply btn bg-amber-500 text-white shadow-sm hover:bg-amber-600 focus:ring-amber-500/50;
   }
   .btn-gray {
-    @apply btn bg-[#e0e0e0] text-slate-800 hover:bg-[#d0d0d0] focus:ring-slate-200;
+    @apply btn bg-slate-100 text-slate-700 hover:bg-slate-200 focus:ring-slate-200;
   }
   .btn-ghost {
     @apply btn text-slate-600 hover:bg-slate-100 focus:ring-slate-200;
   }
   .btn-sm {
-    @apply px-2.5 py-1 text-[11px] rounded;
+    @apply px-2.5 py-1 text-[11px] rounded-md;
   }
   .btn-lg {
-    @apply px-4 py-2.5 text-sm rounded;
+    @apply px-4 py-2.5 text-sm rounded-lg;
   }
 
   /* ─── Cards ────────────────────────────────────────────────────────────── */
