@@ -97,13 +97,18 @@ export function InstructorStatisticPage() {
         <span className="text-slate-400">Thống kê lớp học</span>
       </div>
 
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-gray-800 font-sans">Thống kê khóa học</h1>
+      {/* Page header */}
+      <div className="bg-white border border-slate-100 rounded-xl p-5 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 font-sans">Thống Kê Khóa Học</h1>
+          <p className="mt-1 text-xs font-semibold text-slate-400">
+            Xem báo cáo nộp bài thực hành, tỷ lệ hoàn thành và điểm trung bình của lớp học phần.
+          </p>
+        </div>
         
         {/* Section Picker */}
-        <div className="flex items-center gap-2 text-sm text-slate-700">
-          <label htmlFor="section-picker-select" className="font-bold">Lớp học phần:</label>
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+          <label htmlFor="section-picker-select">Lớp học phần:</label>
           <select
             id="section-picker-select"
             value={selectedSectionId}
@@ -127,7 +132,7 @@ export function InstructorStatisticPage() {
       )}
 
       {!loadingStats && !stats && selectedSectionId && (
-        <div className="card text-center p-12 text-slate-400">
+        <div className="card text-center p-12 text-slate-400 border border-slate-100 shadow-sm">
           Không tìm thấy dữ liệu thống kê cho lớp này.
         </div>
       )}
@@ -148,7 +153,7 @@ export function InstructorStatisticPage() {
 
             <div className="card p-5 bg-white border border-slate-100 shadow-sm flex flex-col justify-between">
               <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Trạng thái lớp</p>
-              <h2 className="text-sm font-bold text-emerald-600 mt-2 flex items-center gap-1.5">
+              <h2 className="text-xs font-bold text-emerald-600 mt-2.5 flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
                 ĐANG HOẠT ĐỘNG
               </h2>
@@ -156,7 +161,7 @@ export function InstructorStatisticPage() {
           </div>
 
           {/* Detailed exercises table */}
-          <div className="card overflow-hidden">
+          <div className="card overflow-hidden border border-slate-100 shadow-sm">
             <div className="bg-[#17a2b8] text-white px-5 py-3.5 flex items-center gap-2">
               <span className="text-lg">☰</span>
               <h3 className="font-bold text-sm uppercase tracking-wide">Chi Tiết Báo Cáo Thực Hành</h3>
