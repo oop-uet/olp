@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../stores/auth.store'
 import { MenuIcon, LogoutIcon } from '../ui/Icon'
+import { api } from '../../lib/api'
 
 interface HeaderProps {
   onToggleSidebar?: () => void
@@ -19,6 +20,17 @@ export function Header({ onToggleSidebar, onToggleMobile }: HeaderProps) {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const [studentSections, setStudentSections] = useState<any[]>([])
+
+  useEffect(() => {
+    if (user?.role === 'student') {
+      api.get('/api/students/sections')
+        .then((res) => {
+          setStudentSections(res.data ?? [])
+        })
+        .catch(() => {})
+    }
+  }, [user])
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -84,6 +96,21 @@ export function Header({ onToggleSidebar, onToggleMobile }: HeaderProps) {
                 <p className="text-sm font-medium text-gray-800">{user.fullName || user.username}</p>
                 <p className="text-xs text-gray-500">{user.email}</p>
               </div>
+              {user.role === 'student' && (
+                <button
+                  onClick={() => {
+                    setMenuOpen(false)
+                    if (studentSections.length > 0) {
+                      navigate(`/student/classes/${studentSections[0].id}/students/${user.id}/profile`)
+                    } else {
+                      navigate('/student/exercises')
+                    }
+                  }}
+                  className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 font-medium"
+                >
+                  Trang cá nhân
+                </button>
+              )}
               <button
                 onClick={() => {
                   setMenuOpen(false)

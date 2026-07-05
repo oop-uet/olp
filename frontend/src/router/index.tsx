@@ -50,7 +50,6 @@ const StudentCourseDetailPage = lazy(() => import('../pages/student/StudentCours
 const ExerciseWorkspacePage = lazy(() => import('../pages/student/ExerciseWorkspacePage').then((m) => ({ default: m.ExerciseWorkspacePage })))
 const SubmissionHistoryPage = lazy(() => import('../pages/student/SubmissionHistoryPage').then((m) => ({ default: m.SubmissionHistoryPage })))
 const SubmissionDetailPage = lazy(() => import('../pages/student/SubmissionDetailPage').then((m) => ({ default: m.SubmissionDetailPage })))
-const ProgressPage = lazy(() => import('../pages/student/ProgressPage').then((m) => ({ default: m.ProgressPage })))
 const StudentLeaderboardPage = lazy(() => import('../pages/student/StudentLeaderboardPage').then((m) => ({ default: m.StudentLeaderboardPage })))
 
 // Instructor
@@ -112,7 +111,6 @@ export const router = createBrowserRouter(
         { path: 'exercises/:id', element: withSuspense(<ExerciseWorkspacePage />) },
         { path: 'submissions', element: withSuspense(<SubmissionHistoryPage />) },
         { path: 'submissions/:id', element: withSuspense(<SubmissionDetailPage />) },
-        { path: 'progress', element: withSuspense(<ProgressPage />) },
         { path: 'leaderboard', element: withSuspense(<StudentLeaderboardPage />) },
       ],
     },
