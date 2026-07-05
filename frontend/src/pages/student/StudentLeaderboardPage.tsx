@@ -166,8 +166,8 @@ export function StudentLeaderboardPage() {
       {/* Main Leaderboard Table */}
       {!loadingBoard && entries.length > 0 && (
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          {/* Solid Teal/Cyan Header Bar */}
-          <div className="flex items-center gap-2 bg-[#00acc1] px-5 py-3 text-white">
+          {/* Solid Theme Brand Primary Header Bar */}
+          <div className="flex items-center gap-2 bg-primary px-5 py-3 text-white">
             <span className="text-base">📋</span>
             <h3 className="text-sm font-bold tracking-wide uppercase">
               {currentSection.name}
