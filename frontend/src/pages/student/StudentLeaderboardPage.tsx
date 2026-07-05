@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from 'react'
-import { useSearchParams, Link } from 'react-router-dom'
+import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { cachedGet } from '../../lib/api'
 import { PageLoader, LeaderboardIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
@@ -22,6 +22,13 @@ interface SectionOption {
   semester: string
 }
 
+type SortKey = 'rank' | 'studentName' | 'sectionName' | 'totalScore'
+type SortDirection = 'asc' | 'desc'
+
+function formatScore(value: number): string {
+  return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1)
+}
+
 // --- Component ---
 
 export function StudentLeaderboardPage() {
@@ -36,6 +43,8 @@ export function StudentLeaderboardPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [pageSize, setPageSize] = useState(30)
   const [currentPage, setCurrentPage] = useState(1)
+  const [sortKey, setSortKey] = useState<SortKey>('rank')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
   // Fetch enrolled sections on mount.
   useEffect(() => {
@@ -103,27 +112,49 @@ export function StudentLeaderboardPage() {
   const currentSection =
     sections.find((section) => section.id === selectedSectionId) ?? sections[0]
 
-  // Filter entries based on search input
+  function handleSort(nextKey: SortKey) {
+    if (sortKey === nextKey) {
+      setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortKey(nextKey)
+      setSortDirection(nextKey === 'totalScore' ? 'desc' : 'asc')
+    }
+    setCurrentPage(1)
+  }
+
+  function sortIndicator(key: SortKey) {
+    if (sortKey !== key) return <span className="ml-1 text-slate-300">↕</span>
+    return <span className="ml-1 text-primary">{sortDirection === 'asc' ? '▲' : '▼'}</span>
+  }
+
   const filteredEntries = entries.filter((entry) => {
     const q = searchQuery.toLowerCase().trim()
     if (!q) return true
     return (
       entry.studentName.toLowerCase().includes(q) ||
-      entry.studentId.toLowerCase().includes(q)
+      entry.studentId.toLowerCase().includes(q) ||
+      currentSection.name.toLowerCase().includes(q)
     )
   })
 
-  // Paginated entries
-  const totalPages = Math.ceil(filteredEntries.length / pageSize)
-  const paginatedEntries = filteredEntries.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  )
+  const sortedEntries = useMemo(() => {
+    const direction = sortDirection === 'asc' ? 1 : -1
+    return [...filteredEntries].sort((a, b) => {
+      if (sortKey === 'rank') return (a.rank - b.rank) * direction
+      if (sortKey === 'totalScore') return (a.totalScore - b.totalScore) * direction
+      if (sortKey === 'sectionName') return currentSection.name.localeCompare(currentSection.name) * direction
+      return a.studentName.localeCompare(b.studentName, 'vi') * direction
+    })
+  }, [filteredEntries, sortDirection, sortKey, currentSection.name])
+
+  const totalPages = Math.max(1, Math.ceil(sortedEntries.length / pageSize))
+  const paginatedEntries = sortedEntries.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const startIndex = sortedEntries.length === 0 ? 0 : (currentPage - 1) * pageSize + 1
+  const endIndex = Math.min(currentPage * pageSize, sortedEntries.length)
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Course tab navigation & Dropdown picker */}
-      <div className="border-b border-slate-200 pb-1 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col justify-between gap-4 border-b border-slate-200 pb-1 sm:flex-row sm:items-center">
         <div className="flex border-b-2 border-primary -mb-[2px]">
           <button className="px-4 py-2 text-sm font-bold text-primary">
             Xếp Hạng Theo Khóa Học
@@ -153,7 +184,6 @@ export function StudentLeaderboardPage() {
         )}
       </div>
 
-      {/* Loading states */}
       {loadingBoard && <PageLoader label="Đang tải bảng xếp hạng..." />}
 
       {/* Empty */}
@@ -164,20 +194,17 @@ export function StudentLeaderboardPage() {
         </div>
       )}
 
-      {/* Main Leaderboard Table */}
       {!loadingBoard && entries.length > 0 && (
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          {/* Solid Theme Brand Primary Header Bar */}
           <div className="flex items-center gap-2 bg-primary px-5 py-3 text-white">
-            <span className="text-base">📋</span>
-            <h3 className="text-sm font-bold tracking-wide uppercase">
+            <LeaderboardIcon className="h-4 w-4" />
+            <h3 className="text-sm font-bold uppercase tracking-wide">
               {currentSection.name}
             </h3>
           </div>
 
-          <div className="p-5 space-y-4">
-            {/* Table Controls (Show entries & Search) */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600 font-medium">
+          <div className="space-y-4 p-5">
+            <div className="flex flex-col items-center justify-between gap-3 text-xs font-medium text-slate-600 sm:flex-row">
               <div className="flex items-center gap-1.5">
                 <span>Hiển thị</span>
                 <select
@@ -186,7 +213,7 @@ export function StudentLeaderboardPage() {
                     setPageSize(Number(e.target.value))
                     setCurrentPage(1)
                   }}
-                  className="border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  className="rounded-md border border-slate-200 px-2 py-1 text-xs font-semibold focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10"
                 >
                   <option value={10}>10</option>
                   <option value={20}>20</option>
@@ -196,7 +223,7 @@ export function StudentLeaderboardPage() {
                 <span>dòng</span>
               </div>
 
-              <div className="flex items-center gap-1.5 w-full sm:w-auto">
+              <div className="flex w-full items-center gap-1.5 sm:w-auto">
                 <span>Tìm kiếm:</span>
                 <input
                   type="text"
@@ -205,20 +232,39 @@ export function StudentLeaderboardPage() {
                     setSearchQuery(e.target.value)
                     setCurrentPage(1)
                   }}
-                  className="border border-slate-200 rounded px-2.5 py-1.5 w-full sm:w-60 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-xs focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10 sm:w-60"
                 />
               </div>
             </div>
 
-            {/* Table layout */}
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-slate-100 border border-slate-200">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-left">
-                    <th className="px-4 py-3 text-center text-xs font-bold text-slate-700 w-16">#</th>
-                    <th className="px-6 py-3 text-xs font-bold text-slate-700">Sinh viên</th>
-                    <th className="px-6 py-3 text-xs font-bold text-slate-700">Lớp học phần</th>
-                    <th className="px-6 py-3 text-xs font-bold text-slate-700 text-right">Điểm SV/Tổng điểm</th>
+                    <th className="w-16 px-4 py-3 text-center text-xs font-bold text-slate-700">
+                      <button type="button" onClick={() => handleSort('rank')} className="inline-flex items-center">
+                        #
+                        {sortIndicator('rank')}
+                      </button>
+                    </th>
+                    <th className="px-6 py-3 text-xs font-bold text-slate-700">
+                      <button type="button" onClick={() => handleSort('studentName')} className="inline-flex items-center">
+                        Sinh viên
+                        {sortIndicator('studentName')}
+                      </button>
+                    </th>
+                    <th className="px-6 py-3 text-xs font-bold text-slate-700">
+                      <button type="button" onClick={() => handleSort('sectionName')} className="inline-flex items-center">
+                        Lớp học phần
+                        {sortIndicator('sectionName')}
+                      </button>
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-bold text-slate-700">
+                      <button type="button" onClick={() => handleSort('totalScore')} className="inline-flex items-center">
+                        Điểm SV/Tổng điểm
+                        {sortIndicator('totalScore')}
+                      </button>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs text-slate-700 bg-white">
@@ -237,14 +283,11 @@ export function StudentLeaderboardPage() {
                           {entry.rank}
                         </td>
                         <td className="px-6 py-3.5 font-semibold text-slate-800">
-                          <Link
-                            to={`/student/classes/${currentSection.id}/students/${entry.studentUserId || entry.studentId}/profile`}
-                            className="text-primary hover:underline cursor-pointer"
-                          >
+                          <span className={mine ? 'text-primary' : 'text-slate-800'}>
                             {entry.studentName}
-                          </Link>
+                          </span>
                           {mine && (
-                            <span className="ml-2 bg-primary text-white text-[9px] font-extrabold rounded-full px-1.5 py-0.5">
+                            <span className="ml-2 rounded-full bg-secondary px-1.5 py-0.5 text-[9px] font-extrabold text-white">
                               Bạn
                             </span>
                           )}
@@ -253,7 +296,7 @@ export function StudentLeaderboardPage() {
                           {currentSection.name}
                         </td>
                         <td className="px-6 py-3.5 text-right font-black text-slate-800">
-                          {entry.totalScore.toFixed(0)}/{maxPossibleScore || 100}
+                          {formatScore(entry.totalScore)}/{formatScore(maxPossibleScore || 100)}
                         </td>
                       </tr>
                     )
@@ -262,23 +305,24 @@ export function StudentLeaderboardPage() {
               </table>
             </div>
 
-            {/* Pagination Controls */}
-            {totalPages > 1 && (
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 text-xs text-slate-500 font-medium">
+            {sortedEntries.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-slate-200 p-8 text-center text-sm font-medium text-slate-500">
+                Không có sinh viên phù hợp với từ khóa tìm kiếm.
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-between gap-3 pt-3 text-xs font-medium text-slate-500 sm:flex-row">
                 <div>
-                  Hiển thị {(currentPage - 1) * pageSize + 1} đến{' '}
-                  {Math.min(currentPage * pageSize, filteredEntries.length)} của{' '}
-                  {filteredEntries.length} dòng
+                  Hiển thị {startIndex} đến {endIndex} của {sortedEntries.length} dòng
                 </div>
                 <div className="flex items-center gap-1">
                   <button
                     disabled={currentPage === 1}
                     onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                    className="px-3 py-1.5 rounded border border-slate-200 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="rounded border border-slate-200 px-3 py-1.5 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Trước
                   </button>
-                  {Array.from({ length: totalPages }).map((_, i) => (
+                  {Array.from({ length: Math.min(totalPages, 7) }).map((_, i) => (
                     <button
                       key={i}
                       onClick={() => setCurrentPage(i + 1)}
@@ -294,7 +338,7 @@ export function StudentLeaderboardPage() {
                   <button
                     disabled={currentPage === totalPages}
                     onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                    className="px-3 py-1.5 rounded border border-slate-200 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="rounded border border-slate-200 px-3 py-1.5 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Sau
                   </button>
