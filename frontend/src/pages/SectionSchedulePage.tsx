@@ -37,7 +37,6 @@ interface PoolExercise {
   title: string
   difficulty: Difficulty
   oopTags: string[]
-  assignedWeek: number | null
 }
 
 interface ScheduleData {
@@ -452,9 +451,6 @@ export function SectionSchedulePage() {
                       <span className="font-medium text-gray-800">{ex.title}</span>
                       <DifficultyBadge difficulty={ex.difficulty} />
                     </div>
-                    {ex.assignedWeek && (
-                      <span className="badge-green w-fit">Đang ở tuần {ex.assignedWeek}</span>
-                    )}
                     {ex.oopTags && ex.oopTags.length > 0 && (
                       <div className="flex flex-wrap gap-1">
                         {ex.oopTags.map((tag) => (

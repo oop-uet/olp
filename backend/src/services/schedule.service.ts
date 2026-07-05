@@ -87,7 +87,6 @@ export interface SectionSchedule {
     title: string;
     difficulty: string;
     oopTags: string[];
-    assignedWeek: number | null;
   }>;
 }
 
@@ -140,10 +139,9 @@ export async function getSectionSchedule(
     deadline: a.deadline ?? null,
   });
 
-  const assignedWeekByExerciseId = new Map<string, number | null>();
-  for (const a of assignments as any[]) {
-    assignedWeekByExerciseId.set(a.exerciseId, a.week ?? null);
-  }
+  const assignedExerciseIds = new Set<string>(
+    (assignments as any[]).map((a) => String(a.exerciseId))
+  );
 
   const maxConfiguredWeek = Math.max(
     TOTAL_WEEKS,
@@ -167,8 +165,8 @@ export async function getSectionSchedule(
     .filter((a: any) => !a.week || a.week < 1)
     .map(toScheduleExercise);
 
-  // Pool: all system-library exercises plus the instructor's own exercises.
-  // Assigned items stay visible so the instructor can drag them to another week.
+  // Pool: all unassigned system-library exercises plus the instructor's own
+  // unassigned exercises. Assigned items live only in the week list.
   const poolSource =
     role === "admin"
       ? await database.query.exercises.findMany()
@@ -176,13 +174,14 @@ export async function getSectionSchedule(
           where: or(eq(exercises.isLibrary, 1), eq(exercises.createdBy, userId)),
         });
 
-  const pool = poolSource.map((e: any) => ({
-    id: e.id,
-    title: e.title,
-    difficulty: e.difficulty,
-    oopTags: parseOopTags(e.oopTags),
-    assignedWeek: assignedWeekByExerciseId.get(e.id) ?? null,
-  }));
+  const pool = poolSource
+    .filter((e: any) => !assignedExerciseIds.has(String(e.id)))
+    .map((e: any) => ({
+      id: e.id,
+      title: e.title,
+      difficulty: e.difficulty,
+      oopTags: parseOopTags(e.oopTags),
+    }));
 
   return {
     section: { id: section.id, name: section.name, semester: section.semester },
