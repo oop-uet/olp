@@ -393,7 +393,7 @@ export function InstructorSectionDetailPage() {
           {/* Table Controls (Show Entries & Search) */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600 font-medium">
             <div className="flex items-center gap-1.5">
-              <span>Show</span>
+              <span>Hiển thị</span>
               <select
                 value={pageSize}
                 onChange={(e) => {
@@ -407,11 +407,11 @@ export function InstructorSectionDetailPage() {
                 <option value={30}>30</option>
                 <option value={50}>50</option>
               </select>
-              <span>entries</span>
+              <span>dòng</span>
             </div>
 
             <div className="flex items-center gap-1.5 w-full sm:w-auto">
-              <span>Search:</span>
+              <span>Tìm kiếm:</span>
               <input
                 type="text"
                 value={searchQuery}

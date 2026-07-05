@@ -78,10 +78,10 @@ function dateKey(ts: string) {
 }
 
 function getStatusLabel(status: SubmissionRow['status'], score: number) {
-  if (score >= 100) return { label: 'Finished', className: 'badge-green' }
+  if (score >= 100) return { label: 'Hoàn thành', className: 'badge-green' }
   return status === 'finished'
-    ? { label: 'Finished', className: 'badge-green' }
-    : { label: 'Submitted', className: 'badge-yellow' }
+    ? { label: 'Hoàn thành', className: 'badge-green' }
+    : { label: 'Đã nộp', className: 'badge-yellow' }
 }
 
 export function InstructorStudentProfilePage() {

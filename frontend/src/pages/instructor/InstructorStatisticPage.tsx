@@ -205,7 +205,7 @@ export function InstructorStatisticPage() {
                     Danh sách sinh viên
                   </h2>
                   <label className="flex items-center gap-2 text-xs font-bold text-slate-500">
-                    Search:
+                    Tìm kiếm:
                     <input
                       value={query}
                       onChange={(event) => setQuery(event.target.value)}
