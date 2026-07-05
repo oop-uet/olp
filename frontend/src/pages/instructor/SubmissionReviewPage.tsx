@@ -181,25 +181,6 @@ function isPassed(value: number | boolean): boolean {
   return value === true || value === 1
 }
 
-function getStatusBadge(status: string, passed: boolean) {
-  if (passed) {
-    return (
-      <span className="badge-green">
-        <CheckCircleIcon className="h-3.5 w-3.5" />
-        Đạt
-      </span>
-    )
-  }
-
-  const statusLabel = status === 'timeout' ? 'Quá thời gian' : status === 'error' ? 'Lỗi' : 'Không đạt'
-  return (
-    <span className="badge-red">
-      <XCircleIcon className="h-3.5 w-3.5" />
-      {statusLabel}
-    </span>
-  )
-}
-
 function getEventTypeLabel(eventType: string): string {
   switch (eventType) {
     case 'fullscreen_exit':
@@ -234,11 +215,13 @@ export function SubmissionReviewPage() {
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [detailError, setDetailError] = useState<string | null>(null)
   const [activeSubmittedFile, setActiveSubmittedFile] = useState('Main.java')
+  const [activeTab, setActiveTab] = useState<'source' | 'results'>('source')
 
   // Grading state
   const [gradeScore, setGradeScore] = useState('')
   const [gradeFeedback, setGradeFeedback] = useState('')
   const [savingGrade, setSavingGrade] = useState(false)
+
 
   const selectedExerciseId = searchParams.get('exercise_id') || ''
 
@@ -341,6 +324,7 @@ export function SubmissionReviewPage() {
     
     const files = parseSubmittedFiles(detail.code)
     setActiveSubmittedFile(files[0]?.name ?? 'Main.java')
+    setActiveTab('source')
   }
 
   async function fetchSubmissionDetail(submissionId: string) {
@@ -592,28 +576,6 @@ export function SubmissionReviewPage() {
               </div>
             </div>
 
-            {/* Test Case Results */}
-            <div className="card bg-white border border-slate-100 shadow-sm overflow-hidden">
-              <div className="panel-header py-2.5 px-4">
-                <h3 className="panel-title">Kết quả Test Cases</h3>
-              </div>
-              <div className="p-4 divide-y divide-slate-100">
-                {results.length === 0 ? (
-                  <p className="text-center py-4 text-xs text-slate-400 italic">Không có kết quả bộ test.</p>
-                ) : (
-                  results.map((tc, index) => (
-                    <div key={tc.id} className="flex items-center justify-between py-2 text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-700">Bộ test #{index + 1}</span>
-                        <span className="text-[10px] text-slate-400 font-semibold">({tc.testCase?.pointValue ?? 0} đ)</span>
-                      </div>
-                      {getStatusBadge(tc.status, isPassed(tc.passed))}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
             {/* Anti-cheat logs */}
             <div className="card bg-white border border-slate-100 shadow-sm overflow-hidden">
               <div className="panel-header py-2.5 px-4">
@@ -649,31 +611,74 @@ export function SubmissionReviewPage() {
 
           </aside>
 
-          {/* Right Main Column (Code Editor Viewer) */}
+          {/* Right Main Column (Code Editor & Test Case Viewer Tabs) */}
           <main className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm flex flex-col h-[650px]">
-            <div className="border-b border-slate-200 bg-white px-4 py-3 flex items-center justify-between">
-              <span className="text-sm font-bold text-slate-700">Xem mã nguồn</span>
-              <span className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                {currentSubmittedFile.name}
-              </span>
+            <div className="border-b border-slate-200 bg-white">
+              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                <div className="flex flex-wrap gap-1">
+                  {[
+                    ['source', 'Mã nguồn'],
+                    ['results', `Yêu cầu chức năng (${earnedPoints}/${results.length})`],
+                  ].map(([tab, label]) => (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => setActiveTab(tab as 'source' | 'results')}
+                      className={`h-9 rounded-md px-3 text-sm font-bold transition ${
+                        activeTab === tab
+                          ? 'bg-primary-50 text-primary-800 ring-1 ring-primary-200'
+                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                  {currentSubmittedFile.name}
+                </span>
+              </div>
             </div>
-            <div className="flex-1">
-              <Editor
-                height="100%"
-                language="java"
-                value={currentSubmittedFile.content}
-                theme="vs-dark"
-                options={{
-                  readOnly: true,
-                  minimap: { enabled: false },
-                  scrollBeyondLastLine: false,
-                  fontSize: 13,
-                  lineNumbers: 'on',
-                  wordWrap: 'on',
-                  fontFamily: 'JetBrains Mono',
-                }}
-              />
-            </div>
+
+            {activeTab === 'source' && (
+              <div className="flex-1">
+                <Editor
+                  height="100%"
+                  language="java"
+                  value={currentSubmittedFile.content}
+                  theme="vs-dark"
+                  options={{
+                    readOnly: true,
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    fontSize: 13,
+                    lineNumbers: 'on',
+                    wordWrap: 'on',
+                    fontFamily: 'JetBrains Mono',
+                  }}
+                />
+              </div>
+            )}
+
+            {activeTab === 'results' && (
+              <div className="flex-1 bg-slate-50 p-4 overflow-y-auto space-y-4">
+                {results.length === 0 ? (
+                  <div className="flex min-h-[320px] items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
+                    <p className="text-sm font-bold text-slate-400">Không có kết quả bộ test</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {results.map((tc, index) => (
+                      <FunctionalResultCard
+                        key={tc.id}
+                        result={tc}
+                        index={index}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </main>
 
         </div>
@@ -912,5 +917,56 @@ export function SubmissionReviewPage() {
       </div>
 
     </div>
+  )
+}
+
+function FunctionalResultCard({
+  result,
+  index,
+}: {
+  result: TestCaseResult
+  index: number
+}) {
+  const passed = result.passed === true || result.passed === 1
+  const pointValue = result.testCase?.pointValue ?? 0
+  const statusClass = passed
+    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+    : 'border-rose-200 bg-rose-50 text-rose-700'
+  const iconClass = passed ? 'bg-emerald-600' : 'bg-rose-600'
+  const statusLabel = passed ? 'Accepted' : result.status === 'timeout' ? 'Timeout' : result.status === 'error' ? 'Error' : 'Wrong Answer'
+
+  return (
+    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+      <div className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left">
+        <div className="flex min-w-0 items-center gap-4">
+          <span
+            className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white ${iconClass}`}
+          >
+            {passed ? (
+              <CheckCircleIcon className="h-6 w-6 text-white" />
+            ) : (
+              <XCircleIcon className="h-6 w-6 text-white" />
+            )}
+          </span>
+          <div className="min-w-0">
+            <h3 className={`truncate text-base font-bold ${passed ? 'text-emerald-700' : 'text-rose-700'}`}>
+              Bộ test #{index + 1} ({pointValue} điểm)
+            </h3>
+            <p className="mt-1 text-xs font-semibold text-slate-500">
+              {result.status === 'timeout'
+                ? 'Chương trình chạy quá thời gian cho phép.'
+                : result.status === 'error'
+                ? result.actualOutput || 'Chương trình gặp lỗi khi chạy test.'
+                : passed
+                ? 'Chạy thành công và kết quả chính xác.'
+                : 'Kết quả đầu ra không khớp với đầu ra mong đợi.'}
+            </p>
+          </div>
+        </div>
+        <span className={`rounded-md border px-3 py-1 text-xs font-bold uppercase ${statusClass}`}>
+          {statusLabel}
+        </span>
+      </div>
+    </section>
   )
 }
