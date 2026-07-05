@@ -142,14 +142,14 @@ export function AntiCheatMonitor({
         showNotification('Rời khỏi màn hình làm bài được tính là một cảnh báo.')
       }
 
-      const href = link.getAttribute('href')
+      const targetRoute = link.dataset.antiCheatTo || '/student/exercises'
       if (warningCount + 1 >= threshold) {
         return
       }
 
       setTimeout(() => {
         exitFullscreenIfNeeded()
-        if (href) navigate(href)
+        navigate(targetRoute)
       }, 180)
     }
 

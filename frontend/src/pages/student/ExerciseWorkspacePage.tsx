@@ -444,6 +444,7 @@ export function ExerciseWorkspacePage() {
           <Link
             to="/student/exercises"
             data-anti-cheat-exit="true"
+            data-anti-cheat-to="/student/exercises"
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition hover:border-primary-300 hover:bg-primary-50 hover:text-primary"
             aria-label="Quay lại danh sách bài tập"
           >

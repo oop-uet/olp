@@ -4,6 +4,16 @@ import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { AntiCheatMonitor } from './AntiCheatMonitor'
 
+const mockNavigate = vi.fn()
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  }
+})
+
 // Mock the api module
 vi.mock('../../lib/api', () => ({
   api: {
@@ -17,6 +27,8 @@ function renderWithRouter(ui: ReactElement) {
 
 describe('AntiCheatMonitor', () => {
   beforeEach(() => {
+    mockNavigate.mockReset()
+
     // Mock fullscreen APIs on document.documentElement
     document.documentElement.requestFullscreen = vi.fn().mockResolvedValue(undefined)
 
@@ -131,6 +143,30 @@ describe('AntiCheatMonitor', () => {
       expect(screen.getByText('Cảnh báo: 1/3')).toBeInTheDocument()
     })
     expect(screen.getByText('Không được sao chép đề bài hoặc test case.')).toBeInTheDocument()
+  })
+
+  it('uses an internal route instead of the rendered href for secure exit links', async () => {
+    vi.useFakeTimers()
+
+    await act(async () => {
+      renderWithRouter(
+        <AntiCheatMonitor isAssessment={true} exerciseId="ex-1" warningThreshold={3}>
+          <a href="/olp/student/exercises" data-anti-cheat-exit="true" data-anti-cheat-to="/student/exercises">
+            Back
+          </a>
+        </AntiCheatMonitor>
+      )
+    })
+
+    fireEvent.click(screen.getByText('Back'))
+
+    await act(async () => {
+      vi.advanceTimersByTime(200)
+    })
+
+    expect(mockNavigate).toHaveBeenCalledWith('/student/exercises')
+
+    vi.useRealTimers()
   })
 
   it('shows notification and increments warning on fullscreenchange event', async () => {
