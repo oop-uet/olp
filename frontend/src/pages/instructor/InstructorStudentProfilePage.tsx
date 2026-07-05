@@ -122,6 +122,9 @@ export function InstructorStudentProfilePage() {
       .map(([date, value]) => ({ date, ...value }))
   }, [profile])
 
+  const user = useAuthStore((state) => state.user)
+  const isStudent = user?.role === 'student'
+
   if (loading) return <PageLoader label="Đang tải hồ sơ sinh viên..." />
 
   if (!profile) {
@@ -136,9 +139,6 @@ export function InstructorStudentProfilePage() {
   const completed = progress.filter((item) => item.status === 'completed').length
   const attempted = progress.filter((item) => item.attemptCount > 0 && item.status !== 'completed').length
   const notStarted = Math.max(0, progress.length - completed - attempted)
-
-  const user = useAuthStore((state) => state.user)
-  const isStudent = user?.role === 'student'
 
   return (
     <div className="space-y-5">
