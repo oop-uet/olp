@@ -76,6 +76,8 @@ beforeAll(() => {
       deadline TEXT,
       is_assessment INTEGER DEFAULT 0,
       is_visible INTEGER DEFAULT 1,
+      allow_submission INTEGER DEFAULT 1,
+      max_submissions INTEGER,
       week INTEGER,
       assigned_at TEXT DEFAULT (datetime('now'))
     );

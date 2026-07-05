@@ -159,12 +159,19 @@ export function StudentCourseDetailPage() {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-lg border border-slate-200 bg-white px-5 py-4 shadow-sm">
-        <div className="flex flex-col gap-1">
-          <p className="text-xs font-bold uppercase tracking-wide text-secondary">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary-800 via-primary-900 to-slate-900 p-6 text-white shadow-md border-b-4 border-secondary">
+        {/* Subtle decorative background circle */}
+        <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-white/5 translate-x-12 -translate-y-12 blur-lg"></div>
+        <div className="relative z-10 space-y-2">
+          <span className="inline-block rounded-full bg-secondary-500/20 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-secondary-300 ring-1 ring-secondary-500/30">
             {section.semester}
-          </p>
-          <h1 className="text-xl font-bold text-slate-900">{section.name}</h1>
+          </span>
+          <h1 className="text-2xl font-black tracking-tight">{section.name}</h1>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-primary-200">
+            <span className="font-semibold">Giảng viên: Nguyễn Văn Tuyên</span>
+            <span>•</span>
+            <span>{exercises.length} bài thực hành</span>
+          </div>
         </div>
       </div>
 
@@ -218,59 +225,64 @@ function ExerciseWeekCard({ title, exercises }: { title: string; exercises: Exer
   const deadline = getWeekDeadline(exercises)
 
   return (
-    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between bg-slate-100 px-5 py-3">
-        <span className="text-base font-bold uppercase tracking-wide text-slate-800">{title}</span>
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex items-center justify-between bg-slate-50/50 border-b border-slate-100 px-5 py-4 border-l-4 border-primary">
+        <span className="text-sm font-bold uppercase tracking-wider text-slate-800">{title}</span>
         {deadline && (
-          <span className="text-sm italic text-slate-500">Hạn nộp: {formatDeadline(deadline)}</span>
+          <span className="text-xs font-semibold text-slate-500 bg-slate-100/80 px-2.5 py-1 rounded-full flex items-center gap-1">
+            <CalendarIcon className="h-3.5 w-3.5" />
+            Hạn nộp: {formatDeadline(deadline)}
+          </span>
         )}
       </div>
 
-      <div className="space-y-2 bg-white p-3">
+      <div className="divide-y divide-slate-100 bg-white">
         {exercises.map((exercise) => (
           <Link
             key={exercise.id}
             to={`/student/exercises/${exercise.id}`}
-            className="flex min-h-14 items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 shadow-sm transition hover:border-primary-300 hover:bg-white hover:shadow-md"
+            className="flex items-center justify-between gap-4 px-5 py-4 transition hover:bg-slate-50/50 group"
           >
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 space-y-1">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <span className="truncate text-base font-bold text-slate-700">{exercise.title}</span>
+                {exercise.status === 'completed' ? (
+                  <span className="text-emerald-500 text-sm font-bold" title="Đã hoàn thành">✓</span>
+                ) : (
+                  <span className="text-slate-300 text-sm font-bold">•</span>
+                )}
+                <span className="truncate text-sm font-bold text-slate-700 group-hover:text-primary transition-colors">
+                  {exercise.title}
+                </span>
                 {exercise.isAssessment && (
-                  <span className="rounded-md border border-yellow-200 bg-yellow-50 px-2 py-0.5 text-[11px] font-bold uppercase text-yellow-700">
+                  <span className="badge-yellow text-[10px] font-extrabold normal-case">
                     Kiểm tra
                   </span>
                 )}
               </div>
 
-              <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium text-slate-500">
-                <span className="inline-flex items-center gap-1">
-                  <CalendarIcon className="h-3.5 w-3.5" />
-                  {formatDeadline(exercise.deadline)}
-                </span>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-4 text-xs text-slate-400">
                 <span className={difficultyConfig[exercise.difficulty].className}>
                   {difficultyConfig[exercise.difficulty].label}
                 </span>
+                {exercise.oopTags?.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {exercise.oopTags.slice(0, 3).map((tag) => (
+                      <span key={tag} className="bg-slate-100 text-slate-500 px-1.5 py-0.2 rounded text-[9px] font-bold">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
-
-              {exercise.oopTags?.length > 0 && (
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {exercise.oopTags.slice(0, 3).map((tag) => (
-                    <span key={tag} className="badge-gray text-[10px]">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
             </div>
 
             <div className="flex shrink-0 items-center gap-4">
               <div className="text-right">
-                <p className="text-base font-extrabold text-slate-700">
+                <p className="text-sm font-black text-slate-800">
                   {scoreLabel(exercise.bestScore)}
                 </p>
-                <p className="mt-0.5 text-[11px] font-semibold text-slate-400">
-                  {exercise.attemptCount}/{exercise.maxSubmissions} lần
+                <p className="text-[10px] font-semibold text-slate-400">
+                  {exercise.attemptCount}/{exercise.maxSubmissions} lượt
                 </p>
               </div>
               <span className={statusConfig[exercise.status].className}>
@@ -304,16 +316,16 @@ function LeaderboardPanel({
   }
 
   return (
-    <aside className="sticky top-4 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
-      <div className="bg-primary px-5 py-4 text-white">
+    <aside className="sticky top-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow">
+      <div className="bg-gradient-to-r from-primary-800 to-primary px-5 py-4 text-white">
         <div className="flex items-center gap-2">
-          <LeaderboardIcon className="h-5 w-5" />
-          <h2 className="text-base font-bold">Bảng Xếp Hạng</h2>
+          <LeaderboardIcon className="h-5 w-5 text-secondary-300 animate-pulse" />
+          <h2 className="text-sm font-bold uppercase tracking-wider">Bảng Xếp Hạng</h2>
         </div>
       </div>
 
       <div className="p-5">
-        <div className="inline-flex rounded-md bg-secondary px-3 py-2 text-sm font-semibold text-white">
+        <div className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
           {section.name}
         </div>
 

@@ -68,6 +68,9 @@ export interface ScheduleExercise {
   difficulty: string;
   oopTags: string[];
   isAssessment: boolean;
+  isVisible: boolean;
+  allowSubmission: boolean;
+  maxSubmissions: number | null;
   week: number | null;
   deadline: string | null;
 }
@@ -111,6 +114,9 @@ export async function getSectionSchedule(
       exerciseId: exerciseAssignments.exerciseId,
       deadline: exerciseAssignments.deadline,
       isAssessment: exerciseAssignments.isAssessment,
+      isVisible: exerciseAssignments.isVisible,
+      allowSubmission: exerciseAssignments.allowSubmission,
+      maxSubmissions: exerciseAssignments.maxSubmissions,
       week: exerciseAssignments.week,
       title: exercises.title,
       difficulty: exercises.difficulty,
@@ -132,6 +138,9 @@ export async function getSectionSchedule(
     difficulty: a.difficulty,
     oopTags: parseOopTags(a.oopTags),
     isAssessment: Boolean(a.isAssessment),
+    isVisible: Boolean(a.isVisible),
+    allowSubmission: Boolean(a.allowSubmission),
+    maxSubmissions: a.maxSubmissions ?? null,
     week: a.week ?? null,
     deadline: a.deadline ?? null,
   });
@@ -358,6 +367,100 @@ export async function toggleExerciseVisibility(
     .where(eq(exerciseAssignments.id, existing.id));
 
   return { success: true, exerciseId, isVisible };
+}
+
+export interface AssignmentSettingsInput {
+  isVisible?: boolean;
+  allowSubmission?: boolean;
+  maxSubmissions?: number | null;
+}
+
+/**
+ * Update per-section assignment controls used by instructors on the course
+ * detail page: student visibility, whether submissions are accepted, and
+ * maximum attempts for this assignment.
+ */
+export async function updateAssignmentSettings(
+  sectionId: string,
+  exerciseId: string,
+  input: AssignmentSettingsInput,
+  userId: string,
+  role: string,
+  database: Database = defaultDb
+): Promise<{
+  success: true;
+  exerciseId: string;
+  isVisible: boolean;
+  allowSubmission: boolean;
+  maxSubmissions: number | null;
+} | ScheduleError> {
+  const loaded = await loadSectionForUser(sectionId, userId, role, database);
+  if (isScheduleError(loaded)) return loaded;
+
+  const existing = await database.query.exerciseAssignments.findFirst({
+    where: and(
+      eq(exerciseAssignments.exerciseId, exerciseId),
+      eq(exerciseAssignments.sectionId, sectionId)
+    ),
+  });
+
+  if (!existing) {
+    return { error: { code: "NOT_FOUND", message: "Bài tập chưa được gán vào lớp." } };
+  }
+
+  const update: Record<string, number | null> = {};
+
+  if (typeof input.isVisible === "boolean") {
+    update.isVisible = input.isVisible ? 1 : 0;
+  }
+  if (typeof input.allowSubmission === "boolean") {
+    update.allowSubmission = input.allowSubmission ? 1 : 0;
+  }
+  if ("maxSubmissions" in input) {
+    const maxSubmissions = input.maxSubmissions;
+    if (maxSubmissions === null) {
+      update.maxSubmissions = null;
+    } else if (
+      typeof maxSubmissions === "number" &&
+      Number.isInteger(maxSubmissions) &&
+      maxSubmissions >= 0 &&
+      maxSubmissions <= 100
+    ) {
+      update.maxSubmissions = maxSubmissions;
+    } else {
+      return {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Số lần nộp phải là số nguyên từ 0 đến 100.",
+        },
+      };
+    }
+  }
+
+  if (Object.keys(update).length === 0) {
+    return {
+      success: true,
+      exerciseId,
+      isVisible: Boolean(existing.isVisible),
+      allowSubmission: Boolean(existing.allowSubmission),
+      maxSubmissions: existing.maxSubmissions ?? null,
+    };
+  }
+
+  await database
+    .update(exerciseAssignments)
+    .set(update)
+    .where(eq(exerciseAssignments.id, existing.id));
+
+  const next = { ...existing, ...update };
+
+  return {
+    success: true,
+    exerciseId,
+    isVisible: Boolean(next.isVisible),
+    allowSubmission: Boolean(next.allowSubmission),
+    maxSubmissions: next.maxSubmissions ?? null,
+  };
 }
 
 function isValidScheduleWeek(week: number): boolean {

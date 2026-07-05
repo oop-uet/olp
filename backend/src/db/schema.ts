@@ -88,6 +88,8 @@ export const exerciseAssignments = sqliteTable(
     deadline: text("deadline"),
     isAssessment: integer("is_assessment").notNull().default(0),
     isVisible: integer("is_visible").notNull().default(1),
+    allowSubmission: integer("allow_submission").notNull().default(1),
+    maxSubmissions: integer("max_submissions"),
     week: integer("week"),
     assignedAt: text("assigned_at").notNull(),
   },

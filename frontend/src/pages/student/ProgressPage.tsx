@@ -130,55 +130,65 @@ export function ProgressPage() {
       ) : (
         <>
           {/* Progress cards grid */}
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-5 sm:grid-cols-3">
             {/* Completed exercises card */}
-            <div className="card p-6">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-50 text-primary">
-                  <CheckCircleIcon className="h-5 w-5" />
-                </div>
+            <div className="card p-5 relative overflow-hidden hover:shadow-md transition-shadow flex flex-col justify-between h-36">
+              <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                    Hoàn thành
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Bài hoàn thành
                   </p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="mt-2 text-3xl font-black text-slate-800">
                     {progress.completedExercises}
                   </p>
                 </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-50 text-primary">
+                  <CheckCircleIcon className="h-5 w-5" />
+                </div>
               </div>
-              <p className="mt-4 text-xs text-gray-500">Số bài tập đã hoàn thành</p>
+              <div className="text-[10px] font-bold text-slate-400 border-t border-slate-50 pt-2 mt-auto">
+                SỐ BÀI TẬP ĐÃ HOÀN THÀNH
+              </div>
             </div>
 
             {/* Average score card */}
-            <div className="card p-6">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-success-100 text-success-600">
-                  <ProgressIcon className="h-5 w-5" />
-                </div>
+            <div className="card p-5 relative overflow-hidden hover:shadow-md transition-shadow flex flex-col justify-between h-36">
+              <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
                     Điểm trung bình
                   </p>
-                  <p className={`text-2xl font-bold ${getScoreColor(progress.averageScore)}`}>
+                  <p className={`mt-2 text-3xl font-black ${getScoreColor(progress.averageScore)}`}>
                     {progress.averageScore.toFixed(1)}%
                   </p>
                 </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-success-50 text-success-600">
+                  <ProgressIcon className="h-5 w-5" />
+                </div>
               </div>
-              <p className="mt-4 text-xs text-gray-500">
-                Trên tất cả bài tập được giao (0% nếu chưa nộp)
-              </p>
+              <div className="text-[10px] font-bold text-slate-400 border-t border-slate-50 pt-2 mt-auto">
+                TRÊN TẤT CẢ BÀI TẬP ĐÃ GÁN
+              </div>
             </div>
 
             {/* Rank card */}
-            <div className="card p-6">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-warning-100 text-warning-600">
+            <div className="card p-5 relative overflow-hidden hover:shadow-md transition-shadow flex flex-col justify-between h-36">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Xếp hạng lớp
+                  </p>
+                  <p className="mt-2 text-3xl font-black text-slate-800">
+                    {getRankBadge(progress.rank)}
+                  </p>
+                </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-warning-50 text-warning-600">
                   <svg
                     className="h-5 w-5"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
-                    strokeWidth={1.8}
+                    strokeWidth={2}
                   >
                     <path
                       strokeLinecap="round"
@@ -187,28 +197,22 @@ export function ProgressPage() {
                     />
                   </svg>
                 </div>
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                    Xếp hạng lớp
-                  </p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {getRankBadge(progress.rank)}
-                  </p>
-                </div>
               </div>
-              <p className="mt-4 text-xs text-gray-500">Vị trí của bạn trong lớp học phần này</p>
+              <div className="text-[10px] font-bold text-slate-400 border-t border-slate-50 pt-2 mt-auto">
+                VỊ TRÍ XẾP HẠNG CỦA BẠN
+              </div>
             </div>
           </div>
 
           {/* Quick links */}
           <div className="card p-5">
-            <h2 className="text-sm font-semibold text-gray-700">Liên kết nhanh</h2>
-            <div className="mt-3 flex flex-wrap gap-3">
-              <Link to="/student/exercises" className="btn-secondary">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Liên kết nhanh</h2>
+            <div className="flex flex-wrap gap-2.5">
+              <Link to="/student/exercises" className="btn-secondary btn-sm inline-flex items-center gap-1.5 font-bold py-2 px-3">
                 <ExerciseIcon className="h-4 w-4" />
                 Xem bài tập
               </Link>
-              <Link to="/student/submissions" className="btn-secondary">
+              <Link to="/student/submissions" className="btn-secondary btn-sm inline-flex items-center gap-1.5 font-bold py-2 px-3">
                 <SubmissionIcon className="h-4 w-4" />
                 Lịch sử nộp bài
               </Link>

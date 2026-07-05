@@ -423,8 +423,8 @@ export function SectionSchedulePage() {
                 {/* Week body */}
                 <div className="space-y-2 p-4">
                   {w.exercises.length === 0 ? (
-                    <p className="rounded-lg border border-dashed border-gray-200 py-4 text-center text-xs text-gray-400">
-                      Thả bài tập vào đây
+                    <p className="rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/30 py-5 text-center text-[11px] font-bold text-slate-400 hover:bg-slate-50 hover:border-primary/30 transition-all cursor-pointer">
+                      📥 Thả bài tập vào đây
                     </p>
                   ) : (
                     w.exercises.map((ex) => (
@@ -432,16 +432,17 @@ export function SectionSchedulePage() {
                         key={ex.assignmentId}
                         draggable
                         onDragStart={(e) => handleDragStart(e, ex.exerciseId)}
-                        className="flex cursor-grab items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 active:cursor-grabbing"
+                        className="flex cursor-grab items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-white px-4 py-2.5 shadow-sm hover:shadow hover:border-slate-300 transition-all active:cursor-grabbing group relative"
                       >
                         <div className="flex min-w-0 flex-wrap items-center gap-2">
-                          <span className="truncate font-medium text-gray-800">{ex.title}</span>
+                          <span className="text-slate-300 font-mono text-[10px] select-none">☰</span>
+                          <span className="truncate font-bold text-slate-700 text-xs">{ex.title}</span>
                           <DifficultyBadge difficulty={ex.difficulty} />
-                          {ex.isAssessment && <span className="badge-blue">Đánh giá</span>}
+                          {ex.isAssessment && <span className="badge-blue text-[9px] font-extrabold normal-case">Đánh giá</span>}
                         </div>
                         <button
                           onClick={() => unassignExercise(ex.exerciseId)}
-                          className="flex-shrink-0 text-sm font-medium text-danger-600 hover:text-danger-700"
+                          className="text-[10px] font-bold text-rose-500 bg-rose-50 hover:bg-rose-100/60 px-2.5 py-1 rounded-md transition-all flex-shrink-0"
                         >
                           Gỡ
                         </button>
@@ -489,26 +490,30 @@ export function SectionSchedulePage() {
                     key={ex.id}
                     draggable
                     onDragStart={(e) => handleDragStart(e, ex.id)}
-                    className="card-hover cursor-grab space-y-2 rounded-lg border border-gray-200 bg-white p-3 active:cursor-grabbing"
+                    className="card-hover cursor-grab space-y-2.5 rounded-xl border border-slate-200/80 bg-white p-4 active:cursor-grabbing hover:border-primary/30 relative group transition-all"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex min-w-0 items-start gap-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-start gap-2.5">
                         <button
                           type="button"
                           onClick={() => assignExercise(ex.id, selectedWeek)}
-                          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-base font-bold leading-none text-white shadow-sm transition-colors hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-black leading-none text-white shadow-sm transition-all hover:bg-primary-700 active:scale-95 focus:outline-none"
                           aria-label={`Thêm ${ex.title} vào tuần ${selectedWeek}`}
                         >
                           +
                         </button>
-                        <span className="min-w-0 font-medium text-gray-800">{ex.title}</span>
+                        <div>
+                          <span className="block font-bold text-slate-700 text-xs leading-snug group-hover:text-primary transition-colors">
+                            {ex.title}
+                          </span>
+                        </div>
                       </div>
                       <DifficultyBadge difficulty={ex.difficulty} />
                     </div>
                     {ex.oopTags && ex.oopTags.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
+                      <div className="flex flex-wrap gap-1 pl-8">
                         {ex.oopTags.map((tag) => (
-                          <span key={tag} className="badge-gray">
+                          <span key={tag} className="bg-slate-100 text-slate-500 px-1.5 py-0.2 rounded text-[9px] font-bold">
                             {tag}
                           </span>
                         ))}

@@ -170,14 +170,14 @@ export function StudentLeaderboardPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-100">
+            <table className="min-w-full divide-y divide-slate-100 text-left">
               <thead>
-                <tr className="bg-slate-50">
-                  <th className="px-5 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-500 w-24">Hạng</th>
-                  <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500">Họ và Tên</th>
-                  <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500 w-44">Mã sinh viên</th>
-                  <th className="px-5 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-500 w-36">Tổng điểm</th>
-                  <th className="px-5 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-500 w-48">Bài đã hoàn thành</th>
+                <tr className="bg-slate-50/70 border-b border-slate-200">
+                  <th className="px-6 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-500 w-24">Hạng</th>
+                  <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Họ và Tên</th>
+                  <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 w-44">Mã sinh viên</th>
+                  <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-500 w-36">Tổng điểm</th>
+                  <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-500 w-48">Bài đã hoàn thành</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs text-slate-700 bg-white">
@@ -186,20 +186,28 @@ export function StudentLeaderboardPage() {
                   return (
                     <tr
                       key={entry.studentId}
-                      className={mine ? 'bg-primary-50/20' : 'hover:bg-slate-50/50 transition-colors'}
+                      className={
+                        mine
+                          ? 'bg-primary-50/40 border-l-4 border-primary font-semibold transition-colors'
+                          : 'hover:bg-slate-50/50 transition-colors'
+                      }
                     >
-                      <td className="px-5 py-3 text-center font-bold">{getRankBadge(entry.rank)}</td>
-                      <td className="px-5 py-3 font-semibold text-slate-800">
-                        {entry.studentName}
-                        {mine && <span className="ml-2 bg-primary-50 text-primary text-[9px] font-extrabold rounded-full px-1.5 py-0.5 ring-1 ring-primary/10">Bạn</span>}
+                      <td className="px-6 py-3.5 text-center font-bold">{getRankBadge(entry.rank)}</td>
+                      <td className="px-6 py-3.5 font-semibold text-slate-800">
+                        <span className={mine ? 'text-primary' : ''}>{entry.studentName}</span>
+                        {mine && (
+                          <span className="ml-2 bg-primary text-white text-[9px] font-extrabold rounded-full px-1.5 py-0.5">
+                            Bạn
+                          </span>
+                        )}
                       </td>
-                      <td className="px-5 py-3 font-medium text-slate-400">{entry.studentId}</td>
-                      <td className="px-5 py-3 text-right">
-                        <span className="font-bold text-sm text-primary">
+                      <td className="px-6 py-3.5 font-medium text-slate-400">{entry.studentId}</td>
+                      <td className="px-6 py-3.5 text-right font-bold text-slate-900">
+                        <span className={mine ? 'text-primary' : 'text-slate-800'}>
                           {entry.totalScore.toFixed(1)}
                         </span>
                       </td>
-                      <td className="px-5 py-3 text-right font-bold text-slate-600">{entry.completedExercises}</td>
+                      <td className="px-6 py-3.5 text-right font-bold text-slate-600">{entry.completedExercises}</td>
                     </tr>
                   )
                 })}

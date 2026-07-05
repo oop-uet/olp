@@ -38,6 +38,7 @@ export interface StudentExerciseListItem {
   bestScore: number | null;
   attemptCount: number;
   maxSubmissions: number;
+  allowSubmission: boolean;
   status: StudentExerciseStatus;
 }
 
@@ -64,6 +65,7 @@ export interface StudentExerciseDetail {
   warningThreshold: number;
   attemptCount: number;
   maxSubmissions: number;
+  allowSubmission: boolean;
   bestScore: number | null;
   testCases: StudentVisibleTestCase[];
 }
@@ -236,6 +238,8 @@ export async function listStudentExercises(
       }
     }
 
+    const effectiveMaxSubmissions = assignment.maxSubmissions ?? maxSubmissions;
+
     items.push({
       id: exercise.id,
       title: exercise.title,
@@ -249,7 +253,8 @@ export async function listStudentExercises(
       isAssessment: assignment.isAssessment === 1,
       bestScore,
       attemptCount,
-      maxSubmissions,
+      maxSubmissions: effectiveMaxSubmissions,
+      allowSubmission: assignment.allowSubmission === 1,
       status: deriveStatus(bestScore, assignment.deadline ?? null, attemptCount),
     });
   }
@@ -281,7 +286,8 @@ export async function getStudentExercise(
   const assignments = await database.query.exerciseAssignments.findMany({
     where: and(
       eq(exerciseAssignments.exerciseId, exerciseId),
-      inArray(exerciseAssignments.sectionId, sectionIds)
+      inArray(exerciseAssignments.sectionId, sectionIds),
+      eq(exerciseAssignments.isVisible, 1)
     ),
   });
 
@@ -322,6 +328,7 @@ export async function getStudentExercise(
     getMaxSubmissions(database),
     getWarningThreshold(database),
   ]);
+  const effectiveMaxSubmissions = assignment.maxSubmissions ?? maxSubmissions;
 
   const relevant = await database
     .select({ score: submissions.score })
@@ -356,7 +363,8 @@ export async function getStudentExercise(
     isAssessment: assignment.isAssessment === 1,
     warningThreshold,
     attemptCount,
-    maxSubmissions,
+    maxSubmissions: effectiveMaxSubmissions,
+    allowSubmission: assignment.allowSubmission === 1,
     bestScore,
     testCases: visibleTestCases.map((tc: any) => ({
       id: tc.id,

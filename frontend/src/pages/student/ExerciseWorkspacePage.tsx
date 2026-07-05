@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 import { api } from '../../lib/api'
-import { PageLoader, Spinner, CheckCircleIcon, XCircleIcon } from '../../components/ui'
+import { PageLoader, Spinner } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { AntiCheatMonitor } from '../../components/student/AntiCheatMonitor'
 import { useLocalExecutor } from '../../hooks/useLocalExecutor'
@@ -759,9 +759,9 @@ function DescriptionPanel({ exercise }: { exercise: ExerciseDetail }) {
   return (
     <div className="space-y-4">
       {exercise.oopTags.length > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {exercise.oopTags.map((tag) => (
-            <span key={tag} className="badge-blue">
+            <span key={tag} className="bg-primary-50 text-primary text-[10px] font-extrabold px-2 py-0.5 rounded-full ring-1 ring-primary/10">
               {tag}
             </span>
           ))}
@@ -769,19 +769,24 @@ function DescriptionPanel({ exercise }: { exercise: ExerciseDetail }) {
       )}
 
       {exercise.deadline && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
-          <p className="text-xs font-bold uppercase tracking-wide text-amber-800">Hạn nộp</p>
-          <p className="mt-1 text-sm font-semibold text-amber-900">
-            {new Date(exercise.deadline).toLocaleString('vi-VN')}
-          </p>
+        <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-4 flex items-center justify-between text-xs">
+          <div>
+            <p className="font-extrabold uppercase tracking-wider text-amber-700">HẠN NỘP BÀI TẬP</p>
+            <p className="mt-1 font-bold text-amber-900">
+              {new Date(exercise.deadline).toLocaleString('vi-VN')}
+            </p>
+          </div>
+          <span className="text-xl">⏰</span>
         </div>
       )}
 
-      <div>
-        <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
-          Yêu cầu bài tập
+      <div className="space-y-2">
+        <h2 className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+          YÊU CẦU BÀI TẬP
         </h2>
-        <FormattedDescription text={exercise.description} />
+        <div className="border border-slate-100 rounded-xl p-4 bg-slate-50/30">
+          <FormattedDescription text={exercise.description} />
+        </div>
       </div>
     </div>
   )
@@ -854,7 +859,7 @@ function TestCasesPanel({
   return (
     <div className="space-y-3">
       {testCases.length === 0 ? (
-        <div className="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500 text-center font-medium">
           Không có test case công khai.
         </div>
       ) : (
@@ -863,68 +868,67 @@ function TestCasesPanel({
           return (
             <div
               key={tc.id}
-              className={`rounded-md border p-3 ${
+              className={`rounded-xl border-l-4 p-4 shadow-sm border ${
                 result
                   ? result.passed
-                    ? 'border-success-100 bg-success-50'
-                    : 'border-danger-100 bg-danger-50'
-                  : 'border-gray-200 bg-gray-50'
+                    ? 'border-l-emerald-500 border-slate-200/80 bg-emerald-50/20'
+                    : 'border-l-rose-500 border-slate-200/80 bg-rose-50/20'
+                  : 'border-l-slate-400 border-slate-200 bg-slate-50/30'
               }`}
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold uppercase tracking-wide text-slate-700">
-                  Test case {index + 1}
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                  Bộ Test Case {index + 1}
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="rounded bg-white px-2 py-0.5 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
+                  <span className="rounded bg-white px-2 py-0.5 text-[10px] font-extrabold text-slate-500 border border-slate-200">
                     {tc.pointValue} điểm
                   </span>
                   {result && (
                     <span
-                      className={`inline-flex items-center gap-1 text-xs font-medium ${
-                        result.passed ? 'text-success-600' : 'text-danger-600'
+                      className={`inline-flex items-center gap-1 text-xs font-bold ${
+                        result.passed ? 'text-emerald-600' : 'text-rose-600'
                       }`}
                     >
                       {result.passed ? (
-                        <CheckCircleIcon className="h-3.5 w-3.5" />
+                        <span className="text-emerald-500 font-bold">✓ Đạt</span>
                       ) : (
-                        <XCircleIcon className="h-3.5 w-3.5" />
+                        <span className="text-rose-500 font-bold">✗ Không đạt</span>
                       )}
-                      {result.passed ? 'Đạt' : 'Không đạt'}
                     </span>
                   )}
                 </div>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {tc.type === 'java_junit' ? (
-                  <div className="rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-600">
-                    Bộ test Java/JUnit: {tc.testFileName ?? 'MyTest.java'}
+                  <div className="rounded-lg border border-slate-100 bg-white p-2.5 font-mono text-[11px] text-slate-600">
+                    📂 JUnit Test: {tc.testFileName ?? 'MyTest.java'}
                   </div>
                 ) : tc.input ? (
-                  <div>
-                    <p className="text-xs font-bold text-slate-500">Đầu vào</p>
-                    <pre className="mt-1 rounded-md bg-white p-2 text-xs text-slate-800 border border-slate-200 overflow-x-auto">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Đầu vào (stdin)</p>
+                    <pre className="rounded-lg bg-white p-2.5 text-[11px] font-mono text-slate-700 border border-slate-100 overflow-x-auto leading-relaxed">
                       {tc.input}
                     </pre>
                   </div>
                 ) : (
-                  <div className="rounded-md border border-slate-200 bg-white p-2 text-xs text-slate-500">
-                    Test tự tạo dữ liệu trong chương trình, không cần nhập stdin.
+                  <div className="rounded-lg border border-slate-100 bg-slate-50/50 p-2.5 text-[11px] text-slate-400 italic">
+                    Chương trình chạy tự sinh dữ liệu, không cần nhập stdin.
                   </div>
                 )}
                 {tc.type === 'stdio' && (
-                  <div>
-                    <p className="text-xs font-bold text-slate-500">Đầu ra mong đợi</p>
-                    <pre className="mt-1 rounded-md bg-white p-2 text-xs text-slate-800 border border-slate-200 overflow-x-auto">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Đầu ra mong đợi</p>
+                    <pre className="rounded-lg bg-white p-2.5 text-[11px] font-mono text-slate-700 border border-slate-100 overflow-x-auto leading-relaxed">
                       {tc.expectedOutput}
                     </pre>
                   </div>
                 )}
                 {result && !result.passed && result.actualOutput && (
-                  <div>
-                    <p className="text-xs font-bold text-danger-600">Đầu ra thực tế</p>
-                    <pre className="mt-1 rounded-md bg-white p-2 text-xs text-danger-700 border border-danger-100 overflow-x-auto">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-rose-500 uppercase tracking-wider">Đầu ra thực tế</p>
+                    <pre className="rounded-lg bg-rose-50/30 p-2.5 text-[11px] font-mono text-rose-700 border border-rose-100 overflow-x-auto leading-relaxed">
                       {result.actualOutput}
                     </pre>
                   </div>
@@ -947,10 +951,16 @@ function OutputPanel({
 }) {
   if (running) {
     return (
-      <div className="h-32 rounded-lg border border-slate-800 bg-slate-950 p-4 flex items-center justify-center">
-        <div className="flex items-center gap-2 text-emerald-300">
+      <div className="h-36 rounded-xl border border-slate-800 bg-slate-950 p-4 flex flex-col justify-between shadow-inner">
+        <div className="flex items-center gap-1.5 border-b border-slate-800/60 pb-2">
+          <span className="w-2 h-2 rounded-full bg-rose-500/80"></span>
+          <span className="w-2 h-2 rounded-full bg-amber-500/80"></span>
+          <span className="w-2 h-2 rounded-full bg-emerald-500/80"></span>
+          <span className="text-[9px] font-black text-slate-500 ml-2 uppercase tracking-wider">Console</span>
+        </div>
+        <div className="flex-1 flex items-center justify-center gap-2 text-emerald-400">
           <Spinner />
-          <span className="text-sm">Đang biên dịch và chạy...</span>
+          <span className="text-xs font-mono">Đang biên dịch và thực thi chương trình...</span>
         </div>
       </div>
     )
@@ -958,32 +968,34 @@ function OutputPanel({
 
   if (!executionResult) {
     return (
-      <div className="h-32 rounded-lg border border-slate-800 bg-slate-950">
-        <div className="border-b border-slate-800 px-4 py-2">
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-            Kết quả chạy thử
-          </p>
+      <div className="h-36 rounded-xl border border-slate-800 bg-slate-950 flex flex-col shadow-inner">
+        <div className="flex items-center gap-1.5 border-b border-slate-800 px-4 py-2 bg-slate-900/40">
+          <span className="w-2 h-2 rounded-full bg-slate-700"></span>
+          <span className="w-2 h-2 rounded-full bg-slate-700"></span>
+          <span className="w-2 h-2 rounded-full bg-slate-700"></span>
+          <span className="text-[9px] font-black text-slate-500 ml-2 uppercase tracking-wider">Console</span>
         </div>
-        <div className="flex h-[88px] items-center px-4 text-sm text-slate-400">
-          Chạy thử để biên dịch và kiểm tra mã bằng Local Executor trước khi nộp bài.
+        <div className="flex-1 flex items-center justify-center text-xs font-mono text-slate-500 px-4 text-center">
+          Nhấn "Chạy thử" để biên dịch và chạy kiểm tra trên máy cá nhân bằng Local Executor.
         </div>
       </div>
     )
   }
 
   return (
-    <div className="h-40 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950">
-      <div className="sticky top-0 border-b border-slate-800 bg-slate-950 px-4 py-2">
-        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-          Kết quả chạy thử
-        </p>
+    <div className="h-44 overflow-hidden rounded-xl border border-slate-800 bg-slate-950 flex flex-col shadow-inner">
+      <div className="flex items-center gap-1.5 border-b border-slate-800 px-4 py-2 bg-slate-900/40">
+        <span className="w-2 h-2 rounded-full bg-rose-500/80"></span>
+        <span className="w-2 h-2 rounded-full bg-amber-500/80"></span>
+        <span className="w-2 h-2 rounded-full bg-emerald-500/80"></span>
+        <span className="text-[9px] font-black text-slate-500 ml-2 uppercase tracking-wider">Console Output</span>
       </div>
-      <div className="space-y-2 p-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-2">
         {!executionResult.compiled && executionResult.errors && (
-          <div>
-            <p className="text-xs font-semibold text-danger-400 mb-1">Lỗi biên dịch:</p>
+          <div className="space-y-1.5">
+            <p className="text-xs font-bold text-rose-400">✗ Lỗi biên dịch (Compilation Error):</p>
             {executionResult.errors.map((err, i) => (
-              <p key={i} className="text-xs text-danger-300 font-mono">
+              <p key={i} className="text-xs text-rose-300/90 font-mono leading-relaxed bg-rose-950/20 px-3 py-1.5 rounded-lg border border-rose-900/30">
                 Dòng {err.line}: {err.message}
               </p>
             ))}
@@ -991,31 +1003,39 @@ function OutputPanel({
         )}
 
         {executionResult.compiled && executionResult.testResults && (
-          <div>
-            <p className="text-xs font-semibold text-success-400 mb-1">
-              Biên dịch thành công ✓ — Kết quả test:
+          <div className="space-y-2">
+            <p className="text-xs font-bold text-emerald-400">
+              ✓ Biên dịch thành công. Kết quả chạy thử bộ test:
             </p>
-            <div className="space-y-1">
+            <div className="grid grid-cols-2 gap-2">
               {executionResult.testResults.map((result, i) => (
-                <div key={i} className="flex items-center gap-2">
+                <div key={i} className="flex items-center gap-2.5 bg-slate-900/60 border border-slate-800/40 p-2 rounded-lg">
                   <span
-                    className={`text-xs ${result.passed ? 'text-success-400' : 'text-danger-400'}`}
+                    className={`text-sm ${result.passed ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}`}
                   >
                     {result.passed ? '✓' : '✗'}
                   </span>
-                  <span className="text-xs text-gray-300">
-                    Test {i + 1}:{' '}
-                    {result.status === 'timeout'
-                      ? 'Quá thời gian'
-                      : result.status === 'error'
-                        ? 'Lỗi thực thi'
-                        : result.passed
-                          ? 'Đạt'
-                          : 'Không đạt'}
-                  </span>
-                  {result.executionTimeMs !== undefined && (
-                    <span className="text-xs text-gray-500">({result.executionTimeMs}ms)</span>
-                  )}
+                  <div className="text-xs font-mono">
+                    <p className="font-bold text-slate-300">Test Case {i + 1}</p>
+                    <p className={`text-[10px] mt-0.5 ${
+                      result.status === 'timeout'
+                        ? 'text-amber-400'
+                        : result.status === 'error'
+                          ? 'text-rose-400'
+                          : result.passed
+                            ? 'text-emerald-400'
+                            : 'text-rose-400'
+                    }`}>
+                      {result.status === 'timeout'
+                        ? 'Quá thời gian'
+                        : result.status === 'error'
+                          ? 'Lỗi thực thi'
+                          : result.passed
+                            ? 'Đạt'
+                            : 'Không đạt'}
+                      {result.executionTimeMs !== undefined && ` (${result.executionTimeMs}ms)`}
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>

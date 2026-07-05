@@ -165,6 +165,15 @@ export async function createSubmission(
     };
   }
 
+  if (assignment.allowSubmission === 0) {
+    return {
+      error: {
+        code: "SUBMISSION_DISABLED",
+        message: "Bài tập này hiện chưa cho phép nộp bài.",
+      },
+    };
+  }
+
   // 2. Check deadline hasn't passed
   if (assignment.deadline) {
     const deadlineDate = new Date(assignment.deadline);
@@ -184,9 +193,19 @@ export async function createSubmission(
     where: eq(systemConfig.key, "max_submissions"),
   });
 
-  const maxSubmissions = maxSubmissionsConfig
+  const globalMaxSubmissions = maxSubmissionsConfig
     ? parseInt(maxSubmissionsConfig.value, 10)
     : 10;
+  const maxSubmissions = assignment.maxSubmissions ?? globalMaxSubmissions;
+
+  if (maxSubmissions <= 0) {
+    return {
+      error: {
+        code: "MAX_SUBMISSIONS_REACHED",
+        message: "Bài tập này hiện không nhận lượt nộp.",
+      },
+    };
+  }
 
   const existingSubmissions = await database
     .select({ count: count() })

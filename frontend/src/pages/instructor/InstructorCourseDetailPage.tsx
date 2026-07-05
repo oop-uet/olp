@@ -28,6 +28,8 @@ interface SectionExercise {
   deadline: string | null
   isAssessment: boolean
   isVisible: boolean
+  allowSubmission: boolean
+  maxSubmissions: number | null
   week: number | null
   assignedAt: string
 }
@@ -56,6 +58,7 @@ interface LeaderboardEntry {
 }
 
 const TOTAL_WEEKS = 15
+const SUBMISSION_LIMIT_OPTIONS = [0, 3, 5, 8, 10, 20, 50, 100]
 
 export function InstructorCourseDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -114,28 +117,40 @@ export function InstructorCourseDetailPage() {
     }
   }
 
-  // Toggle assigned exercise visibility
-  async function handleToggleVisibility(exerciseId: string, currentVisible: boolean) {
+  async function handleUpdateAssignmentSettings(
+    exerciseId: string,
+    patch: { isVisible?: boolean; allowSubmission?: boolean; maxSubmissions?: number | null }
+  ) {
     if (!id) return
-    const nextVisible = !currentVisible
+
     try {
-      await api.put(`/api/instructor/sections/${id}/schedule/visibility`, {
+      const response = await api.put(`/api/instructor/sections/${id}/schedule/settings`, {
         exercise_id: exerciseId,
-        is_visible: nextVisible,
+        ...(patch.isVisible !== undefined ? { is_visible: patch.isVisible } : {}),
+        ...(patch.allowSubmission !== undefined ? { allow_submission: patch.allowSubmission } : {}),
+        ...(patch.maxSubmissions !== undefined ? { max_submissions: patch.maxSubmissions } : {}),
       })
-      toast.success(nextVisible ? 'Đã hiện bài tập đối với sinh viên' : 'Đã ẩn bài tập đối với sinh viên')
-      
-      // Update local state
+
+      const next = response.data
       if (detail) {
         setDetail({
           ...detail,
           exercises: detail.exercises.map((ex) =>
-            ex.exerciseId === exerciseId ? { ...ex, isVisible: nextVisible } : ex
+            ex.exerciseId === exerciseId
+              ? {
+                  ...ex,
+                  isVisible: next.isVisible ?? ex.isVisible,
+                  allowSubmission: next.allowSubmission ?? ex.allowSubmission,
+                  maxSubmissions: next.maxSubmissions ?? null,
+                }
+              : ex
           ),
         })
       }
+
+      toast.success('Đã cập nhật cấu hình bài tập.')
     } catch {
-      toast.error('Không thể cập nhật trạng thái hiển thị.')
+      toast.error('Không thể cập nhật cấu hình bài tập.')
     }
   }
 
@@ -250,7 +265,7 @@ export function InstructorCourseDetailPage() {
                 expandedEx={expandedEx}
                 submissionsByEx={submissionsByEx}
                 loadingSubmissions={loadingSubmissions}
-                onToggleVisibility={handleToggleVisibility}
+                onUpdateSettings={handleUpdateAssignmentSettings}
                 onToggleSubmissions={toggleSubmissionsList}
               />
             )}
@@ -268,7 +283,7 @@ export function InstructorCourseDetailPage() {
                   expandedEx={expandedEx}
                   submissionsByEx={submissionsByEx}
                   loadingSubmissions={loadingSubmissions}
-                  onToggleVisibility={handleToggleVisibility}
+                  onUpdateSettings={handleUpdateAssignmentSettings}
                   onToggleSubmissions={toggleSubmissionsList}
                 />
               )
@@ -342,7 +357,10 @@ interface WeekPanelProps {
   expandedEx: Record<string, boolean>
   submissionsByEx: Record<string, SubmissionRecord[]>
   loadingSubmissions: Record<string, boolean>
-  onToggleVisibility: (exerciseId: string, currentVisible: boolean) => void
+  onUpdateSettings: (
+    exerciseId: string,
+    patch: { isVisible?: boolean; allowSubmission?: boolean; maxSubmissions?: number | null }
+  ) => void
   onToggleSubmissions: (exerciseId: string) => void
 }
 
@@ -353,7 +371,7 @@ function WeekPanel({
   expandedEx,
   submissionsByEx,
   loadingSubmissions,
-  onToggleVisibility,
+  onUpdateSettings,
   onToggleSubmissions,
 }: WeekPanelProps) {
   return (
@@ -386,24 +404,66 @@ function WeekPanel({
                     )}
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-1.5 cursor-pointer font-bold text-slate-600 hover:text-slate-900 transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={ex.isVisible}
-                        onChange={() => onToggleVisibility(ex.exerciseId, ex.isVisible)}
-                        className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary-500"
-                        aria-label={`Hiển thị bài ${ex.title}`}
-                      />
-                      <span>Hiện bài</span>
-                    </label>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5" aria-label={`Số lần nộp bài ${ex.title}`}>
+                      {SUBMISSION_LIMIT_OPTIONS.map((limit) => {
+                        const isActive = (ex.maxSubmissions ?? 10) === limit
+                        return (
+                          <button
+                            key={limit}
+                            type="button"
+                            onClick={() => onUpdateSettings(ex.exerciseId, { maxSubmissions: limit })}
+                            className={[
+                              'h-7 min-w-8 rounded-md px-2 text-[11px] font-bold transition-colors',
+                              isActive
+                                ? 'bg-teal-600 text-white shadow-sm'
+                                : 'text-slate-500 hover:bg-white hover:text-slate-800',
+                            ].join(' ')}
+                            title={`${limit} lần nộp`}
+                          >
+                            {limit}
+                          </button>
+                        )
+                      })}
+                    </div>
 
                     <button
-                      onClick={() => onToggleSubmissions(ex.exerciseId)}
-                      className="flex items-center gap-1 bg-primary-50 hover:bg-primary-100/60 text-primary-700 font-bold px-2.5 py-1 rounded transition-colors text-[11px]"
+                      type="button"
+                      onClick={() => onUpdateSettings(ex.exerciseId, { allowSubmission: !ex.allowSubmission })}
+                      className={[
+                        'inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-[11px] font-bold transition-colors',
+                        ex.allowSubmission
+                          ? 'border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100'
+                          : 'border-slate-200 bg-slate-50 text-slate-400 hover:bg-slate-100',
+                      ].join(' ')}
+                      aria-pressed={ex.allowSubmission}
                     >
-                      Bài nộp
-                      <span className="bg-primary text-white px-1.5 rounded-full text-[9px]">
+                      <span className="text-sm">{ex.allowSubmission ? '✓' : '×'}</span>
+                      Cho nộp
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => onUpdateSettings(ex.exerciseId, { isVisible: !ex.isVisible })}
+                      className={[
+                        'inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-[11px] font-bold transition-colors',
+                        ex.isVisible
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                          : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100',
+                      ].join(' ')}
+                      aria-pressed={ex.isVisible}
+                    >
+                      <span className="text-sm">{ex.isVisible ? '✓' : '×'}</span>
+                      {ex.isVisible ? 'Hiển thị' : 'Đang ẩn'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => onToggleSubmissions(ex.exerciseId)}
+                      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-teal-100 bg-white px-3 text-[11px] font-bold text-teal-700 transition-colors hover:bg-teal-50"
+                    >
+                      Xem bài nộp
+                      <span className="rounded-full bg-teal-600 px-1.5 text-[9px] text-white">
                         {isLoadingList ? '...' : (list.length || 0)}
                       </span>
                       <span>{isExpanded ? '▲' : '▼'}</span>
