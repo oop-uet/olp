@@ -57,7 +57,7 @@ export function StudentSectionsPage() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-gradient-to-br group-hover:from-primary-800 group-hover:to-primary group-hover:text-white transition-all duration-200">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-gradient-to-br group-hover:from-teal-600 group-hover:to-cyan-500 group-hover:text-white transition-all duration-200">
                     <SectionIcon className="h-5 w-5" />
                   </span>
                   <h2 className="font-semibold text-slate-800 group-hover:text-primary transition-colors duration-200">

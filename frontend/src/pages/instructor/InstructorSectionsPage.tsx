@@ -97,7 +97,7 @@ export function InstructorSectionsPage() {
 
                     <div className="space-y-2">
                       <div className="flex items-center gap-2.5">
-                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-50 text-primary transition-colors group-hover:bg-gradient-to-br group-hover:from-primary-800 group-hover:to-primary group-hover:text-white">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-50 text-primary transition-colors group-hover:bg-gradient-to-br group-hover:from-teal-600 group-hover:to-cyan-500 group-hover:text-white">
                           <SectionIcon className="h-4.5 w-4.5" />
                         </span>
                         <h3 className="font-bold text-slate-800 text-base leading-tight group-hover:text-primary-700 transition-colors">

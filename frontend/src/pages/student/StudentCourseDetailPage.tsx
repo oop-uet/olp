@@ -318,7 +318,7 @@ function LeaderboardPanel({
 
   return (
     <aside className="sticky top-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow">
-      <div className="bg-gradient-to-r from-primary-800 to-primary px-5 py-4 text-white">
+      <div className="bg-gradient-to-r from-teal-600 to-cyan-500 px-5 py-4 text-white">
         <div className="flex items-center gap-2">
           <LeaderboardIcon className="h-5 w-5 text-secondary-300 animate-pulse" />
           <h2 className="text-sm font-bold uppercase tracking-wider">Bảng Xếp Hạng</h2>
