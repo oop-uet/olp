@@ -5,7 +5,13 @@ import { anticheatEvents, submissions } from "../db/schema.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type AnticheatEventType = "fullscreen_exit" | "visibility_hidden" | "window_blur";
+export type AnticheatEventType =
+  | "fullscreen_exit"
+  | "visibility_hidden"
+  | "window_blur"
+  | "devtools_open"
+  | "navigation_back"
+  | "copy_attempt";
 
 export interface LogEventInput {
   studentId: string;
@@ -36,7 +42,7 @@ type Database = any;
 // ─── Service ─────────────────────────────────────────────────────────────────
 
 /**
- * Log an anti-cheat event (fullscreen_exit, visibility_hidden, window_blur).
+ * Log an anti-cheat event.
  * Called by the frontend Anti-Cheat Monitor component when a violation is detected.
  *
  * Validates: Requirements 7.3, 7.4, 7.7

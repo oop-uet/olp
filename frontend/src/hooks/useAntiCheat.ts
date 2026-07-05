@@ -1,7 +1,13 @@
 import { useCallback, useRef, useState } from 'react'
 import { api } from '../lib/api'
 
-export type AntiCheatEventType = 'fullscreen_exit' | 'visibility_hidden' | 'window_blur'
+export type AntiCheatEventType =
+  | 'fullscreen_exit'
+  | 'visibility_hidden'
+  | 'window_blur'
+  | 'devtools_open'
+  | 'navigation_back'
+  | 'copy_attempt'
 
 export interface AntiCheatEvent {
   type: AntiCheatEventType

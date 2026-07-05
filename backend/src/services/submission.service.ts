@@ -242,8 +242,8 @@ export async function createSubmission(
   }));
 
   const isAntiCheatZero =
-    assignment.isAssessment === 1 &&
-    (antiCheatNullified || (await hasExceededAntiCheatThreshold(studentId, exerciseId, database)));
+    Boolean(antiCheatNullified) ||
+    (await hasExceededAntiCheatThreshold(studentId, exerciseId, database));
   const score = isAntiCheatZero ? 0 : calculateScore(testCaseRecords, testResults);
 
   // 5. Store submission with score

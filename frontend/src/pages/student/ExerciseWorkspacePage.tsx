@@ -400,10 +400,6 @@ export function ExerciseWorkspacePage() {
     zeroSubmissionSentRef.current = true
     setAntiCheatNullified(true)
 
-    if (exercise.testCases.length === 0) {
-      return
-    }
-
     try {
       const sourceFiles = filesForExecution(files)
       await api.post('/api/submissions', {
@@ -447,6 +443,7 @@ export function ExerciseWorkspacePage() {
         <div className="flex min-w-0 items-center gap-3">
           <Link
             to="/student/exercises"
+            data-anti-cheat-exit="true"
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition hover:border-primary-300 hover:bg-primary-50 hover:text-primary"
             aria-label="Quay lại danh sách bài tập"
           >
@@ -757,7 +754,7 @@ function ExecutorGate({
 
 function DescriptionPanel({ exercise }: { exercise: ExerciseDetail }) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 select-none" data-protected-content="true">
       {exercise.oopTags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {exercise.oopTags.map((tag) => (
@@ -857,7 +854,7 @@ function TestCasesPanel({
   executionResult: ExecutionResult | null
 }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 select-none" data-protected-content="true">
       {testCases.length === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500 text-center font-medium">
           Không có test case công khai.

@@ -1,4 +1,4 @@
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, waitFor, fireEvent } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -44,14 +44,17 @@ describe('AntiCheatMonitor', () => {
     vi.restoreAllMocks()
   })
 
-  it('renders children directly for non-assessment exercises', () => {
-    renderWithRouter(
-      <AntiCheatMonitor isAssessment={false} exerciseId="ex-1">
-        <div data-testid="workspace">Workspace Content</div>
-      </AntiCheatMonitor>
-    )
+  it('requires fullscreen for non-assessment exercises too', async () => {
+    await act(async () => {
+      renderWithRouter(
+        <AntiCheatMonitor isAssessment={false} exerciseId="ex-1">
+          <div data-testid="workspace">Workspace Content</div>
+        </AntiCheatMonitor>
+      )
+    })
 
     expect(screen.getByTestId('workspace')).toBeInTheDocument()
+    expect(screen.getByText('Cảnh báo: 0/3')).toBeInTheDocument()
   })
 
   it('shows initializing state for assessment exercises', async () => {
@@ -66,7 +69,7 @@ describe('AntiCheatMonitor', () => {
       </AntiCheatMonitor>
     )
 
-    expect(screen.getByText('Requesting fullscreen mode...')).toBeInTheDocument()
+    expect(screen.getByText('Đang mở chế độ toàn màn hình...')).toBeInTheDocument()
   })
 
   it('shows blocked message when fullscreen is denied', async () => {
@@ -84,7 +87,7 @@ describe('AntiCheatMonitor', () => {
 
     expect(screen.getByText('Cần bật chế độ toàn màn hình')).toBeInTheDocument()
     expect(
-      screen.getByText(/Bài kiểm tra yêu cầu chế độ toàn màn hình/)
+      screen.getByText(/Mọi bài tập yêu cầu chế độ toàn màn hình/)
     ).toBeInTheDocument()
   })
 
@@ -101,14 +104,33 @@ describe('AntiCheatMonitor', () => {
     expect(screen.getByText('Cảnh báo: 0/3')).toBeInTheDocument()
   })
 
-  it('does not show warning indicator for non-assessment exercises', () => {
-    renderWithRouter(
-      <AntiCheatMonitor isAssessment={false} exerciseId="ex-1">
-        <div data-testid="workspace">Workspace Content</div>
-      </AntiCheatMonitor>
-    )
+  it('shows warning indicator for non-assessment exercises', async () => {
+    await act(async () => {
+      renderWithRouter(
+        <AntiCheatMonitor isAssessment={false} exerciseId="ex-1">
+          <div data-testid="workspace">Workspace Content</div>
+        </AntiCheatMonitor>
+      )
+    })
 
-    expect(screen.queryByText(/Cảnh báo:/)).not.toBeInTheDocument()
+    expect(screen.getByText('Cảnh báo: 0/3')).toBeInTheDocument()
+  })
+
+  it('blocks copying protected exercise content and records a warning', async () => {
+    await act(async () => {
+      renderWithRouter(
+        <AntiCheatMonitor isAssessment={true} exerciseId="ex-1" warningThreshold={3}>
+          <div data-protected-content="true">Protected prompt</div>
+        </AntiCheatMonitor>
+      )
+    })
+
+    fireEvent.copy(screen.getByText('Protected prompt'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Cảnh báo: 1/3')).toBeInTheDocument()
+    })
+    expect(screen.getByText('Không được sao chép đề bài hoặc test case.')).toBeInTheDocument()
   })
 
   it('shows notification and increments warning on fullscreenchange event', async () => {

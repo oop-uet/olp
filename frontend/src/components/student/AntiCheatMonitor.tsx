@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAntiCheat } from '../../hooks/useAntiCheat'
 
 interface AntiCheatMonitorProps {
@@ -30,13 +30,13 @@ interface AntiCheatMonitorProps {
  * For non-assessment exercises, renders children directly without monitoring.
  */
 export function AntiCheatMonitor({
-  isAssessment,
   exerciseId,
   submissionId,
   warningThreshold = 3,
   onNullified,
   children,
 }: AntiCheatMonitorProps) {
+  const navigate = useNavigate()
   const {
     warningCount,
     threshold,
@@ -49,9 +49,11 @@ export function AntiCheatMonitor({
   } = useAntiCheat({ threshold: warningThreshold, exerciseId, submissionId })
 
   const [notification, setNotification] = useState<string | null>(null)
-  const [isInitializing, setIsInitializing] = useState(isAssessment)
+  const [isInitializing, setIsInitializing] = useState(true)
   const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hasCalledNullifiedRef = useRef(false)
+  const lastDevtoolsWarningAtRef = useRef(0)
+  const lastExitWarningAtRef = useRef(0)
 
   const exitFullscreenIfNeeded = useCallback(() => {
     if (document.fullscreenElement) {
@@ -70,13 +72,8 @@ export function AntiCheatMonitor({
     }, duration)
   }, [])
 
-  // Request fullscreen on mount for assessments
+  // Request fullscreen on mount for every coding exercise.
   useEffect(() => {
-    if (!isAssessment) {
-      setIsInitializing(false)
-      return
-    }
-
     const init = async () => {
       const granted = await activate()
       setIsInitializing(false)
@@ -91,7 +88,7 @@ export function AntiCheatMonitor({
       deactivate()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAssessment])
+  }, [])
 
   // Listen for violations while active
   useEffect(() => {
@@ -116,15 +113,86 @@ export function AntiCheatMonitor({
       showNotification('Cửa sổ làm bài không còn được focus.')
     }
 
+    const handleProtectedCopy = (event: ClipboardEvent) => {
+      const target = event.target as Element | null
+      if (!target?.closest('[data-protected-content="true"]')) return
+      event.preventDefault()
+      recordWarning('copy_attempt')
+      showNotification('Không được sao chép đề bài hoặc test case.')
+    }
+
+    const handleProtectedContextMenu = (event: MouseEvent) => {
+      const target = event.target as Element | null
+      if (!target?.closest('[data-protected-content="true"]')) return
+      event.preventDefault()
+      recordWarning('copy_attempt')
+      showNotification('Không được mở menu sao chép trong vùng đề bài hoặc test case.')
+    }
+
+    const handleSecureExitClick = (event: MouseEvent) => {
+      const target = event.target as Element | null
+      const link = target?.closest('[data-anti-cheat-exit="true"]') as HTMLAnchorElement | null
+      if (!link) return
+
+      event.preventDefault()
+      const now = Date.now()
+      if (now - lastExitWarningAtRef.current > 1000) {
+        lastExitWarningAtRef.current = now
+        recordWarning('navigation_back')
+        showNotification('Rời khỏi màn hình làm bài được tính là một cảnh báo.')
+      }
+
+      const href = link.getAttribute('href')
+      if (warningCount + 1 >= threshold) {
+        return
+      }
+
+      setTimeout(() => {
+        exitFullscreenIfNeeded()
+        if (href) navigate(href)
+      }, 180)
+    }
+
     document.addEventListener('fullscreenchange', handleFullscreenChange)
     document.addEventListener('visibilitychange', handleVisibilityChange)
+    document.addEventListener('copy', handleProtectedCopy)
+    document.addEventListener('cut', handleProtectedCopy)
+    document.addEventListener('contextmenu', handleProtectedContextMenu)
+    document.addEventListener('click', handleSecureExitClick, true)
     window.addEventListener('blur', handleWindowBlur)
 
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
+      document.removeEventListener('copy', handleProtectedCopy)
+      document.removeEventListener('cut', handleProtectedCopy)
+      document.removeEventListener('contextmenu', handleProtectedContextMenu)
+      document.removeEventListener('click', handleSecureExitClick, true)
       window.removeEventListener('blur', handleWindowBlur)
     }
+  }, [exitFullscreenIfNeeded, isActive, isNullified, navigate, recordWarning, showNotification, threshold, warningCount])
+
+  // Browser APIs cannot truly forbid DevTools, but docked DevTools reliably
+  // shrinks the viewport; detect that state and count it as a violation.
+  useEffect(() => {
+    if (!isActive || isNullified) return
+
+    const detectDevTools = () => {
+      const widthGap = Math.abs(window.outerWidth - window.innerWidth)
+      const heightGap = Math.abs(window.outerHeight - window.innerHeight)
+      const looksOpen = widthGap > 160 || heightGap > 160
+      const now = Date.now()
+
+      if (looksOpen && now - lastDevtoolsWarningAtRef.current > 10_000) {
+        lastDevtoolsWarningAtRef.current = now
+        recordWarning('devtools_open')
+        showNotification('Phát hiện DevTools đang mở trong phiên làm bài.')
+      }
+    }
+
+    detectDevTools()
+    const timer = window.setInterval(detectDevTools, 1500)
+    return () => window.clearInterval(timer)
   }, [isActive, isNullified, recordWarning, showNotification])
 
   // Trigger onNullified callback when score is nullified
@@ -145,16 +213,11 @@ export function AntiCheatMonitor({
     }
   }, [])
 
-  // Non-assessment exercises: render children directly
-  if (!isAssessment) {
-    return <>{children}</>
-  }
-
   // Still initializing (requesting fullscreen)
   if (isInitializing) {
     return (
       <div className="flex items-center justify-center p-8" role="status">
-        <p className="text-gray-600">Requesting fullscreen mode...</p>
+        <p className="text-gray-600">Đang mở chế độ toàn màn hình...</p>
       </div>
     )
   }
@@ -172,7 +235,7 @@ export function AntiCheatMonitor({
             Cần bật chế độ toàn màn hình
           </h2>
           <p className="mt-2 text-red-700">
-            Bài kiểm tra yêu cầu chế độ toàn màn hình. Hãy cho phép trình duyệt mở toàn màn
+            Mọi bài tập yêu cầu chế độ toàn màn hình. Hãy cho phép trình duyệt mở toàn màn
             hình rồi tải lại trang để bắt đầu làm bài.
           </p>
         </div>

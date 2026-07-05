@@ -7,12 +7,15 @@ import { logEvent, isAnticheatError } from "../../services/anticheat.service.js"
 
 export const logEventSchema = z.object({
   exercise_id: z.string().min(1, "Exercise ID is required"),
-  event_type: z.enum(["fullscreen_exit", "visibility_hidden", "window_blur"], {
+  event_type: z.enum(
+    ["fullscreen_exit", "visibility_hidden", "window_blur", "devtools_open", "navigation_back", "copy_attempt"],
+    {
     errorMap: () => ({
       message:
-        "Event type must be one of: fullscreen_exit, visibility_hidden, window_blur",
+        "Event type must be one of: fullscreen_exit, visibility_hidden, window_blur, devtools_open, navigation_back, copy_attempt",
     }),
-  }),
+    }
+  ),
   warning_count: z.number().int().min(0, "Warning count must be a non-negative integer"),
   submission_id: z.string().optional(),
 });
