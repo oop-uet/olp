@@ -676,7 +676,7 @@ function ExecutorGate({
 }) {
   const isConnecting = status === 'connecting'
   const downloadBaseUrl = import.meta.env.BASE_URL
-  const executorBundleUrl = `${downloadBaseUrl}downloads/oop-local-executor-1.0.0.zip?v=20260630-2`
+  const executorBundleUrl = `${downloadBaseUrl}downloads/oop-local-executor-1.0.0.zip?v=20260705-intellij-jdk`
 
   return (
     <div className="-m-6 flex min-h-[calc(100vh-8.25rem)] items-center justify-center bg-slate-100 p-6">

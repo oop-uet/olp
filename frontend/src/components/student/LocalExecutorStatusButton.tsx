@@ -5,7 +5,7 @@ export function LocalExecutorStatusButton() {
   const { status, connectionError, isConnected, connect } = useLocalExecutor()
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
-  const downloadUrl = `${import.meta.env.BASE_URL}downloads/oop-local-executor-1.0.0.zip?v=20260630-2`
+  const downloadUrl = `${import.meta.env.BASE_URL}downloads/oop-local-executor-1.0.0.zip?v=20260705-intellij-jdk`
 
   useEffect(() => {
     connect()
