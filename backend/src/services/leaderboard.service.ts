@@ -139,7 +139,10 @@ export function computeLeaderboard(
 export async function getLeaderboard(
   sectionId: string,
   database = defaultDb
-): Promise<{ leaderboard: LeaderboardEntry[] } | { error: { code: string; message: string } }> {
+): Promise<
+  | { leaderboard: LeaderboardEntry[]; maxPossibleScore: number }
+  | { error: { code: string; message: string } }
+> {
   // Get enrolled students for the section
   const enrollments = await database
     .select({
@@ -152,7 +155,7 @@ export async function getLeaderboard(
     .where(eq(sectionEnrollments.sectionId, sectionId));
 
   if (enrollments.length === 0) {
-    return { leaderboard: [] };
+    return { leaderboard: [], maxPossibleScore: 0 };
   }
 
   const studentInfos: StudentInfo[] = enrollments.map((e) => ({
