@@ -336,13 +336,6 @@ export function InstructorSectionDetailPage() {
   return (
     <div className="space-y-6">
       
-      {/* Authentic UET Breadcrumb Navigation */}
-      <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-slate-50 border-b border-slate-100 rounded flex gap-1.5 items-center">
-        <Link to="/instructor/classes" className="text-primary hover:underline">Trang chủ</Link>
-        <span>/</span>
-        <span className="text-slate-400">Quản lý lớp học</span>
-      </div>
-
       {/* Page Header Bar */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 p-6 text-white shadow-md border-b-4 border-secondary flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>

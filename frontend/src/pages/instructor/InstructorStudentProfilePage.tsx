@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
-import { useAuthStore } from '../../stores/auth.store'
 
 interface StudentInfo {
   userId: string
@@ -122,9 +121,6 @@ export function InstructorStudentProfilePage() {
       .map(([date, value]) => ({ date, ...value }))
   }, [profile])
 
-  const user = useAuthStore((state) => state.user)
-  const isStudent = user?.role === 'student'
-
   if (loading) return <PageLoader label="Đang tải hồ sơ sinh viên..." />
 
   if (!profile) {
@@ -142,24 +138,6 @@ export function InstructorStudentProfilePage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-1.5 rounded border-b border-slate-100 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500">
-        <Link to={isStudent ? '/student/exercises' : '/instructor/classes'} className="text-primary hover:underline">
-          Trang chủ
-        </Link>
-        <span>/</span>
-        {isStudent ? (
-          <Link to="/student/leaderboard" className="text-primary hover:underline">
-            Bảng xếp hạng
-          </Link>
-        ) : (
-          <Link to="/instructor/statistic" className="text-primary hover:underline">
-            Thống kê
-          </Link>
-        )}
-        <span>/</span>
-        <span className="text-slate-400">{student.fullName}</span>
-      </div>
-
       <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
         <aside className="space-y-5">
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">

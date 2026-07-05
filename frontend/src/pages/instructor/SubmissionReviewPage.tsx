@@ -712,13 +712,6 @@ export function SubmissionReviewPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       
-      {/* Breadcrumb */}
-      <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-slate-50 border-b border-slate-100 rounded flex gap-1.5 items-center">
-        <span className="text-primary cursor-default">Trang chủ</span>
-        <span>/</span>
-        <span className="text-slate-400">Chấm bài</span>
-      </div>
-
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
         <section className="card rounded-2xl border border-slate-200 bg-white shadow-[0_10px_28px_rgba(15,23,42,0.10)]">
           <div className="flex items-center justify-between gap-4 bg-gradient-to-r from-cyan-500 to-teal-500 px-6 py-4 text-white">

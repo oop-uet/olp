@@ -15,8 +15,8 @@ java -jar oop-local-executor-1.0.0.jar
 
 Luu y:
 - Nen tai file ZIP va giai nen day du truoc khi chay.
-- Tren Windows, file "Start Local Executor.bat" se tu tim Java trong PATH, JAVA_HOME,
-  IntelliJ IDEA, JetBrains Toolbox, thu muc .jdks va cac thu muc JDK pho bien.
+- Tren Windows, macOS va Linux, script khoi dong se tu tim Java trong PATH,
+  JAVA_HOME, IntelliJ IDEA, JetBrains Toolbox, thu muc .jdks va cac thu muc JDK pho bien.
   Neu IntelliJ da cai nhung van bao khong thay Java, hay vao IntelliJ > File >
   Project Structure > SDKs va them/cai JDK 17+ cho project.
 - Neu file tai ve co duoi .html hoac chay java -jar bao "Invalid or corrupt jarfile",

@@ -247,14 +247,6 @@ export function TestCaseEditorPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       
-      <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-slate-50 border-b border-slate-100 rounded flex gap-1.5 items-center">
-        <span className="text-primary cursor-default">Trang chủ</span>
-        <span>/</span>
-        <button onClick={() => navigate(`/instructor/exercises`)} className="text-primary hover:underline">Quản lý bài tập</button>
-        <span>/</span>
-        <span className="text-slate-400">Trình soạn bộ test</span>
-      </div>
-
       {/* Page header */}
       <div className="bg-white border border-slate-100 rounded-xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

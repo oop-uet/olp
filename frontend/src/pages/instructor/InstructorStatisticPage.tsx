@@ -146,12 +146,6 @@ export function InstructorStatisticPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-1.5 rounded border-b border-slate-100 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500">
-        <Link to="/instructor/classes" className="text-primary hover:underline">Trang chủ</Link>
-        <span>/</span>
-        <span className="text-slate-400">Thống kê</span>
-      </div>
-
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-col gap-4 border-b border-slate-100 bg-gradient-to-r from-teal-600 to-cyan-500 p-5 text-white md:flex-row md:items-center md:justify-between">
           <div>

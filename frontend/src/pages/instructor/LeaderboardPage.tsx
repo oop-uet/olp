@@ -169,13 +169,7 @@ export function LeaderboardPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Breadcrumb */}
-      <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-slate-50 border-b border-slate-100 rounded flex gap-1.5 items-center">
-        <span className="text-primary cursor-default">Trang chủ</span>
-        <span>/</span>
-        <span className="text-slate-400">Bảng xếp hạng</span>
-      </div>
-
+      
       <div className="flex flex-col justify-between gap-4 border-b border-slate-200 pb-1 sm:flex-row sm:items-center">
         <div className="flex border-b-2 border-primary -mb-[2px]">
           <button className="px-4 py-2 text-sm font-bold text-primary">

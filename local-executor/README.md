@@ -17,11 +17,11 @@ javac -version
 
 Both commands should report version 17 or higher.
 
-On Windows, `Start Local Executor.bat` does not require `java` to be in `PATH`.
-It searches `PATH`, `JAVA_HOME`, IntelliJ IDEA, JetBrains Toolbox, the user's
-`.jdks` directory, and common JDK installation folders. If IntelliJ is installed
-but the launcher still cannot find Java, open **IntelliJ IDEA > File > Project
-Structure > SDKs** and install/add a JDK 17+ SDK.
+The one-click launchers for Windows, macOS, and Linux do not require `java` to
+be in `PATH`. They search `PATH`, `JAVA_HOME`, IntelliJ IDEA, JetBrains Toolbox,
+the user's `.jdks` directory, and common JDK installation folders. If IntelliJ
+is installed but the launcher still cannot find Java, open **IntelliJ IDEA >
+File > Project Structure > SDKs** and install/add a JDK 17+ SDK.
 
 ## Download
 

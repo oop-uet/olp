@@ -169,13 +169,6 @@ export function PlagiarismPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       
-      {/* Breadcrumb */}
-      <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-slate-50 border-b border-slate-100 rounded flex gap-1.5 items-center">
-        <span className="text-primary cursor-default">Trang chủ</span>
-        <span>/</span>
-        <span className="text-slate-400">Kiểm tra mã nguồn</span>
-      </div>
-
       {/* Page header */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 p-6 text-white shadow-md border-b-4 border-secondary">
         <h1 className="text-2xl font-black font-sans uppercase tracking-wide">Kiểm tra mã nguồn</h1>

@@ -174,13 +174,6 @@ export function SubmissionHistoryPage() {
   if (sections.length === 0) {
     return (
       <div className="space-y-5">
-        <div className="flex items-center gap-1.5 rounded border-b border-slate-100 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500">
-          <Link to="/student/exercises" className="text-primary hover:underline">
-            Trang chủ
-          </Link>
-          <span>/</span>
-          <span className="text-slate-400">Bài nộp</span>
-        </div>
         <div className="card flex flex-col items-center justify-center gap-3 p-12 text-center">
           <SubmissionIcon className="h-12 w-12 text-gray-300" />
           <p className="text-lg font-medium text-gray-700">Không có lớp học phần</p>
@@ -196,15 +189,6 @@ export function SubmissionHistoryPage() {
 
   return (
     <div className="space-y-5">
-      {/* Authentic UET Breadcrumb Navigation */}
-      <div className="flex items-center gap-1.5 rounded border-b border-slate-100 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500">
-        <Link to="/student/exercises" className="text-primary hover:underline">
-          Trang chủ
-        </Link>
-        <span>/</span>
-        <span className="text-slate-400">Bài nộp</span>
-      </div>
-
       {/* Header Selector Row */}
       <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
         <h1 className="text-xl font-extrabold text-slate-800 flex items-center gap-2">
