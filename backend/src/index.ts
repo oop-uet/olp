@@ -12,6 +12,7 @@ import { exerciseTestCaseRouter, testCaseRouter } from './routes/instructor/test
 import exerciseRoutes from './routes/instructor/exercise.routes.js';
 import submissionRoutes from './routes/instructor/submission.routes.js';
 import instructorSectionRoutes, { sharedProfileRouter } from './routes/instructor/section.routes.js';
+import instructorProjectRoutes from './routes/instructor/project.routes.js';
 import studentSubmissionRoutes from './routes/student/submission.routes.js';
 import studentProgressRoutes from './routes/student/progress.routes.js';
 import studentAnticheatRoutes from './routes/student/anticheat.routes.js';
@@ -49,6 +50,7 @@ app.use('/api/admin', adminRoutes);
 
 // Instructor - Sections (assigned classes + detail)
 app.use('/api/instructor/sections', authMiddleware(), requireRole('instructor'), instructorSectionRoutes);
+app.use('/api/instructor/sections', authMiddleware(), requireRole('instructor'), instructorProjectRoutes);
 
 // Instructor - Test Cases
 app.use('/api/exercises/:exerciseId/testcases', authMiddleware(), requireRole('instructor'), exerciseTestCaseRouter);

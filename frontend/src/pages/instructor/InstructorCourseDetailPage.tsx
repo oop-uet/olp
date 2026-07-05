@@ -192,6 +192,7 @@ export function InstructorCourseDetailPage() {
               title="CHƯA XẾP TUẦN"
               subtitle={`${unscheduledExercises.length} bài tập cần xếp lịch`}
               exercises={unscheduledExercises}
+              sectionId={section.id}
               onUpdateSettings={handleUpdateAssignmentSettings}
             />
           )}
@@ -206,6 +207,7 @@ export function InstructorCourseDetailPage() {
                 title={`TUẦN ${weekNum}`}
                 subtitle=""
                 exercises={weekExercises}
+                sectionId={section.id}
                 onUpdateSettings={handleUpdateAssignmentSettings}
               />
             )
@@ -300,6 +302,7 @@ interface WeekPanelProps {
   title: string
   subtitle: string
   exercises: SectionExercise[]
+  sectionId: string
   onUpdateSettings: (
     exerciseId: string,
     patch: { isVisible?: boolean; allowSubmission?: boolean; maxSubmissions?: number | null }
@@ -310,6 +313,7 @@ function WeekPanel({
   title,
   subtitle,
   exercises,
+  sectionId,
   onUpdateSettings,
 }: WeekPanelProps) {
   const deadlineText = getWeekDeadline(exercises) || subtitle
@@ -344,6 +348,14 @@ function WeekPanel({
                   <span className="font-bold text-slate-800 text-sm">{ex.title}</span>
                   {ex.isAssessment && (
                     <span className="badge-yellow text-[9px] px-1 py-0.5 font-bold uppercase">Kiểm tra</span>
+                  )}
+                  {isProjectExercise(ex.title) && (
+                    <Link
+                      to={`/instructor/classes/${sectionId}/projects/${ex.exerciseId}`}
+                      className="rounded bg-primary-50 px-2 py-1 text-[10px] font-bold uppercase text-primary hover:bg-primary-100"
+                    >
+                      Quản lý BTL
+                    </Link>
                   )}
                 </div>
 
@@ -422,5 +434,10 @@ function WeekPanel({
       </div>
     </div>
   )
+}
+
+function isProjectExercise(title: string) {
+  const normalized = title.toLowerCase()
+  return normalized.includes('bài tập lớn') || normalized.includes('btl') || normalized.includes('project')
 }
 // Trigger frontend redeployment

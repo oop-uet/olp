@@ -156,6 +156,32 @@ Snapshots of test case runs for historical tracking.
 * `status`: `text` (enum: `'passed'`, `'failed'`, `'timeout'`, `'error'`).
 * `execution_time_ms`: `integer`.
 
+### 3.8.1 Major Project Groups (`project_groups`)
+Group submissions for large project assignments such as Arkanoid.
+* `id`: `text` (UUID), primary key.
+* `section_id`: `text`, foreign key to `sections(id)`.
+* `exercise_id`: `text`, foreign key to `exercises(id)`.
+* `name`: `text`.
+* `repository_url`: `text` (nullable GitHub URL).
+* `score`: `real` (nullable 0-100 group grade).
+* `feedback`: `text` (nullable instructor feedback).
+* `status`: `text` enum (`draft`, `submitted`, `graded`).
+* `created_at`, `updated_at`, `graded_at`: ISO timestamps.
+* `graded_by`: `text`, foreign key to `users(id)`.
+* *Unique constraint:* `(section_id, exercise_id, name)`.
+
+### 3.8.2 Major Project Group Members (`project_group_members`)
+Membership and contribution split for a project group.
+* `id`: `text` (UUID), primary key.
+* `group_id`: `text`, foreign key to `project_groups(id)`.
+* `student_id`: `text`, nullable foreign key to `users(id)`.
+* `student_external_id`: `text` (MSSV).
+* `student_name`: `text`.
+* `is_leader`: `integer` (boolean).
+* `contribution_percent`: `integer` (0-100).
+* `created_at`: ISO timestamp.
+* *Unique constraint:* `(group_id, student_external_id)`.
+
 ### 3.9 Anti-Cheat Events (`anticheat_events`)
 Tracks exam violations during assessments.
 * `id`: `text` (UUID), primary key.
@@ -240,6 +266,17 @@ Stores suspicious pairs found by a source check run.
 * **`PATCH /api/submissions/:id/grade`** (Instructor Manual Override)
   - Request: `{ "feedback": "...", "score": 80.0, "hasSe": true, "hasPe": false, "hasCe": false }`
 * **`GET /api/submissions/:id/anticheat-log`**
+
+### 4.4.1 Major Project / Group Assignment APIs
+* **`GET /api/instructor/sections/:sectionId/projects/:exerciseId`**
+  - Response: exercise description, group list, enrolled students, statistics, and history.
+* **`POST /api/instructor/sections/:sectionId/projects/:exerciseId/groups`**
+  - Request: `{ "name": "...", "repository_url": "...", "members": [{ "student_external_id": "24020010", "is_leader": true, "contribution_percent": 50 }] }`
+* **`PUT /api/instructor/sections/:sectionId/projects/:exerciseId/groups/:groupId`**
+  - Updates group metadata, repository URL, and member list.
+* **`PATCH /api/instructor/sections/:sectionId/projects/:exerciseId/groups/:groupId/grade`**
+  - Request: `{ "score": 95, "feedback": "..." }`
+* **`DELETE /api/instructor/sections/:sectionId/projects/:exerciseId/groups/:groupId`**
 
 ### 4.5 Source Check / Plagiarism
 * **`GET /api/source-check/settings`**

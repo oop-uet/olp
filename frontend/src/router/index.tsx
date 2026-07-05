@@ -59,6 +59,7 @@ const TestCaseEditorPage = lazy(() => import('../pages/instructor/TestCaseEditor
 const SubmissionReviewPage = lazy(() => import('../pages/instructor/SubmissionReviewPage').then((m) => ({ default: m.SubmissionReviewPage })))
 const LeaderboardPage = lazy(() => import('../pages/instructor/LeaderboardPage').then((m) => ({ default: m.LeaderboardPage })))
 const PlagiarismPage = lazy(() => import('../pages/instructor/PlagiarismPage').then((m) => ({ default: m.PlagiarismPage })))
+const ProjectAssignmentPage = lazy(() => import('../pages/instructor/ProjectAssignmentPage').then((m) => ({ default: m.ProjectAssignmentPage })))
 
 // Admin
 const AdminDashboardPage = lazy(() => import('../pages/admin/DashboardPage').then((m) => ({ default: m.DashboardPage })))
@@ -134,6 +135,7 @@ export const router = createBrowserRouter(
         { path: 'classes/:id/students', element: withSuspense(<InstructorSectionDetailPage />) },
         { path: 'classes/:id/students/:studentId/profile', element: withSuspense(<InstructorStudentProfilePage />) },
         { path: 'classes/:id/schedule', element: withSuspense(<SectionSchedulePage />) },
+        { path: 'classes/:sectionId/projects/:exerciseId', element: withSuspense(<ProjectAssignmentPage />) },
         { path: 'course/:id', element: withSuspense(<InstructorCourseDetailPage />) },
         { path: 'statistic', element: withSuspense(<InstructorStatisticPage />) },
         { path: 'submissions', element: withSuspense(<SubmissionReviewPage />) },

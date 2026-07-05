@@ -124,9 +124,16 @@ The platform’s core goal is to faithfully reproduce all teaching workflows, ad
      - Manual override panel: Checkboxes to flag standard errors: **Lỗi cấu trúc mã nguồn (SE)**, **Lỗi quy tắc lập trình (PE)**, and **Lỗi biên dịch (CE)**. Text area for instructor feedback.
      - Information Tabs:
        - `Mã nguồn`: Monaco Editor in read-only mode displaying the source code.
-       - `Yêu cầu chức năng`: Detailed point score for each test case.
-       - `Lỗi khác`: Standard error outputs or compilation stack traces.
-       - `Chi tiết test cases`: Terminal test reports.
+      - `Yêu cầu chức năng`: Detailed point score for each test case.
+      - `Lỗi khác`: Standard error outputs or compilation stack traces.
+      - `Chi tiết test cases`: Terminal test reports.
+
+### Requirement 7.1: Major Project / Group Assignment Management
+1. **Project Workspace:** Exercises marked by title/tag as `Bài tập lớn`, `BTL`, or project assignments open a dedicated instructor workspace instead of the normal coding review flow.
+2. **Group List:** Instructor can view, create, edit, and delete project groups for a section and exercise. Each group stores group name, GitHub repository URL, members, leader, and contribution percentage.
+3. **Statistics:** Instructor can view total groups, total enrolled students, students already assigned to groups, submitted repository count, graded count, and average group score.
+4. **Grading:** Instructor can grade each group from 0-100 and store feedback. The grade history remains visible in the project workspace.
+5. **Export:** Instructor can export the group list to CSV/Excel-compatible format for offline review.
 
 ### Requirement 8: Plagiarism and Source Similarity
 1. **Technology Choice:** Use JPlag as the primary source-similarity engine for Java OOP submissions. PMD CPD may be used as a fast duplicate-fragment pre-check; Dolos is kept as a future provider.
