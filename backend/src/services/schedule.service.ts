@@ -7,6 +7,7 @@ import {
   exerciseAssignments,
   sectionWeeks,
 } from "../db/schema.js";
+import { userCanAccessSection } from "./section.service.js";
 
 // Default number of weeks in a course schedule. Instructors can extend this
 // when a section needs extra make-up/project weeks.
@@ -55,7 +56,7 @@ async function loadSectionForUser(
   if (!section) {
     return { error: { code: "NOT_FOUND", message: "Không tìm thấy lớp." } };
   }
-  if (role !== "admin" && section.instructorId !== userId) {
+  if (!(await userCanAccessSection(sectionId, userId, role, database))) {
     return { error: { code: "FORBIDDEN", message: "Bạn không phụ trách lớp này." } };
   }
   return { section };

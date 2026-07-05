@@ -21,16 +21,28 @@ interface Section {
   instructorId: string | null
   createdAt: string
   instructor?: Instructor | null
+  instructors?: Array<Instructor & { isPrimary?: boolean }>
 }
 
 interface SectionFormData {
   name: string
   semester: string
   instructor_id: string | null
+  instructor_ids: string[]
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
+function getSectionInstructorText(section: Section) {
+  const names =
+    section.instructors?.map(
+      (instructor) => instructor.fullName || instructor.username || instructor.email
+    ) || []
+  if (section.instructor) {
+    names.push(section.instructor.fullName || section.instructor.username || section.instructor.email)
+  }
+  return names.join(' ')
+}
 
 export function SectionManagerPage() {
   const [sections, setSections] = useState<Section[]>([])
@@ -42,6 +54,7 @@ export function SectionManagerPage() {
     name: '',
     semester: '',
     instructor_id: null,
+    instructor_ids: [],
   })
   const [submitting, setSubmitting] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -59,6 +72,7 @@ export function SectionManagerPage() {
       (s) =>
         s.name.toLowerCase().includes(q) ||
         s.semester.toLowerCase().includes(q) ||
+        getSectionInstructorText(s).toLowerCase().includes(q) ||
         (s.instructor?.fullName || '').toLowerCase().includes(q) ||
         (s.instructor?.username || '').toLowerCase().includes(q)
     )
@@ -127,16 +141,23 @@ export function SectionManagerPage() {
 
   function openCreateForm() {
     setEditingSection(null)
-    setFormData({ name: '', semester: '', instructor_id: null })
+    setFormData({ name: '', semester: '', instructor_id: null, instructor_ids: [] })
     setShowForm(true)
   }
 
   function openEditForm(section: Section) {
+    const instructorIds =
+      section.instructors && section.instructors.length > 0
+        ? section.instructors.map((instructor) => instructor.id)
+        : section.instructorId
+          ? [section.instructorId]
+          : []
     setEditingSection(section)
     setFormData({
       name: section.name,
       semester: section.semester,
-      instructor_id: section.instructorId,
+      instructor_id: instructorIds[0] || null,
+      instructor_ids: instructorIds,
     })
     setShowForm(true)
   }
@@ -144,19 +165,23 @@ export function SectionManagerPage() {
   function closeForm() {
     setShowForm(false)
     setEditingSection(null)
-    setFormData({ name: '', semester: '', instructor_id: null })
+    setFormData({ name: '', semester: '', instructor_id: null, instructor_ids: [] })
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSubmitting(true)
+    const payload = {
+      ...formData,
+      instructor_id: formData.instructor_ids[0] || null,
+    }
 
     try {
       if (editingSection) {
         // Update
         const response = await api.put(
           `/api/admin/sections/${editingSection.id}`,
-          formData
+          payload
         )
         setSections((prev) =>
           prev.map((s) => (s.id === editingSection.id ? response.data : s))
@@ -164,7 +189,7 @@ export function SectionManagerPage() {
         toast.success('Cập nhật lớp thành công.')
       } else {
         // Create
-        const response = await api.post('/api/admin/sections', formData)
+        const response = await api.post('/api/admin/sections', payload)
         setSections((prev) => [...prev, response.data])
         toast.success('Tạo lớp thành công.')
       }
@@ -211,7 +236,7 @@ export function SectionManagerPage() {
     try {
       const response = await api.put(
         `/api/admin/sections/${sectionId}/instructor`,
-        { instructor_id: instructorId }
+        { instructor_id: instructorId, instructor_ids: [instructorId] }
       )
       setSections((prev) =>
         prev.map((s) => (s.id === sectionId ? { ...s, ...response.data } : s))
@@ -408,29 +433,37 @@ export function SectionManagerPage() {
                 />
               </div>
 
-              {/* Instructor */}
+              {/* Instructors */}
               <div>
                 <label htmlFor="section-instructor" className="label">
-                  Giảng viên
+                  Giảng viên phụ trách
                 </label>
                 <select
                   id="section-instructor"
-                  value={formData.instructor_id || ''}
-                  onChange={(e) =>
+                  multiple
+                  value={formData.instructor_ids}
+                  onChange={(e) => {
+                    const selectedIds = Array.from(
+                      e.currentTarget.selectedOptions,
+                      (option) => option.value
+                    )
                     setFormData((prev) => ({
                       ...prev,
-                      instructor_id: e.target.value || null,
+                      instructor_id: selectedIds[0] || null,
+                      instructor_ids: selectedIds,
                     }))
-                  }
-                  className="input"
+                  }}
+                  className="input min-h-32"
                 >
-                  <option value="">-- Chưa có giảng viên --</option>
                   {instructors.map((instructor) => (
                     <option key={instructor.id} value={instructor.id}>
                       {instructor.fullName || instructor.username} ({instructor.email})
                     </option>
                   ))}
                 </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  Có thể chọn nhiều giảng viên. Người đầu tiên trong danh sách được lưu làm giảng viên chính.
+                </p>
               </div>
 
               {/* Actions */}
@@ -536,7 +569,23 @@ export function SectionManagerPage() {
                     <span className="badge-blue">{section.semester}</span>
                   </td>
                   <td className="px-5 py-3.5">
-                    {section.instructor ? (
+                    {section.instructors && section.instructors.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {section.instructors.map((instructor) => (
+                          <span
+                            key={instructor.id}
+                            className="inline-flex items-center gap-1 rounded-full border border-primary-100 bg-primary-50 px-2 py-1 text-xs font-medium text-primary-800"
+                          >
+                            {instructor.fullName || instructor.username}
+                            {instructor.isPrimary && (
+                              <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
+                                Chính
+                              </span>
+                            )}
+                          </span>
+                        ))}
+                      </div>
+                    ) : section.instructor ? (
                       <span className="text-sm text-gray-700">
                         {section.instructor.fullName || section.instructor.username}
                       </span>

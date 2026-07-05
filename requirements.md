@@ -47,8 +47,8 @@ The platform’s core goal is to faithfully reproduce all teaching workflows, ad
    - Unique Course ID
    - Class Name (e.g. `OOP Lớp INT2204 8`)
    - Semester Label (e.g. `Học kỳ I năm học 2026-2027`)
-   - Assigned Instructor
-2. **Management Actions:** Admin can view, edit course names/semesters, assign/reassign instructors, archive, or delete course sections.
+   - Assigned Instructors: one or more instructors can be attached to a section, with the first selected instructor treated as the primary instructor for legacy displays and imports.
+2. **Management Actions:** Admin can view, edit course names/semesters, assign/reassign one or many instructors, archive, or delete course sections.
 3. ** Roster Overview:** Admin can view a detailed section page displaying the student roster, assigned exercise schedule, submission statistics, and a link to the leaderboard.
 
 ### Requirement 3: Roster Import, Export, and Student Accounts

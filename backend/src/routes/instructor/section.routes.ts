@@ -558,7 +558,7 @@ async function getStudentProfileHandler(req: Request, res: Response) {
     if (role === "admin") {
       isAllowed = true;
     } else if (role === "instructor") {
-      if (section.instructorId === userId) {
+      if (await userCanAccessSection(sectionId, userId, role, db)) {
         isAllowed = true;
       }
     } else if (role === "student") {

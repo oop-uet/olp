@@ -3,7 +3,7 @@ import * as XLSX from "xlsx";
 import bcrypt from "bcrypt";
 import { eq } from "drizzle-orm";
 import { db as defaultDb } from "../db/index.js";
-import { users, sectionEnrollments, classSections } from "../db/schema.js";
+import { users, sectionEnrollments, classSections, sectionInstructors } from "../db/schema.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -254,6 +254,19 @@ export async function importClassRoster(
       createdAt: now,
     })
     .returning();
+
+  if (resolvedInstructorId) {
+    await database
+      .insert(sectionInstructors)
+      .values({
+        id: crypto.randomUUID(),
+        sectionId,
+        instructorId: resolvedInstructorId,
+        isPrimary: 1,
+        assignedAt: now,
+      })
+      .onConflictDoNothing();
+  }
 
   // 2. Import students
   const report: RosterImportReport = {

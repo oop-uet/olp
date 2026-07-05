@@ -67,12 +67,21 @@ Stores Admin, Instructor, and Student accounts.
 * `updated_at`: `text` (ISO Timestamp).
 
 ### 3.2 Course Sections (`sections`)
-Course groups managed by instructors.
+Course groups managed by one or more instructors.
 * `id`: `text` (UUID), primary key.
 * `name`: `text` (e.g. `OOP Lớp INT2204 8`).
 * `semester`: `text` (e.g. `Học kỳ I năm học 2025-2026`).
-* `instructor_id`: `text`, foreign key to `users(id)`.
+* `instructor_id`: `text`, nullable foreign key to `users(id)`. This remains the primary/legacy instructor pointer for backward compatibility.
 * `created_at`: `text` (ISO Timestamp).
+
+### 3.2.1 Section Instructors (`section_instructors`)
+Many-to-many assignment table that allows multiple instructors to co-teach the same section.
+* `id`: `text` (UUID), primary key.
+* `section_id`: `text`, foreign key to `sections(id)`, indexed.
+* `instructor_id`: `text`, foreign key to `users(id)`, indexed.
+* `is_primary`: `integer` (boolean, default 0). The primary instructor is mirrored into `sections.instructor_id`.
+* `assigned_at`: `text` (ISO Timestamp).
+* *Unique constraint:* `(section_id, instructor_id)`.
 
 ### 3.3 Enrollments (`enrollments`)
 Enrollment records connecting students to sections.
@@ -200,9 +209,9 @@ Stores suspicious pairs found by a source check run.
 
 ### 4.2 Class Section Management (Admin / Instructor)
 * **`GET /api/admin/sections`**
-  - Response: `[{ "id": "...", "name": "OOP Lớp INT2204 8", "semester": "...", "instructorName": "Kiều Văn Tuyên" }]`
+  - Response: `[{ "id": "...", "name": "OOP Lớp INT2204 8", "semester": "...", "instructors": [{ "id": "...", "fullName": "Kiều Văn Tuyên", "isPrimary": true }] }]`
 * **`POST /api/admin/sections`**
-  - Request: `{ "name": "...", "semester": "...", "instructorId": "..." }`
+  - Request: `{ "name": "...", "semester": "...", "instructor_ids": ["...", "..."] }`
   - Response: Created section object.
 * **`POST /api/admin/sections/:id/import-students`**
   - Request: `multipart/form-data` with roster sheet.
