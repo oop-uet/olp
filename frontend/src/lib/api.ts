@@ -1,8 +1,10 @@
 import axios, { AxiosError, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import { useAuthStore } from '../stores/auth.store'
+import { useRedirectStore } from '../stores/redirect.store'
 import { toast } from '../stores/toast.store'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+const APP_BASE_URL = import.meta.env.BASE_URL || '/'
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -156,6 +158,27 @@ function processQueue(error: unknown, token: string | null = null) {
   failedQueue = []
 }
 
+function buildAppUrl(path: string): string {
+  const base = APP_BASE_URL.endsWith('/') ? APP_BASE_URL : `${APP_BASE_URL}/`
+  return `${base}${path.replace(/^\//, '')}`
+}
+
+function getCurrentRouterPath(): string {
+  const base = APP_BASE_URL.endsWith('/') ? APP_BASE_URL.slice(0, -1) : APP_BASE_URL
+  const pathname = window.location.pathname
+  const routePath =
+    base && pathname.startsWith(base) ? pathname.slice(base.length) || '/' : pathname
+  return `${routePath}${window.location.search}${window.location.hash}`
+}
+
+function redirectToLogin() {
+  const currentPath = getCurrentRouterPath()
+  if (currentPath !== '/login') {
+    useRedirectStore.getState().setIntendedDestination(currentPath)
+  }
+  window.location.assign(buildAppUrl('/login'))
+}
+
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
@@ -202,7 +225,7 @@ api.interceptors.response.use(
 
     if (!refreshToken) {
       clearAuth()
-      window.location.href = '/login'
+      redirectToLogin()
       return Promise.reject(error)
     }
 
@@ -225,7 +248,7 @@ api.interceptors.response.use(
     } catch (refreshError) {
       processQueue(refreshError, null)
       clearAuth()
-      window.location.href = '/login'
+      redirectToLogin()
       return Promise.reject(refreshError)
     } finally {
       isRefreshing = false

@@ -5,7 +5,7 @@ export function LocalExecutorStatusButton() {
   const { status, connectionError, isConnected, connect } = useLocalExecutor()
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
-  const downloadUrl = `${import.meta.env.BASE_URL}downloads/oop-local-executor-1.0.0.zip`
+  const downloadUrl = `${import.meta.env.BASE_URL}downloads/oop-local-executor-1.0.0.zip?v=20260630-2`
 
   useEffect(() => {
     connect()
@@ -107,9 +107,10 @@ export function LocalExecutorStatusButton() {
             </pre>
           )}
 
-          <pre className="mt-3 overflow-x-auto rounded-md bg-slate-950 p-3 text-xs text-emerald-300">
-            java -jar oop-local-executor-1.0.0.jar
-          </pre>
+          <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
+            Tải ZIP, giải nén rồi double-click <span className="font-bold">Start Local Executor.command</span> trên
+            macOS hoặc <span className="font-bold">Start Local Executor.bat</span> trên Windows.
+          </div>
 
           <div className="mt-4 flex items-center gap-2">
             <button
@@ -119,8 +120,12 @@ export function LocalExecutorStatusButton() {
             >
               Kiểm tra lại
             </button>
-            <a href={downloadUrl} className="btn-secondary h-9 px-3 text-xs" download>
-              Tải bản chạy nhanh
+            <a
+              href={downloadUrl}
+              className="btn-secondary h-9 px-3 text-xs"
+              download="oop-local-executor-1.0.0.zip"
+            >
+              Tải ZIP chạy nhanh
             </a>
           </div>
         </div>

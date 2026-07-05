@@ -13,6 +13,12 @@ Cach chay nhanh:
 Cach chay bang terminal:
 java -jar oop-local-executor-1.0.0.jar
 
+Luu y:
+- Nen tai file ZIP va giai nen day du truoc khi chay.
+- Neu file tai ve co duoi .html hoac chay java -jar bao "Invalid or corrupt jarfile",
+  ban da tai nham trang HTML thay vi file executor. Hay xoa file do va tai lai ZIP tu nut
+  "Tai ZIP chay nhanh" tren website.
+
 Khi thay dong "Server started. Waiting for connections at ws://127.0.0.1:9876",
 quay lai trang bai lam va bam "Thu ket noi lai".
 

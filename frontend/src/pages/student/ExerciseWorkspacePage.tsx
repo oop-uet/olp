@@ -6,6 +6,7 @@ import { PageLoader, Spinner, CheckCircleIcon, XCircleIcon } from '../../compone
 import { toast } from '../../stores/toast.store'
 import { AntiCheatMonitor } from '../../components/student/AntiCheatMonitor'
 import { useLocalExecutor } from '../../hooks/useLocalExecutor'
+import { useAuthStore } from '../../stores/auth.store'
 
 interface TestCase {
   id: string
@@ -72,6 +73,13 @@ interface SourceFile {
   id: string
   name: string
   content: string
+}
+
+interface WorkspaceDraft {
+  version: 1
+  files: SourceFile[]
+  activeFileId: string
+  updatedAt: string
 }
 
 const difficultyConfig = {
@@ -154,8 +162,56 @@ function serializeSubmissionFiles(files: Array<{ name: string; content: string }
   )
 }
 
+function getDraftKey(exerciseId: string, userId: string) {
+  return `oop-workspace-draft:${userId}:${exerciseId}`
+}
+
+function readWorkspaceDraft(exerciseId: string, userId: string): WorkspaceDraft | null {
+  try {
+    const raw = localStorage.getItem(getDraftKey(exerciseId, userId))
+    if (!raw) return null
+    const draft = JSON.parse(raw) as WorkspaceDraft
+    if (
+      draft.version !== 1 ||
+      !Array.isArray(draft.files) ||
+      draft.files.length === 0 ||
+      draft.files.some((file) => !file.id || !file.name.endsWith('.java'))
+    ) {
+      return null
+    }
+    return draft
+  } catch {
+    return null
+  }
+}
+
+function writeWorkspaceDraft(exerciseId: string, userId: string, files: SourceFile[], activeFileId: string) {
+  try {
+    localStorage.setItem(
+      getDraftKey(exerciseId, userId),
+      JSON.stringify({
+        version: 1,
+        files,
+        activeFileId,
+        updatedAt: new Date().toISOString(),
+      } satisfies WorkspaceDraft)
+    )
+  } catch {
+    // Draft persistence is best-effort; editor state still stays in memory.
+  }
+}
+
+function clearWorkspaceDraft(exerciseId: string, userId: string) {
+  try {
+    localStorage.removeItem(getDraftKey(exerciseId, userId))
+  } catch {
+    // Best-effort cleanup.
+  }
+}
+
 export function ExerciseWorkspacePage() {
   const { id } = useParams<{ id: string }>()
+  const userId = useAuthStore((state) => state.user?.id ?? 'anonymous')
   const [exercise, setExercise] = useState<ExerciseDetail | null>(null)
   const [files, setFiles] = useState<SourceFile[]>(() => [
     { id: 'main', name: 'Main.java', content: '' },
@@ -181,13 +237,18 @@ export function ExerciseWorkspacePage() {
     if (id) {
       fetchExercise(id)
     }
-  }, [id])
+  }, [id, userId])
 
   useEffect(() => {
     if (exercise) {
       connectExecutor()
     }
   }, [connectExecutor, exercise])
+
+  useEffect(() => {
+    if (!exercise || loading) return
+    writeWorkspaceDraft(exercise.id, userId, files, activeFileId)
+  }, [activeFileId, exercise, files, loading, userId])
 
   async function fetchExercise(exerciseId: string) {
     try {
@@ -219,11 +280,22 @@ export function ExerciseWorkspacePage() {
         }),
       }
       setExercise(detail)
+      const draft = readWorkspaceDraft(exerciseId, userId)
       const starterFiles = parseStarterFiles(detail.starterCode || '')
-      const nextFiles =
-        starterFiles.length > 0 ? starterFiles : [createInitialSourceFile(detail.starterCode || '')]
+      const nextFiles = draft?.files.length
+        ? draft.files
+        : starterFiles.length > 0
+          ? starterFiles
+          : [createInitialSourceFile(detail.starterCode || '')]
       setFiles(nextFiles)
-      setActiveFileId(nextFiles[0].id)
+      setActiveFileId(
+        draft?.activeFileId && nextFiles.some((file) => file.id === draft.activeFileId)
+          ? draft.activeFileId
+          : nextFiles[0].id
+      )
+      if (draft) {
+        toast.success('Đã khôi phục bản nháp bài làm trên máy này.')
+      }
     } catch {
       setError('Không thể tải bài tập. Vui lòng thử lại.')
     } finally {
@@ -310,6 +382,7 @@ export function ExerciseWorkspacePage() {
         anti_cheat_nullified: antiCheatNullified,
       })
       const score = response.data.score
+      clearWorkspaceDraft(exercise.id, userId)
       toast.success(`Nộp bài thành công! Điểm: ${score.toFixed(1)}%`)
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
@@ -319,7 +392,7 @@ export function ExerciseWorkspacePage() {
     } finally {
       setSubmitting(false)
     }
-  }, [antiCheatNullified, exercise, executionResult, files])
+  }, [antiCheatNullified, exercise, executionResult, files, userId])
 
   const handleAntiCheatNullified = useCallback(async () => {
     if (!exercise || zeroSubmissionSentRef.current) return
@@ -605,8 +678,7 @@ function ExecutorGate({
 }) {
   const isConnecting = status === 'connecting'
   const downloadBaseUrl = import.meta.env.BASE_URL
-  const executorJarUrl = `${downloadBaseUrl}downloads/oop-local-executor-1.0.0.jar`
-  const executorBundleUrl = `${downloadBaseUrl}downloads/oop-local-executor-1.0.0.zip`
+  const executorBundleUrl = `${downloadBaseUrl}downloads/oop-local-executor-1.0.0.zip?v=20260630-2`
 
   return (
     <div className="-m-6 flex min-h-[calc(100vh-8.25rem)] items-center justify-center bg-slate-100 p-6">
@@ -620,8 +692,8 @@ function ExecutorGate({
               Cần chạy Local Executor trước khi bắt đầu làm bài
             </h1>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Hệ thống sẽ biên dịch và chạy Java trên máy cá nhân của sinh viên. Mở terminal
-              hoặc command prompt, chạy file JAR ở cổng 9876, sau đó thử kết nối lại.
+              Hệ thống sẽ biên dịch và chạy Java trên máy cá nhân của sinh viên. Tải ZIP,
+              giải nén, mở file chạy nhanh theo hệ điều hành, sau đó thử kết nối lại.
             </p>
           </div>
           <span
@@ -641,6 +713,10 @@ function ExecutorGate({
             Tải bản ZIP, giải nén, rồi double-click file phù hợp với hệ điều hành:
             <span className="font-semibold"> Start Local Executor.command</span> trên macOS,
             <span className="font-semibold"> Start Local Executor.bat</span> trên Windows.
+          </p>
+          <p className="mt-2 text-xs leading-5 text-slate-500">
+            Nếu macOS hỏi quyền mở file tải từ Internet, chọn Open. Nếu file không chạy,
+            mở Terminal trong thư mục đã giải nén và chạy: <span className="font-mono">chmod +x "Start Local Executor.command"</span>.
           </p>
           <p className="mt-4 text-sm font-bold text-slate-800">Lệnh chạy thủ công</p>
           <pre className="mt-2 overflow-x-auto rounded-md bg-slate-950 p-3 text-sm text-emerald-300">
@@ -666,16 +742,9 @@ function ExecutorGate({
           <a
             href={executorBundleUrl}
             className="btn-primary h-10 px-4 text-sm"
-            download
+            download="oop-local-executor-1.0.0.zip"
           >
-            Tải bản chạy nhanh
-          </a>
-          <a
-            href={executorJarUrl}
-            className="btn-secondary h-10 px-4 text-sm"
-            download
-          >
-            Tải riêng file JAR
+            Tải ZIP chạy nhanh
           </a>
           <button onClick={onRetry} className="btn-primary h-10 px-4 text-sm">
             {isConnecting ? 'Đang kiểm tra...' : 'Thử kết nối lại'}

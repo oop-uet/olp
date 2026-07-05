@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
 interface RedirectState {
   intendedDestination: string | null
@@ -6,15 +7,22 @@ interface RedirectState {
   clearIntendedDestination: () => string | null
 }
 
-export const useRedirectStore = create<RedirectState>()((set, get) => ({
-  intendedDestination: null,
+export const useRedirectStore = create<RedirectState>()(
+  persist(
+    (set, get) => ({
+      intendedDestination: null,
 
-  setIntendedDestination: (path: string) =>
-    set({ intendedDestination: path }),
+      setIntendedDestination: (path: string) =>
+        set({ intendedDestination: path }),
 
-  clearIntendedDestination: () => {
-    const destination = get().intendedDestination
-    set({ intendedDestination: null })
-    return destination
-  },
-}))
+      clearIntendedDestination: () => {
+        const destination = get().intendedDestination
+        set({ intendedDestination: null })
+        return destination
+      },
+    }),
+    {
+      name: 'oop-redirect-storage',
+    }
+  )
+)
