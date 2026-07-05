@@ -20,7 +20,6 @@ const segmentLabels: Record<string, string> = {
   students: 'Sinh viên',
   sections: 'Lớp học phần',
   config: 'Cấu hình',
-  quota: 'Giám sát Quota',
   // Common
   'change-password': 'Đổi mật khẩu',
 }

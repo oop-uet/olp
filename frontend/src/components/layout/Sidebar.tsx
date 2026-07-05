@@ -8,7 +8,6 @@ import {
   LeaderboardIcon,
   SectionIcon,
   ConfigIcon,
-  QuotaIcon,
   DashboardIcon,
   TeacherIcon,
   StudentsIcon,
@@ -40,7 +39,6 @@ const menusByRole: Record<UserRole, MenuItem[]> = {
     { label: 'Lớp học phần', path: '/admin/sections', icon: SectionIcon },
     { label: 'Bài tập', path: '/admin/exercises', icon: ExerciseIcon },
     { label: 'Cấu hình', path: '/admin/config', icon: ConfigIcon },
-    { label: 'Giám sát Quota', path: '/admin/quota', icon: QuotaIcon },
   ],
 }
 
