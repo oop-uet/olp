@@ -1,5 +1,5 @@
 import { useState, FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { api, cachedGet } from '../lib/api'
 import { useAuthStore } from '../stores/auth.store'
 import { useRedirectStore } from '../stores/redirect.store'
@@ -179,12 +179,12 @@ export function LoginPage() {
             </form>
 
             <div className="text-center">
-              <a
-                href="#/help"
+              <Link
+                to="/help"
                 className="text-xs font-bold text-primary hover:text-primary-700 transition-colors leading-relaxed block"
               >
                 Hướng dẫn sử dụng dành<br />cho sinh viên
-              </a>
+              </Link>
             </div>
           </div>
 

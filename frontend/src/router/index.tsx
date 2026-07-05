@@ -44,6 +44,7 @@ function GlobalErrorBoundary() {
 
 const LoginPage = lazy(() => import('../pages/LoginPage').then((m) => ({ default: m.LoginPage })))
 const ChangePasswordPage = lazy(() => import('../pages/ChangePasswordPage').then((m) => ({ default: m.ChangePasswordPage })))
+const StudentGuidePage = lazy(() => import('../pages/student/StudentGuidePage').then((m) => ({ default: m.StudentGuidePage })))
 
 // Student
 const StudentCourseDetailPage = lazy(() => import('../pages/student/StudentCourseDetailPage').then((m) => ({ default: m.StudentCourseDetailPage })))
@@ -91,6 +92,7 @@ export const router = createBrowserRouter(
   [
     // Public routes
     { path: '/login', element: withSuspense(<LoginPage />), errorElement: <GlobalErrorBoundary /> },
+    { path: '/help', element: withSuspense(<StudentGuidePage />), errorElement: <GlobalErrorBoundary /> },
     { path: '/change-password', element: withSuspense(<ChangePasswordPage />), errorElement: <GlobalErrorBoundary /> },
 
     // Root redirect based on role
