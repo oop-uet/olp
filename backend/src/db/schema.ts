@@ -34,6 +34,29 @@ export const classSections = sqliteTable("class_sections", {
   createdAt: text("created_at").notNull(),
 });
 
+// ─── Section Instructors ────────────────────────────────────────────────────
+
+export const sectionInstructors = sqliteTable(
+  "section_instructors",
+  {
+    id: text("id").primaryKey(),
+    sectionId: text("section_id")
+      .notNull()
+      .references(() => classSections.id),
+    instructorId: text("instructor_id")
+      .notNull()
+      .references(() => users.id),
+    isPrimary: integer("is_primary").notNull().default(0),
+    assignedAt: text("assigned_at").notNull(),
+  },
+  (table) => ({
+    sectionInstructorIdx: uniqueIndex("section_instructors_section_instructor_unique").on(
+      table.sectionId,
+      table.instructorId
+    ),
+  })
+);
+
 // ─── Section Enrollments ─────────────────────────────────────────────────────
 
 export const sectionEnrollments = sqliteTable(
@@ -205,6 +228,7 @@ export const systemConfig = sqliteTable("system_config", {
 
 export const usersRelations = relations(users, ({ many }) => ({
   instructedSections: many(classSections),
+  sectionInstructorAssignments: many(sectionInstructors),
   enrollments: many(sectionEnrollments),
   createdExercises: many(exercises),
   submissions: many(submissions),
@@ -216,9 +240,21 @@ export const classSectionsRelations = relations(classSections, ({ one, many }) =
     fields: [classSections.instructorId],
     references: [users.id],
   }),
+  instructors: many(sectionInstructors),
   enrollments: many(sectionEnrollments),
   assignments: many(exerciseAssignments),
   submissions: many(submissions),
+}));
+
+export const sectionInstructorsRelations = relations(sectionInstructors, ({ one }) => ({
+  section: one(classSections, {
+    fields: [sectionInstructors.sectionId],
+    references: [classSections.id],
+  }),
+  instructor: one(users, {
+    fields: [sectionInstructors.instructorId],
+    references: [users.id],
+  }),
 }));
 
 export const sectionEnrollmentsRelations = relations(sectionEnrollments, ({ one }) => ({
@@ -318,6 +354,8 @@ export type NewUser = InferInsertModel<typeof users>;
 
 export type ClassSection = InferSelectModel<typeof classSections>;
 export type NewClassSection = InferInsertModel<typeof classSections>;
+export type SectionInstructor = InferSelectModel<typeof sectionInstructors>;
+export type NewSectionInstructor = InferInsertModel<typeof sectionInstructors>;
 
 export type SectionEnrollment = InferSelectModel<typeof sectionEnrollments>;
 export type NewSectionEnrollment = InferInsertModel<typeof sectionEnrollments>;

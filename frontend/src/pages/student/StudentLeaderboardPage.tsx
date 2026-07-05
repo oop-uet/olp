@@ -242,26 +242,26 @@ export function StudentLeaderboardPage() {
               <table className="min-w-full divide-y divide-slate-100 border border-slate-200">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-left">
-                    <th className="w-16 px-4 py-3 text-center text-xs font-bold text-slate-700">
-                      <button type="button" onClick={() => handleSort('rank')} className="inline-flex items-center">
+                    <th className="w-20 px-4 py-3 text-xs font-bold text-slate-700">
+                      <button type="button" onClick={() => handleSort('rank')} className="flex w-full items-center justify-center">
                         #
                         {sortIndicator('rank')}
                       </button>
                     </th>
                     <th className="px-6 py-3 text-xs font-bold text-slate-700">
-                      <button type="button" onClick={() => handleSort('studentName')} className="inline-flex items-center">
+                      <button type="button" onClick={() => handleSort('studentName')} className="flex items-center gap-1">
                         Sinh viên
                         {sortIndicator('studentName')}
                       </button>
                     </th>
-                    <th className="px-6 py-3 text-xs font-bold text-slate-700">
-                      <button type="button" onClick={() => handleSort('sectionName')} className="inline-flex items-center">
+                    <th className="w-60 px-6 py-3 text-xs font-bold text-slate-700">
+                      <button type="button" onClick={() => handleSort('sectionName')} className="flex items-center gap-1">
                         Lớp học phần
                         {sortIndicator('sectionName')}
                       </button>
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-bold text-slate-700">
-                      <button type="button" onClick={() => handleSort('totalScore')} className="inline-flex items-center">
+                    <th className="w-64 px-6 py-3 text-xs font-bold text-slate-700">
+                      <button type="button" onClick={() => handleSort('totalScore')} className="flex w-full items-center justify-center">
                         Điểm SV/Tổng điểm
                         {sortIndicator('totalScore')}
                       </button>
@@ -296,7 +296,7 @@ export function StudentLeaderboardPage() {
                         <td className="px-6 py-3.5 text-slate-600 font-medium">
                           {currentSection.name}
                         </td>
-                        <td className="px-6 py-3.5 text-right font-black text-slate-800">
+                        <td className="px-6 py-3.5 text-center font-black text-slate-800">
                           {formatScore(entry.totalScore)}/{formatScore(maxPossibleScore || 100)}
                         </td>
                       </tr>
