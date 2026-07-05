@@ -125,7 +125,7 @@ export function LocalExecutorStatusButton() {
               className="btn-secondary h-9 px-3 text-xs"
               download="oop-local-executor-1.0.0.zip"
             >
-              Tải ZIP chạy nhanh
+              Tải Executor
             </a>
           </div>
         </div>

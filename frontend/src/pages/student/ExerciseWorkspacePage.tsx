@@ -742,7 +742,7 @@ function ExecutorGate({
             className="btn-primary h-10 px-4 text-sm"
             download="oop-local-executor-1.0.0.zip"
           >
-            Tải ZIP chạy nhanh
+            Tải Executor
           </a>
           <button onClick={onRetry} className="btn-primary h-10 px-4 text-sm">
             {isConnecting ? 'Đang kiểm tra...' : 'Thử kết nối lại'}
