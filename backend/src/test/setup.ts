@@ -115,6 +115,34 @@ beforeAll(() => {
       submitted_at TEXT DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS project_groups (
+      id TEXT PRIMARY KEY,
+      section_id TEXT NOT NULL REFERENCES class_sections(id),
+      exercise_id TEXT NOT NULL REFERENCES exercises(id),
+      name TEXT NOT NULL,
+      repository_url TEXT,
+      score REAL,
+      feedback TEXT,
+      status TEXT NOT NULL DEFAULT 'draft',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      graded_at TEXT,
+      graded_by TEXT REFERENCES users(id),
+      UNIQUE(section_id, exercise_id, name)
+    );
+
+    CREATE TABLE IF NOT EXISTS project_group_members (
+      id TEXT PRIMARY KEY,
+      group_id TEXT NOT NULL REFERENCES project_groups(id),
+      student_id TEXT REFERENCES users(id),
+      student_external_id TEXT NOT NULL,
+      student_name TEXT NOT NULL,
+      is_leader INTEGER NOT NULL DEFAULT 0,
+      contribution_percent INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(group_id, student_external_id)
+    );
+
     CREATE TABLE IF NOT EXISTS submission_results (
       id TEXT PRIMARY KEY,
       submission_id TEXT NOT NULL REFERENCES submissions(id),
@@ -164,6 +192,8 @@ afterEach(() => {
   sqlite.exec(`
     DELETE FROM anticheat_events;
     DELETE FROM submission_results;
+    DELETE FROM project_group_members;
+    DELETE FROM project_groups;
     DELETE FROM submissions;
     DELETE FROM test_cases;
     DELETE FROM exercise_assignments;

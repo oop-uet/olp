@@ -180,6 +180,61 @@ export const submissions = sqliteTable("submissions", {
   submittedAt: text("submitted_at").notNull(),
 });
 
+// ─── Project Groups ─────────────────────────────────────────────────────────
+
+export const projectGroups = sqliteTable(
+  "project_groups",
+  {
+    id: text("id").primaryKey(),
+    sectionId: text("section_id")
+      .notNull()
+      .references(() => classSections.id),
+    exerciseId: text("exercise_id")
+      .notNull()
+      .references(() => exercises.id),
+    name: text("name").notNull(),
+    repositoryUrl: text("repository_url"),
+    score: real("score"),
+    feedback: text("feedback"),
+    status: text("status", {
+      enum: ["draft", "submitted", "graded"],
+    }).notNull().default("draft"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    gradedAt: text("graded_at"),
+    gradedBy: text("graded_by").references(() => users.id),
+  },
+  (table) => ({
+    projectGroupNameIdx: uniqueIndex("project_groups_section_exercise_name_unique").on(
+      table.sectionId,
+      table.exerciseId,
+      table.name
+    ),
+  })
+);
+
+export const projectGroupMembers = sqliteTable(
+  "project_group_members",
+  {
+    id: text("id").primaryKey(),
+    groupId: text("group_id")
+      .notNull()
+      .references(() => projectGroups.id),
+    studentId: text("student_id").references(() => users.id),
+    studentExternalId: text("student_external_id").notNull(),
+    studentName: text("student_name").notNull(),
+    isLeader: integer("is_leader").notNull().default(0),
+    contributionPercent: integer("contribution_percent").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => ({
+    projectMemberUniqueIdx: uniqueIndex("project_group_members_group_student_unique").on(
+      table.groupId,
+      table.studentExternalId
+    ),
+  })
+);
+
 // ─── Submission Results ──────────────────────────────────────────────────────
 
 export const submissionResults = sqliteTable("submission_results", {
@@ -232,6 +287,8 @@ export const usersRelations = relations(users, ({ many }) => ({
   enrollments: many(sectionEnrollments),
   createdExercises: many(exercises),
   submissions: many(submissions),
+  projectGroups: many(projectGroups),
+  projectMemberships: many(projectGroupMembers),
   anticheatEvents: many(anticheatEvents),
 }));
 
@@ -244,6 +301,7 @@ export const classSectionsRelations = relations(classSections, ({ one, many }) =
   enrollments: many(sectionEnrollments),
   assignments: many(exerciseAssignments),
   submissions: many(submissions),
+  projectGroups: many(projectGroups),
 }));
 
 export const sectionInstructorsRelations = relations(sectionInstructors, ({ one }) => ({
@@ -276,6 +334,34 @@ export const exercisesRelations = relations(exercises, ({ one, many }) => ({
   assignments: many(exerciseAssignments),
   testCases: many(testCases),
   submissions: many(submissions),
+  projectGroups: many(projectGroups),
+}));
+
+export const projectGroupsRelations = relations(projectGroups, ({ one, many }) => ({
+  section: one(classSections, {
+    fields: [projectGroups.sectionId],
+    references: [classSections.id],
+  }),
+  exercise: one(exercises, {
+    fields: [projectGroups.exerciseId],
+    references: [exercises.id],
+  }),
+  grader: one(users, {
+    fields: [projectGroups.gradedBy],
+    references: [users.id],
+  }),
+  members: many(projectGroupMembers),
+}));
+
+export const projectGroupMembersRelations = relations(projectGroupMembers, ({ one }) => ({
+  group: one(projectGroups, {
+    fields: [projectGroupMembers.groupId],
+    references: [projectGroups.id],
+  }),
+  student: one(users, {
+    fields: [projectGroupMembers.studentId],
+    references: [users.id],
+  }),
 }));
 
 export const exerciseAssignmentsRelations = relations(exerciseAssignments, ({ one }) => ({
@@ -371,6 +457,12 @@ export type NewTestCase = InferInsertModel<typeof testCases>;
 
 export type Submission = InferSelectModel<typeof submissions>;
 export type NewSubmission = InferInsertModel<typeof submissions>;
+
+export type ProjectGroup = InferSelectModel<typeof projectGroups>;
+export type NewProjectGroup = InferInsertModel<typeof projectGroups>;
+
+export type ProjectGroupMember = InferSelectModel<typeof projectGroupMembers>;
+export type NewProjectGroupMember = InferInsertModel<typeof projectGroupMembers>;
 
 export type SubmissionResult = InferSelectModel<typeof submissionResults>;
 export type NewSubmissionResult = InferInsertModel<typeof submissionResults>;

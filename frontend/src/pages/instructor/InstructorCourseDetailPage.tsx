@@ -347,14 +347,15 @@ function WeekPanel({
                   )}
                 </div>
 
-                <div className="flex items-center gap-3 text-xs">
+                <div className="flex items-center gap-3 text-xs shrink-0">
                   {/* Max Submissions Selector Dropdown */}
                   <div className="flex items-center">
                     <select
                       value={ex.maxSubmissions ?? 10}
                       onChange={(e) => onUpdateSettings(ex.exerciseId, { maxSubmissions: Number(e.target.value) })}
-                      className="h-7 rounded bg-[#cfd8dc] pl-3 pr-6 py-0 text-xs font-bold text-slate-800 border-none outline-none cursor-pointer hover:bg-[#b0bec5] transition-colors"
+                      className="rounded bg-[#cfd8dc] pl-3 pr-6 py-0 text-xs font-bold text-slate-800 border-none outline-none cursor-pointer hover:bg-[#b0bec5] transition-colors"
                       style={{
+                        height: '26px',
                         appearance: 'none',
                         WebkitAppearance: 'none',
                         backgroundImage: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'%23374151\' width=\'18px\' height=\'18px\'><path d=\'M7 10l5 5 5-5z\'/></svg>")',
@@ -374,22 +375,28 @@ function WeekPanel({
                   <button
                     type="button"
                     onClick={() => onUpdateSettings(ex.exerciseId, { allowSubmission: !ex.allowSubmission })}
-                    className={`relative inline-flex h-6.5 w-13 shrink-0 cursor-pointer rounded-full items-center transition-colors duration-200 ease-in-out outline-none border border-slate-200 shadow-sm ${
-                      ex.allowSubmission ? 'bg-[#0096c7]' : 'bg-[#e0e0e0]'
-                    }`}
+                    className="relative inline-flex items-center shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out outline-none border border-slate-200 shadow-sm"
+                    style={{
+                      width: '48px',
+                      height: '24px',
+                      backgroundColor: ex.allowSubmission ? '#0096c7' : '#e0e0e0',
+                    }}
                     title="Cho phép nộp bài"
                   >
                     <span
                       className={`absolute text-[10px] font-bold text-white select-none ${
-                        ex.allowSubmission ? 'left-2.5' : 'right-2.5'
+                        ex.allowSubmission ? 'left-2' : 'right-2'
                       }`}
                     >
                       {ex.allowSubmission ? '✓' : '×'}
                     </span>
                     <span
-                      className={`pointer-events-none inline-block h-5.5 w-5.5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                        ex.allowSubmission ? 'translate-x-7' : 'translate-x-0.5'
-                      }`}
+                      className="pointer-events-none inline-block rounded-full bg-white shadow transition duration-200 ease-in-out"
+                      style={{
+                        width: '18px',
+                        height: '18px',
+                        transform: ex.allowSubmission ? 'translateX(26px)' : 'translateX(2px)',
+                      }}
                     />
                   </button>
 
@@ -397,9 +404,12 @@ function WeekPanel({
                   <button
                     type="button"
                     onClick={() => onUpdateSettings(ex.exerciseId, { isVisible: !ex.isVisible })}
-                    className={`h-6.5 w-6.5 rounded flex items-center justify-center font-bold text-xs transition-colors shadow-sm outline-none cursor-pointer border-none ${
-                      ex.isVisible ? 'bg-[#2ec4b6] hover:bg-[#20a79a] text-white' : 'bg-[#bdbdbd] hover:bg-[#a5a5a5] text-white'
-                    }`}
+                    className="rounded flex items-center justify-center font-bold text-xs transition-colors shadow-sm outline-none cursor-pointer border-none text-white animate-fade-in"
+                    style={{
+                      width: '24px',
+                      height: '24px',
+                      backgroundColor: ex.isVisible ? '#2ec4b6' : '#bdbdbd',
+                    }}
                     title={ex.isVisible ? 'Hiển thị' : 'Đang ẩn'}
                   >
                     {ex.isVisible ? '✓' : '×'}

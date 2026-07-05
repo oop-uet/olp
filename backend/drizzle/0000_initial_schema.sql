@@ -89,6 +89,38 @@ CREATE TABLE `submissions` (
   `submitted_at` text NOT NULL
 );
 
+CREATE TABLE `project_groups` (
+  `id` text PRIMARY KEY NOT NULL,
+  `section_id` text NOT NULL REFERENCES `class_sections`(`id`),
+  `exercise_id` text NOT NULL REFERENCES `exercises`(`id`),
+  `name` text NOT NULL,
+  `repository_url` text,
+  `score` real,
+  `feedback` text,
+  `status` text NOT NULL DEFAULT 'draft',
+  `created_at` text NOT NULL,
+  `updated_at` text NOT NULL,
+  `graded_at` text,
+  `graded_by` text REFERENCES `users`(`id`)
+);
+
+CREATE UNIQUE INDEX `project_groups_section_exercise_name_unique`
+  ON `project_groups` (`section_id`, `exercise_id`, `name`);
+
+CREATE TABLE `project_group_members` (
+  `id` text PRIMARY KEY NOT NULL,
+  `group_id` text NOT NULL REFERENCES `project_groups`(`id`),
+  `student_id` text REFERENCES `users`(`id`),
+  `student_external_id` text NOT NULL,
+  `student_name` text NOT NULL,
+  `is_leader` integer NOT NULL DEFAULT 0,
+  `contribution_percent` integer NOT NULL DEFAULT 0,
+  `created_at` text NOT NULL
+);
+
+CREATE UNIQUE INDEX `project_group_members_group_student_unique`
+  ON `project_group_members` (`group_id`, `student_external_id`);
+
 CREATE TABLE `submission_results` (
   `id` text PRIMARY KEY NOT NULL,
   `submission_id` text NOT NULL REFERENCES `submissions`(`id`),
