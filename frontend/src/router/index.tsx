@@ -1,9 +1,42 @@
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, useRouteError } from 'react-router-dom'
 import { lazy, Suspense, ReactNode } from 'react'
 import { AuthGuard } from './AuthGuard'
 import { RoleRedirect } from './RoleRedirect'
 import { AppLayout } from '../components/layout/AppLayout'
 import { PageLoader } from '../components/ui/PageLoader'
+
+// ─── Global Error Boundary ──────────────────────────────────────────────────
+// Catches dynamic import / chunk loading errors caught by React Router
+// and reloads the window to retrieve the latest script chunks.
+function GlobalErrorBoundary() {
+  const error = useRouteError() as any
+  const errorMessage = error?.message || error?.toString() || ''
+
+  const isChunkError =
+    errorMessage.includes('Failed to fetch dynamically imported module') ||
+    errorMessage.includes('error loading dynamically imported module')
+
+  if (isChunkError) {
+    console.warn('Dynamic import chunk error caught. Reloading page to fetch latest version...')
+    window.location.reload()
+    return <PageLoader label="Đang tải phiên bản mới..." />
+  }
+
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 p-6 text-center">
+      <div className="card max-w-md p-8 border border-slate-100 shadow-sm space-y-4">
+        <div className="text-4xl">⚠️</div>
+        <h2 className="text-lg font-bold text-slate-800">Đã xảy ra lỗi tải trang</h2>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          {error?.message || 'Có lỗi xảy ra trong quá trình xử lý.'}
+        </p>
+        <button onClick={() => window.location.reload()} className="btn-primary w-full py-2">
+          Tải lại trang
+        </button>
+      </div>
+    </div>
+  )
+}
 
 // ─── Lazy-loaded pages ───────────────────────────────────────────────────────
 // Each page becomes its own chunk. Heavy pages (Monaco editor) only load when
@@ -57,11 +90,11 @@ function withSuspense(node: ReactNode): ReactNode {
 export const router = createBrowserRouter(
   [
     // Public routes
-    { path: '/login', element: withSuspense(<LoginPage />) },
-    { path: '/change-password', element: withSuspense(<ChangePasswordPage />) },
+    { path: '/login', element: withSuspense(<LoginPage />), errorElement: <GlobalErrorBoundary /> },
+    { path: '/change-password', element: withSuspense(<ChangePasswordPage />), errorElement: <GlobalErrorBoundary /> },
 
     // Root redirect based on role
-    { path: '/', element: <RoleRedirect /> },
+    { path: '/', element: <RoleRedirect />, errorElement: <GlobalErrorBoundary /> },
 
     // Student routes
     {
@@ -71,6 +104,7 @@ export const router = createBrowserRouter(
           <AppLayout />
         </AuthGuard>
       ),
+      errorElement: <GlobalErrorBoundary />,
       children: [
         { path: 'exercises', element: withSuspense(<StudentCourseDetailPage />) },
         { path: 'classes/:id', element: withSuspense(<StudentCourseDetailPage />) },
@@ -90,6 +124,7 @@ export const router = createBrowserRouter(
           <AppLayout />
         </AuthGuard>
       ),
+      errorElement: <GlobalErrorBoundary />,
       children: [
         { path: 'exercises', element: withSuspense(<ExerciseManagerPage />) },
         { path: 'exercises/new', element: withSuspense(<ExerciseFormPage />) },
@@ -116,6 +151,7 @@ export const router = createBrowserRouter(
           <AppLayout />
         </AuthGuard>
       ),
+      errorElement: <GlobalErrorBoundary />,
       children: [
         { path: 'dashboard', element: withSuspense(<AdminDashboardPage />) },
         { path: 'instructors', element: withSuspense(<InstructorManagementPage />) },
@@ -128,7 +164,6 @@ export const router = createBrowserRouter(
         { path: 'exercises/new', element: withSuspense(<AdminExerciseFormPage />) },
         { path: 'exercises/:id/edit', element: withSuspense(<AdminExerciseFormPage />) },
         { path: 'config', element: withSuspense(<ConfigPage />) },
-
       ],
     },
   ],
