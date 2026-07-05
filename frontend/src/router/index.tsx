@@ -108,6 +108,7 @@ export const router = createBrowserRouter(
       children: [
         { path: 'exercises', element: withSuspense(<StudentCourseDetailPage />) },
         { path: 'classes/:id', element: withSuspense(<StudentCourseDetailPage />) },
+        { path: 'classes/:id/students/:studentId/profile', element: withSuspense(<InstructorStudentProfilePage />) },
         { path: 'exercises/:id', element: withSuspense(<ExerciseWorkspacePage />) },
         { path: 'submissions', element: withSuspense(<SubmissionHistoryPage />) },
         { path: 'submissions/:id', element: withSuspense(<SubmissionDetailPage />) },

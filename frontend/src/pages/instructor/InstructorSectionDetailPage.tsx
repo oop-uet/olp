@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AxiosError } from 'axios'
 import { api } from '../../lib/api'
@@ -296,16 +296,38 @@ export function InstructorSectionDetailPage() {
 
   const { section, students } = detail
 
-  // ─── Client Filter & Search ──────────────────────────────────────────────
-  const filteredStudents = students.filter((s) => {
-    const q = searchQuery.toLowerCase().trim()
-    if (!q) return true
-    return (
-      s.studentId.toLowerCase().includes(q) ||
-      (s.fullName && s.fullName.toLowerCase().includes(q)) ||
-      (s.email && s.email.toLowerCase().includes(q))
-    )
-  })
+  const [sortField, setSortField] = useState<'studentId' | 'fullName' | 'email' | ''>('')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+
+  // ─── Client Filter, Search & Sort ──────────────────────────────────────────
+  const filteredStudents = useMemo(() => {
+    const list = students.filter((s) => {
+      const q = searchQuery.toLowerCase().trim()
+      if (!q) return true
+      return (
+        s.studentId.toLowerCase().includes(q) ||
+        (s.fullName && s.fullName.toLowerCase().includes(q)) ||
+        (s.email && s.email.toLowerCase().includes(q))
+      )
+    })
+    if (!sortField) return list
+    return [...list].sort((a, b) => {
+      const valA = (a[sortField] || '').toLowerCase()
+      const valB = (b[sortField] || '').toLowerCase()
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [students, searchQuery, sortField, sortOrder])
+
+  const toggleSort = (field: 'studentId' | 'fullName' | 'email') => {
+    if (sortField === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field)
+      setSortOrder('asc')
+    }
+  }
 
   // Pagination
   const totalPages = Math.ceil(filteredStudents.length / pageSize)
@@ -435,12 +457,27 @@ export function InstructorSectionDetailPage() {
               <table className="min-w-full border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 text-xs font-bold uppercase">
-                    <th className="px-4 py-3 text-center w-12">#</th>
-                    <th className="px-4 py-3 text-left">MSSV</th>
-                    <th className="px-4 py-3 text-left">Sinh viên</th>
-                    <th className="px-4 py-3 text-left">Lớp học phần</th>
-                    <th className="px-4 py-3 text-left">Email</th>
-                    <th className="px-4 py-3 text-center w-60">Chức năng</th>
+                    <th className="px-4 py-3 text-center w-12 text-slate-500">#</th>
+                    <th
+                      onClick={() => toggleSort('studentId')}
+                      className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-500"
+                    >
+                      MSSV {sortField === 'studentId' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                    </th>
+                    <th
+                      onClick={() => toggleSort('fullName')}
+                      className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-500"
+                    >
+                      Sinh viên {sortField === 'fullName' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                    </th>
+                    <th className="px-4 py-3 text-left text-slate-500">Lớp học phần</th>
+                    <th
+                      onClick={() => toggleSort('email')}
+                      className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-500"
+                    >
+                      Email {sortField === 'email' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                    </th>
+                    <th className="px-4 py-3 text-center w-60 text-slate-500">Chức năng</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs text-slate-700">

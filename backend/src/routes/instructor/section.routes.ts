@@ -552,10 +552,37 @@ router.get("/:id/students/:studentId/profile", async (req: Request, res: Respons
     const sectionId = req.params.id;
     const studentUserId = req.params.studentId;
 
-    const loaded = await loadOwnedSection(sectionId, userId, role);
-    if (loaded.error) {
-      const error = loaded.error;
-      res.status(error.code === "NOT_FOUND" ? 404 : 403).json({ error });
+    const section = await db.query.classSections.findFirst({
+      where: eq(classSections.id, sectionId),
+    });
+    if (!section) {
+      res.status(404).json({ error: { code: "NOT_FOUND", message: "Không tìm thấy lớp." } });
+      return;
+    }
+
+    let isAllowed = false;
+    if (role === "admin") {
+      isAllowed = true;
+    } else if (role === "instructor") {
+      if (section.instructorId === userId) {
+        isAllowed = true;
+      }
+    } else if (role === "student") {
+      const enrollment = await db.query.sectionEnrollments.findFirst({
+        where: and(
+          eq(sectionEnrollments.sectionId, sectionId),
+          eq(sectionEnrollments.studentId, userId)
+        ),
+      });
+      if (enrollment) {
+        isAllowed = true;
+      }
+    }
+
+    if (!isAllowed) {
+      res.status(403).json({
+        error: { code: "FORBIDDEN", message: "Bạn không có quyền xem thông tin lớp này." }
+      });
       return;
     }
 
@@ -629,9 +656,9 @@ router.get("/:id/students/:studentId/profile", async (req: Request, res: Respons
 
     res.status(200).json({
       section: {
-        id: loaded.section.id,
-        name: loaded.section.name,
-        semester: loaded.section.semester,
+        id: section.id,
+        name: section.name,
+        semester: section.semester,
       },
       student: {
         userId: enrollment.userId,

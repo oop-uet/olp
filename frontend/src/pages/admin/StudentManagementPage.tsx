@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader, Spinner, StudentsIcon } from '../../components/ui'
@@ -45,6 +45,28 @@ export function StudentManagementPage() {
   const [users, setUsers] = useState<UserRow[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [sortField, setSortField] = useState<'username' | 'fullName' | 'email' | 'createdAt' | ''>('')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+
+  const sortedUsers = useMemo(() => {
+    if (!sortField) return users
+    return [...users].sort((a, b) => {
+      const valA = (a[sortField] || '').toLowerCase()
+      const valB = (b[sortField] || '').toLowerCase()
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [users, sortField, sortOrder])
+
+  const toggleSort = (field: 'username' | 'fullName' | 'email' | 'createdAt') => {
+    if (sortField === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field)
+      setSortOrder('asc')
+    }
+  }
 
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<UserRow | null>(null)
@@ -310,16 +332,36 @@ export function StudentManagementPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="table-th">MSSV</th>
-                <th className="table-th">Họ tên</th>
-                <th className="table-th">Email</th>
+                <th
+                  onClick={() => toggleSort('username')}
+                  className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                >
+                  Mã sinh viên {sortField === 'username' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th
+                  onClick={() => toggleSort('fullName')}
+                  className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                >
+                  Họ tên {sortField === 'fullName' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th
+                  onClick={() => toggleSort('email')}
+                  className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                >
+                  Email {sortField === 'email' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
                 <th className="table-th">Lớp học phần</th>
-                <th className="table-th">Ngày tạo</th>
+                <th
+                  onClick={() => toggleSort('createdAt')}
+                  className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                >
+                  Ngày tạo {sortField === 'createdAt' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
                 <th className="table-th text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {users.map((user) => (
+              {sortedUsers.map((user) => (
                 <tr key={user.id} className="hover:bg-gray-50">
                   <td className="table-td">
                     <div className="flex items-center gap-2">

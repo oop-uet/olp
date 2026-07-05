@@ -8,6 +8,7 @@ export interface LeaderboardEntry {
   rank: number;
   studentName: string;
   studentId: string;
+  studentUserId?: string;
   totalScore: number;
   completedExercises: number;
   latestSubmission: string | null;
@@ -90,6 +91,7 @@ export function computeLeaderboard(
   const entries: Array<{
     studentName: string;
     studentId: string;
+    studentUserId?: string;
     totalScore: number;
     completedExercises: number;
     latestSubmission: string | null;
@@ -105,6 +107,7 @@ export function computeLeaderboard(
     entries.push({
       studentName: student.studentName,
       studentId: student.studentExternalId || student.userId,
+      studentUserId: student.userId,
       totalScore: Math.round(totalScore * 100) / 100, // round to 2 decimal places
       completedExercises: stats.completedExercises.size,
       latestSubmission: stats.latestSubmission,
@@ -149,6 +152,7 @@ export async function getLeaderboard(
       userId: sectionEnrollments.studentId,
       studentExternalId: sectionEnrollments.studentExternalId,
       username: users.username,
+      fullName: users.fullName,
     })
     .from(sectionEnrollments)
     .innerJoin(users, eq(sectionEnrollments.studentId, users.id))
@@ -160,7 +164,7 @@ export async function getLeaderboard(
 
   const studentInfos: StudentInfo[] = enrollments.map((e) => ({
     userId: e.userId,
-    studentName: e.username,
+    studentName: e.fullName ?? e.username,
     studentExternalId: e.studentExternalId,
   }));
 

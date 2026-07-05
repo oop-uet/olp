@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { api } from '../../lib/api'
 import { PageLoader, LeaderboardIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
+import { Link } from 'react-router-dom'
 
 // --- Types ---
 
@@ -9,6 +10,7 @@ interface LeaderboardEntry {
   rank: number
   studentName: string
   studentId: string
+  studentUserId?: string
   totalScore: number
   completedExercises: number
 }
@@ -207,7 +209,14 @@ export function LeaderboardPage() {
                 {entries.map((entry) => (
                   <tr key={entry.studentId} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-5 py-3 text-center font-bold">{getRankBadge(entry.rank)}</td>
-                    <td className="px-5 py-3 font-semibold text-slate-800">{entry.studentName}</td>
+                    <td className="px-5 py-3 font-semibold text-slate-800">
+                      <Link
+                        to={`/instructor/classes/${selectedSectionId}/students/${entry.studentUserId || entry.studentId}/profile`}
+                        className="text-primary hover:underline cursor-pointer"
+                      >
+                        {entry.studentName}
+                      </Link>
+                    </td>
                     <td className="px-5 py-3 font-medium text-slate-400">{entry.studentId}</td>
                     <td className="px-5 py-3 text-right">
                       <span className="font-bold text-sm text-primary">

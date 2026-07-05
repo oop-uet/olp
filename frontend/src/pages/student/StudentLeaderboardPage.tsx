@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, Link } from 'react-router-dom'
 import { cachedGet } from '../../lib/api'
 import { PageLoader, LeaderboardIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
@@ -11,6 +11,7 @@ interface LeaderboardEntry {
   rank: number
   studentName: string
   studentId: string
+  studentUserId?: string
   totalScore: number
   completedExercises: number
 }
@@ -236,9 +237,12 @@ export function StudentLeaderboardPage() {
                           {entry.rank}
                         </td>
                         <td className="px-6 py-3.5 font-semibold text-slate-800">
-                          <span className="text-primary hover:underline cursor-default">
+                          <Link
+                            to={`/student/classes/${currentSection.id}/students/${entry.studentUserId || entry.studentId}/profile`}
+                            className="text-primary hover:underline cursor-pointer"
+                          >
                             {entry.studentName}
-                          </span>
+                          </Link>
                           {mine && (
                             <span className="ml-2 bg-primary text-white text-[9px] font-extrabold rounded-full px-1.5 py-0.5">
                               Bạn

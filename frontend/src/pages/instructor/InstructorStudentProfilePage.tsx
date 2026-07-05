@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
+import { useAuthStore } from '../../stores/auth.store'
 
 interface StudentInfo {
   userId: string
@@ -136,12 +137,25 @@ export function InstructorStudentProfilePage() {
   const attempted = progress.filter((item) => item.attemptCount > 0 && item.status !== 'completed').length
   const notStarted = Math.max(0, progress.length - completed - attempted)
 
+  const user = useAuthStore((state) => state.user)
+  const isStudent = user?.role === 'student'
+
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-1.5 rounded border-b border-slate-100 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500">
-        <Link to="/instructor/classes" className="text-primary hover:underline">Trang chủ</Link>
+        <Link to={isStudent ? '/student/exercises' : '/instructor/classes'} className="text-primary hover:underline">
+          Trang chủ
+        </Link>
         <span>/</span>
-        <Link to="/instructor/statistic" className="text-primary hover:underline">Thống kê</Link>
+        {isStudent ? (
+          <Link to="/student/leaderboard" className="text-primary hover:underline">
+            Bảng xếp hạng
+          </Link>
+        ) : (
+          <Link to="/instructor/statistic" className="text-primary hover:underline">
+            Thống kê
+          </Link>
+        )}
         <span>/</span>
         <span className="text-slate-400">{student.fullName}</span>
       </div>
