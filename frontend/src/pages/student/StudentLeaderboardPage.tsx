@@ -92,25 +92,9 @@ export function StudentLeaderboardPage() {
     return entry.studentId === user.username || entry.studentName === user.fullName
   }
 
-  if (loadingSections) {
-    return <PageLoader label="Đang tải bảng xếp hạng..." />
-  }
-
-  // No enrolled sections.
-  if (sections.length === 0) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-2xl font-semibold text-gray-800">Bảng xếp hạng</h1>
-        <div className="card flex flex-col items-center justify-center p-12 text-center">
-          <LeaderboardIcon className="mb-3 h-10 w-10 text-gray-300" />
-          <p className="text-gray-500">Bạn chưa tham gia lớp học nào.</p>
-        </div>
-      </div>
-    )
-  }
-
   const currentSection =
-    sections.find((section) => section.id === selectedSectionId) ?? sections[0]
+    sections.find((section) => section.id === selectedSectionId) ??
+    sections[0] ?? { id: '', name: '', semester: '' }
 
   function handleSort(nextKey: SortKey) {
     if (sortKey === nextKey) {
@@ -151,6 +135,23 @@ export function StudentLeaderboardPage() {
   const paginatedEntries = sortedEntries.slice((currentPage - 1) * pageSize, currentPage * pageSize)
   const startIndex = sortedEntries.length === 0 ? 0 : (currentPage - 1) * pageSize + 1
   const endIndex = Math.min(currentPage * pageSize, sortedEntries.length)
+
+  if (loadingSections) {
+    return <PageLoader label="Đang tải bảng xếp hạng..." />
+  }
+
+  // No enrolled sections.
+  if (sections.length === 0) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-semibold text-gray-800">Bảng xếp hạng</h1>
+        <div className="card flex flex-col items-center justify-center p-12 text-center">
+          <LeaderboardIcon className="mb-3 h-10 w-10 text-gray-300" />
+          <p className="text-gray-500">Bạn chưa tham gia lớp học nào.</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
