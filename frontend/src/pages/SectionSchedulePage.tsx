@@ -385,8 +385,8 @@ export function SectionSchedulePage() {
                     onClick={() => setSelectedWeek(w.week)}
                     className={`rounded-lg px-3 py-1.5 text-sm font-bold transition-colors ${
                       selectedWeek === w.week
-                        ? 'bg-teal-600 text-white shadow-sm'
-                        : 'bg-slate-100 text-slate-700 hover:bg-teal-50 hover:text-teal-700'
+                        ? 'bg-primary text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-700 hover:bg-primary-50 hover:text-primary'
                     }`}
                     aria-pressed={selectedWeek === w.week}
                   >
@@ -496,7 +496,7 @@ export function SectionSchedulePage() {
                         <button
                           type="button"
                           onClick={() => assignExercise(ex.id, selectedWeek)}
-                          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-teal-600 text-base font-bold leading-none text-white shadow-sm transition-colors hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+                          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary text-base font-bold leading-none text-white shadow-sm transition-colors hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary/40"
                           aria-label={`Thêm ${ex.title} vào tuần ${selectedWeek}`}
                         >
                           +

@@ -124,7 +124,7 @@ export function LeaderboardPage() {
     <div className="space-y-6 animate-fade-in">
       {/* Breadcrumb */}
       <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-slate-50 border-b border-slate-100 rounded flex gap-1.5 items-center">
-        <span className="text-teal-600 cursor-default">Trang chủ</span>
+        <span className="text-primary cursor-default">Trang chủ</span>
         <span>/</span>
         <span className="text-slate-400">Bảng xếp hạng</span>
       </div>
@@ -140,7 +140,7 @@ export function LeaderboardPage() {
         {lastRefreshed && (
           <div className="text-right text-[11px] font-semibold text-slate-400 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 self-start md:self-auto">
             Tự động cập nhật mỗi 10s · Lần cuối:{' '}
-            <span className="text-teal-600 font-bold">
+            <span className="text-primary font-bold">
               {lastRefreshed.toLocaleTimeString('vi-VN')}
             </span>
           </div>
@@ -213,7 +213,7 @@ export function LeaderboardPage() {
                     <td className="px-5 py-3 font-semibold text-slate-800">{entry.studentName}</td>
                     <td className="px-5 py-3 font-medium text-slate-400">{entry.studentId}</td>
                     <td className="px-5 py-3 text-right">
-                      <span className="font-bold text-sm text-teal-600">
+                      <span className="font-bold text-sm text-primary">
                         {entry.totalScore.toFixed(1)}
                       </span>
                     </td>

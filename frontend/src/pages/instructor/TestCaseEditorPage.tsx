@@ -247,11 +247,10 @@ export function TestCaseEditorPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       
-      {/* Breadcrumb */}
       <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-slate-50 border-b border-slate-100 rounded flex gap-1.5 items-center">
-        <span className="text-teal-600 cursor-default">Trang chủ</span>
+        <span className="text-primary cursor-default">Trang chủ</span>
         <span>/</span>
-        <button onClick={() => navigate(`/instructor/exercises`)} className="text-teal-600 hover:underline">Quản lý bài tập</button>
+        <button onClick={() => navigate(`/instructor/exercises`)} className="text-primary hover:underline">Quản lý bài tập</button>
         <span>/</span>
         <span className="text-slate-400">Trình soạn bộ test</span>
       </div>
@@ -283,7 +282,7 @@ export function TestCaseEditorPage() {
 
       {/* Inline form (create / edit) */}
       {showForm && (
-        <div className="rounded-xl border border-teal-500/20 bg-teal-50/5 p-5 shadow-sm">
+        <div className="rounded-xl border border-primary-500/20 bg-primary-50/5 p-5 shadow-sm">
           <h2 className="mb-4 text-sm font-bold text-slate-800 uppercase tracking-wide border-b border-slate-100 pb-2">
             {editingId ? '✍️ Sửa bộ test case' : '➕ Thêm bộ test case mới'}
           </h2>
@@ -413,7 +412,7 @@ export function TestCaseEditorPage() {
                     onChange={(e) =>
                       setFormData((prev) => ({ ...prev, is_visible: e.target.checked }))
                     }
-                    className="rounded border-slate-300 text-teal-600 focus:ring-teal-500 h-4.5 w-4.5"
+                    className="rounded border-slate-300 text-primary focus:ring-primary-500 h-4.5 w-4.5"
                   />
                   Hiển thị bộ test cho sinh viên
                 </label>
@@ -476,7 +475,7 @@ export function TestCaseEditorPage() {
                 {testCases.map((tc, index) => (
                   <tr
                     key={tc.id}
-                    className={`hover:bg-slate-50/50 transition-colors ${editingId === tc.id ? 'bg-teal-50/20' : ''}`}
+                    className={`hover:bg-slate-50/50 transition-colors ${editingId === tc.id ? 'bg-primary-50/20' : ''}`}
                   >
                     <td className="px-5 py-3 text-slate-400 font-bold">{index + 1}</td>
                     <td className="max-w-[220px] truncate px-5 py-3 font-mono text-slate-600">
@@ -494,7 +493,7 @@ export function TestCaseEditorPage() {
                       </span>
                     </td>
                     <td className="px-5 py-3 text-right">
-                      <button onClick={() => handleEdit(tc)} className="btn-secondary btn-sm mr-1.5 font-bold text-teal-600">
+                      <button onClick={() => handleEdit(tc)} className="btn-secondary btn-sm mr-1.5 font-bold text-primary">
                         Sửa
                       </button>
                       <button
@@ -518,7 +517,7 @@ export function TestCaseEditorPage() {
         <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 flex items-center justify-between text-xs font-bold text-slate-500 shadow-sm">
           <span>
             TỔNG ĐIỂM BỘ TEST:{' '}
-            <span className="text-teal-600 text-sm">
+            <span className="text-primary text-sm">
               {testCases.reduce((sum, tc) => sum + tc.point_value, 0)} điểm
             </span>
           </span>

@@ -95,7 +95,7 @@ function formatTimestamp(ts: string): string {
 }
 
 function getScoreColor(score: number): string {
-  if (score >= 80) return 'text-teal-600'
+  if (score >= 80) return 'text-primary'
   if (score >= 50) return 'text-amber-600'
   return 'text-rose-600'
 }
@@ -355,7 +355,7 @@ export function SubmissionReviewPage() {
         
         {/* Breadcrumb */}
         <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-slate-50 border-b border-slate-100 rounded flex gap-1.5 items-center">
-          <button onClick={handleBackToList} className="text-teal-600 hover:underline">Bài nộp</button>
+          <button onClick={handleBackToList} className="text-primary hover:underline">Bài nộp</button>
           <span>/</span>
           <span className="text-slate-400">Chi tiết bài làm</span>
         </div>
@@ -363,7 +363,7 @@ export function SubmissionReviewPage() {
         {/* Back button */}
         <button
           onClick={handleBackToList}
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-600 hover:text-teal-700 active:scale-95 transition-all"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:text-primary-700 active:scale-95 transition-all"
         >
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -545,7 +545,7 @@ export function SubmissionReviewPage() {
       
       {/* Breadcrumb */}
       <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-slate-50 border-b border-slate-100 rounded flex gap-1.5 items-center">
-        <span className="text-teal-600 cursor-default">Trang chủ</span>
+        <span className="text-primary cursor-default">Trang chủ</span>
         <span>/</span>
         <span className="text-slate-400">Chấm bài</span>
       </div>
@@ -643,7 +643,7 @@ export function SubmissionReviewPage() {
                           <td className="px-5 py-3.5 text-right">
                             <button
                               onClick={() => handleSelectSubmission(sub.id)}
-                              className="btn-secondary btn-sm font-bold text-teal-600 hover:text-teal-700"
+                              className="btn-secondary btn-sm font-bold text-primary hover:text-primary-700"
                             >
                               Chấm bài
                             </button>
@@ -711,7 +711,7 @@ export function SubmissionReviewPage() {
                           {item.studentName}
                         </span>
                       </div>
-                      <span className="font-bold text-teal-600">{item.totalScore.toFixed(1)}</span>
+                      <span className="font-bold text-primary">{item.totalScore.toFixed(1)}</span>
                     </li>
                   ))}
                 </ul>

@@ -98,11 +98,11 @@ export function TopNav() {
     }`
 
   return (
-    <header className="relative bg-gradient-to-r from-teal-800 via-teal-950 to-slate-950 text-white shadow-md border-b border-white/5">
+    <header className="relative bg-gradient-to-r from-primary-800 via-primary-900 to-slate-900 text-white shadow-md border-b border-white/5">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 lg:px-6">
         {/* Brand */}
         <NavLink to="/" className="flex shrink-0 items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-teal-600 shadow-md">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary shadow-md">
             <svg viewBox="0 0 100 100" className="h-6 w-6 text-white" stroke="currentColor" fill="none" strokeWidth="6">
               <path d="M 48 80 Q 50 48 50 35" strokeWidth="8" />
               <path d="M 50 35 Q 35 30 30 42" strokeWidth="6" />

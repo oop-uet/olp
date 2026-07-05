@@ -316,7 +316,7 @@ export function InstructorSectionDetailPage() {
       
       {/* Authentic UET Breadcrumb Navigation */}
       <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-slate-50 border-b border-slate-100 rounded flex gap-1.5 items-center">
-        <Link to="/instructor/classes" className="text-teal-600 hover:underline">Trang chủ</Link>
+        <Link to="/instructor/classes" className="text-primary hover:underline">Trang chủ</Link>
         <span>/</span>
         <span className="text-slate-400">Quản lý lớp học</span>
       </div>
@@ -369,20 +369,20 @@ export function InstructorSectionDetailPage() {
           <div className="flex flex-wrap items-center gap-1.5 mt-2 sm:mt-0">
             <button
               onClick={() => setShowAddModal(true)}
-              className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all active:scale-95 shadow-sm"
+              className="bg-primary hover:bg-primary-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all active:scale-95 shadow-sm"
             >
               Thêm Sinh Viên
             </button>
             <button
               onClick={triggerExcelImport}
               disabled={importing}
-              className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all active:scale-95 disabled:opacity-50 shadow-sm"
+              className="bg-primary hover:bg-primary-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all active:scale-95 disabled:opacity-50 shadow-sm"
             >
               {importing ? 'Đang import...' : 'Import từ Excel'}
             </button>
             <button
               onClick={handleExportRoster}
-              className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all active:scale-95 shadow-sm"
+              className="bg-primary hover:bg-primary-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all active:scale-95 shadow-sm"
             >
               Xuất ra Excel
             </button>
@@ -400,7 +400,7 @@ export function InstructorSectionDetailPage() {
                   setPageSize(Number(e.target.value))
                   setCurrentPage(1)
                 }}
-                className="border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                className="border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary-500"
               >
                 <option value={10}>10</option>
                 <option value={20}>20</option>
@@ -420,7 +420,7 @@ export function InstructorSectionDetailPage() {
                   setCurrentPage(1)
                 }}
                 placeholder="Tìm tên, mã sinh viên, email..."
-                className="border border-slate-200 rounded px-2.5 py-1.5 w-full sm:w-60 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                className="border border-slate-200 rounded px-2.5 py-1.5 w-full sm:w-60 focus:outline-none focus:ring-1 focus:ring-primary-500"
               />
             </div>
           </div>
@@ -524,7 +524,7 @@ export function InstructorSectionDetailPage() {
                     onClick={() => setCurrentPage(i + 1)}
                     className={`px-2.5 py-1 border rounded font-bold ${
                       currentPage === i + 1
-                        ? 'bg-teal-600 text-white border-teal-600'
+                        ? 'bg-primary text-white border-primary'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                   >
@@ -549,7 +549,7 @@ export function InstructorSectionDetailPage() {
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-xl shadow-lg border border-slate-100 w-full max-w-md overflow-hidden animate-fade-in">
-            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-5 py-3.5 border-l-4 border-teal-600">
+            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-5 py-3.5 border-l-4 border-primary">
               <h3 className="font-bold text-xs uppercase tracking-wide text-slate-700">Thêm Sinh Viên Thủ Công</h3>
               <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600 font-bold text-sm">✕</button>
             </div>
@@ -605,7 +605,7 @@ export function InstructorSectionDetailPage() {
       {showEditModal && editingStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-xl shadow-lg border border-slate-100 w-full max-w-md overflow-hidden animate-fade-in">
-            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-5 py-3.5 border-l-4 border-teal-600">
+            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-5 py-3.5 border-l-4 border-primary">
               <h3 className="font-bold text-xs uppercase tracking-wide text-slate-700">Cập Nhật Thông Tin Sinh Viên</h3>
               <button onClick={() => setShowEditModal(false)} className="text-slate-400 hover:text-slate-600 font-bold text-sm">✕</button>
             </div>
@@ -662,7 +662,7 @@ export function InstructorSectionDetailPage() {
             className="bg-white rounded-xl shadow-lg border border-slate-100 w-full max-w-md overflow-hidden animate-fade-in"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-5 py-3.5 border-l-4 border-teal-600">
+            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-5 py-3.5 border-l-4 border-primary">
               <h3 className="font-bold text-xs uppercase tracking-wide text-slate-700">
                 Tiến độ — {progressStudent.fullName || progressStudent.username} ({progressStudent.studentId})
               </h3>
@@ -676,7 +676,7 @@ export function InstructorSectionDetailPage() {
               ) : progressData ? (
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div className="rounded-lg bg-gray-50 p-4">
-                    <p className="text-2xl font-bold text-teal-600">
+                    <p className="text-2xl font-bold text-primary">
                       {progressData.completedExercises}
                     </p>
                     <p className="mt-1 text-xs text-gray-500 font-semibold uppercase">Bài hoàn thành</p>

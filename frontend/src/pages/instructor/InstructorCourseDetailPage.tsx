@@ -219,7 +219,7 @@ export function InstructorCourseDetailPage() {
       
       {/* Breadcrumb */}
       <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-slate-50 border-b border-slate-100 rounded flex gap-1.5 items-center">
-        <Link to="/instructor/classes" className="text-teal-600 hover:underline">Trang chủ</Link>
+        <Link to="/instructor/classes" className="text-primary hover:underline">Trang chủ</Link>
         <span>/</span>
         <span className="text-slate-400">Xem khóa học</span>
       </div>
@@ -231,7 +231,7 @@ export function InstructorCourseDetailPage() {
           
           <div className="bg-white border border-slate-100 rounded-xl p-5 shadow-sm">
             <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <svg className="h-5 w-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <svg className="h-5 w-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
               {section.name}
@@ -319,7 +319,7 @@ export function InstructorCourseDetailPage() {
                           {item.studentName}
                         </span>
                       </div>
-                      <span className="font-bold text-teal-600">{item.totalScore.toFixed(1)}</span>
+                      <span className="font-bold text-primary">{item.totalScore.toFixed(1)}</span>
                     </li>
                   ))}
                 </ul>
@@ -358,7 +358,7 @@ function WeekPanel({
 }: WeekPanelProps) {
   return (
     <div className="card overflow-hidden bg-white border border-slate-100 shadow-sm rounded-xl hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between bg-slate-50/70 border-b border-slate-100 px-5 py-3.5 border-l-4 border-teal-600">
+      <div className="flex items-center justify-between bg-slate-50/70 border-b border-slate-100 px-5 py-3.5 border-l-4 border-primary">
         <h3 className="font-bold text-sm text-slate-800 tracking-wide">{title}</h3>
         <span className="text-[11px] font-semibold text-slate-400">{subtitle}</span>
       </div>
@@ -392,7 +392,7 @@ function WeekPanel({
                         type="checkbox"
                         checked={ex.isVisible}
                         onChange={() => onToggleVisibility(ex.exerciseId, ex.isVisible)}
-                        className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                        className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary-500"
                         aria-label={`Hiển thị bài ${ex.title}`}
                       />
                       <span>Hiện bài</span>
@@ -400,10 +400,10 @@ function WeekPanel({
 
                     <button
                       onClick={() => onToggleSubmissions(ex.exerciseId)}
-                      className="flex items-center gap-1 bg-teal-50 hover:bg-teal-100/60 text-teal-700 font-bold px-2.5 py-1 rounded transition-colors text-[11px]"
+                      className="flex items-center gap-1 bg-primary-50 hover:bg-primary-100/60 text-primary-700 font-bold px-2.5 py-1 rounded transition-colors text-[11px]"
                     >
                       Bài nộp
-                      <span className="bg-teal-600 text-white px-1.5 rounded-full text-[9px]">
+                      <span className="bg-primary text-white px-1.5 rounded-full text-[9px]">
                         {isLoadingList ? '...' : (list.length || 0)}
                       </span>
                       <span>{isExpanded ? '▲' : '▼'}</span>
@@ -440,7 +440,7 @@ function WeekPanel({
                               <tr key={sub.id} className="hover:bg-slate-50 transition-colors">
                                 <td className="px-3 py-2 text-center text-slate-400 font-bold">{idx + 1}</td>
                                 <td className="px-3 py-2 font-semibold">
-                                  <Link to="/instructor/submissions" className="text-teal-600 hover:underline">
+                                  <Link to="/instructor/submissions" className="text-primary hover:underline">
                                     {sub.studentUsername}
                                   </Link>
                                 </td>
@@ -448,7 +448,7 @@ function WeekPanel({
                                 <td className="px-3 py-2 text-slate-500 font-medium">
                                   {new Date(sub.submittedAt).toLocaleString('vi-VN')}
                                 </td>
-                                <td className="px-3 py-2 text-right font-bold text-teal-600">
+                                <td className="px-3 py-2 text-right font-bold text-primary">
                                   {sub.score != null ? sub.score.toFixed(1) : '—'}
                                 </td>
                               </tr>

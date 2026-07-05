@@ -84,7 +84,7 @@ export function StudentLeaderboardPage() {
 
   function isCurrentUser(entry: LeaderboardEntry): boolean {
     if (!user) return false
-    return entry.studentName === user.username || entry.studentId === user.id
+    return entry.studentId === user.username || entry.studentName === user.fullName
   }
 
   if (loadingSections) {

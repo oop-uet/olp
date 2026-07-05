@@ -92,7 +92,7 @@ export function InstructorStatisticPage() {
       
       {/* Breadcrumb */}
       <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-slate-50 border-b border-slate-100 rounded flex gap-1.5 items-center">
-        <Link to="/instructor/classes" className="text-teal-600 hover:underline">Trang chủ</Link>
+        <Link to="/instructor/classes" className="text-primary hover:underline">Trang chủ</Link>
         <span>/</span>
         <span className="text-slate-400">Thống kê lớp học</span>
       </div>
@@ -143,7 +143,7 @@ export function InstructorStatisticPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="card p-5 bg-white border border-slate-100 shadow-sm flex flex-col justify-between">
               <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Tổng số sinh viên</p>
-              <h2 className="text-3xl font-bold text-teal-600 mt-2">{stats.totalStudents}</h2>
+              <h2 className="text-3xl font-bold text-primary mt-2">{stats.totalStudents}</h2>
             </div>
             
             <div className="card p-5 bg-white border border-slate-100 shadow-sm flex flex-col justify-between">
@@ -210,7 +210,7 @@ export function InstructorStatisticPage() {
                               <div className="flex items-center gap-2">
                                 <div className="w-full bg-slate-100 rounded-full h-2">
                                   <div
-                                    className="bg-teal-600 h-2 rounded-full transition-all"
+                                    className="bg-primary h-2 rounded-full transition-all"
                                     style={{ width: `${compRate}%` }}
                                   ></div>
                                 </div>

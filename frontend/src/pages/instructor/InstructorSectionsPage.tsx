@@ -77,11 +77,11 @@ export function InstructorSectionsPage() {
             <div key={semester} className="space-y-4">
               
               {/* Semester group title banner */}
-              <div className="flex items-center gap-2 border-l-4 border-teal-600 pl-3 py-0.5">
+              <div className="flex items-center gap-2 border-l-4 border-primary pl-3 py-0.5">
                 <h2 className="text-base font-bold text-slate-800 tracking-wide uppercase">
                   {semester}
                 </h2>
-                <span className="bg-teal-50 text-teal-700 text-[10px] font-bold px-2 py-0.5 rounded-full ring-1 ring-teal-700/10">
+                <span className="bg-primary-50 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full ring-1 ring-primary/10">
                   {sectionsBySemester[semester].length} Lớp
                 </span>
               </div>
@@ -92,17 +92,17 @@ export function InstructorSectionsPage() {
                   <Link
                     key={section.id}
                     to={`/instructor/classes/${section.id}`}
-                    className="card-hover flex flex-col justify-between gap-4 p-5 bg-white border border-slate-100 shadow-sm relative overflow-hidden group hover:border-teal-500/30"
+                    className="card-hover flex flex-col justify-between gap-4 p-5 bg-white border border-slate-100 shadow-sm relative overflow-hidden group hover:border-primary-500/30"
                   >
                     {/* Top corner hover accent decoration */}
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-teal-500/10 to-transparent rounded-bl-full translate-x-4 -translate-y-4 transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1"></div>
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-primary-500/10 to-transparent rounded-bl-full translate-x-4 -translate-y-4 transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1"></div>
 
                     <div className="space-y-2">
                       <div className="flex items-center gap-2.5">
-                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-50 text-teal-600 transition-colors group-hover:bg-teal-600 group-hover:text-white">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-50 text-primary transition-colors group-hover:bg-primary group-hover:text-white">
                           <SectionIcon className="h-4.5 w-4.5" />
                         </span>
-                        <h3 className="font-bold text-slate-800 text-base leading-tight group-hover:text-teal-700 transition-colors">
+                        <h3 className="font-bold text-slate-800 text-base leading-tight group-hover:text-primary-700 transition-colors">
                           {section.name}
                         </h3>
                       </div>
@@ -116,7 +116,7 @@ export function InstructorSectionsPage() {
 
                     <div className="flex items-center justify-between border-t border-slate-50 pt-3 mt-2 text-xs">
                       <span className="text-slate-400 font-bold uppercase tracking-wider">Chi tiết lớp</span>
-                      <span className="font-bold text-teal-600 group-hover:translate-x-1 transition-transform duration-200">
+                      <span className="font-bold text-primary group-hover:translate-x-1 transition-transform duration-200">
                         Xem chi tiết →
                       </span>
                     </div>

@@ -160,16 +160,11 @@ export function StudentCourseDetailPage() {
   return (
     <div className="space-y-5">
       <div className="rounded-lg border border-slate-200 bg-white px-5 py-4 shadow-sm">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-secondary">
-              {section.semester}
-            </p>
-            <h1 className="mt-1 text-xl font-bold text-slate-900">{section.name}</h1>
-          </div>
-          <Link to={`/student/leaderboard?section_id=${section.id}`} className="btn-primary h-9 px-3 text-sm">
-            Xem bảng xếp hạng
-          </Link>
+        <div className="flex flex-col gap-1">
+          <p className="text-xs font-bold uppercase tracking-wide text-secondary">
+            {section.semester}
+          </p>
+          <h1 className="text-xl font-bold text-slate-900">{section.name}</h1>
         </div>
       </div>
 
@@ -211,8 +206,8 @@ export function StudentCourseDetailPage() {
           section={section}
           entries={leaderboard}
           loading={leaderboardLoading}
-          currentUserId={user?.id}
-          currentUsername={user?.username}
+          currentUserUsername={user?.username ?? undefined}
+          currentUserFullName={user?.fullName ?? undefined}
         />
       </div>
     </div>
@@ -293,19 +288,19 @@ function LeaderboardPanel({
   section,
   entries,
   loading,
-  currentUserId,
-  currentUsername,
+  currentUserUsername,
+  currentUserFullName,
 }: {
   section: SectionInfo
   entries: LeaderboardEntry[]
   loading: boolean
-  currentUserId?: string
-  currentUsername?: string
+  currentUserUsername?: string
+  currentUserFullName?: string
 }) {
   const visibleEntries = entries.slice(0, 10)
 
   function isCurrentUser(entry: LeaderboardEntry) {
-    return entry.studentId === currentUserId || entry.studentName === currentUsername
+    return entry.studentId === currentUserUsername || entry.studentName === currentUserFullName
   }
 
   return (
@@ -333,8 +328,8 @@ function LeaderboardPanel({
               return (
                 <div
                   key={`${entry.rank}-${entry.studentId}`}
-                  className={`grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-3 py-3 text-sm ${
-                    mine ? 'bg-primary-50 px-2' : ''
+                  className={`grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-3 py-2 px-3 my-1 text-sm rounded-lg ${
+                    mine ? 'bg-primary-50 ring-1 ring-primary/10' : ''
                   }`}
                 >
                   <span className="text-center text-base font-extrabold text-slate-700">

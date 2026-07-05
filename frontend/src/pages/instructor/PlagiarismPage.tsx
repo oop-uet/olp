@@ -165,7 +165,7 @@ export function PlagiarismPage() {
       
       {/* Breadcrumb */}
       <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-slate-50 border-b border-slate-100 rounded flex gap-1.5 items-center">
-        <span className="text-teal-600 cursor-default">Trang chủ</span>
+        <span className="text-primary cursor-default">Trang chủ</span>
         <span>/</span>
         <span className="text-slate-400">Kiểm tra mã nguồn</span>
       </div>
@@ -262,7 +262,7 @@ export function PlagiarismPage() {
 
             <div className="card p-5 bg-white border border-slate-100 shadow-sm flex flex-col justify-between">
               <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Ngưỡng tương đồng (Threshold)</p>
-              <h2 className="text-3xl font-bold text-teal-600 mt-2">{(report.threshold * 100).toFixed(0)}%</h2>
+              <h2 className="text-3xl font-bold text-primary mt-2">{(report.threshold * 100).toFixed(0)}%</h2>
             </div>
           </div>
 
@@ -314,7 +314,7 @@ export function PlagiarismPage() {
                         <td className="px-5 py-3 text-right">
                           <button
                             onClick={() => handleViewComparison(pair)}
-                            className="btn-secondary btn-sm font-bold text-teal-600 hover:text-teal-700"
+                            className="btn-secondary btn-sm font-bold text-primary hover:text-primary-700"
                           >
                             So sánh mã
                           </button>
@@ -334,7 +334,7 @@ export function PlagiarismPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="flex h-[85vh] w-full max-w-6xl flex-col rounded-xl bg-white shadow-xl overflow-hidden animate-fade-in border border-slate-100">
             {/* Modal header */}
-            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-5 py-3.5 border-l-4 border-teal-600">
+            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-5 py-3.5 border-l-4 border-primary">
               <h2 className="font-bold text-xs uppercase tracking-wide text-slate-700 flex items-center gap-2">
                 So sánh mã nguồn
                 {comparison && (
@@ -364,8 +364,8 @@ export function PlagiarismPage() {
                   
                   {/* Student A code panel */}
                   <div className="flex h-full flex-col overflow-hidden bg-white border border-slate-200 rounded-lg p-3">
-                    <p className="mb-2 text-xs font-bold text-slate-700 border-b border-slate-100 pb-2">
-                      Sinh viên A: <span className="text-teal-600">{comparison.pair.studentAName} ({comparison.pair.studentAId})</span>
+                    <p className="text-xs font-bold text-slate-700 border-b border-slate-100 pb-2">
+                      Sinh viên A: <span className="text-primary">{comparison.pair.studentAName} ({comparison.pair.studentAId})</span>
                     </p>
                     <pre className="flex-1 overflow-auto rounded-lg bg-slate-900 p-4 text-[11px] font-mono leading-relaxed text-slate-200">
                       <code>{comparison.submissionA.code}</code>
@@ -374,8 +374,8 @@ export function PlagiarismPage() {
 
                   {/* Student B code panel */}
                   <div className="flex h-full flex-col overflow-hidden bg-white border border-slate-200 rounded-lg p-3">
-                    <p className="mb-2 text-xs font-bold text-slate-700 border-b border-slate-100 pb-2">
-                      Sinh viên B: <span className="text-teal-600">{comparison.pair.studentBName} ({comparison.pair.studentBId})</span>
+                    <p className="text-xs font-bold text-slate-700 border-b border-slate-100 pb-2">
+                      Sinh viên B: <span className="text-primary">{comparison.pair.studentBName} ({comparison.pair.studentBId})</span>
                     </p>
                     <pre className="flex-1 overflow-auto rounded-lg bg-slate-900 p-4 text-[11px] font-mono leading-relaxed text-slate-200">
                       <code>{comparison.submissionB.code}</code>
