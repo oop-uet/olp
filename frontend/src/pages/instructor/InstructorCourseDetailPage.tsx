@@ -397,58 +397,41 @@ function WeekPanel({
                     )}
                   </div>
 
-                  <div className="flex flex-wrap items-center justify-end gap-2">
-                    <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5" aria-label={`Số lần nộp bài ${ex.title}`}>
-                      {SUBMISSION_LIMIT_OPTIONS.map((limit) => {
-                        const isActive = (ex.maxSubmissions ?? 10) === limit
-                        return (
-                          <button
-                            key={limit}
-                            type="button"
-                            onClick={() => onUpdateSettings(ex.exerciseId, { maxSubmissions: limit })}
-                            className={[
-                              'h-7 min-w-8 rounded-md px-2 text-[11px] font-bold transition-colors',
-                              isActive
-                                ? 'bg-teal-600 text-white shadow-sm'
-                                : 'text-slate-500 hover:bg-white hover:text-slate-800',
-                            ].join(' ')}
-                            title={`${limit} lần nộp`}
-                          >
-                            {limit}
-                          </button>
-                        )
-                      })}
+                  <div className="flex flex-wrap items-center justify-end gap-3">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
+                      <span>Lượt nộp tối đa:</span>
+                      <select
+                        value={ex.maxSubmissions ?? 10}
+                        onChange={(e) => onUpdateSettings(ex.exerciseId, { maxSubmissions: Number(e.target.value) })}
+                        className="h-8 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 shadow-sm outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/20 cursor-pointer"
+                      >
+                        {SUBMISSION_LIMIT_OPTIONS.map((limit) => (
+                          <option key={limit} value={limit}>
+                            {limit === 0 ? '0 (Khóa)' : `${limit} lần`}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => onUpdateSettings(ex.exerciseId, { allowSubmission: !ex.allowSubmission })}
-                      className={[
-                        'inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-[11px] font-bold transition-colors',
-                        ex.allowSubmission
-                          ? 'border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100'
-                          : 'border-slate-200 bg-slate-50 text-slate-400 hover:bg-slate-100',
-                      ].join(' ')}
-                      aria-pressed={ex.allowSubmission}
-                    >
-                      <span className="text-sm">{ex.allowSubmission ? '✓' : '×'}</span>
+                    <label className="inline-flex h-8 items-center gap-2 cursor-pointer rounded-lg border border-slate-200 bg-slate-50 px-3 text-[11px] font-bold text-slate-700 hover:bg-slate-100 transition-colors select-none">
+                      <input
+                        type="checkbox"
+                        checked={ex.allowSubmission}
+                        onChange={() => onUpdateSettings(ex.exerciseId, { allowSubmission: !ex.allowSubmission })}
+                        className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500 cursor-pointer"
+                      />
                       Cho nộp
-                    </button>
+                    </label>
 
-                    <button
-                      type="button"
-                      onClick={() => onUpdateSettings(ex.exerciseId, { isVisible: !ex.isVisible })}
-                      className={[
-                        'inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-[11px] font-bold transition-colors',
-                        ex.isVisible
-                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                          : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100',
-                      ].join(' ')}
-                      aria-pressed={ex.isVisible}
-                    >
-                      <span className="text-sm">{ex.isVisible ? '✓' : '×'}</span>
-                      {ex.isVisible ? 'Hiển thị' : 'Đang ẩn'}
-                    </button>
+                    <label className="inline-flex h-8 items-center gap-2 cursor-pointer rounded-lg border border-slate-200 bg-slate-50 px-3 text-[11px] font-bold text-slate-700 hover:bg-slate-100 transition-colors select-none">
+                      <input
+                        type="checkbox"
+                        checked={ex.isVisible}
+                        onChange={() => onUpdateSettings(ex.exerciseId, { isVisible: !ex.isVisible })}
+                        className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500 cursor-pointer"
+                      />
+                      Hiển thị
+                    </label>
 
                     <button
                       type="button"

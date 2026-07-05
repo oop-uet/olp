@@ -223,16 +223,54 @@ export function SubmissionReviewPage() {
   const [savingGrade, setSavingGrade] = useState(false)
 
 
+  const [sortField, setSortField] = useState<'submittedAt' | 'score' | 'exerciseTitle' | ''>('')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+
   const selectedExerciseId = searchParams.get('exercise_id') || ''
 
   // Map of exerciseId -> title for display
   const exerciseTitleById = new Map(exercises.map((ex) => [ex.id, ex.title]))
   const selectedSection = sections.find((sec) => sec.id === selectedSectionId)
-  const totalPages = Math.max(1, Math.ceil(submissions.length / PAGE_SIZE))
+
+  const sortedSubmissions = useMemo(() => {
+    if (!sortField) return submissions
+    return [...submissions].sort((a, b) => {
+      let valA: any = ''
+      let valB: any = ''
+      if (sortField === 'exerciseTitle') {
+        valA = exerciseTitleById.get(a.exerciseId) || ''
+        valB = exerciseTitleById.get(b.exerciseId) || ''
+      } else if (sortField === 'score') {
+        valA = a.manualScore ?? a.score ?? 0
+        valB = b.manualScore ?? b.score ?? 0
+      } else if (sortField === 'submittedAt') {
+        valA = a.submittedAt || ''
+        valB = b.submittedAt || ''
+      }
+
+      if (typeof valA === 'string') valA = valA.toLowerCase()
+      if (typeof valB === 'string') valB = valB.toLowerCase()
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [submissions, sortField, sortOrder, exerciseTitleById])
+
+  const totalPages = Math.max(1, Math.ceil(sortedSubmissions.length / PAGE_SIZE))
   const pageItems = useMemo(
-    () => submissions.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE),
-    [currentPage, submissions]
+    () => sortedSubmissions.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE),
+    [currentPage, sortedSubmissions]
   )
+
+  const toggleSort = (field: 'submittedAt' | 'score' | 'exerciseTitle') => {
+    setCurrentPage(0)
+    if (sortField === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field)
+      setSortOrder('asc')
+    }
+  }
 
   // Fetch initial data
   useEffect(() => {
@@ -302,6 +340,7 @@ export function SubmissionReviewPage() {
 
   async function fetchSubmissions() {
     setLoadingList(true)
+    setCurrentPage(0)
     try {
       const params: Record<string, string> = {}
       if (selectedExerciseId) {
@@ -813,21 +852,40 @@ export function SubmissionReviewPage() {
               <table className="min-w-full border-separate border-spacing-0 text-left">
                 <thead>
                   <tr className="text-base font-bold text-slate-800">
-                    <th className="border-b-2 border-slate-300 px-4 py-5">#</th>
+                    <th className="border-b-2 border-slate-300 px-4 py-5 text-center w-20 select-none">STT</th>
+                    <th className="border-b-2 border-slate-300 px-4 py-5"># ID</th>
                     <th className="border-b-2 border-slate-300 px-4 py-5">Sinh viên</th>
-                    <th className="border-b-2 border-slate-300 px-4 py-5">Bài tập</th>
-                    <th className="border-b-2 border-slate-300 px-4 py-5">Thời gian</th>
-                    <th className="border-b-2 border-slate-300 px-4 py-5 text-center">Điểm</th>
+                    <th
+                      onClick={() => toggleSort('exerciseTitle')}
+                      className="border-b-2 border-slate-300 px-4 py-5 cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                    >
+                      Bài tập {sortField === 'exerciseTitle' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                    </th>
+                    <th
+                      onClick={() => toggleSort('submittedAt')}
+                      className="border-b-2 border-slate-300 px-4 py-5 cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                    >
+                      Thời gian {sortField === 'submittedAt' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                    </th>
+                    <th
+                      onClick={() => toggleSort('score')}
+                      className="border-b-2 border-slate-300 px-4 py-5 text-center cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                    >
+                      Điểm {sortField === 'score' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                    </th>
                     <th className="border-b-2 border-slate-300 px-4 py-5">Kết quả</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {pageItems.map((sub) => {
+                  {pageItems.map((sub: SubmissionListItem, index: number) => {
                     const effective = sub.manualScore ?? sub.score ?? 0
                     const result = getSubmissionResult(effective)
                     const studentName = sub.student?.fullName || sub.student?.username || 'Sinh viên'
                     return (
                       <tr key={sub.id} className="text-base text-slate-700 hover:bg-slate-50">
+                        <td className="border-b border-slate-200 px-4 py-4 text-center text-slate-400 font-bold">
+                          {index + 1 + currentPage * PAGE_SIZE}
+                        </td>
                         <td className="border-b border-slate-200 px-4 py-4">
                           <button
                             type="button"

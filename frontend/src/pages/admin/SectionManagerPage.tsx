@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader, Spinner, SectionIcon, CheckCircleIcon } from '../../components/ui'
@@ -31,6 +31,7 @@ interface SectionFormData {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
+
 export function SectionManagerPage() {
   const [sections, setSections] = useState<Section[]>([])
   const [instructors, setInstructors] = useState<Instructor[]>([])
@@ -45,10 +46,59 @@ export function SectionManagerPage() {
   const [submitting, setSubmitting] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
+  const [search, setSearch] = useState('')
+  const [sortField, setSortField] = useState<'name' | 'semester' | ''>('')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [currentPage, setCurrentPage] = useState(1)
+  const PAGE_SIZE = 10
+
+  const filteredSections = useMemo(() => {
+    if (!search.trim()) return sections
+    const q = search.toLowerCase()
+    return sections.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.semester.toLowerCase().includes(q) ||
+        (s.instructor?.fullName || '').toLowerCase().includes(q) ||
+        (s.instructor?.username || '').toLowerCase().includes(q)
+    )
+  }, [sections, search])
+
+  const sortedSections = useMemo(() => {
+    if (!sortField) return filteredSections
+    return [...filteredSections].sort((a, b) => {
+      let valA = a[sortField] || ''
+      let valB = b[sortField] || ''
+      if (typeof valA === 'string') valA = valA.toLowerCase()
+      if (typeof valB === 'string') valB = valB.toLowerCase()
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [filteredSections, sortField, sortOrder])
+
+  const paginatedSections = useMemo(() => {
+    const startIndex = (currentPage - 1) * PAGE_SIZE
+    return sortedSections.slice(startIndex, startIndex + PAGE_SIZE)
+  }, [sortedSections, currentPage])
+
+  const totalPages = Math.ceil(sortedSections.length / PAGE_SIZE)
+
+  const toggleSort = (field: 'name' | 'semester') => {
+    setCurrentPage(1)
+    if (sortField === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field)
+      setSortOrder('asc')
+    }
+  }
+
   // ─── Data Fetching ───────────────────────────────────────────────────────
 
   const fetchSections = useCallback(async () => {
     setLoading(true)
+    setCurrentPage(1)
     try {
       const response = await api.get('/api/admin/sections')
       setSections(response.data)
@@ -409,6 +459,22 @@ export function SectionManagerPage() {
         </div>
       )}
 
+      {/* Search filter */}
+      {sections.length > 0 && (
+        <div className="flex items-center gap-3">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setCurrentPage(1)
+            }}
+            className="input max-w-sm"
+            placeholder="Tìm theo tên lớp, học kỳ, giảng viên..."
+          />
+        </div>
+      )}
+
       {/* Section Table */}
       {loading ? (
         <PageLoader label="Đang tải danh sách lớp..." />
@@ -425,20 +491,39 @@ export function SectionManagerPage() {
             Tạo lớp đầu tiên
           </button>
         </div>
+      ) : filteredSections.length === 0 ? (
+        <div className="card flex flex-col items-center justify-center p-12 text-center">
+          <SectionIcon className="mb-3 h-10 w-10 text-gray-300" />
+          <p className="text-gray-500">Không tìm thấy lớp học phần nào khớp với từ khóa tìm kiếm.</p>
+        </div>
       ) : (
         <div className="card overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="table-th">Tên lớp</th>
-                <th className="table-th">Học kỳ</th>
+                <th className="table-th text-center w-16 select-none">STT</th>
+                <th
+                  onClick={() => toggleSort('name')}
+                  className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                >
+                  Tên lớp {sortField === 'name' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th
+                  onClick={() => toggleSort('semester')}
+                  className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                >
+                  Học kỳ {sortField === 'semester' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
                 <th className="table-th">Giảng viên</th>
                 <th className="table-th text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {sections.map((section) => (
+              {paginatedSections.map((section: Section, index: number) => (
                 <tr key={section.id} className="hover:bg-gray-50">
+                  <td className="table-td text-center text-slate-500 font-bold">
+                    {index + 1 + (currentPage - 1) * PAGE_SIZE}
+                  </td>
                   <td className="table-td">
                     <Link
                       to={`/admin/sections/${section.id}`}
@@ -503,6 +588,45 @@ export function SectionManagerPage() {
               ))}
             </tbody>
           </table>
+
+          {totalPages > 1 && (
+            <div className="flex justify-between items-center text-xs text-slate-500 p-4 border-t border-slate-100 bg-white">
+              <div>
+                Hiển thị {Math.min(sortedSections.length, (currentPage - 1) * PAGE_SIZE + 1)} đến{' '}
+                {Math.min(sortedSections.length, currentPage * PAGE_SIZE)} trong tổng số{' '}
+                {sortedSections.length} lớp học phần
+              </div>
+              <div className="flex gap-1">
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600"
+                >
+                  Trước
+                </button>
+                {[...Array(totalPages)].map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setCurrentPage(i + 1)}
+                    className={`px-2.5 py-1 border rounded font-bold ${
+                      currentPage === i + 1
+                        ? 'bg-primary text-white border-primary'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+                <button
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600"
+                >
+                  Sau
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

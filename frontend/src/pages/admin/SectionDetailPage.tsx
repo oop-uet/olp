@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader, Spinner, SectionIcon, StudentsIcon, ExerciseIcon } from '../../components/ui'
@@ -92,9 +92,103 @@ export function SectionDetailPage() {
   const [assignIsAssessment, setAssignIsAssessment] = useState(false)
   const [assignSubmitting, setAssignSubmitting] = useState(false)
 
+  // Student list sorting, search, and pagination
+  const [studentSearch, setStudentSearch] = useState('')
+  const [studentSortField, setStudentSortField] = useState<'studentId' | 'fullName' | 'email' | ''>('')
+  const [studentSortOrder, setStudentSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [studentCurrentPage, setStudentCurrentPage] = useState(1)
+  const STUDENT_PAGE_SIZE = 10
+
+  const filteredStudents = useMemo(() => {
+    const raw = detail?.students ?? []
+    if (!studentSearch.trim()) return raw
+    const q = studentSearch.toLowerCase()
+    return raw.filter(
+      (s) =>
+        (s.studentId || '').toLowerCase().includes(q) ||
+        (s.fullName || '').toLowerCase().includes(q) ||
+        (s.email || '').toLowerCase().includes(q) ||
+        (s.username || '').toLowerCase().includes(q)
+    )
+  }, [detail?.students, studentSearch])
+
+  const sortedStudents = useMemo(() => {
+    if (!studentSortField) return filteredStudents
+    return [...filteredStudents].sort((a, b) => {
+      const valA = (a[studentSortField] || '').toLowerCase()
+      const valB = (b[studentSortField] || '').toLowerCase()
+      if (valA < valB) return studentSortOrder === 'asc' ? -1 : 1
+      if (valA > valB) return studentSortOrder === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [filteredStudents, studentSortField, studentSortOrder])
+
+  const paginatedStudents = useMemo(() => {
+    const startIndex = (studentCurrentPage - 1) * STUDENT_PAGE_SIZE
+    return sortedStudents.slice(startIndex, startIndex + STUDENT_PAGE_SIZE)
+  }, [sortedStudents, studentCurrentPage])
+
+  const studentTotalPages = Math.ceil(sortedStudents.length / STUDENT_PAGE_SIZE)
+
+  const toggleStudentSort = (field: 'studentId' | 'fullName' | 'email') => {
+    setStudentCurrentPage(1)
+    if (studentSortField === field) {
+      setStudentSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setStudentSortField(field)
+      setStudentSortOrder('asc')
+    }
+  }
+
+  // Exercises list sorting, search, and pagination
+  const [exSearch, setExSearch] = useState('')
+  const [exSortField, setExSortField] = useState<'title' | 'difficulty' | 'deadline' | ''>('')
+  const [exSortOrder, setExSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [exCurrentPage, setExCurrentPage] = useState(1)
+  const EX_PAGE_SIZE = 10
+
+  const filteredEx = useMemo(() => {
+    const raw = detail?.exercises ?? []
+    if (!exSearch.trim()) return raw
+    const q = exSearch.toLowerCase()
+    return raw.filter((e) => e.title.toLowerCase().includes(q))
+  }, [detail?.exercises, exSearch])
+
+  const sortedEx = useMemo(() => {
+    if (!exSortField) return filteredEx
+    return [...filteredEx].sort((a, b) => {
+      let valA = a[exSortField] || ''
+      let valB = b[exSortField] || ''
+      if (typeof valA === 'string') valA = valA.toLowerCase()
+      if (typeof valB === 'string') valB = valB.toLowerCase()
+      if (valA < valB) return exSortOrder === 'asc' ? -1 : 1
+      if (valA > valB) return exSortOrder === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [filteredEx, exSortField, exSortOrder])
+
+  const paginatedEx = useMemo(() => {
+    const startIndex = (exCurrentPage - 1) * EX_PAGE_SIZE
+    return sortedEx.slice(startIndex, startIndex + EX_PAGE_SIZE)
+  }, [sortedEx, exCurrentPage])
+
+  const exTotalPages = Math.ceil(sortedEx.length / EX_PAGE_SIZE)
+
+  const toggleExSort = (field: 'title' | 'difficulty' | 'deadline') => {
+    setExCurrentPage(1)
+    if (exSortField === field) {
+      setExSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setExSortField(field)
+      setExSortOrder('asc')
+    }
+  }
+
   const fetchDetail = useCallback(async () => {
     if (!id) return
     setLoading(true)
+    setStudentCurrentPage(1)
+    setExCurrentPage(1)
     try {
       const response = await api.get(`/api/admin/sections/${id}/detail`)
       setDetail(response.data)
@@ -210,7 +304,7 @@ export function SectionDetailPage() {
     )
   }
 
-  const { section, students, exercises, studentCount, exerciseCount } = detail
+  const { section, exercises, studentCount, exerciseCount } = detail
 
   return (
     <div className="space-y-6">
@@ -256,29 +350,62 @@ export function SectionDetailPage() {
 
       {/* Students */}
       <div className="card overflow-hidden">
-        <div className="flex items-center gap-2 border-b border-gray-200 px-5 py-4">
-          <StudentsIcon className="h-5 w-5 text-gray-500" />
-          <h2 className="text-sm font-semibold text-gray-700">
-            Sinh viên ({studentCount})
-          </h2>
+        <div className="flex flex-wrap items-center justify-between border-b border-gray-200 px-5 py-4 gap-4">
+          <div className="flex items-center gap-2">
+            <StudentsIcon className="h-5 w-5 text-gray-500" />
+            <h2 className="text-sm font-semibold text-gray-700">
+              Sinh viên ({studentCount})
+            </h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={studentSearch}
+              onChange={(e) => {
+                setStudentSearch(e.target.value)
+                setStudentCurrentPage(1)
+              }}
+              className="input text-xs py-1.5 px-3 max-w-xs"
+              placeholder="Tìm sinh viên..."
+            />
+          </div>
         </div>
-        {students.length === 0 ? (
+        {filteredStudents.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-gray-500">
-            Lớp chưa có sinh viên nào.
+            Không tìm thấy sinh viên nào.
           </p>
         ) : (
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="table-th">MSSV</th>
-                <th className="table-th">Họ tên</th>
-                <th className="table-th">Email</th>
+                <th className="table-th text-center w-16 select-none">STT</th>
+                <th
+                  onClick={() => toggleStudentSort('studentId')}
+                  className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                >
+                  MSSV {studentSortField === 'studentId' ? (studentSortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th
+                  onClick={() => toggleStudentSort('fullName')}
+                  className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                >
+                  Họ tên {studentSortField === 'fullName' ? (studentSortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th
+                  onClick={() => toggleStudentSort('email')}
+                  className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                >
+                  Email {studentSortField === 'email' ? (studentSortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
                 <th className="table-th text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {students.map((student) => (
+              {paginatedStudents.map((student: SectionStudent, index: number) => (
                 <tr key={student.enrollmentId} className="hover:bg-gray-50">
+                  <td className="table-td text-center text-slate-500 font-bold">
+                    {index + 1 + (studentCurrentPage - 1) * STUDENT_PAGE_SIZE}
+                  </td>
                   <td className="table-td font-medium text-gray-900">
                     {student.studentId || student.username}
                   </td>
@@ -298,16 +425,67 @@ export function SectionDetailPage() {
             </tbody>
           </table>
         )}
+
+        {studentTotalPages > 1 && (
+          <div className="flex justify-between items-center text-xs text-slate-500 p-4 border-t border-slate-100 bg-white">
+            <div>
+              Hiển thị {Math.min(sortedStudents.length, (studentCurrentPage - 1) * STUDENT_PAGE_SIZE + 1)} đến{' '}
+              {Math.min(sortedStudents.length, studentCurrentPage * STUDENT_PAGE_SIZE)} trong tổng số{' '}
+              {sortedStudents.length} sinh viên
+            </div>
+            <div className="flex gap-1">
+              <button
+                disabled={studentCurrentPage === 1}
+                onClick={() => setStudentCurrentPage(studentCurrentPage - 1)}
+                className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600"
+              >
+                Trước
+              </button>
+              {[...Array(studentTotalPages)].map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setStudentCurrentPage(i + 1)}
+                  className={`px-2.5 py-1 border rounded font-bold ${
+                    studentCurrentPage === i + 1
+                      ? 'bg-primary text-white border-primary'
+                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+              <button
+                disabled={studentCurrentPage === studentTotalPages}
+                onClick={() => setStudentCurrentPage(studentCurrentPage + 1)}
+                className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600"
+              >
+                Sau
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Exercises */}
       <div className="card overflow-hidden">
-        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
-          <div className="flex items-center gap-2">
-            <ExerciseIcon className="h-5 w-5 text-gray-500" />
-            <h2 className="text-sm font-semibold text-gray-700">
-              Bài tập đã gán ({exerciseCount})
-            </h2>
+        <div className="flex flex-wrap items-center justify-between border-b border-gray-200 px-5 py-4 gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <ExerciseIcon className="h-5 w-5 text-gray-500" />
+              <h2 className="text-sm font-semibold text-gray-700">
+                Bài tập đã gán ({exerciseCount})
+              </h2>
+            </div>
+            <input
+              type="text"
+              value={exSearch}
+              onChange={(e) => {
+                setExSearch(e.target.value)
+                setExCurrentPage(1)
+              }}
+              className="input text-xs py-1.5 px-3 max-w-xs"
+              placeholder="Tìm bài tập..."
+            />
           </div>
           <button onClick={toggleAssignForm} className="btn-primary btn-sm">
             {showAssignForm ? 'Đóng' : 'Gán bài tập'}
@@ -389,23 +567,42 @@ export function SectionDetailPage() {
           </form>
         )}
 
-        {exercises.length === 0 ? (
+        {filteredEx.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-gray-500">
-            Lớp chưa được gán bài tập nào.
+            Không tìm thấy bài tập nào.
           </p>
         ) : (
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="table-th">Tiêu đề</th>
-                <th className="table-th">Độ khó</th>
-                <th className="table-th">Hạn nộp</th>
+                <th className="table-th text-center w-16 select-none">STT</th>
+                <th
+                  onClick={() => toggleExSort('title')}
+                  className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                >
+                  Tiêu đề {exSortField === 'title' ? (exSortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th
+                  onClick={() => toggleExSort('difficulty')}
+                  className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                >
+                  Độ khó {exSortField === 'difficulty' ? (exSortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th
+                  onClick={() => toggleExSort('deadline')}
+                  className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                >
+                  Hạn nộp {exSortField === 'deadline' ? (exSortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
                 <th className="table-th text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {exercises.map((exercise) => (
+              {paginatedEx.map((exercise: SectionExercise, index: number) => (
                 <tr key={exercise.assignmentId} className="hover:bg-gray-50">
+                  <td className="table-td text-center text-slate-500 font-bold">
+                    {index + 1 + (exCurrentPage - 1) * EX_PAGE_SIZE}
+                  </td>
                   <td className="table-td">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-gray-900">{exercise.title}</span>
@@ -433,6 +630,45 @@ export function SectionDetailPage() {
               ))}
             </tbody>
           </table>
+        )}
+
+        {exTotalPages > 1 && (
+          <div className="flex justify-between items-center text-xs text-slate-500 p-4 border-t border-slate-100 bg-white">
+            <div>
+              Hiển thị {Math.min(sortedEx.length, (exCurrentPage - 1) * EX_PAGE_SIZE + 1)} đến{' '}
+              {Math.min(sortedEx.length, exCurrentPage * EX_PAGE_SIZE)} trong tổng số{' '}
+              {sortedEx.length} bài tập
+            </div>
+            <div className="flex gap-1">
+              <button
+                disabled={exCurrentPage === 1}
+                onClick={() => setExCurrentPage(exCurrentPage - 1)}
+                className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600"
+              >
+                Trước
+              </button>
+              {[...Array(exTotalPages)].map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setExCurrentPage(i + 1)}
+                  className={`px-2.5 py-1 border rounded font-bold ${
+                    exCurrentPage === i + 1
+                      ? 'bg-primary text-white border-primary'
+                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+              <button
+                disabled={exCurrentPage === exTotalPages}
+                onClick={() => setExCurrentPage(exCurrentPage + 1)}
+                className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600"
+              >
+                Sau
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>

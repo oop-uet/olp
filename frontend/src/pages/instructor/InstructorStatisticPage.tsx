@@ -110,6 +110,7 @@ export function InstructorStatisticPage() {
 
   async function fetchStats(sectionId: string) {
     setLoadingStats(true)
+    setCurrentPage(1)
     try {
       const response = await api.get(`/api/instructor/sections/${sectionId}/stats`)
       setStats({
@@ -125,6 +126,12 @@ export function InstructorStatisticPage() {
   }
 
   const selectedSection = sections.find((section) => section.id === selectedSectionId)
+  
+  const [sortField, setSortField] = useState<'studentId' | 'fullName' | 'completionPercent' | 'totalScore' | 'attemptCount' | ''>('')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [currentPage, setCurrentPage] = useState(1)
+  const PAGE_SIZE = 10
+
   const filteredStudents = useMemo(() => {
     const normalized = query.trim().toLowerCase()
     const list = stats?.students ?? []
@@ -134,6 +141,36 @@ export function InstructorStatisticPage() {
         .some((value) => value.toLowerCase().includes(normalized))
     )
   }, [query, stats])
+
+  const sortedStudents = useMemo(() => {
+    if (!sortField) return filteredStudents
+    return [...filteredStudents].sort((a, b) => {
+      let valA = a[sortField]
+      let valB = b[sortField]
+      if (typeof valA === 'string') valA = valA.toLowerCase()
+      if (typeof valB === 'string') valB = valB.toLowerCase()
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [filteredStudents, sortField, sortOrder])
+
+  const paginatedStudents = useMemo(() => {
+    const startIndex = (currentPage - 1) * PAGE_SIZE
+    return sortedStudents.slice(startIndex, startIndex + PAGE_SIZE)
+  }, [sortedStudents, currentPage])
+
+  const totalPages = Math.ceil(sortedStudents.length / PAGE_SIZE)
+
+  const toggleSort = (field: 'studentId' | 'fullName' | 'completionPercent' | 'totalScore' | 'attemptCount') => {
+    setCurrentPage(1)
+    if (sortField === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field)
+      setSortOrder('asc')
+    }
+  }
 
   const averageCompletion = stats?.students.length
     ? stats.students.reduce((sum, student) => sum + student.completionPercent, 0) / stats.students.length
@@ -202,51 +239,128 @@ export function InstructorStatisticPage() {
                     Tìm kiếm:
                     <input
                       value={query}
-                      onChange={(event) => setQuery(event.target.value)}
+                      onChange={(event) => {
+                        setQuery(event.target.value)
+                        setCurrentPage(1)
+                      }}
                       className="h-8 rounded-md border border-slate-200 px-3 text-xs font-semibold text-slate-700 outline-none focus:border-primary"
                     />
                   </label>
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="min-w-full border-collapse text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-300 text-xs font-black uppercase text-slate-700">
-                        <th className="px-4 py-3 w-14">#</th>
-                        <th className="px-4 py-3 w-36">MSSV</th>
-                        <th className="px-4 py-3">Sinh viên</th>
-                        <th className="px-4 py-3 text-center w-40">Tỉ lệ hoàn thành</th>
-                        <th className="px-4 py-3 text-center w-36">Điểm SV/Tổng</th>
-                        <th className="px-4 py-3 text-center w-28">Lượt nộp</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {filteredStudents.map((student, index) => (
-                        <tr key={student.userId} className="transition hover:bg-slate-50">
-                          <td className="px-4 py-3 font-semibold text-slate-500">{index + 1}</td>
-                          <td className="px-4 py-3 font-bold text-slate-700">{student.studentId}</td>
-                          <td className="px-4 py-3">
-                            <Link
-                              to={`/instructor/classes/${selectedSectionId}/students/${student.userId}/profile`}
-                              className="font-bold text-primary hover:underline"
+                  {filteredStudents.length === 0 ? (
+                    <p className="text-center text-slate-500 py-8 text-xs font-medium">
+                      Không tìm thấy sinh viên nào khớp với từ khóa tìm kiếm.
+                    </p>
+                  ) : (
+                    <>
+                      <table className="min-w-full border-collapse text-left text-sm">
+                        <thead>
+                          <tr className="border-b border-slate-300 text-xs font-black uppercase text-slate-700">
+                            <th className="px-4 py-3 w-14 text-center select-none">#</th>
+                            <th
+                              onClick={() => toggleSort('studentId')}
+                              className="px-4 py-3 w-36 cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-700"
                             >
-                              {student.fullName}
-                            </Link>
-                            <p className="mt-0.5 text-xs text-slate-400">{student.email}</p>
-                          </td>
-                          <td className="px-4 py-3 text-center font-semibold text-slate-700">
-                            {student.completionPercent.toFixed(2)}%
-                          </td>
-                          <td className="px-4 py-3 text-center font-bold text-primary">
-                            {student.totalScore.toFixed(0)}/{student.totalPossible}
-                          </td>
-                          <td className="px-4 py-3 text-center font-semibold text-slate-600">
-                            {student.attemptCount}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                              MSSV {sortField === 'studentId' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                            </th>
+                            <th
+                              onClick={() => toggleSort('fullName')}
+                              className="px-4 py-3 cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-700"
+                            >
+                              Sinh viên {sortField === 'fullName' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                            </th>
+                            <th
+                              onClick={() => toggleSort('completionPercent')}
+                              className="px-4 py-3 text-center w-40 cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-700"
+                            >
+                              Tỉ lệ hoàn thành {sortField === 'completionPercent' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                            </th>
+                            <th
+                              onClick={() => toggleSort('totalScore')}
+                              className="px-4 py-3 text-center w-36 cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-700"
+                            >
+                              Điểm SV/Tổng {sortField === 'totalScore' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                            </th>
+                            <th
+                              onClick={() => toggleSort('attemptCount')}
+                              className="px-4 py-3 text-center w-28 cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-700"
+                            >
+                              Lượt nộp {sortField === 'attemptCount' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {paginatedStudents.map((student, index) => (
+                            <tr key={student.userId} className="transition hover:bg-slate-50">
+                              <td className="px-4 py-3 font-semibold text-slate-500 text-center">
+                                {index + 1 + (currentPage - 1) * PAGE_SIZE}
+                              </td>
+                              <td className="px-4 py-3 font-bold text-slate-700">{student.studentId}</td>
+                              <td className="px-4 py-3">
+                                <Link
+                                  to={`/instructor/classes/${selectedSectionId}/students/${student.userId}/profile`}
+                                  className="font-bold text-primary hover:underline"
+                                >
+                                  {student.fullName}
+                                </Link>
+                                <p className="mt-0.5 text-xs text-slate-400">{student.email}</p>
+                              </td>
+                              <td className="px-4 py-3 text-center font-semibold text-slate-700">
+                                {student.completionPercent.toFixed(2)}%
+                              </td>
+                              <td className="px-4 py-3 text-center font-bold text-primary">
+                                {student.totalScore.toFixed(0)}/{student.totalPossible}
+                              </td>
+                              <td className="px-4 py-3 text-center font-semibold text-slate-600">
+                                {student.attemptCount}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+
+                      {totalPages > 1 && (
+                        <div className="flex justify-between items-center text-xs text-slate-500 p-4 border-t border-slate-100 bg-white">
+                          <div>
+                            Hiển thị {Math.min(sortedStudents.length, (currentPage - 1) * PAGE_SIZE + 1)} đến{' '}
+                            {Math.min(sortedStudents.length, currentPage * PAGE_SIZE)} trong tổng số{' '}
+                            {sortedStudents.length} sinh viên
+                          </div>
+                          <div className="flex gap-1">
+                            <button
+                              disabled={currentPage === 1}
+                              onClick={() => setCurrentPage(currentPage - 1)}
+                              className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600"
+                            >
+                              Trước
+                            </button>
+                            {[...Array(totalPages)].map((_, i) => (
+                              <button
+                                key={i}
+                                onClick={() => setCurrentPage(i + 1)}
+                                className={`px-2.5 py-1 border rounded font-bold ${
+                                  currentPage === i + 1
+                                    ? 'bg-primary text-white border-primary'
+                                    : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                                }`}
+                              >
+                                {i + 1}
+                              </button>
+                            ))}
+                            <button
+                              disabled={currentPage === totalPages}
+                              onClick={() => setCurrentPage(currentPage + 1)}
+                              className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600"
+                            >
+                              Sau
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
 

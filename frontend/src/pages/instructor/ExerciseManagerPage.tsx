@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { api, cachedGet } from '../../lib/api'
+import { api } from '../../lib/api'
 import { PageLoader, ExerciseIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { ExerciseLibrary } from '../../components/instructor/ExerciseLibrary'
@@ -43,6 +43,12 @@ export function ExerciseManagerPage() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>('my-exercises')
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  
+  const [search, setSearch] = useState('')
+  const [sortField, setSortField] = useState<'title' | 'difficulty' | ''>('')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [currentPage, setCurrentPage] = useState(1)
+  const PAGE_SIZE = 10
 
   const navigate = useNavigate()
 
@@ -52,10 +58,47 @@ export function ExerciseManagerPage() {
     }
   }, [activeTab])
 
+  const filteredExercises = useMemo(() => {
+    if (!search.trim()) return exercises
+    const q = search.toLowerCase()
+    return exercises.filter((ex) => ex.title.toLowerCase().includes(q))
+  }, [exercises, search])
+
+  const sortedExercises = useMemo(() => {
+    if (!sortField) return filteredExercises
+    return [...filteredExercises].sort((a, b) => {
+      let valA = a[sortField] || ''
+      let valB = b[sortField] || ''
+      if (typeof valA === 'string') valA = valA.toLowerCase()
+      if (typeof valB === 'string') valB = valB.toLowerCase()
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [filteredExercises, sortField, sortOrder])
+
+  const paginatedExercises = useMemo(() => {
+    const startIndex = (currentPage - 1) * PAGE_SIZE
+    return sortedExercises.slice(startIndex, startIndex + PAGE_SIZE)
+  }, [sortedExercises, currentPage])
+
+  const totalPages = Math.ceil(sortedExercises.length / PAGE_SIZE)
+
+  const toggleSort = (field: 'title' | 'difficulty') => {
+    setCurrentPage(1)
+    if (sortField === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field)
+      setSortOrder('asc')
+    }
+  }
+
   async function fetchExercises() {
     setLoading(true)
+    setCurrentPage(1)
     try {
-      const response = await cachedGet('/api/exercises', undefined, { ttlMs: 60_000 })
+      const response = await api.get('/api/exercises')
       setExercises(response.data)
     } catch {
       toast.error('Không thể tải danh sách bài tập. Vui lòng thử lại.')
@@ -138,61 +181,136 @@ export function ExerciseManagerPage() {
               </button>
             </div>
           ) : (
-            <div className="card overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="table-th">Tiêu đề</th>
-                    <th className="table-th">Độ khó</th>
-                    <th className="table-th">Thẻ</th>
-                    <th className="table-th text-right">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {exercises.map((exercise) => {
-                    const badge = getDifficultyBadge(exercise.difficulty)
-                    return (
-                      <tr key={exercise.id} className="hover:bg-gray-50">
-                        <td className="table-td font-medium text-gray-900">{exercise.title}</td>
-                        <td className="table-td">
-                          <span className={badge.className}>{badge.label}</span>
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <div className="flex flex-wrap gap-1">
-                            {parseOopTags(exercise.oop_tags ?? (exercise as unknown as Record<string, unknown>).oopTags).map((tag) => (
-                              <span key={tag} className="badge-blue">
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        </td>
-                        <td className="table-td text-right">
-                          <button
-                            onClick={() => navigate(`/instructor/exercises/${exercise.id}/testcases`)}
-                            className="btn-ghost btn-sm mr-2"
-                          >
-                            Bộ test
-                          </button>
-                          <button
-                            onClick={() => navigate(`/instructor/exercises/${exercise.id}/edit`)}
-                            className="btn-secondary btn-sm mr-2"
-                          >
-                            Sửa
-                          </button>
-                          <button
-                            onClick={() => handleDelete(exercise.id)}
-                            disabled={deletingId === exercise.id}
-                            className="btn-danger btn-sm"
-                          >
-                            {deletingId === exercise.id ? 'Đang xóa...' : 'Xóa'}
-                          </button>
-                        </td>
+            <>
+              <div className="flex items-center gap-3 mb-4">
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value)
+                    setCurrentPage(1)
+                  }}
+                  className="input max-w-sm"
+                  placeholder="Tìm theo tiêu đề bài tập..."
+                />
+              </div>
+
+              {filteredExercises.length === 0 ? (
+                <div className="card flex flex-col items-center justify-center p-12 text-center">
+                  <ExerciseIcon className="mb-3 h-10 w-10 text-gray-300" />
+                  <p className="text-gray-500">Không tìm thấy bài tập nào.</p>
+                </div>
+              ) : (
+                <div className="card overflow-hidden">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="table-th text-center w-16 select-none">STT</th>
+                        <th
+                          onClick={() => toggleSort('title')}
+                          className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                        >
+                          Tiêu đề {sortField === 'title' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                        </th>
+                        <th
+                          onClick={() => toggleSort('difficulty')}
+                          className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                        >
+                          Độ khó {sortField === 'difficulty' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                        </th>
+                        <th className="table-th">Thẻ</th>
+                        <th className="table-th text-right">Thao tác</th>
                       </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {paginatedExercises.map((exercise: Exercise, index: number) => {
+                        const badge = getDifficultyBadge(exercise.difficulty)
+                        return (
+                          <tr key={exercise.id} className="hover:bg-gray-50">
+                            <td className="table-td text-center text-slate-500 font-bold">
+                              {index + 1 + (currentPage - 1) * PAGE_SIZE}
+                            </td>
+                            <td className="table-td font-medium text-gray-900">{exercise.title}</td>
+                            <td className="table-td">
+                              <span className={badge.className}>{badge.label}</span>
+                            </td>
+                            <td className="px-5 py-3.5">
+                              <div className="flex flex-wrap gap-1">
+                                {parseOopTags(exercise.oop_tags ?? (exercise as unknown as Record<string, unknown>).oopTags).map((tag) => (
+                                  <span key={tag} className="badge-blue">
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="table-td text-right">
+                              <button
+                                onClick={() => navigate(`/instructor/exercises/${exercise.id}/testcases`)}
+                                className="btn-ghost btn-sm mr-2"
+                              >
+                                Bộ test
+                              </button>
+                              <button
+                                onClick={() => navigate(`/instructor/exercises/${exercise.id}/edit`)}
+                                className="btn-secondary btn-sm mr-2"
+                              >
+                                Sửa
+                              </button>
+                              <button
+                                onClick={() => handleDelete(exercise.id)}
+                                disabled={deletingId === exercise.id}
+                                className="btn-danger btn-sm"
+                              >
+                                {deletingId === exercise.id ? 'Đang xóa...' : 'Xóa'}
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+
+                  {totalPages > 1 && (
+                    <div className="flex justify-between items-center text-xs text-slate-500 p-4 border-t border-slate-100 bg-white">
+                      <div>
+                        Hiển thị {Math.min(sortedExercises.length, (currentPage - 1) * PAGE_SIZE + 1)} đến{' '}
+                        {Math.min(sortedExercises.length, currentPage * PAGE_SIZE)} trong tổng số{' '}
+                        {sortedExercises.length} bài tập
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          disabled={currentPage === 1}
+                          onClick={() => setCurrentPage(currentPage - 1)}
+                          className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600"
+                        >
+                          Trước
+                        </button>
+                        {[...Array(totalPages)].map((_, i) => (
+                          <button
+                            key={i}
+                            onClick={() => setCurrentPage(i + 1)}
+                            className={`px-2.5 py-1 border rounded font-bold ${
+                              currentPage === i + 1
+                                ? 'bg-primary text-white border-primary'
+                                : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                            }`}
+                          >
+                            {i + 1}
+                          </button>
+                        ))}
+                        <button
+                          disabled={currentPage === totalPages}
+                          onClick={() => setCurrentPage(currentPage + 1)}
+                          className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600"
+                        >
+                          Sau
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </>
       )}

@@ -96,7 +96,9 @@ export function SubmissionHistoryPage() {
   const [loadingSections, setLoadingSections] = useState(true)
   const [loadingData, setLoadingData] = useState(false)
 
-  // Pagination state
+  // Sorting and Pagination state
+  const [sortField, setSortField] = useState<'submittedAt' | 'score' | 'exerciseTitle' | ''>('')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 15
 
@@ -160,12 +162,35 @@ export function SubmissionHistoryPage() {
     })
   }, [submissions, searchQuery])
 
+  const sortedSubmissions = useMemo(() => {
+    if (!sortField) return filteredSubmissions
+    return [...filteredSubmissions].sort((a, b) => {
+      let valA = sortField === 'exerciseTitle' ? a.exercise.title : a[sortField]
+      let valB = sortField === 'exerciseTitle' ? b.exercise.title : b[sortField]
+      if (typeof valA === 'string') valA = valA.toLowerCase()
+      if (typeof valB === 'string') valB = valB.toLowerCase()
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [filteredSubmissions, sortField, sortOrder])
+
+  const toggleSort = (field: 'submittedAt' | 'score' | 'exerciseTitle') => {
+    setCurrentPage(1)
+    if (sortField === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field)
+      setSortOrder('asc')
+    }
+  }
+
   // Pagination calculation
-  const totalSubmissions = filteredSubmissions.length
+  const totalSubmissions = sortedSubmissions.length
   const totalPages = Math.ceil(totalSubmissions / pageSize)
   const paginatedSubmissions = useMemo(() => {
-    return filteredSubmissions.slice((currentPage - 1) * pageSize, currentPage * pageSize)
-  }, [filteredSubmissions, currentPage])
+    return sortedSubmissions.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  }, [sortedSubmissions, currentPage, pageSize])
 
   if (loadingSections) {
     return <PageLoader label="Đang tải danh sách lớp học..." />
@@ -257,19 +282,38 @@ export function SubmissionHistoryPage() {
               <table className="min-w-full border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 text-xs font-bold uppercase select-none">
+                    <th className="px-4 py-3 text-center w-16 select-none">STT</th>
                     <th className="px-4 py-3 text-left w-24"># ID</th>
                     <th className="px-4 py-3 text-left">Sinh viên</th>
-                    <th className="px-4 py-3 text-left">Bài tập</th>
-                    <th className="px-4 py-3 text-left w-52">Thời gian</th>
-                    <th className="px-4 py-3 text-center w-20">Điểm</th>
+                    <th
+                      onClick={() => toggleSort('exerciseTitle')}
+                      className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-700"
+                    >
+                      Bài tập {sortField === 'exerciseTitle' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                    </th>
+                    <th
+                      onClick={() => toggleSort('submittedAt')}
+                      className="px-4 py-3 text-left w-52 cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-700"
+                    >
+                      Thời gian {sortField === 'submittedAt' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                    </th>
+                    <th
+                      onClick={() => toggleSort('score')}
+                      className="px-4 py-3 text-center w-20 cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-700"
+                    >
+                      Điểm {sortField === 'score' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                    </th>
                     <th className="px-4 py-3 text-center w-36">Kết quả</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs text-slate-700 bg-white">
-                  {paginatedSubmissions.map((submission) => {
+                  {paginatedSubmissions.map((submission: Submission, index: number) => {
                     const statusInfo = getStatusBadge(submission.score)
                     return (
                       <tr key={submission.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-3 text-center text-slate-500 font-bold">
+                          {index + 1 + (currentPage - 1) * pageSize}
+                        </td>
                         <td className="px-4 py-3 font-semibold">
                           <Link
                             to={`/student/submissions/${submission.id}`}

@@ -105,9 +105,53 @@ export function InstructorStudentProfilePage() {
     }
   }
 
+  const submissions = useMemo(() => profile?.submissions ?? [], [profile?.submissions])
+
+  const [search, setSearch] = useState('')
+  const [sortField, setSortField] = useState<'exerciseTitle' | 'submittedAt' | 'effectiveScore' | ''>('')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [currentPage, setCurrentPage] = useState(1)
+  const PAGE_SIZE = 10
+
+  const filteredSubmissions = useMemo(() => {
+    if (!search.trim()) return submissions
+    const q = search.toLowerCase()
+    return submissions.filter((s) => s.exerciseTitle.toLowerCase().includes(q))
+  }, [submissions, search])
+
+  const sortedSubmissions = useMemo(() => {
+    if (!sortField) return filteredSubmissions
+    return [...filteredSubmissions].sort((a, b) => {
+      let valA = a[sortField]
+      let valB = b[sortField]
+      if (typeof valA === 'string') valA = valA.toLowerCase()
+      if (typeof valB === 'string') valB = valB.toLowerCase()
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [filteredSubmissions, sortField, sortOrder])
+
+  const paginatedSubmissions = useMemo(() => {
+    const startIndex = (currentPage - 1) * PAGE_SIZE
+    return sortedSubmissions.slice(startIndex, startIndex + PAGE_SIZE)
+  }, [sortedSubmissions, currentPage])
+
+  const totalPages = Math.ceil(sortedSubmissions.length / PAGE_SIZE)
+
+  const toggleSort = (field: 'exerciseTitle' | 'submittedAt' | 'effectiveScore') => {
+    setCurrentPage(1)
+    if (sortField === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field)
+      setSortOrder('asc')
+    }
+  }
+
   const activity = useMemo(() => {
     const byDate = new Map<string, { count: number; bestScore: number }>()
-    for (const submission of profile?.submissions ?? []) {
+    for (const submission of submissions) {
       const key = dateKey(submission.submittedAt)
       const current = byDate.get(key) ?? { count: 0, bestScore: 0 }
       byDate.set(key, {
@@ -131,7 +175,7 @@ export function InstructorStudentProfilePage() {
     )
   }
 
-  const { student, section, summary, submissions, progress } = profile
+  const { student, section, summary, progress } = profile
   const completed = progress.filter((item) => item.status === 'completed').length
   const attempted = progress.filter((item) => item.attemptCount > 0 && item.status !== 'completed').length
   const notStarted = Math.max(0, progress.length - completed - attempted)
@@ -182,40 +226,113 @@ export function InstructorStudentProfilePage() {
 
         <main className="space-y-5">
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="bg-gradient-to-r from-teal-600 to-cyan-500 px-5 py-4 text-white">
+            <div className="bg-gradient-to-r from-teal-600 to-cyan-500 px-5 py-4 text-white flex flex-wrap items-center justify-between gap-4">
               <h2 className="text-sm font-black uppercase tracking-wide">Danh sách bài nộp</h2>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value)
+                  setCurrentPage(1)
+                }}
+                className="input text-xs py-1 px-3 max-w-xs text-slate-800 border-white/20 bg-white"
+                style={{ height: '32px' }}
+                placeholder="Tìm bài tập..."
+              />
             </div>
             <div className="overflow-x-auto p-5">
               {submissions.length === 0 ? (
                 <p className="py-8 text-center text-sm text-slate-400">Sinh viên chưa có bài nộp.</p>
+              ) : filteredSubmissions.length === 0 ? (
+                <p className="py-8 text-center text-sm text-slate-400">Không tìm thấy bài nộp nào khớp với từ khóa.</p>
               ) : (
-                <table className="min-w-full text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-300 text-xs font-black uppercase text-slate-700">
-                      <th className="px-3 py-3 w-28">#</th>
-                      <th className="px-3 py-3">Tên bài tập</th>
-                      <th className="px-3 py-3 w-48">Thời gian nộp</th>
-                      <th className="px-3 py-3 text-center w-24">Điểm</th>
-                      <th className="px-3 py-3 text-center w-28">Trạng thái</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {submissions.map((submission) => {
-                      const status = getStatusLabel(submission.status, submission.effectiveScore)
-                      return (
-                        <tr key={submission.id} className="hover:bg-slate-50">
-                          <td className="px-3 py-3 font-bold text-primary">{submission.id.slice(0, 8)}</td>
-                          <td className="px-3 py-3 font-semibold text-slate-700">{submission.exerciseTitle}</td>
-                          <td className="px-3 py-3 text-slate-500">{formatTimestamp(submission.submittedAt)}</td>
-                          <td className="px-3 py-3 text-center font-bold">{submission.effectiveScore.toFixed(1)}/100</td>
-                          <td className="px-3 py-3 text-center">
-                            <span className={status.className}>{status.label}</span>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                <>
+                  <table className="min-w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-300 text-xs font-black uppercase text-slate-700">
+                        <th className="px-3 py-3 w-16 text-center select-none">STT</th>
+                        <th className="px-3 py-3 w-28 select-none">Mã bài nộp</th>
+                        <th
+                          onClick={() => toggleSort('exerciseTitle')}
+                          className="px-3 py-3 cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-700"
+                        >
+                          Tên bài tập {sortField === 'exerciseTitle' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                        </th>
+                        <th
+                          onClick={() => toggleSort('submittedAt')}
+                          className="px-3 py-3 w-48 cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-700"
+                        >
+                          Thời gian nộp {sortField === 'submittedAt' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                        </th>
+                        <th
+                          onClick={() => toggleSort('effectiveScore')}
+                          className="px-3 py-3 text-center w-24 cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-700"
+                        >
+                          Điểm {sortField === 'effectiveScore' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                        </th>
+                        <th className="px-3 py-3 text-center w-28">Trạng thái</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {paginatedSubmissions.map((submission, index) => {
+                        const status = getStatusLabel(submission.effectiveScore >= 100 ? 'finished' : 'submitted', submission.effectiveScore)
+                        return (
+                          <tr key={submission.id} className="hover:bg-slate-50">
+                            <td className="px-3 py-3 font-semibold text-slate-500 text-center">
+                              {index + 1 + (currentPage - 1) * PAGE_SIZE}
+                            </td>
+                            <td className="px-3 py-3 font-bold text-primary">{submission.id.slice(0, 8)}</td>
+                            <td className="px-3 py-3 font-semibold text-slate-700">{submission.exerciseTitle}</td>
+                            <td className="px-3 py-3 text-slate-500">{formatTimestamp(submission.submittedAt)}</td>
+                            <td className="px-3 py-3 text-center font-bold">{submission.effectiveScore.toFixed(1)}/100</td>
+                            <td className="px-3 py-3 text-center">
+                              <span className={status.className}>{status.label}</span>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+
+                  {totalPages > 1 && (
+                    <div className="flex justify-between items-center text-xs text-slate-500 pt-4 border-t border-slate-100 bg-white">
+                      <div>
+                        Hiển thị {Math.min(sortedSubmissions.length, (currentPage - 1) * PAGE_SIZE + 1)} đến{' '}
+                        {Math.min(sortedSubmissions.length, currentPage * PAGE_SIZE)} trong tổng số{' '}
+                        {sortedSubmissions.length} bài nộp
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          disabled={currentPage === 1}
+                          onClick={() => setCurrentPage(currentPage - 1)}
+                          className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600"
+                        >
+                          Trước
+                        </button>
+                        {[...Array(totalPages)].map((_, i) => (
+                          <button
+                            key={i}
+                            onClick={() => setCurrentPage(i + 1)}
+                            className={`px-2.5 py-1 border rounded font-bold ${
+                              currentPage === i + 1
+                                ? 'bg-primary text-white border-primary'
+                                : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                            }`}
+                          >
+                            {i + 1}
+                          </button>
+                        ))}
+                        <button
+                          disabled={currentPage === totalPages}
+                          onClick={() => setCurrentPage(currentPage + 1)}
+                          className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600"
+                        >
+                          Sau
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { AxiosError } from 'axios'
 import { api } from '../../lib/api'
 import { toast } from '../../stores/toast.store'
@@ -65,6 +65,53 @@ export function PlagiarismPage() {
   const [checking, setChecking] = useState(false)
   const [report, setReport] = useState<PlagiarismReport | null>(null)
 
+  const [search, setSearch] = useState('')
+  const [sortField, setSortField] = useState<'similarity' | ''>('')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [currentPage, setCurrentPage] = useState(1)
+  const PAGE_SIZE = 10
+
+  const filteredPairs = useMemo(() => {
+    const raw = report?.pairs ?? []
+    if (!search.trim()) return raw
+    const q = search.toLowerCase()
+    return raw.filter(
+      (p) =>
+        p.studentAName.toLowerCase().includes(q) ||
+        p.studentAId.toLowerCase().includes(q) ||
+        p.studentBName.toLowerCase().includes(q) ||
+        p.studentBId.toLowerCase().includes(q)
+    )
+  }, [report?.pairs, search])
+
+  const sortedPairs = useMemo(() => {
+    if (!sortField) return filteredPairs
+    return [...filteredPairs].sort((a, b) => {
+      const valA = a[sortField] ?? 0
+      const valB = b[sortField] ?? 0
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [filteredPairs, sortField, sortOrder])
+
+  const paginatedPairs = useMemo(() => {
+    const startIndex = (currentPage - 1) * PAGE_SIZE
+    return sortedPairs.slice(startIndex, startIndex + PAGE_SIZE)
+  }, [sortedPairs, currentPage])
+
+  const totalPages = Math.ceil(sortedPairs.length / PAGE_SIZE)
+
+  const toggleSort = (field: 'similarity') => {
+    setCurrentPage(1)
+    if (sortField === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field)
+      setSortOrder('asc')
+    }
+  }
+
   // Comparison modal
   const [modalOpen, setModalOpen] = useState(false)
   const [loadingModal, setLoadingModal] = useState(false)
@@ -116,6 +163,7 @@ export function PlagiarismPage() {
 
     setChecking(true)
     setReport(null)
+    setCurrentPage(1)
     try {
       const params: Record<string, string> = {}
       if (selectedSectionId) params.section_id = selectedSectionId
@@ -326,52 +374,119 @@ export function PlagiarismPage() {
           ) : (
             <div className="card overflow-hidden border border-slate-100 shadow-sm">
               {/* Header banner */}
-              <div className="panel-header">
+              <div className="panel-header flex flex-wrap items-center justify-between gap-4">
                 <h3 className="panel-title">
                   <span>☰</span>
                   Danh sách các cặp bài nộp trùng nhau
                 </h3>
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value)
+                    setCurrentPage(1)
+                  }}
+                  className="input text-xs py-1 px-3 max-w-xs"
+                  style={{ height: '32px' }}
+                  placeholder="Tìm sinh viên..."
+                />
               </div>
 
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-100">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-bold uppercase">
-                      <th className="px-5 py-3 text-left">Sinh viên A</th>
-                      <th className="px-5 py-3 text-left">Sinh viên B</th>
-                      <th className="px-5 py-3 text-center w-48">Mức độ tương đồng</th>
-                      <th className="px-5 py-3 text-right w-36">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-xs text-slate-700 bg-white">
-                    {report.pairs.map((pair) => (
-                      <tr
-                        key={`${pair.submissionAId}-${pair.submissionBId}`}
-                        className="hover:bg-slate-50/50 transition-colors"
-                      >
-                        <td className="px-5 py-3 font-semibold text-slate-800">
-                          {pair.studentAName} ({pair.studentAId})
-                        </td>
-                        <td className="px-5 py-3 font-semibold text-slate-800">
-                          {pair.studentBName} ({pair.studentBId})
-                        </td>
-                        <td className="px-5 py-3 text-center">
-                          <span className={similarityBadgeClass(pair.similarity)}>
-                            {formatPercent(pair.similarity)}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3 text-right">
-                          <button
-                            onClick={() => handleViewComparison(pair)}
-                            className="btn-secondary btn-sm font-bold text-primary hover:text-primary-700"
+                {filteredPairs.length === 0 ? (
+                  <p className="text-center text-slate-500 py-8 text-xs font-medium">
+                    Không tìm thấy cặp bài nộp nào khớp với từ khóa tìm kiếm.
+                  </p>
+                ) : (
+                  <>
+                    <table className="min-w-full divide-y divide-slate-100">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-bold uppercase">
+                          <th className="px-5 py-3 w-16 text-center">#</th>
+                          <th className="px-5 py-3 text-left">Sinh viên A</th>
+                          <th className="px-5 py-3 text-left">Sinh viên B</th>
+                          <th
+                            onClick={() => toggleSort('similarity')}
+                            className="px-5 py-3 text-center w-48 cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-500"
                           >
-                            So sánh mã
+                            Mức độ tương đồng {sortField === 'similarity' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                          </th>
+                          <th className="px-5 py-3 text-right w-36">Thao tác</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-xs text-slate-700 bg-white">
+                        {paginatedPairs.map((pair: PlagiarismPair, index: number) => (
+                          <tr
+                            key={`${pair.submissionAId}-${pair.submissionBId}`}
+                            className="hover:bg-slate-50/50 transition-colors"
+                          >
+                            <td className="px-5 py-3 text-slate-400 font-bold text-center">
+                              {index + 1 + (currentPage - 1) * PAGE_SIZE}
+                            </td>
+                            <td className="px-5 py-3 font-semibold text-slate-800">
+                              {pair.studentAName} ({pair.studentAId})
+                            </td>
+                            <td className="px-5 py-3 font-semibold text-slate-800">
+                              {pair.studentBName} ({pair.studentBId})
+                            </td>
+                            <td className="px-5 py-3 text-center">
+                              <span className={similarityBadgeClass(pair.similarity)}>
+                                {formatPercent(pair.similarity)}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3 text-right">
+                              <button
+                                onClick={() => handleViewComparison(pair)}
+                                className="btn-secondary btn-sm font-bold text-primary hover:text-primary-700"
+                              >
+                                So sánh mã
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+
+                    {totalPages > 1 && (
+                      <div className="flex justify-between items-center text-xs text-slate-500 p-4 border-t border-slate-100 bg-white animate-fade-in">
+                        <div>
+                          Hiển thị {Math.min(sortedPairs.length, (currentPage - 1) * PAGE_SIZE + 1)} đến{' '}
+                          {Math.min(sortedPairs.length, currentPage * PAGE_SIZE)} trong tổng số{' '}
+                          {sortedPairs.length} cặp trùng lặp
+                        </div>
+                        <div className="flex gap-1">
+                          <button
+                            disabled={currentPage === 1}
+                            onClick={() => setCurrentPage(currentPage - 1)}
+                            className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600"
+                          >
+                            Trước
                           </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                          {[...Array(totalPages)].map((_, i) => (
+                            <button
+                              key={i}
+                              onClick={() => setCurrentPage(i + 1)}
+                              className={`px-2.5 py-1 border rounded font-bold ${
+                                currentPage === i + 1
+                                  ? 'bg-primary text-white border-primary'
+                                  : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                              }`}
+                            >
+                              {i + 1}
+                            </button>
+                          ))}
+                          <button
+                            disabled={currentPage === totalPages}
+                            onClick={() => setCurrentPage(currentPage + 1)}
+                            className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600"
+                          >
+                            Sau
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           )}

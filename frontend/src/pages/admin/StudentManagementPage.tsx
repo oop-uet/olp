@@ -47,6 +47,8 @@ export function StudentManagementPage() {
   const [search, setSearch] = useState('')
   const [sortField, setSortField] = useState<'username' | 'fullName' | 'email' | 'createdAt' | ''>('')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [currentPage, setCurrentPage] = useState(1)
+  const PAGE_SIZE = 10
 
   const sortedUsers = useMemo(() => {
     if (!sortField) return users
@@ -59,7 +61,15 @@ export function StudentManagementPage() {
     })
   }, [users, sortField, sortOrder])
 
+  const paginatedUsers = useMemo(() => {
+    const startIndex = (currentPage - 1) * PAGE_SIZE
+    return sortedUsers.slice(startIndex, startIndex + PAGE_SIZE)
+  }, [sortedUsers, currentPage])
+
+  const totalPages = Math.ceil(sortedUsers.length / PAGE_SIZE)
+
   const toggleSort = (field: 'username' | 'fullName' | 'email' | 'createdAt') => {
+    setCurrentPage(1)
     if (sortField === field) {
       setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
     } else {
@@ -79,6 +89,7 @@ export function StudentManagementPage() {
 
   const fetchUsers = useCallback(async (searchTerm = '') => {
     setLoading(true)
+    setCurrentPage(1)
     try {
       const response = await api.get('/api/admin/users', {
         params: { role: 'student', ...(searchTerm ? { search: searchTerm } : {}) },
@@ -332,6 +343,7 @@ export function StudentManagementPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="table-th text-center w-16 select-none">STT</th>
                 <th
                   onClick={() => toggleSort('username')}
                   className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
@@ -361,8 +373,11 @@ export function StudentManagementPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {sortedUsers.map((user) => (
+              {paginatedUsers.map((user, index) => (
                 <tr key={user.id} className="hover:bg-gray-50">
+                  <td className="table-td text-center text-slate-500 font-bold">
+                    {index + 1 + (currentPage - 1) * PAGE_SIZE}
+                  </td>
                   <td className="table-td">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-gray-900">{user.username}</span>
@@ -418,6 +433,45 @@ export function StudentManagementPage() {
               ))}
             </tbody>
           </table>
+
+          {totalPages > 1 && (
+            <div className="flex justify-between items-center text-xs text-slate-500 p-4 border-t border-slate-100 bg-white">
+              <div>
+                Hiển thị {Math.min(sortedUsers.length, (currentPage - 1) * PAGE_SIZE + 1)} đến{' '}
+                {Math.min(sortedUsers.length, currentPage * PAGE_SIZE)} trong tổng số{' '}
+                {sortedUsers.length} sinh viên
+              </div>
+              <div className="flex gap-1">
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600"
+                >
+                  Trước
+                </button>
+                {[...Array(totalPages)].map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setCurrentPage(i + 1)}
+                    className={`px-2.5 py-1 border rounded font-bold ${
+                      currentPage === i + 1
+                        ? 'bg-primary text-white border-primary'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+                <button
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600"
+                >
+                  Sau
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
