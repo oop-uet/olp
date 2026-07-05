@@ -111,7 +111,7 @@ export function StudentLeaderboardPage() {
     <div className="space-y-6 animate-fade-in">
       {/* Breadcrumb */}
       <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-slate-50 border-b border-slate-100 rounded flex gap-1.5 items-center">
-        <span className="text-teal-600 cursor-default">Trang chủ</span>
+        <span className="text-primary cursor-default">Trang chủ</span>
         <span>/</span>
         <span className="text-slate-400">Bảng xếp hạng</span>
       </div>
@@ -137,7 +137,7 @@ export function StudentLeaderboardPage() {
             setSelectedSectionId(event.target.value)
             fetchLeaderboard(event.target.value)
           }}
-          className="mt-2 h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800"
+          className="mt-2 h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10"
         >
           {sections.map((section) => (
             <option key={section.id} value={section.id}>
@@ -186,16 +186,16 @@ export function StudentLeaderboardPage() {
                   return (
                     <tr
                       key={entry.studentId}
-                      className={mine ? 'bg-teal-50/20' : 'hover:bg-slate-50/50 transition-colors'}
+                      className={mine ? 'bg-primary-50/20' : 'hover:bg-slate-50/50 transition-colors'}
                     >
                       <td className="px-5 py-3 text-center font-bold">{getRankBadge(entry.rank)}</td>
                       <td className="px-5 py-3 font-semibold text-slate-800">
                         {entry.studentName}
-                        {mine && <span className="ml-2 bg-teal-50 text-teal-700 text-[9px] font-extrabold rounded-full px-1.5 py-0.2 ring-1 ring-teal-700/10">Bạn</span>}
+                        {mine && <span className="ml-2 bg-primary-50 text-primary text-[9px] font-extrabold rounded-full px-1.5 py-0.5 ring-1 ring-primary/10">Bạn</span>}
                       </td>
                       <td className="px-5 py-3 font-medium text-slate-400">{entry.studentId}</td>
                       <td className="px-5 py-3 text-right">
-                        <span className="font-bold text-sm text-teal-600">
+                        <span className="font-bold text-sm text-primary">
                           {entry.totalScore.toFixed(1)}
                         </span>
                       </td>

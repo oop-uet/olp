@@ -73,7 +73,7 @@ export function LoginPage() {
           <div className="flex flex-col items-center justify-center text-center gap-6 md:border-r md:border-slate-100 md:pr-8">
             <div className="relative flex items-center justify-center h-48 w-48 rounded-full bg-slate-50 border border-slate-100 shadow-inner">
               {/* SVG Laptop with Green circular Palm Tree Logo */}
-              <svg viewBox="0 0 100 100" className="h-32 w-32 text-teal-600">
+              <svg viewBox="0 0 100 100" className="h-32 w-32 text-primary">
                 {/* Base Laptop */}
                 <rect x="25" y="32" width="50" height="34" rx="2" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1" />
                 <rect x="28" y="35" width="44" height="28" fill="#1e293b" />
@@ -108,7 +108,7 @@ export function LoginPage() {
           <div className="flex flex-col gap-6 px-2">
             <div className="space-y-1">
               <h2 className="text-2xl font-bold tracking-tight text-slate-800">
-                UET<span className="text-teal-600 ml-0.5">OASIS</span>
+                UET<span className="text-secondary ml-0.5">OASIS</span>
               </h2>
               <p className="text-xs text-slate-500 font-semibold">
                 Sử dụng tài khoản bạn được cung cấp
@@ -136,7 +136,7 @@ export function LoginPage() {
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="block w-full rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 pl-11 text-sm font-medium text-slate-800 placeholder-slate-400 transition-all focus:bg-white focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  className="block w-full rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 pl-11 text-sm font-medium text-slate-800 placeholder-slate-400 transition-all focus:bg-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10"
                   placeholder="Tài khoản"
                 />
               </div>
@@ -155,7 +155,7 @@ export function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 pl-11 text-sm font-medium text-slate-800 placeholder-slate-400 transition-all focus:bg-white focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  className="block w-full rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 pl-11 text-sm font-medium text-slate-800 placeholder-slate-400 transition-all focus:bg-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10"
                   placeholder="Mật khẩu"
                 />
               </div>
@@ -165,7 +165,7 @@ export function LoginPage() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-teal-600 py-3 text-sm font-bold text-white shadow-sm hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500/50 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 active:scale-[0.98]"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-bold text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 active:scale-[0.98]"
                 >
                   {isLoading ? (
                     <>
@@ -181,7 +181,7 @@ export function LoginPage() {
             <div className="text-center">
               <a
                 href="#/help"
-                className="text-xs font-bold text-teal-600 hover:text-teal-700 transition-colors leading-relaxed block"
+                className="text-xs font-bold text-primary hover:text-primary-700 transition-colors leading-relaxed block"
               >
                 Hướng dẫn sử dụng dành<br />cho sinh viên
               </a>

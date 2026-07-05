@@ -18,6 +18,19 @@ export default {
           800: '#002146',
           900: '#001833',
         },
+        secondary: {
+          DEFAULT: '#f37021',
+          50: '#fff7ed',
+          100: '#ffedd5',
+          200: '#fed7aa',
+          300: '#fdbb74',
+          400: '#f97316',
+          500: '#f37021',
+          600: '#ea580c',
+          700: '#c2410c',
+          800: '#9a3412',
+          900: '#7c2d12',
+        },
         // Semantic accent colors
         success: {
           50: '#ecfdf5',

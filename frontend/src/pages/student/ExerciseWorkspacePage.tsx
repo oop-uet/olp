@@ -447,7 +447,7 @@ export function ExerciseWorkspacePage() {
         <div className="flex min-w-0 items-center gap-3">
           <Link
             to="/student/exercises"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition hover:border-primary-300 hover:bg-primary-50 hover:text-primary"
             aria-label="Quay lại danh sách bài tập"
           >
             ←
@@ -499,7 +499,7 @@ export function ExerciseWorkspacePage() {
               onClick={() => setActivePanel('description')}
               className={`px-4 py-3 text-sm font-bold transition-colors ${
                 activePanel === 'description'
-                  ? 'border-b-2 border-teal-600 bg-white text-teal-700'
+                  ? 'border-b-2 border-primary bg-white text-primary'
                   : 'text-slate-600 hover:bg-white hover:text-slate-900'
               }`}
             >
@@ -509,7 +509,7 @@ export function ExerciseWorkspacePage() {
               onClick={() => setActivePanel('testcases')}
               className={`px-4 py-3 text-sm font-bold transition-colors ${
                 activePanel === 'testcases'
-                  ? 'border-b-2 border-teal-600 bg-white text-teal-700'
+                  ? 'border-b-2 border-primary bg-white text-primary'
                   : 'text-slate-600 hover:bg-white hover:text-slate-900'
               }`}
             >
@@ -655,7 +655,7 @@ function FileTabs({
       </div>
       <button
         onClick={onAdd}
-        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-700 text-slate-300 transition hover:border-teal-400 hover:bg-teal-500/10 hover:text-teal-200"
+        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-700 text-slate-300 transition hover:border-secondary hover:bg-secondary/10 hover:text-secondary"
         aria-label="Thêm file Java"
         title="Thêm file Java"
       >
@@ -685,7 +685,7 @@ function ExecutorGate({
       <div className="w-full max-w-2xl rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-teal-700">
+            <p className="text-xs font-bold uppercase tracking-wide text-primary">
               Local Executor
             </p>
             <h1 className="mt-1 text-xl font-bold text-slate-900">
@@ -806,7 +806,7 @@ function FormattedDescription({ text }: { text: string }) {
           return (
             <h3
               key={index}
-              className="border-l-4 border-teal-600 pl-3 text-sm font-bold uppercase tracking-wide text-slate-800"
+              className="border-l-4 border-primary pl-3 text-sm font-bold uppercase tracking-wide text-slate-800"
             >
               {line.slice(3)}
             </h3>
@@ -816,7 +816,7 @@ function FormattedDescription({ text }: { text: string }) {
         if (line.startsWith('- ')) {
           return (
             <div key={index} className="flex gap-2">
-              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-teal-600" />
+              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
               <p>{renderInlineCode(line.slice(2))}</p>
             </div>
           )

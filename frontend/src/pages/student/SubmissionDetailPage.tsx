@@ -253,7 +253,7 @@ export function SubmissionDetailPage() {
           <div className="flex min-w-0 items-center gap-3">
             <Link
               to="/student/submissions"
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-700"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition hover:border-primary-300 hover:bg-primary-50 hover:text-primary"
               aria-label="Quay lại danh sách bài nộp"
             >
               ←
@@ -285,7 +285,7 @@ export function SubmissionDetailPage() {
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 p-4 xl:grid-cols-[340px_minmax(0,1fr)]">
         <aside className="space-y-4">
           <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-            <div className="bg-teal-700 px-4 py-3">
+            <div className="bg-primary px-4 py-3">
               <h2 className="text-sm font-bold uppercase tracking-wide text-white">
                 Chi tiết bài nộp
               </h2>
@@ -326,7 +326,7 @@ export function SubmissionDetailPage() {
           </section>
 
           <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-            <div className="bg-teal-700 px-4 py-3">
+            <div className="bg-primary px-4 py-3">
               <h2 className="text-sm font-bold uppercase tracking-wide text-white">
                 Bài đã nộp
               </h2>
@@ -342,8 +342,8 @@ export function SubmissionDetailPage() {
                   }}
                   className={`flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm font-semibold transition ${
                     currentSubmittedFile.name === file.name
-                      ? 'bg-teal-50 text-teal-800 ring-1 ring-teal-200'
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-teal-700'
+                      ? 'bg-primary-50 text-primary-800 ring-1 ring-primary-200'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-primary'
                   }`}
                 >
                   <span className="truncate">{file.name}</span>
@@ -354,7 +354,7 @@ export function SubmissionDetailPage() {
           </section>
 
           <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-            <div className="bg-teal-700 px-4 py-3">
+            <div className="bg-primary px-4 py-3">
               <h2 className="text-sm font-bold uppercase tracking-wide text-white">
                 Quy tắc lập trình
               </h2>
@@ -380,7 +380,7 @@ export function SubmissionDetailPage() {
                     onClick={() => setActiveTab(tab as ReviewTab)}
                     className={`h-9 rounded-md px-3 text-sm font-bold transition ${
                       activeTab === tab
-                        ? 'bg-teal-50 text-teal-800 ring-1 ring-teal-200'
+                        ? 'bg-primary-50 text-primary-800 ring-1 ring-primary-200'
                         : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                     }`}
                   >
@@ -460,9 +460,9 @@ function FunctionalResultCard({
 }) {
   const [expanded, setExpanded] = useState(!result.passed)
   const statusClass = result.passed
-    ? 'border-teal-200 bg-teal-50 text-teal-700'
+    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
     : 'border-rose-200 bg-rose-50 text-rose-700'
-  const iconClass = result.passed ? 'bg-teal-600' : 'bg-rose-600'
+  const iconClass = result.passed ? 'bg-emerald-600' : 'bg-rose-600'
 
   return (
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -482,7 +482,7 @@ function FunctionalResultCard({
             )}
           </span>
           <div className="min-w-0">
-            <h3 className={`truncate text-base font-bold ${result.passed ? 'text-teal-700' : 'text-rose-700'}`}>
+            <h3 className={`truncate text-base font-bold ${result.passed ? 'text-emerald-700' : 'text-rose-700'}`}>
               Test case {index + 1} ({result.pointValue} điểm): {result.testCaseLabel || `test_${index + 1}`}
             </h3>
             <p className="mt-1 text-xs font-semibold text-slate-500">
@@ -497,7 +497,7 @@ function FunctionalResultCard({
       </button>
 
       {expanded && (
-        <div className={`border-t px-5 py-4 ${result.passed ? 'border-teal-100 bg-teal-50/60' : 'border-rose-100 bg-rose-50/70'}`}>
+        <div className={`border-t px-5 py-4 ${result.passed ? 'border-emerald-100 bg-emerald-50/60' : 'border-rose-100 bg-rose-50/70'}`}>
           <div className="mx-auto max-w-none space-y-5 font-mono text-sm leading-6">
             <OutputBlock
               title="View"
@@ -548,16 +548,16 @@ function OutputBlock({
         ---------- {title} ----------
       </p>
       <div>
-        <p className={`font-semibold ${passed ? 'text-teal-700' : 'text-rose-700'}`}>
+        <p className={`font-semibold ${passed ? 'text-emerald-700' : 'text-rose-700'}`}>
           {wrongLabel}:
         </p>
-        <pre className={`mt-1 whitespace-pre-wrap break-words text-sm ${passed ? 'text-teal-800' : 'text-rose-700'} ${compact ? 'max-h-48 overflow-auto' : ''}`}>
+        <pre className={`mt-1 whitespace-pre-wrap break-words text-sm ${passed ? 'text-emerald-800' : 'text-rose-700'} ${compact ? 'max-h-48 overflow-auto' : ''}`}>
           {wrongValue}
         </pre>
       </div>
       <div>
-        <p className="font-semibold text-teal-700">{correctLabel}:</p>
-        <pre className={`mt-1 whitespace-pre-wrap break-words text-sm text-teal-800 ${compact ? 'max-h-48 overflow-auto' : ''}`}>
+        <p className="font-semibold text-emerald-700">{correctLabel}:</p>
+        <pre className={`mt-1 whitespace-pre-wrap break-words text-sm text-emerald-800 ${compact ? 'max-h-48 overflow-auto' : ''}`}>
           {correctValue}
         </pre>
       </div>

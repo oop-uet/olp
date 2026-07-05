@@ -162,7 +162,7 @@ export function StudentCourseDetailPage() {
       <div className="rounded-lg border border-slate-200 bg-white px-5 py-4 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-teal-700">
+            <p className="text-xs font-bold uppercase tracking-wide text-secondary">
               {section.semester}
             </p>
             <h1 className="mt-1 text-xl font-bold text-slate-900">{section.name}</h1>
@@ -236,7 +236,7 @@ function ExerciseWeekCard({ title, exercises }: { title: string; exercises: Exer
           <Link
             key={exercise.id}
             to={`/student/exercises/${exercise.id}`}
-            className="flex min-h-14 items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 shadow-sm transition hover:border-teal-200 hover:bg-white hover:shadow-md"
+            className="flex min-h-14 items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 shadow-sm transition hover:border-primary-300 hover:bg-white hover:shadow-md"
           >
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -310,7 +310,7 @@ function LeaderboardPanel({
 
   return (
     <aside className="sticky top-4 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
-      <div className="bg-teal-600 px-5 py-4 text-white">
+      <div className="bg-primary px-5 py-4 text-white">
         <div className="flex items-center gap-2">
           <LeaderboardIcon className="h-5 w-5" />
           <h2 className="text-base font-bold">Bảng Xếp Hạng</h2>
@@ -318,7 +318,7 @@ function LeaderboardPanel({
       </div>
 
       <div className="p-5">
-        <div className="inline-flex rounded-md bg-sky-500 px-3 py-2 text-sm font-semibold text-white">
+        <div className="inline-flex rounded-md bg-secondary px-3 py-2 text-sm font-semibold text-white">
           {section.name}
         </div>
 
@@ -334,16 +334,16 @@ function LeaderboardPanel({
                 <div
                   key={`${entry.rank}-${entry.studentId}`}
                   className={`grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-3 py-3 text-sm ${
-                    mine ? 'bg-teal-50 px-2' : ''
+                    mine ? 'bg-primary-50 px-2' : ''
                   }`}
                 >
                   <span className="text-center text-base font-extrabold text-slate-700">
                     {entry.rank}
                   </span>
-                  <span className="min-w-0 truncate font-semibold text-sky-600">
+                  <span className="min-w-0 truncate font-semibold text-primary">
                     {entry.studentName}
                   </span>
-                  <span className="font-extrabold text-sky-600">
+                  <span className="font-extrabold text-primary">
                     {Math.round(entry.totalScore)}
                   </span>
                 </div>
@@ -354,7 +354,7 @@ function LeaderboardPanel({
 
         <Link
           to={`/student/leaderboard?section_id=${section.id}`}
-          className="mt-4 inline-flex h-9 w-full items-center justify-center rounded-md border border-teal-200 text-sm font-bold text-teal-700 transition hover:bg-teal-50"
+          className="mt-4 inline-flex h-9 w-full items-center justify-center rounded-md border border-primary-200 text-sm font-bold text-primary transition hover:bg-primary-50"
         >
           Xem đầy đủ
         </Link>
