@@ -204,10 +204,13 @@ export function InstructorCourseDetailPage() {
   // Group exercises by week 1..15
   const exercisesByWeek: Record<number, SectionExercise[]> = {}
   for (let i = 1; i <= TOTAL_WEEKS; i++) exercisesByWeek[i] = []
+  const unscheduledExercises: SectionExercise[] = []
   for (const ex of exercises) {
     const w = ex.week ?? 0
     if (w >= 1 && w <= TOTAL_WEEKS) {
       exercisesByWeek[w].push(ex)
+    } else {
+      unscheduledExercises.push(ex)
     }
   }
 
@@ -231,141 +234,43 @@ export function InstructorCourseDetailPage() {
               <svg className="h-5 w-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
-              Bài tập tuần: {section.name}
+              {section.name}
             </h1>
             <p className="text-xs text-slate-400 font-semibold mt-1">
-              Quản lý và theo dõi bài tập thực hành theo tiến độ 15 tuần học.
+              Danh sách bài tập theo từng tuần và kết quả xếp hạng của lớp.
             </p>
           </div>
 
           <div className="space-y-4">
+            {unscheduledExercises.length > 0 && (
+              <WeekPanel
+                title="CHƯA XẾP TUẦN"
+                subtitle={`${unscheduledExercises.length} bài tập cần xếp lịch`}
+                exercises={unscheduledExercises}
+                expandedEx={expandedEx}
+                submissionsByEx={submissionsByEx}
+                loadingSubmissions={loadingSubmissions}
+                onToggleVisibility={handleToggleVisibility}
+                onToggleSubmissions={toggleSubmissionsList}
+              />
+            )}
+
             {[...Array(TOTAL_WEEKS)].map((_, i) => {
               const weekNum = i + 1
               const weekExercises = exercisesByWeek[weekNum] || []
 
               return (
-                <div key={weekNum} className="card overflow-hidden bg-white border border-slate-100 shadow-sm rounded-xl hover:shadow-md transition-shadow">
-                  {/* Week divider line */}
-                  <div className="flex items-center justify-between bg-slate-50/70 border-b border-slate-100 px-5 py-3.5 border-l-4 border-teal-600">
-                    <h3 className="font-bold text-sm text-slate-800 tracking-wide">
-                      TUẦN {weekNum}
-                    </h3>
-                    <span className="text-[11px] font-semibold text-slate-400">
-                      {weekExercises.length} bài tập được gán
-                    </span>
-                  </div>
-
-                  <div className="p-4 space-y-3">
-                    {weekExercises.length === 0 ? (
-                      <p className="text-xs text-slate-400 text-center py-4 italic font-medium">
-                        Không có bài tập nào được phân lịch trong tuần này.
-                      </p>
-                    ) : (
-                      weekExercises.map((ex) => {
-                        const isExpanded = !!expandedEx[ex.exerciseId]
-                        const list = submissionsByEx[ex.exerciseId] || []
-                        const isLoadingList = !!loadingSubmissions[ex.exerciseId]
-
-                        return (
-                          <div key={ex.assignmentId} className="border border-slate-100 rounded-lg p-3.5 space-y-3 bg-white">
-                            
-                            {/* Exercise Meta row */}
-                            <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-slate-800 text-sm">{ex.title}</span>
-                                {ex.isAssessment ? (
-                                  <span className="badge-yellow">Kiểm tra</span>
-                                ) : (
-                                  <span className="badge-gray">Luyện tập</span>
-                                )}
-                              </div>
-                              
-                              <div className="flex items-center gap-3">
-                                {/* Visibility checkbox */}
-                                <label className="flex items-center gap-1.5 cursor-pointer font-bold text-slate-600 hover:text-slate-900 transition-colors">
-                                  <input
-                                    type="checkbox"
-                                    checked={ex.isVisible}
-                                    onChange={() => handleToggleVisibility(ex.exerciseId, ex.isVisible)}
-                                    className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
-                                    aria-label={`Hiển thị bài ${ex.title}`}
-                                  />
-                                  <span>Hiện bài</span>
-                                </label>
-
-                                {/* Dropdown Submissions Count */}
-                                <button
-                                  onClick={() => toggleSubmissionsList(ex.exerciseId)}
-                                  className="flex items-center gap-1 bg-teal-50 hover:bg-teal-100/60 text-teal-700 font-bold px-2.5 py-1 rounded transition-colors text-[11px]"
-                                >
-                                  Bài nộp
-                                  <span className="bg-teal-600 text-white px-1.5 py-0.2 rounded-full text-[9px]">
-                                    {isLoadingList ? '...' : (list.length || 0)}
-                                  </span>
-                                  <span>{isExpanded ? '▲' : '▼'}</span>
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* Expanded submissions list */}
-                            {isExpanded && (
-                              <div className="border-t border-slate-100 pt-3 mt-2 space-y-2">
-                                <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
-                                  Danh sách bài nộp của sinh viên
-                                </h4>
-                                
-                                {isLoadingList ? (
-                                  <div className="flex items-center gap-2 py-3 justify-center text-xs text-slate-400">
-                                    <Spinner /> Đang tải bài nộp...
-                                  </div>
-                                ) : list.length === 0 ? (
-                                  <p className="text-xs text-slate-400 py-2 italic text-center font-medium">Chưa có lượt nộp bài nào.</p>
-                                ) : (
-                                  <div className="max-h-60 overflow-y-auto border border-slate-100 rounded-lg text-xs">
-                                    <table className="min-w-full divide-y divide-slate-100 text-left">
-                                      <thead className="bg-slate-50 text-slate-500 font-bold">
-                                        <tr>
-                                          <th className="px-3 py-2 w-12 text-center">#</th>
-                                          <th className="px-3 py-2">Mã SV</th>
-                                          <th className="px-3 py-2">Họ tên</th>
-                                          <th className="px-3 py-2">Thời gian</th>
-                                          <th className="px-3 py-2 text-right">Điểm</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody className="divide-y divide-slate-50 text-slate-700">
-                                        {list.map((sub, idx) => (
-                                          <tr key={sub.id} className="hover:bg-slate-50 transition-colors">
-                                            <td className="px-3 py-2 text-center text-slate-400 font-bold">{idx + 1}</td>
-                                            <td className="px-3 py-2 font-semibold">
-                                              <Link
-                                                to={`/instructor/submissions`}
-                                                className="text-teal-600 hover:underline"
-                                              >
-                                                {sub.studentUsername}
-                                              </Link>
-                                            </td>
-                                            <td className="px-3 py-2 font-medium">{sub.studentName}</td>
-                                            <td className="px-3 py-2 text-slate-500 font-medium">
-                                              {new Date(sub.submittedAt).toLocaleString('vi-VN')}
-                                            </td>
-                                            <td className="px-3 py-2 text-right font-bold text-teal-600">
-                                              {sub.score != null ? sub.score.toFixed(1) : '—'}
-                                            </td>
-                                          </tr>
-                                        ))}
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                          </div>
-                        )
-                      })
-                    )}
-                  </div>
-                </div>
+                <WeekPanel
+                  key={weekNum}
+                  title={`TUẦN ${weekNum}`}
+                  subtitle={`${weekExercises.length} bài tập được gán`}
+                  exercises={weekExercises}
+                  expandedEx={expandedEx}
+                  submissionsByEx={submissionsByEx}
+                  loadingSubmissions={loadingSubmissions}
+                  onToggleVisibility={handleToggleVisibility}
+                  onToggleSubmissions={toggleSubmissionsList}
+                />
               )
             })}
           </div>
@@ -375,45 +280,27 @@ export function InstructorCourseDetailPage() {
         {/* Right Column: Sidebar (25% width) */}
         <div className="space-y-6 lg:w-1/4 lg:sticky lg:top-4">
           
-          {/* Action Card */}
-          <div className="card p-5 bg-white border border-slate-100 shadow-sm space-y-4">
-            <h3 className="font-bold text-sm text-slate-800 uppercase tracking-wide border-b border-slate-100 pb-2">
-              Thao tác
-            </h3>
-            
-            <Link
-              to={`/instructor/classes/${section.id}/schedule`}
-              className="btn-primary flex w-full items-center justify-center gap-1.5 text-xs font-bold py-2.5 rounded active:scale-95 transition-all text-center"
-            >
-              {/* Calendar Icon */}
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              CHỌN BÀI TẬP (Schedule)
-            </Link>
-
-            <Link
-              to={`/instructor/classes/${section.id}`}
-              className="btn-secondary flex w-full items-center justify-center gap-1.5 text-xs font-bold py-2.5 rounded active:scale-95 transition-all text-center"
-            >
-              {/* Users Icon */}
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-              </svg>
-              Quản lý danh sách lớp
-            </Link>
-          </div>
-
           {/* Mini-leaderboard Widget */}
           <div className="card p-0 bg-white border border-slate-100 shadow-sm overflow-hidden">
             <div className="panel-header py-3 px-4">
               <h3 className="panel-title">
-                <span>🏆</span>
                 Bảng Xếp Hạng
               </h3>
             </div>
             
-            <div className="p-4">
+            <div className="space-y-3 p-4">
+              <Link
+                to={`/instructor/classes/${section.id}/schedule`}
+                className="btn-primary flex w-full items-center justify-center gap-1.5 text-xs font-bold py-2.5 text-center"
+              >
+                Chọn bài tập
+              </Link>
+              <Link
+                to={`/instructor/classes/${section.id}/students`}
+                className="btn-secondary flex w-full items-center justify-center gap-1.5 text-xs font-bold py-2.5 text-center"
+              >
+                Danh sách sinh viên
+              </Link>
               {loadingLeaderboard ? (
                 <div className="flex items-center gap-2 py-4 justify-center text-xs text-slate-400">
                   <Spinner /> Đang tải xếp hạng...
@@ -444,6 +331,139 @@ export function InstructorCourseDetailPage() {
 
       </div>
 
+    </div>
+  )
+}
+
+interface WeekPanelProps {
+  title: string
+  subtitle: string
+  exercises: SectionExercise[]
+  expandedEx: Record<string, boolean>
+  submissionsByEx: Record<string, SubmissionRecord[]>
+  loadingSubmissions: Record<string, boolean>
+  onToggleVisibility: (exerciseId: string, currentVisible: boolean) => void
+  onToggleSubmissions: (exerciseId: string) => void
+}
+
+function WeekPanel({
+  title,
+  subtitle,
+  exercises,
+  expandedEx,
+  submissionsByEx,
+  loadingSubmissions,
+  onToggleVisibility,
+  onToggleSubmissions,
+}: WeekPanelProps) {
+  return (
+    <div className="card overflow-hidden bg-white border border-slate-100 shadow-sm rounded-xl hover:shadow-md transition-shadow">
+      <div className="flex items-center justify-between bg-slate-50/70 border-b border-slate-100 px-5 py-3.5 border-l-4 border-teal-600">
+        <h3 className="font-bold text-sm text-slate-800 tracking-wide">{title}</h3>
+        <span className="text-[11px] font-semibold text-slate-400">{subtitle}</span>
+      </div>
+
+      <div className="p-4 space-y-3">
+        {exercises.length === 0 ? (
+          <p className="text-xs text-slate-400 text-center py-4 italic font-medium">
+            Không có bài tập nào được phân lịch trong tuần này.
+          </p>
+        ) : (
+          exercises.map((ex) => {
+            const isExpanded = !!expandedEx[ex.exerciseId]
+            const list = submissionsByEx[ex.exerciseId] || []
+            const isLoadingList = !!loadingSubmissions[ex.exerciseId]
+
+            return (
+              <div key={ex.assignmentId} className="border border-slate-100 rounded-lg p-3.5 space-y-3 bg-white">
+                <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-800 text-sm">{ex.title}</span>
+                    {ex.isAssessment ? (
+                      <span className="badge-yellow">Kiểm tra</span>
+                    ) : (
+                      <span className="badge-gray">Luyện tập</span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-1.5 cursor-pointer font-bold text-slate-600 hover:text-slate-900 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={ex.isVisible}
+                        onChange={() => onToggleVisibility(ex.exerciseId, ex.isVisible)}
+                        className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                        aria-label={`Hiển thị bài ${ex.title}`}
+                      />
+                      <span>Hiện bài</span>
+                    </label>
+
+                    <button
+                      onClick={() => onToggleSubmissions(ex.exerciseId)}
+                      className="flex items-center gap-1 bg-teal-50 hover:bg-teal-100/60 text-teal-700 font-bold px-2.5 py-1 rounded transition-colors text-[11px]"
+                    >
+                      Bài nộp
+                      <span className="bg-teal-600 text-white px-1.5 rounded-full text-[9px]">
+                        {isLoadingList ? '...' : (list.length || 0)}
+                      </span>
+                      <span>{isExpanded ? '▲' : '▼'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {isExpanded && (
+                  <div className="border-t border-slate-100 pt-3 mt-2 space-y-2">
+                    <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
+                      Danh sách bài nộp của sinh viên
+                    </h4>
+
+                    {isLoadingList ? (
+                      <div className="flex items-center gap-2 py-3 justify-center text-xs text-slate-400">
+                        <Spinner /> Đang tải bài nộp...
+                      </div>
+                    ) : list.length === 0 ? (
+                      <p className="text-xs text-slate-400 py-2 italic text-center font-medium">Chưa có lượt nộp bài nào.</p>
+                    ) : (
+                      <div className="max-h-60 overflow-y-auto border border-slate-100 rounded-lg text-xs">
+                        <table className="min-w-full divide-y divide-slate-100 text-left">
+                          <thead className="bg-slate-50 text-slate-500 font-bold">
+                            <tr>
+                              <th className="px-3 py-2 w-12 text-center">#</th>
+                              <th className="px-3 py-2">Mã SV</th>
+                              <th className="px-3 py-2">Họ tên</th>
+                              <th className="px-3 py-2">Thời gian</th>
+                              <th className="px-3 py-2 text-right">Điểm</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-50 text-slate-700">
+                            {list.map((sub, idx) => (
+                              <tr key={sub.id} className="hover:bg-slate-50 transition-colors">
+                                <td className="px-3 py-2 text-center text-slate-400 font-bold">{idx + 1}</td>
+                                <td className="px-3 py-2 font-semibold">
+                                  <Link to="/instructor/submissions" className="text-teal-600 hover:underline">
+                                    {sub.studentUsername}
+                                  </Link>
+                                </td>
+                                <td className="px-3 py-2 font-medium">{sub.studentName}</td>
+                                <td className="px-3 py-2 text-slate-500 font-medium">
+                                  {new Date(sub.submittedAt).toLocaleString('vi-VN')}
+                                </td>
+                                <td className="px-3 py-2 text-right font-bold text-teal-600">
+                                  {sub.score != null ? sub.score.toFixed(1) : '—'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })
+        )}
+      </div>
     </div>
   )
 }

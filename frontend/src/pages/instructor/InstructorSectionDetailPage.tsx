@@ -329,7 +329,7 @@ export function InstructorSectionDetailPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link
-            to={`/instructor/course/${section.id}`}
+            to={`/instructor/classes/${section.id}`}
             className="btn-primary btn-sm inline-flex items-center gap-1.5"
           >
             {/* Book Icon */}

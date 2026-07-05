@@ -31,10 +31,10 @@ const menusByRole: Record<UserRole, MenuItem[]> = {
     { label: 'Bảng xếp hạng', path: '/student/leaderboard', icon: LeaderboardIcon },
   ],
   instructor: [
+    { label: 'Trang chủ', path: '/instructor/classes', icon: SectionIcon },
     { label: 'Bài Nộp', path: '/instructor/submissions', icon: SubmissionIcon },
     { label: 'Xếp Hạng', path: '/instructor/leaderboard', icon: LeaderboardIcon },
     { label: 'Thống Kê', path: '/instructor/statistic', icon: ProgressIcon },
-    { label: 'Quản Lý Lớp Học', path: '/instructor/classes', icon: SectionIcon },
     { label: 'Kiểm tra mã nguồn', path: '/instructor/plagiarism', icon: ConfigIcon },
   ],
   admin: [

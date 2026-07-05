@@ -46,7 +46,7 @@ interface ScheduleData {
   pool: PoolExercise[]
 }
 
-const TOTAL_WEEKS = 15
+const DEFAULT_TOTAL_WEEKS = 15
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -98,6 +98,7 @@ export function SectionSchedulePage() {
   const [deadlineInputs, setDeadlineInputs] = useState<Record<number, string>>({})
   const [savingWeek, setSavingWeek] = useState<number | null>(null)
   const [dropWeek, setDropWeek] = useState<number | 'pool' | null>(null)
+  const [visibleWeekCount, setVisibleWeekCount] = useState(DEFAULT_TOTAL_WEEKS)
 
   const fetchSchedule = useCallback(async () => {
     if (!id) return
@@ -109,6 +110,9 @@ export function SectionSchedulePage() {
         inputs[w.week] = isoToLocalInput(w.deadline)
       }
       setDeadlineInputs(inputs)
+      const highestBackendWeek = Math.max(0, ...response.data.weeks.map((w) => w.week))
+      const savedWeekCount = Number(localStorage.getItem(getWeekCountKey(response.data.section.id)))
+      setVisibleWeekCount(Math.max(DEFAULT_TOTAL_WEEKS, highestBackendWeek, Number.isFinite(savedWeekCount) ? savedWeekCount : 0))
     } catch {
       toast.error('Không thể tải lịch phân bài. Vui lòng thử lại.')
     } finally {
@@ -170,6 +174,27 @@ export function SectionSchedulePage() {
     }
   }
 
+  function addWeek() {
+    if (!data) return
+    const nextCount = visibleWeekCount + 1
+    setVisibleWeekCount(nextCount)
+    localStorage.setItem(getWeekCountKey(data.section.id), String(nextCount))
+    toast.success(`Đã thêm tuần ${nextCount}.`)
+  }
+
+  function removeWeek(week: number) {
+    if (!data || week <= DEFAULT_TOTAL_WEEKS) return
+    const weekHasExercises = data.weeks.some((w) => w.week === week && w.exercises.length > 0)
+    if (weekHasExercises) {
+      toast.error('Không thể xóa tuần đang có bài tập. Hãy kéo bài về kho hoặc sang tuần khác trước.')
+      return
+    }
+    const nextCount = Math.max(DEFAULT_TOTAL_WEEKS, visibleWeekCount - 1)
+    setVisibleWeekCount(nextCount)
+    localStorage.setItem(getWeekCountKey(data.section.id), String(nextCount))
+    toast.success(`Đã xóa tuần ${week}.`)
+  }
+
   // ─── Drag & drop handlers ──────────────────────────────────────────────
 
   function handleDragStart(e: React.DragEvent, exerciseId: string) {
@@ -221,10 +246,10 @@ export function SectionSchedulePage() {
 
   const { section, weeks, unscheduled, pool } = data
 
-  // Ensure all 15 weeks are present even if backend omits empty ones.
+  // Ensure configured weeks are present even if backend omits empty ones.
   const weekMap = new Map<number, ScheduleWeek>()
   for (const w of weeks) weekMap.set(w.week, w)
-  const allWeeks: ScheduleWeek[] = Array.from({ length: TOTAL_WEEKS }, (_, i) => {
+  const allWeeks: ScheduleWeek[] = Array.from({ length: visibleWeekCount }, (_, i) => {
     const n = i + 1
     return weekMap.get(n) ?? { week: n, deadline: null, exercises: [] }
   })
@@ -255,14 +280,22 @@ export function SectionSchedulePage() {
         </div>
       </div>
 
-      <p className="text-sm text-gray-500">
-        Kéo thẻ bài tập từ kho bên phải thả vào tuần để xếp lịch. Kéo ngược lại kho (hoặc bấm "Gỡ") để bỏ khỏi lịch.
-      </p>
-
       {/* Split layout */}
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         {/* LEFT: weeks */}
         <div className="space-y-4 lg:w-3/5 lg:max-h-[calc(100vh-12rem)] lg:overflow-y-auto lg:pr-2">
+          <div className="card flex flex-wrap items-center justify-between gap-3 p-4">
+            <div>
+              <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">Các tuần học</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Kéo bài tập từ kho bên phải thả vào tuần. Kéo ngược lại kho hoặc bấm gỡ để bỏ khỏi lịch.
+              </p>
+            </div>
+            <button onClick={addWeek} className="btn-primary btn-sm">
+              Thêm tuần
+            </button>
+          </div>
+
           {/* Unscheduled panel */}
           {unscheduled.length > 0 && (
             <div className="card border-amber-200 bg-amber-50/40 p-0">
@@ -335,6 +368,14 @@ export function SectionSchedulePage() {
                     >
                       {savingWeek === w.week ? 'Đang lưu...' : 'Lưu'}
                     </button>
+                    {w.week > DEFAULT_TOTAL_WEEKS && (
+                      <button
+                        onClick={() => removeWeek(w.week)}
+                        className="btn-danger btn-sm"
+                      >
+                        Xóa tuần
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -428,4 +469,8 @@ export function SectionSchedulePage() {
       </div>
     </div>
   )
+}
+
+function getWeekCountKey(sectionId: string) {
+  return `oop-section-week-count:${sectionId}`
 }

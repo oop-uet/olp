@@ -46,7 +46,7 @@ export function getRoleDashboardPath(role: UserRole): string {
     case 'student':
       return '/student/exercises'
     case 'instructor':
-      return '/instructor/exercises'
+      return '/instructor/classes'
     case 'admin':
       return '/admin/dashboard'
   }
