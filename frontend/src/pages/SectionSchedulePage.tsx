@@ -82,6 +82,24 @@ function localInputToIso(value: string): string | null {
   return date.toISOString()
 }
 
+function addDaysLocalInput(value: string, days: number): string {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  date.setDate(date.getDate() + days)
+  return isoToLocalInput(date.toISOString())
+}
+
+function fillCascadingDeadlineInputs(inputs: Record<number, string>, weekCount: number) {
+  const next = { ...inputs }
+  for (let week = 2; week <= weekCount; week += 1) {
+    if (!next[week] && next[week - 1]) {
+      next[week] = addDaysLocalInput(next[week - 1], 7)
+    }
+  }
+  return next
+}
+
 const DRAG_MIME = 'text/plain'
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -109,10 +127,11 @@ export function SectionSchedulePage() {
       for (const w of response.data.weeks) {
         inputs[w.week] = isoToLocalInput(w.deadline)
       }
-      setDeadlineInputs(inputs)
       const highestBackendWeek = Math.max(0, ...response.data.weeks.map((w) => w.week))
       const savedWeekCount = Number(localStorage.getItem(getWeekCountKey(response.data.section.id)))
-      setVisibleWeekCount(Math.max(DEFAULT_TOTAL_WEEKS, highestBackendWeek, Number.isFinite(savedWeekCount) ? savedWeekCount : 0))
+      const weekCount = Math.max(DEFAULT_TOTAL_WEEKS, highestBackendWeek, Number.isFinite(savedWeekCount) ? savedWeekCount : 0)
+      setDeadlineInputs(fillCascadingDeadlineInputs(inputs, weekCount))
+      setVisibleWeekCount(weekCount)
     } catch {
       toast.error('Không thể tải lịch phân bài. Vui lòng thử lại.')
     } finally {
@@ -178,6 +197,10 @@ export function SectionSchedulePage() {
     if (!data) return
     const nextCount = visibleWeekCount + 1
     setVisibleWeekCount(nextCount)
+    setDeadlineInputs((prev) => ({
+      ...prev,
+      [nextCount]: prev[nextCount] || addDaysLocalInput(prev[nextCount - 1] ?? '', 7),
+    }))
     localStorage.setItem(getWeekCountKey(data.section.id), String(nextCount))
     toast.success(`Đã thêm tuần ${nextCount}.`)
   }

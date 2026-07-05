@@ -125,9 +125,6 @@ export async function getSectionSchedule(
     .select()
     .from(sectionWeeks)
     .where(eq(sectionWeeks.sectionId, sectionId));
-  const deadlineByWeek = new Map<number, string | null>();
-  for (const w of weekRows as any[]) deadlineByWeek.set(w.week, w.deadline ?? null);
-
   const toScheduleExercise = (a: any): ScheduleExercise => ({
     assignmentId: a.assignmentId,
     exerciseId: a.exerciseId,
@@ -154,7 +151,7 @@ export async function getSectionSchedule(
   for (let i = 1; i <= maxConfiguredWeek; i++) {
     weeks.push({
       week: i,
-      deadline: deadlineByWeek.get(i) ?? null,
+      deadline: resolveDefaultDeadline(weekRows as any[], i),
       exercises: assignments
         .filter((a: any) => a.week === i)
         .map(toScheduleExercise),
@@ -217,11 +214,13 @@ export async function assignExerciseToWeek(
     return { error: { code: "NOT_FOUND", message: "Không tìm thấy bài tập." } };
   }
 
-  // Deadline to apply, taken from the week's configured deadline (if any).
-  const weekRow = await database.query.sectionWeeks.findFirst({
-    where: and(eq(sectionWeeks.sectionId, sectionId), eq(sectionWeeks.week, week)),
-  });
-  const weekDeadline = weekRow?.deadline ?? null;
+  // Deadline to apply, taken from the week's configured deadline or the
+  // nearest configured week plus seven days per week.
+  const weekRows = await database
+    .select()
+    .from(sectionWeeks)
+    .where(eq(sectionWeeks.sectionId, sectionId));
+  const weekDeadline = resolveDefaultDeadline(weekRows as any[], week);
 
   const existing = await database.query.exerciseAssignments.findFirst({
     where: and(
@@ -363,4 +362,37 @@ export async function toggleExerciseVisibility(
 
 function isValidScheduleWeek(week: number): boolean {
   return Number.isInteger(week) && week >= 1 && week <= MAX_SCHEDULE_WEEK;
+}
+
+function resolveDefaultDeadline(
+  weekRows: Array<{ week: number; deadline?: string | null }>,
+  targetWeek: number
+): string | null {
+  const explicit = weekRows.find((row) => row.week === targetWeek && row.deadline);
+  if (explicit?.deadline) return explicit.deadline;
+
+  const previous = weekRows
+    .filter((row) => row.deadline && row.week < targetWeek)
+    .sort((a, b) => b.week - a.week)[0];
+
+  if (previous?.deadline) {
+    return addDaysIso(previous.deadline, (targetWeek - previous.week) * 7);
+  }
+
+  const next = weekRows
+    .filter((row) => row.deadline && row.week > targetWeek)
+    .sort((a, b) => a.week - b.week)[0];
+
+  if (next?.deadline) {
+    return addDaysIso(next.deadline, (targetWeek - next.week) * 7);
+  }
+
+  return null;
+}
+
+function addDaysIso(iso: string, days: number): string | null {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  date.setDate(date.getDate() + days);
+  return date.toISOString();
 }
