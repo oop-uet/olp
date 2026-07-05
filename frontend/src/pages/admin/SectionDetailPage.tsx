@@ -11,6 +11,7 @@ interface SectionInstructor {
   username: string
   fullName: string
   email: string
+  isPrimary?: boolean
 }
 
 interface SectionInfo {
@@ -18,6 +19,7 @@ interface SectionInfo {
   name: string
   semester: string
   instructor: SectionInstructor | null
+  instructors?: SectionInstructor[]
   createdAt: string
 }
 
@@ -329,7 +331,23 @@ export function SectionDetailPage() {
             </div>
             <p className="text-sm text-gray-500">
               Giảng viên:{' '}
-              {section.instructor ? (
+              {section.instructors && section.instructors.length > 0 ? (
+                <span className="inline-flex flex-wrap gap-1.5 align-middle">
+                  {section.instructors.map((instructor) => (
+                    <span
+                      key={instructor.id}
+                      className="inline-flex items-center gap-1 rounded-full border border-primary-100 bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-800"
+                    >
+                      {instructor.fullName || instructor.username}
+                      {instructor.isPrimary && (
+                        <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
+                          Chính
+                        </span>
+                      )}
+                    </span>
+                  ))}
+                </span>
+              ) : section.instructor ? (
                 <span className="font-medium text-gray-700">
                   {section.instructor.fullName || section.instructor.username}
                 </span>
