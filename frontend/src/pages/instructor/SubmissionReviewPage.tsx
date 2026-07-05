@@ -435,6 +435,7 @@ export function SubmissionReviewPage() {
     const studentName = selectedSubmission.student?.fullName || selectedSubmission.student?.username || 'Sinh viên'
     const studentUsername = selectedSubmission.student?.username || ''
     const studentEmail = selectedSubmission.student?.email || ''
+    const passedCount = results.filter((tc) => isPassed(tc.passed)).length
 
     const submittedFiles = parseSubmittedFiles(selectedSubmission.code)
     const currentSubmittedFile =
@@ -612,13 +613,33 @@ export function SubmissionReviewPage() {
           </aside>
 
           {/* Right Main Column (Code Editor & Test Case Viewer Tabs) */}
-          <main className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm flex flex-col h-[650px]">
+          <main className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col h-[680px]">
+            <div className="bg-gradient-to-r from-teal-600 to-cyan-500 px-5 py-3 text-white">
+              <h3 className="text-sm font-bold uppercase tracking-wide">Kết Quả Đánh Giá</h3>
+            </div>
+            
+            {/* Checkboxes Row */}
+            <div className="border-b border-slate-100 bg-slate-50/50 px-5 py-3 flex flex-wrap gap-4 text-xs font-semibold text-slate-500">
+              <label className="flex items-center gap-1.5 cursor-not-allowed">
+                <input type="checkbox" checked={selectedSubmission.score === 0 && results.some(r => r.status === 'error')} disabled className="rounded text-primary focus:ring-primary h-3.5 w-3.5" />
+                <span>Lỗi cấu trúc mã nguồn (SE)</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-not-allowed">
+                <input type="checkbox" checked={false} disabled className="rounded text-primary focus:ring-primary h-3.5 w-3.5" />
+                <span>Lỗi quy tắc lập trình (PE)</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-not-allowed">
+                <input type="checkbox" checked={results.length > 0 && results.every(r => r.status === 'error')} disabled className="rounded text-primary focus:ring-primary h-3.5 w-3.5" />
+                <span>Lỗi biên dịch (CE)</span>
+              </label>
+            </div>
+
             <div className="border-b border-slate-200 bg-white">
-              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5">
                 <div className="flex flex-wrap gap-1">
                   {[
                     ['source', 'Mã nguồn'],
-                    ['results', `Yêu cầu chức năng (${earnedPoints}/${results.length})`],
+                    ['results', `Yêu cầu chức năng (${passedCount}/${results.length})`],
                   ].map(([tab, label]) => (
                     <button
                       key={tab}
