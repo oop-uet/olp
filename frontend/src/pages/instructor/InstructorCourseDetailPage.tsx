@@ -75,6 +75,7 @@ export function InstructorCourseDetailPage() {
   // Mini-leaderboard state
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false)
+  const [maxPossibleScore, setMaxPossibleScore] = useState<number>(0)
 
   useEffect(() => {
     if (id) {
@@ -110,6 +111,7 @@ export function InstructorCourseDetailPage() {
       const response = await api.get(`/api/sections/${id}/leaderboard`)
       const data: LeaderboardEntry[] = response.data.leaderboard ?? response.data ?? []
       setLeaderboard(data.slice(0, 10)) // top 10 only
+      setMaxPossibleScore(response.data.maxPossibleScore ?? 0)
     } catch {
       // Ignore leaderboard failures on this screen
     } finally {
@@ -230,85 +232,75 @@ export function InstructorCourseDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
-      
+    <div className="space-y-6 animate-fade-in">
+      {/* Breadcrumbs are global, we just render clean columns layout */}
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         
         {/* Left Column: Weekly list (75% width) */}
-        <div className="space-y-6 lg:w-3/4">
-          
-          <div className="bg-white border border-slate-100 rounded-xl p-5 shadow-sm">
-            <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <svg className="h-5 w-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
-              {section.name}
-            </h1>
-            <p className="text-xs text-slate-400 font-semibold mt-1">
-              Danh sách bài tập theo từng tuần và kết quả xếp hạng của lớp.
-            </p>
-          </div>
+        <div className="space-y-5 lg:w-3/4">
+          {unscheduledExercises.length > 0 && (
+            <WeekPanel
+              title="CHƯA XẾP TUẦN"
+              subtitle={`${unscheduledExercises.length} bài tập cần xếp lịch`}
+              exercises={unscheduledExercises}
+              expandedEx={expandedEx}
+              submissionsByEx={submissionsByEx}
+              loadingSubmissions={loadingSubmissions}
+              onUpdateSettings={handleUpdateAssignmentSettings}
+              onToggleSubmissions={toggleSubmissionsList}
+            />
+          )}
 
-          <div className="space-y-4">
-            {unscheduledExercises.length > 0 && (
+          {[...Array(TOTAL_WEEKS)].map((_, i) => {
+            const weekNum = i + 1
+            const weekExercises = exercisesByWeek[weekNum] || []
+
+            return (
               <WeekPanel
-                title="CHƯA XẾP TUẦN"
-                subtitle={`${unscheduledExercises.length} bài tập cần xếp lịch`}
-                exercises={unscheduledExercises}
+                key={weekNum}
+                title={`TUẦN ${weekNum}`}
+                subtitle=""
+                exercises={weekExercises}
                 expandedEx={expandedEx}
                 submissionsByEx={submissionsByEx}
                 loadingSubmissions={loadingSubmissions}
                 onUpdateSettings={handleUpdateAssignmentSettings}
                 onToggleSubmissions={toggleSubmissionsList}
               />
-            )}
-
-            {[...Array(TOTAL_WEEKS)].map((_, i) => {
-              const weekNum = i + 1
-              const weekExercises = exercisesByWeek[weekNum] || []
-
-              return (
-                <WeekPanel
-                  key={weekNum}
-                  title={`TUẦN ${weekNum}`}
-                  subtitle={`${weekExercises.length} bài tập được gán`}
-                  exercises={weekExercises}
-                  expandedEx={expandedEx}
-                  submissionsByEx={submissionsByEx}
-                  loadingSubmissions={loadingSubmissions}
-                  onUpdateSettings={handleUpdateAssignmentSettings}
-                  onToggleSubmissions={toggleSubmissionsList}
-                />
-              )
-            })}
-          </div>
-
+            )
+          })}
         </div>
 
         {/* Right Column: Sidebar (25% width) */}
-        <div className="space-y-6 lg:w-1/4 lg:sticky lg:top-4">
+        <div className="space-y-5 lg:w-1/4 lg:sticky lg:top-4">
           
+          {/* Action buttons */}
+          <div className="space-y-3">
+            <Link
+              to={`/instructor/classes/${section.id}/schedule`}
+              className="bg-[#22a6b3] text-white hover:bg-[#1b8a94] flex w-full items-center justify-center gap-1.5 text-sm font-black py-2 rounded-lg text-center uppercase tracking-wide shadow-sm transition-colors cursor-pointer"
+            >
+              Chọn bài tập
+            </Link>
+            <Link
+              to={`/instructor/classes/${section.id}/students`}
+              className="border border-[#22a6b3] text-[#22a6b3] hover:bg-slate-50 flex w-full items-center justify-center gap-1.5 text-sm font-black py-2 rounded-lg text-center uppercase tracking-wide bg-white shadow-sm transition-colors cursor-pointer"
+            >
+              Danh sách sinh viên
+            </Link>
+          </div>
+
           {/* Mini-leaderboard Widget */}
-          <div className="card p-0 bg-white border border-slate-100 shadow-sm overflow-hidden">
-            <div className="panel-header py-3 px-4">
-              <h3 className="panel-title">
-                Bảng Xếp Hạng
-              </h3>
+          <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+            <div className="bg-[#00adb5] text-white px-4 py-2.5 flex items-center gap-2 rounded-t-lg font-bold text-xs uppercase tracking-wide select-none">
+              <span>☰</span> Bảng Xếp Hạng
             </div>
             
-            <div className="space-y-3 p-4">
-              <Link
-                to={`/instructor/classes/${section.id}/schedule`}
-                className="btn-primary flex w-full items-center justify-center gap-1.5 text-xs font-bold py-2.5 text-center"
-              >
-                Chọn bài tập
-              </Link>
-              <Link
-                to={`/instructor/classes/${section.id}/students`}
-                className="btn-secondary flex w-full items-center justify-center gap-1.5 text-xs font-bold py-2.5 text-center"
-              >
-                Danh sách sinh viên
-              </Link>
+            <div className="p-4">
+              <div className="bg-[#0284c7] text-white px-3 py-1.5 rounded text-xs font-bold text-center uppercase mb-3 shadow-sm select-none">
+                {section.name}
+              </div>
+
               {loadingLeaderboard ? (
                 <div className="flex items-center gap-2 py-4 justify-center text-xs text-slate-400">
                   <Spinner /> Đang tải xếp hạng...
@@ -318,16 +310,22 @@ export function InstructorCourseDetailPage() {
               ) : (
                 <ul className="divide-y divide-slate-100 text-xs">
                   {leaderboard.map((item, idx) => (
-                    <li key={item.studentId} className="flex items-center justify-between py-2 text-slate-700">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-400 w-4 text-center">
-                          {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                    <li key={item.studentId} className="flex items-center justify-between py-2 text-xs border-b border-slate-100 last:border-b-0">
+                      <div className="flex items-center gap-3">
+                        <span className="font-bold text-slate-800 w-4 text-center">
+                          {idx + 1}
                         </span>
-                        <span className="font-medium truncate max-w-28" title={item.studentName}>
+                        <Link
+                          to={`/instructor/classes/${section.id}/students/${item.studentId}/profile`}
+                          className="text-sky-600 font-semibold hover:underline truncate max-w-[130px]"
+                          title={item.studentName}
+                        >
                           {item.studentName}
-                        </span>
+                        </Link>
                       </div>
-                      <span className="font-bold text-primary">{item.totalScore.toFixed(1)}</span>
+                      <span className="font-bold text-sky-600">
+                        {item.totalScore.toFixed(0)}/{maxPossibleScore || 2201}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -341,6 +339,20 @@ export function InstructorCourseDetailPage() {
 
     </div>
   )
+}
+
+function getWeekDeadline(exercises: SectionExercise[]): string {
+  const activeWithDeadline = exercises.find((ex) => ex.deadline)
+  if (!activeWithDeadline || !activeWithDeadline.deadline) return ''
+  try {
+    const d = new Date(activeWithDeadline.deadline)
+    const day = String(d.getDate()).padStart(2, '0')
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const year = d.getFullYear()
+    return `Hạn nộp: ${day}/${month}/${year}`
+  } catch {
+    return ''
+  }
 }
 
 interface WeekPanelProps {
@@ -367,16 +379,25 @@ function WeekPanel({
   onUpdateSettings,
   onToggleSubmissions,
 }: WeekPanelProps) {
+  const deadlineText = getWeekDeadline(exercises) || subtitle
+
   return (
-    <div className="card overflow-hidden bg-white border border-slate-100 shadow-sm rounded-xl hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between bg-slate-50/70 border-b border-slate-100 px-5 py-3.5 border-l-4 border-primary">
-        <h3 className="font-bold text-sm text-slate-800 tracking-wide">{title}</h3>
-        <span className="text-[11px] font-semibold text-slate-400">{subtitle}</span>
+    <div className="space-y-2">
+      {/* Week Header Strip */}
+      <div className="flex items-center justify-between bg-slate-100 border border-slate-200/80 px-4 py-2.5 rounded-lg text-slate-800 font-bold text-xs uppercase select-none tracking-wide">
+        <div className="flex items-center gap-1.5">
+          <span>{title}</span>
+          {deadlineText && <span className="text-[11px] font-bold text-slate-500 normal-case ml-1.5">({deadlineText})</span>}
+        </div>
+        <span className="text-[10px] font-semibold text-slate-400 lowercase">
+          {exercises.length} bài tập được gán
+        </span>
       </div>
 
-      <div className="p-4 space-y-3">
+      {/* Exercises Stack */}
+      <div className="space-y-2 pl-1.5">
         {exercises.length === 0 ? (
-          <p className="text-xs text-slate-400 text-center py-4 italic font-medium">
+          <p className="text-xs text-slate-400 py-3 italic pl-3">
             Không có bài tập nào được phân lịch trong tuần này.
           </p>
         ) : (
@@ -386,69 +407,87 @@ function WeekPanel({
             const isLoadingList = !!loadingSubmissions[ex.exerciseId]
 
             return (
-              <div key={ex.assignmentId} className="border border-slate-100 rounded-lg p-3.5 space-y-3 bg-white">
+              <div
+                key={ex.assignmentId}
+                className="flex flex-col border border-slate-200/85 rounded-lg p-2.5 bg-[#f8f9fa] hover:bg-[#f1f3f5] transition-colors duration-150 shadow-sm"
+              >
                 <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-slate-800 text-sm">{ex.title}</span>
-                    {ex.isAssessment ? (
-                      <span className="badge-yellow">Kiểm tra</span>
-                    ) : (
-                      <span className="badge-gray">Luyện tập</span>
+                    {ex.isAssessment && (
+                      <span className="badge-yellow text-[9px] px-1 py-0.5 font-bold uppercase">Kiểm tra</span>
                     )}
                   </div>
 
-                  <div className="flex flex-wrap items-center justify-end gap-3">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
-                      <span>Lượt nộp tối đa:</span>
+                  <div className="flex flex-wrap items-center gap-3">
+                    {/* Max Submissions Selector Dropdown */}
+                    <div className="flex items-center">
                       <select
                         value={ex.maxSubmissions ?? 10}
                         onChange={(e) => onUpdateSettings(ex.exerciseId, { maxSubmissions: Number(e.target.value) })}
-                        className="h-8 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 shadow-sm outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/20 cursor-pointer"
+                        className="h-7 rounded border border-slate-300 bg-white px-2 py-0 text-xs font-bold text-slate-700 outline-none focus:border-sky-500 cursor-pointer shadow-sm"
                       >
                         {SUBMISSION_LIMIT_OPTIONS.map((limit) => (
                           <option key={limit} value={limit}>
-                            {limit === 0 ? '0 (Khóa)' : `${limit} lần`}
+                            {limit}
                           </option>
                         ))}
                       </select>
                     </div>
 
-                    <label className="inline-flex h-8 items-center gap-2 cursor-pointer rounded-lg border border-slate-200 bg-slate-50 px-3 text-[11px] font-bold text-slate-700 hover:bg-slate-100 transition-colors select-none">
-                      <input
-                        type="checkbox"
-                        checked={ex.allowSubmission}
-                        onChange={() => onUpdateSettings(ex.exerciseId, { allowSubmission: !ex.allowSubmission })}
-                        className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500 cursor-pointer"
+                    {/* Allow submission sliding toggle */}
+                    <button
+                      type="button"
+                      onClick={() => onUpdateSettings(ex.exerciseId, { allowSubmission: !ex.allowSubmission })}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full items-center transition-colors duration-200 ease-in-out outline-none border border-slate-200 shadow-sm ${
+                        ex.allowSubmission ? 'bg-sky-500' : 'bg-slate-300'
+                      }`}
+                      title="Cho phép nộp bài"
+                    >
+                      <span
+                        className={`absolute text-[8px] font-black text-white select-none ${
+                          ex.allowSubmission ? 'left-1.5' : 'right-1.5'
+                        }`}
+                      >
+                        {ex.allowSubmission ? '✓' : '×'}
+                      </span>
+                      <span
+                        className={`pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          ex.allowSubmission ? 'translate-x-5.5' : 'translate-x-0.5'
+                        }`}
                       />
-                      Cho nộp
-                    </label>
+                    </button>
 
-                    <label className="inline-flex h-8 items-center gap-2 cursor-pointer rounded-lg border border-slate-200 bg-slate-50 px-3 text-[11px] font-bold text-slate-700 hover:bg-slate-100 transition-colors select-none">
-                      <input
-                        type="checkbox"
-                        checked={ex.isVisible}
-                        onChange={() => onUpdateSettings(ex.exerciseId, { isVisible: !ex.isVisible })}
-                        className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500 cursor-pointer"
-                      />
-                      Hiển thị
-                    </label>
+                    {/* Visibility checkmark box */}
+                    <button
+                      type="button"
+                      onClick={() => onUpdateSettings(ex.exerciseId, { isVisible: !ex.isVisible })}
+                      className={`h-6.5 w-6.5 rounded flex items-center justify-center font-bold text-xs transition-colors shadow-sm outline-none cursor-pointer border border-slate-200 ${
+                        ex.isVisible ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-slate-300 hover:bg-slate-400 text-slate-500'
+                      }`}
+                      title={ex.isVisible ? 'Hiển thị' : 'Đang ẩn'}
+                    >
+                      {ex.isVisible ? '✓' : '×'}
+                    </button>
 
+                    {/* Submissions list trigger */}
                     <button
                       type="button"
                       onClick={() => onToggleSubmissions(ex.exerciseId)}
-                      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-teal-100 bg-white px-3 text-[11px] font-bold text-teal-700 transition-colors hover:bg-teal-50"
+                      className={`h-7 rounded border px-2.5 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer outline-none border-slate-300 ${
+                        isExpanded
+                          ? 'bg-teal-50 text-teal-700 border-teal-200'
+                          : 'bg-white hover:bg-slate-50 text-slate-600'
+                      }`}
                     >
-                      Xem bài nộp
-                      <span className="rounded-full bg-teal-600 px-1.5 text-[9px] text-white">
-                        {isLoadingList ? '...' : (list.length || 0)}
-                      </span>
-                      <span>{isExpanded ? '▲' : '▼'}</span>
+                      Bài nộp ({isLoadingList ? '...' : (list.length || 0)})
+                      <span className="text-[9px]">{isExpanded ? '▲' : '▼'}</span>
                     </button>
                   </div>
                 </div>
 
                 {isExpanded && (
-                  <div className="border-t border-slate-100 pt-3 mt-2 space-y-2">
+                  <div className="border-t border-slate-200 pt-2.5 mt-2 space-y-2">
                     <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
                       Danh sách bài nộp của sinh viên
                     </h4>
