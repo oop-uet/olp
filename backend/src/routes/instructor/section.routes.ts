@@ -546,7 +546,7 @@ router.get("/:id/stats", async (req: Request, res: Response) => {
  * GET /api/instructor/sections/:id/students/:studentId/profile
  * Detailed student profile: summary, submission history and chart-ready data.
  */
-router.get("/:id/students/:studentId/profile", async (req: Request, res: Response) => {
+async function getStudentProfileHandler(req: Request, res: Response) {
   try {
     const { userId, role } = req.user!;
     const sectionId = req.params.id;
@@ -681,10 +681,15 @@ router.get("/:id/students/:studentId/profile", async (req: Request, res: Respons
       })),
       progress,
     });
-  } catch {
+  } catch (error) {
     res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } });
   }
-});
+}
+
+router.get("/:id/students/:studentId/profile", getStudentProfileHandler);
+
+export const sharedProfileRouter = Router();
+sharedProfileRouter.get("/:id/students/:studentId/profile", getStudentProfileHandler);
 
 // Week-based schedule endpoints (GET/POST/PUT under /:id/schedule)
 registerScheduleRoutes(router);

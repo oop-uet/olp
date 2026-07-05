@@ -97,7 +97,7 @@ export function InstructorStudentProfilePage() {
   async function fetchProfile(sectionId: string, studentUserId: string) {
     setLoading(true)
     try {
-      const response = await api.get(`/api/instructor/sections/${sectionId}/students/${studentUserId}/profile`)
+      const response = await api.get(`/api/sections/${sectionId}/students/${studentUserId}/profile`)
       setProfile(response.data)
     } catch {
       toast.error('Không thể tải hồ sơ sinh viên.')

@@ -11,7 +11,7 @@ import adminRoutes from './routes/admin.routes.js';
 import { exerciseTestCaseRouter, testCaseRouter } from './routes/instructor/testcase.routes.js';
 import exerciseRoutes from './routes/instructor/exercise.routes.js';
 import submissionRoutes from './routes/instructor/submission.routes.js';
-import instructorSectionRoutes from './routes/instructor/section.routes.js';
+import instructorSectionRoutes, { sharedProfileRouter } from './routes/instructor/section.routes.js';
 import studentSubmissionRoutes from './routes/student/submission.routes.js';
 import studentProgressRoutes from './routes/student/progress.routes.js';
 import studentAnticheatRoutes from './routes/student/anticheat.routes.js';
@@ -76,6 +76,9 @@ app.use('/api/anticheat', authMiddleware(), requireRole('student'), studentAntic
 
 // Leaderboard (instructors and students can access)
 app.use('/api/sections/:id/leaderboard', authMiddleware(), requireRole('instructor', 'student'), leaderboardRoutes);
+
+// Shared Student Profile (instructors and students can access)
+app.use('/api/sections', authMiddleware(), requireRole('instructor', 'student'), sharedProfileRouter);
 
 // Start server
 if (process.env.NODE_ENV !== 'test') {
