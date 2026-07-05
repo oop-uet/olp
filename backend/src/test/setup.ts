@@ -46,6 +46,15 @@ beforeAll(() => {
       created_at TEXT DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS section_instructors (
+      id TEXT PRIMARY KEY,
+      section_id TEXT NOT NULL REFERENCES class_sections(id),
+      instructor_id TEXT NOT NULL REFERENCES users(id),
+      is_primary INTEGER NOT NULL DEFAULT 0,
+      assigned_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(section_id, instructor_id)
+    );
+
     CREATE TABLE IF NOT EXISTS section_enrollments (
       id TEXT PRIMARY KEY,
       section_id TEXT NOT NULL REFERENCES class_sections(id),
@@ -159,6 +168,7 @@ afterEach(() => {
     DELETE FROM test_cases;
     DELETE FROM exercise_assignments;
     DELETE FROM exercises;
+    DELETE FROM section_instructors;
     DELETE FROM section_enrollments;
     DELETE FROM class_sections;
     DELETE FROM users;

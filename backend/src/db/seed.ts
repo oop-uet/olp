@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { db } from "./index.js";
-import { users, systemConfig, classSections, sectionEnrollments, exercises, exerciseAssignments } from "./schema.js";
+import { users, systemConfig, classSections, sectionInstructors, sectionEnrollments, exercises, exerciseAssignments } from "./schema.js";
 import bcrypt from "bcrypt";
 import crypto from "node:crypto";
 
@@ -89,6 +89,19 @@ async function seed() {
     .onConflictDoNothing();
 
   console.log("✅ Class section created: OOP Lớp INT2204 8");
+
+  await db
+    .insert(sectionInstructors)
+    .values({
+      id: crypto.randomUUID(),
+      sectionId,
+      instructorId,
+      isPrimary: 1,
+      assignedAt: now,
+    })
+    .onConflictDoNothing();
+
+  console.log("✅ Primary instructor assigned to class section");
 
   // Enroll Student
   await db

@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import bcrypt from "bcrypt";
 import { db } from "../../db/index.js";
 import { classSections, sectionEnrollments, users, exerciseAssignments, exercises, submissions } from "../../db/schema.js";
-import { getSectionDetail, unassignExercise, isSectionError } from "../../services/section.service.js";
+import { getSectionDetail, unassignExercise, isSectionError, listSectionsForInstructor, userCanAccessSection } from "../../services/section.service.js";
 import { getStudentProgress } from "../../services/submission.service.js";
 import { registerScheduleRoutes } from "../schedule.helper.js";
 import { importStudents, exportStudents, parseFile } from "../../services/import.service.js";
@@ -18,13 +18,7 @@ const router = Router();
 router.get("/", async (req: Request, res: Response) => {
   try {
     const { userId, role } = req.user!;
-    const sections =
-      role === "admin"
-        ? await db.query.classSections.findMany({ with: { instructor: true } })
-        : await db.query.classSections.findMany({
-            where: eq(classSections.instructorId, userId),
-            with: { instructor: true },
-          });
+    const sections = await listSectionsForInstructor(userId, role, db);
     res.status(200).json(sections);
   } catch {
     res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } });
@@ -44,7 +38,7 @@ router.get("/:id/detail", async (req: Request, res: Response) => {
       return;
     }
     // Ownership check (admins bypass)
-    if (role !== "admin" && result.section.instructorId !== userId) {
+    if (!(await userCanAccessSection(req.params.id, userId, role, db))) {
       res.status(403).json({
         error: { code: "FORBIDDEN", message: "Bạn không phụ trách lớp này." },
       });
@@ -68,7 +62,7 @@ router.delete("/:id/exercises/:exerciseId", async (req: Request, res: Response) 
       res.status(404).json({ error: detail.error });
       return;
     }
-    if (role !== "admin" && detail.section.instructorId !== userId) {
+    if (!(await userCanAccessSection(req.params.id, userId, role, db))) {
       res.status(403).json({ error: { code: "FORBIDDEN", message: "Bạn không phụ trách lớp này." } });
       return;
     }
@@ -97,7 +91,7 @@ router.delete("/:id/students/:studentId", async (req: Request, res: Response) =>
       res.status(404).json({ error: { code: "NOT_FOUND", message: "Không tìm thấy lớp." } });
       return;
     }
-    if (role !== "admin" && section.instructorId !== userId) {
+    if (!(await userCanAccessSection(req.params.id, userId, role, db))) {
       res.status(403).json({ error: { code: "FORBIDDEN", message: "Bạn không phụ trách lớp này." } });
       return;
     }
@@ -136,7 +130,7 @@ router.post("/:id/students", async (req: Request, res: Response) => {
       res.status(404).json({ error: { code: "NOT_FOUND", message: "Không tìm thấy lớp." } });
       return;
     }
-    if (role !== "admin" && section.instructorId !== userId) {
+    if (!(await userCanAccessSection(req.params.id, userId, role, db))) {
       res.status(403).json({ error: { code: "FORBIDDEN", message: "Bạn không phụ trách lớp này." } });
       return;
     }
@@ -212,7 +206,7 @@ router.post("/:id/students/:studentId/reset-password", async (req: Request, res:
       res.status(404).json({ error: { code: "NOT_FOUND", message: "Không tìm thấy lớp." } });
       return;
     }
-    if (role !== "admin" && section.instructorId !== userId) {
+    if (!(await userCanAccessSection(req.params.id, userId, role, db))) {
       res.status(403).json({ error: { code: "FORBIDDEN", message: "Bạn không phụ trách lớp này." } });
       return;
     }
@@ -258,7 +252,7 @@ router.put("/:id/students/:studentId", async (req: Request, res: Response) => {
       res.status(404).json({ error: { code: "NOT_FOUND", message: "Không tìm thấy lớp." } });
       return;
     }
-    if (role !== "admin" && section.instructorId !== userId) {
+    if (!(await userCanAccessSection(req.params.id, userId, role, db))) {
       res.status(403).json({ error: { code: "FORBIDDEN", message: "Bạn không phụ trách lớp này." } });
       return;
     }
@@ -292,7 +286,7 @@ router.post("/:id/import-students", async (req: Request, res: Response) => {
       res.status(404).json({ error: { code: "NOT_FOUND", message: "Không tìm thấy lớp." } });
       return;
     }
-    if (role !== "admin" && section.instructorId !== userId) {
+    if (!(await userCanAccessSection(req.params.id, userId, role, db))) {
       res.status(403).json({ error: { code: "FORBIDDEN", message: "Bạn không phụ trách lớp này." } });
       return;
     }
@@ -333,7 +327,7 @@ router.get("/:id/export-students", async (req: Request, res: Response) => {
       res.status(404).json({ error: { code: "NOT_FOUND", message: "Không tìm thấy lớp." } });
       return;
     }
-    if (role !== "admin" && section.instructorId !== userId) {
+    if (!(await userCanAccessSection(req.params.id, userId, role, db))) {
       res.status(403).json({ error: { code: "FORBIDDEN", message: "Bạn không phụ trách lớp này." } });
       return;
     }
@@ -366,7 +360,7 @@ router.get("/:id/students/:studentId/progress", async (req: Request, res: Respon
       res.status(404).json({ error: { code: "NOT_FOUND", message: "Không tìm thấy lớp." } });
       return;
     }
-    if (role !== "admin" && section.instructorId !== userId) {
+    if (!(await userCanAccessSection(req.params.id, userId, role, db))) {
       res.status(403).json({ error: { code: "FORBIDDEN", message: "Bạn không phụ trách lớp này." } });
       return;
     }
@@ -384,7 +378,7 @@ async function loadOwnedSection(sectionId: string, userId: string, role: string)
   if (!section) {
     return { error: { code: "NOT_FOUND", message: "Không tìm thấy lớp." } };
   }
-  if (role !== "admin" && section.instructorId !== userId) {
+  if (!(await userCanAccessSection(sectionId, userId, role, db))) {
     return { error: { code: "FORBIDDEN", message: "Bạn không phụ trách lớp này." } };
   }
   return { section };

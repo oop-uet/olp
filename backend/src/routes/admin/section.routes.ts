@@ -21,16 +21,21 @@ export const createSectionSchema = z.object({
   name: z.string().min(1, "Name is required").max(100, "Name must be at most 100 characters"),
   semester: z.string().min(1, "Semester is required").max(20, "Semester must be at most 20 characters"),
   instructor_id: z.string().uuid("instructor_id must be a valid UUID").optional().nullable(),
+  instructor_ids: z.array(z.string().uuid("instructor_ids must contain valid UUIDs")).optional(),
 });
 
 export const updateSectionSchema = z.object({
   name: z.string().min(1, "Name is required").max(100, "Name must be at most 100 characters").optional(),
   semester: z.string().min(1, "Semester is required").max(20, "Semester must be at most 20 characters").optional(),
   instructor_id: z.string().uuid("instructor_id must be a valid UUID").optional().nullable(),
+  instructor_ids: z.array(z.string().uuid("instructor_ids must contain valid UUIDs")).optional(),
 });
 
 export const assignInstructorSchema = z.object({
-  instructor_id: z.string().uuid("instructor_id must be a valid UUID").min(1, "instructor_id is required"),
+  instructor_id: z.string().uuid("instructor_id must be a valid UUID").optional(),
+  instructor_ids: z.array(z.string().uuid("instructor_ids must contain valid UUIDs")).min(1).optional(),
+}).refine((data) => data.instructor_id || data.instructor_ids?.length, {
+  message: "At least one instructor is required",
 });
 
 // ─── Router ──────────────────────────────────────────────────────────────────

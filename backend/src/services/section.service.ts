@@ -479,9 +479,9 @@ async function validateInstructorIds(instructorIds: string[], database: Database
 
 async function ensureSectionInstructorsReady(database: Database = defaultDb) {
   const sqlite = (database as any).session?.client;
-  if (!sqlite?.exec) return;
+  if (!sqlite) return;
 
-  sqlite.exec(`
+  const createTableSql = `
     CREATE TABLE IF NOT EXISTS section_instructors (
       id TEXT PRIMARY KEY,
       section_id TEXT NOT NULL REFERENCES class_sections(id),
@@ -489,9 +489,24 @@ async function ensureSectionInstructorsReady(database: Database = defaultDb) {
       is_primary INTEGER NOT NULL DEFAULT 0,
       assigned_at TEXT NOT NULL
     );
+  `;
+  const createIndexSql = `
     CREATE UNIQUE INDEX IF NOT EXISTS section_instructors_section_instructor_unique
       ON section_instructors(section_id, instructor_id);
-  `);
+  `;
+
+  try {
+    if (typeof sqlite.exec === "function") {
+      sqlite.exec(createTableSql + "\n" + createIndexSql);
+    } else if (typeof sqlite.executeMultiple === "function") {
+      await sqlite.executeMultiple(createTableSql + "\n" + createIndexSql);
+    } else if (typeof sqlite.execute === "function") {
+      await sqlite.execute(createTableSql);
+      await sqlite.execute(createIndexSql);
+    }
+  } catch (err) {
+    console.error("ensureSectionInstructorsReady table creation error:", err);
+  }
 
   const legacyRows = await database
     .select({

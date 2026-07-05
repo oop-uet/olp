@@ -21,6 +21,17 @@ CREATE TABLE `class_sections` (
   `created_at` text NOT NULL
 );
 
+CREATE TABLE `section_instructors` (
+  `id` text PRIMARY KEY NOT NULL,
+  `section_id` text NOT NULL REFERENCES `class_sections`(`id`),
+  `instructor_id` text NOT NULL REFERENCES `users`(`id`),
+  `is_primary` integer NOT NULL DEFAULT 0,
+  `assigned_at` text NOT NULL
+);
+
+CREATE UNIQUE INDEX `section_instructors_section_instructor_unique`
+  ON `section_instructors` (`section_id`, `instructor_id`);
+
 CREATE TABLE `section_enrollments` (
   `id` text PRIMARY KEY NOT NULL,
   `section_id` text NOT NULL REFERENCES `class_sections`(`id`),
