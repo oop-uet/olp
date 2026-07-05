@@ -150,7 +150,10 @@ public class CodeCompiler {
      */
     private String getJavacPath() {
         if (jdkPath != null && !jdkPath.isBlank()) {
-            String javac = jdkPath + File.separator + "bin" + File.separator + "javac";
+            String executable = System.getProperty("os.name").toLowerCase().contains("win")
+                    ? "javac.exe"
+                    : "javac";
+            String javac = jdkPath + File.separator + "bin" + File.separator + executable;
             if (new File(javac).exists()) {
                 return javac;
             }

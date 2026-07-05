@@ -4,11 +4,11 @@ A lightweight Java WebSocket server that compiles and runs student Java code loc
 
 ## System Requirements
 
-- **Java JDK 17** or higher installed and accessible via `JAVA_HOME` or system PATH
+- **Java JDK 17** or higher, either installed normally or configured as an IntelliJ IDEA Project SDK
 - Port **9876** available on local loopback `127.0.0.1` (or specify a custom port)
 - Supported operating systems: Windows 10+, macOS 12+, Linux (Ubuntu 20.04+)
 
-To verify your JDK installation:
+To verify a normal JDK installation:
 
 ```bash
 java -version
@@ -16,6 +16,12 @@ javac -version
 ```
 
 Both commands should report version 17 or higher.
+
+On Windows, `Start Local Executor.bat` does not require `java` to be in `PATH`.
+It searches `PATH`, `JAVA_HOME`, IntelliJ IDEA, JetBrains Toolbox, the user's
+`.jdks` directory, and common JDK installation folders. If IntelliJ is installed
+but the launcher still cannot find Java, open **IntelliJ IDEA > File > Project
+Structure > SDKs** and install/add a JDK 17+ SDK.
 
 ## Download
 

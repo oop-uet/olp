@@ -119,7 +119,10 @@ public class CodeRunner {
      */
     private String getJavaPath() {
         if (jdkPath != null && !jdkPath.isBlank()) {
-            String java = jdkPath + File.separator + "bin" + File.separator + "java";
+            String executable = System.getProperty("os.name").toLowerCase().contains("win")
+                    ? "java.exe"
+                    : "java";
+            String java = jdkPath + File.separator + "bin" + File.separator + executable;
             if (new File(java).exists()) {
                 return java;
             }

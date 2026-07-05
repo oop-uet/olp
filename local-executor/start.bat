@@ -12,6 +12,7 @@ setlocal enabledelayedexpansion
 
 set JAR_NAME=oop-local-executor-1.0.0.jar
 set DEFAULT_PORT=9876
+set JAVA_CMD=
 
 REM Resolve script directory
 set SCRIPT_DIR=%~dp0
@@ -29,22 +30,27 @@ if not exist "%JAR_PATH%" (
     exit /b 1
 )
 
-REM Check if Java is available
-where java >nul 2>nul
-if %errorlevel% neq 0 (
-    echo ERROR: Java is not installed or not in PATH.
+REM Check if Java is available. PATH is not required; IntelliJ/JetBrains JDKs
+REM are detected automatically when possible.
+call :find_java
+if not defined JAVA_CMD (
+    echo ERROR: Java/JDK was not found.
     echo.
-    echo Please install JDK 17 or higher:
-    echo   - Adoptium: https://adoptium.net/
-    echo   - Oracle:   https://www.oracle.com/java/technologies/downloads/
+    echo The launcher checked PATH, JAVA_HOME, IntelliJ IDEA, JetBrains Toolbox,
+    echo the user's .jdks folder, and common JDK installation folders.
     echo.
-    echo After installing, make sure 'java' is accessible from your terminal.
+    echo If IntelliJ is installed, open IntelliJ ^> File ^> Project Structure ^> SDKs
+    echo and install/add a JDK 17+ SDK. Then run this file again.
+    echo.
+    echo Fast option: install JDK 17+ from https://adoptium.net/
     pause
     exit /b 1
 )
 
+for %%J in ("!JAVA_CMD!\..\..") do set JAVA_HOME=%%~fJ
+
 REM Check Java version
-for /f "tokens=3" %%g in ('java -version 2^>^&1 ^| findstr /i "version"') do (
+for /f "tokens=3" %%g in ('"!JAVA_CMD!" -version 2^>^&1 ^| findstr /i "version"') do (
     set JAVA_VER=%%g
 )
 set JAVA_VER=%JAVA_VER:"=%
@@ -65,13 +71,64 @@ if not "%~1"=="" set PORT=%~1
 echo ============================================
 echo   OOP Local Executor
 echo   Port: %PORT%
-for /f "tokens=*" %%v in ('java -version 2^>^&1 ^| findstr /i "version"') do echo   JDK:  %%v
+echo   Java: !JAVA_CMD!
+echo   JAVA_HOME: !JAVA_HOME!
+for /f "tokens=*" %%v in ('"!JAVA_CMD!" -version 2^>^&1 ^| findstr /i "version"') do echo   JDK:  %%v
 echo ============================================
 echo.
 echo Starting server... Press Ctrl+C to stop.
 echo.
 
 REM Run the JAR
-java -jar "%JAR_PATH%" %PORT%
+"!JAVA_CMD!" -jar "%JAR_PATH%" %PORT%
 
 pause
+exit /b 0
+
+:find_java
+for /f "delims=" %%J in ('where java 2^>nul') do (
+    set JAVA_CMD=%%J
+    exit /b 0
+)
+
+if defined JAVA_HOME if exist "%JAVA_HOME%\bin\java.exe" (
+    set JAVA_CMD=%JAVA_HOME%\bin\java.exe
+    exit /b 0
+)
+
+for /d %%D in ("%USERPROFILE%\.jdks\*") do if exist "%%~fD\bin\java.exe" (
+    set JAVA_CMD=%%~fD\bin\java.exe
+    exit /b 0
+)
+
+for /d %%D in ("%LOCALAPPDATA%\Programs\JetBrains\IntelliJ IDEA*") do if exist "%%~fD\jbr\bin\java.exe" (
+    set JAVA_CMD=%%~fD\jbr\bin\java.exe
+    exit /b 0
+)
+
+for /d %%D in ("%ProgramFiles%\JetBrains\IntelliJ IDEA*") do if exist "%%~fD\jbr\bin\java.exe" (
+    set JAVA_CMD=%%~fD\jbr\bin\java.exe
+    exit /b 0
+)
+
+for /d %%D in ("%LOCALAPPDATA%\JetBrains\Toolbox\apps\IDEA-U\ch-0\*") do if exist "%%~fD\jbr\bin\java.exe" (
+    set JAVA_CMD=%%~fD\jbr\bin\java.exe
+    exit /b 0
+)
+
+for /d %%D in ("%LOCALAPPDATA%\JetBrains\Toolbox\apps\IDEA-C\ch-0\*") do if exist "%%~fD\jbr\bin\java.exe" (
+    set JAVA_CMD=%%~fD\jbr\bin\java.exe
+    exit /b 0
+)
+
+for /d %%D in ("%ProgramFiles%\Eclipse Adoptium\jdk-*") do if exist "%%~fD\bin\java.exe" (
+    set JAVA_CMD=%%~fD\bin\java.exe
+    exit /b 0
+)
+
+for /d %%D in ("%ProgramFiles%\Java\jdk-*") do if exist "%%~fD\bin\java.exe" (
+    set JAVA_CMD=%%~fD\bin\java.exe
+    exit /b 0
+)
+
+exit /b 0

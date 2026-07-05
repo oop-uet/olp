@@ -79,6 +79,50 @@ interface LeaderboardEntry {
   totalScore: number
 }
 
+interface SubmittedSourceFile {
+  name: string
+  content: string
+}
+
+function parseSubmittedFiles(code: string): SubmittedSourceFile[] {
+  try {
+    const parsed = JSON.parse(code) as {
+      format?: string
+      files?: Array<{ name?: string; content?: string }>
+    }
+
+    if (parsed.format === 'oop-java-files' && Array.isArray(parsed.files)) {
+      const files = parsed.files
+        .filter((file) => file.name && typeof file.content === 'string')
+        .map((file) => ({ name: file.name as string, content: file.content as string }))
+
+      if (files.length > 0) return files
+    }
+  } catch {
+    // Legacy single-file submissions are stored as raw source code.
+  }
+
+  return [{ name: 'Main.java', content: code }]
+}
+
+function downloadTextFile(fileName: string, content: string) {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+function buildAllFilesDownload(files: SubmittedSourceFile[]) {
+  return files
+    .map((file) => `// ===== ${file.name} =====\n${file.content.trimEnd()}\n`)
+    .join('\n')
+}
+
 // --- Helpers ---
 
 const PAGE_SIZE = 10
@@ -189,6 +233,7 @@ export function SubmissionReviewPage() {
   const [antiCheatLog, setAntiCheatLog] = useState<AntiCheatEvent[]>([])
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [detailError, setDetailError] = useState<string | null>(null)
+  const [activeSubmittedFile, setActiveSubmittedFile] = useState('Main.java')
 
   // Grading state
   const [gradeScore, setGradeScore] = useState('')
@@ -293,6 +338,9 @@ export function SubmissionReviewPage() {
     const prefill = detail.manualScore ?? detail.score
     setGradeScore(prefill != null ? String(prefill) : '')
     setGradeFeedback(detail.feedback ?? '')
+    
+    const files = parseSubmittedFiles(detail.code)
+    setActiveSubmittedFile(files[0]?.name ?? 'Main.java')
   }
 
   async function fetchSubmissionDetail(submissionId: string) {
@@ -404,61 +452,76 @@ export function SubmissionReviewPage() {
     const studentUsername = selectedSubmission.student?.username || ''
     const studentEmail = selectedSubmission.student?.email || ''
 
+    const submittedFiles = parseSubmittedFiles(selectedSubmission.code)
+    const currentSubmittedFile =
+      submittedFiles.find((file) => file.name === activeSubmittedFile) ?? submittedFiles[0]
+
     return (
-      <div className="space-y-6 animate-fade-in">
+      <div className="-m-6 min-h-[calc(100vh-8.25rem)] bg-slate-100 animate-fade-in pb-8">
         
-        {/* Breadcrumb */}
-        <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-slate-50 border-b border-slate-100 rounded flex gap-1.5 items-center">
-          <button onClick={handleBackToList} className="text-primary hover:underline">Bài nộp</button>
-          <span>/</span>
-          <span className="text-slate-400">Chi tiết bài làm</span>
-        </div>
-
-        {/* Back button */}
-        <button
-          onClick={handleBackToList}
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:text-primary-700 active:scale-95 transition-all"
-        >
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-          Quay lại danh sách bài nộp
-        </button>
-
-        {/* Header card */}
-        <div className="bg-white border border-slate-100 rounded-xl p-5 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-slate-800">{exerciseTitle}</h1>
-            <p className="mt-1 text-xs font-semibold text-slate-400">
-              Sinh viên: <span className="text-slate-700 font-bold">{studentName} ({studentUsername})</span>
-              {studentEmail ? ` · ${studentEmail}` : ''}
-            </p>
-            <p className="text-[11px] font-bold text-slate-400 mt-1 uppercase tracking-wide">
-              Lần nộp #{selectedSubmission.attemptNumber} · {formatTimestamp(selectedSubmission.submittedAt)}
-            </p>
-          </div>
-          
-          <div className="text-right self-start md:self-auto bg-slate-50/50 border border-slate-100 rounded-xl px-4 py-3 flex items-center gap-4">
-            <div className="text-right">
-              <span className={`text-3xl font-extrabold tracking-tight ${getScoreColor(effectiveScore)}`}>
-                {effectiveScore.toFixed(1)}%
-              </span>
-              <p className="text-[10px] font-bold text-slate-400 uppercase mt-0.5">
-                {earnedPoints}/{totalPoints} test cases đạt
-              </p>
+        {/* Full-width white header banner */}
+        <div className="border-b border-slate-200 bg-white px-5 py-4 shadow-sm mb-6">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <button
+                onClick={handleBackToList}
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition hover:border-primary-300 hover:bg-primary-50 hover:text-primary text-lg font-bold"
+                aria-label="Quay lại danh sách bài nộp"
+              >
+                ←
+              </button>
+              <div className="min-w-0">
+                <h1 className="truncate text-xl font-bold text-slate-900">
+                  {exerciseTitle}
+                </h1>
+                <p className="text-xs font-semibold text-slate-500 mt-0.5">
+                  Sinh viên: <span className="text-slate-800 font-bold">{studentName} ({studentUsername})</span>
+                  {studentEmail ? ` · ${studentEmail}` : ''}
+                </p>
+                <p className="text-[10px] font-bold text-slate-400 mt-0.5 uppercase tracking-wide">
+                  Lần nộp #{selectedSubmission.attemptNumber} · {formatTimestamp(selectedSubmission.submittedAt)}
+                </p>
+              </div>
             </div>
-            {isManuallyGraded && (
-              <span className="badge-blue self-center text-[10px] font-bold">Chấm tay</span>
-            )}
+            
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="text-right bg-slate-50 border border-slate-100 rounded-lg px-3 py-1.5 flex items-center gap-3">
+                <div className="text-right">
+                  <span className={`text-2xl font-black tracking-tight ${getScoreColor(effectiveScore)}`}>
+                    {effectiveScore.toFixed(1)}%
+                  </span>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">
+                    {earnedPoints}/{totalPoints} test cases đạt
+                  </p>
+                </div>
+                {isManuallyGraded && (
+                  <span className="badge-blue text-[9px] font-bold">Chấm tay</span>
+                )}
+              </div>
+              
+              <button
+                type="button"
+                onClick={() =>
+                  downloadTextFile(
+                    submittedFiles.length === 1 ? submittedFiles[0].name : `submission-${selectedSubmission.id}.txt`,
+                    submittedFiles.length === 1 ? submittedFiles[0].content : buildAllFilesDownload(submittedFiles)
+                  )
+                }
+                className="btn-primary h-10 px-4 text-sm"
+              >
+                Tải mã nguồn
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        {/* Main Content Grid aligned to max-w-7xl */}
+        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 p-4 xl:grid-cols-[340px_minmax(0,1fr)]">
           
-          {/* Left panel: grading form and results (1/3 width) */}
-          <div className="space-y-6 lg:col-span-1">
+          {/* Left Panel Column (340px) */}
+          <aside className="space-y-4">
             
-            {/* Grading panel */}
+            {/* Manual Grading */}
             <div className="card bg-white border border-slate-100 shadow-sm overflow-hidden">
               <div className="panel-header py-2.5 px-4">
                 <h3 className="panel-title">Chấm điểm thủ công</h3>
@@ -505,7 +568,31 @@ export function SubmissionReviewPage() {
               </div>
             </div>
 
-            {/* Test case results */}
+            {/* Submitted Source Files list */}
+            <div className="card bg-white border border-slate-100 shadow-sm overflow-hidden">
+              <div className="panel-header py-2.5 px-4">
+                <h3 className="panel-title">Bài đã nộp</h3>
+              </div>
+              <div className="divide-y divide-slate-100 p-3">
+                {submittedFiles.map((file) => (
+                  <button
+                    key={file.name}
+                    type="button"
+                    onClick={() => setActiveSubmittedFile(file.name)}
+                    className={`flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm font-semibold transition ${
+                      currentSubmittedFile.name === file.name
+                        ? 'bg-primary-50 text-primary-800 ring-1 ring-primary-200'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-primary'
+                    }`}
+                  >
+                    <span className="truncate">{file.name}</span>
+                    <span className="text-[10px] text-slate-400">{file.content.split('\n').length} dòng</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Test Case Results */}
             <div className="card bg-white border border-slate-100 shadow-sm overflow-hidden">
               <div className="panel-header py-2.5 px-4">
                 <h3 className="panel-title">Kết quả Test Cases</h3>
@@ -560,19 +647,21 @@ export function SubmissionReviewPage() {
               </div>
             </div>
 
-          </div>
+          </aside>
 
-          {/* Right panel: Monaco code editor (2/3 width) */}
-          <div className="lg:col-span-2 card bg-white border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[650px]">
-            <div className="bg-slate-900 text-slate-300 px-4 py-3 flex items-center justify-between border-b border-slate-800">
-              <span className="font-mono text-xs font-bold">Solution.java</span>
-              <span className="text-[10px] uppercase font-bold text-slate-500">Chế độ xem mã nộp</span>
+          {/* Right Main Column (Code Editor Viewer) */}
+          <main className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm flex flex-col h-[650px]">
+            <div className="border-b border-slate-200 bg-white px-4 py-3 flex items-center justify-between">
+              <span className="text-sm font-bold text-slate-700">Xem mã nguồn</span>
+              <span className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                {currentSubmittedFile.name}
+              </span>
             </div>
             <div className="flex-1">
               <Editor
                 height="100%"
                 language="java"
-                value={selectedSubmission.code}
+                value={currentSubmittedFile.content}
                 theme="vs-dark"
                 options={{
                   readOnly: true,
@@ -585,7 +674,7 @@ export function SubmissionReviewPage() {
                 }}
               />
             </div>
-          </div>
+          </main>
 
         </div>
 
