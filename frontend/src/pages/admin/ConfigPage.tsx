@@ -17,10 +17,12 @@ interface ConfigParam {
   key: string
   label: string
   description: string
-  min: number
-  max: number
+  min?: number
+  max?: number
   unit: string
   currentValue: number
+  kind: 'number' | 'toggle' | 'select'
+  options?: Array<{ value: string; label: string }>
 }
 
 // ─── Config Parameter Metadata ───────────────────────────────────────────────
@@ -33,6 +35,7 @@ const CONFIG_PARAMS: Record<string, Omit<ConfigParam, 'key' | 'currentValue'>> =
     min: 1,
     max: 10,
     unit: 'lần cảnh báo',
+    kind: 'number',
   },
   time_limit: {
     label: 'Giới hạn thời gian bài tập',
@@ -40,6 +43,7 @@ const CONFIG_PARAMS: Record<string, Omit<ConfigParam, 'key' | 'currentValue'>> =
     min: 1,
     max: 180,
     unit: 'phút',
+    kind: 'number',
   },
   max_submissions: {
     label: 'Số lần nộp tối đa',
@@ -47,6 +51,51 @@ const CONFIG_PARAMS: Record<string, Omit<ConfigParam, 'key' | 'currentValue'>> =
     min: 1,
     max: 100,
     unit: 'lần nộp',
+    kind: 'number',
+  },
+  source_check_enabled: {
+    label: 'Bật kiểm tra mã nguồn',
+    description:
+      'Cho phép giảng viên chạy kiểm tra tương đồng mã nguồn. Tắt mục này để tiết kiệm tài nguyên tính toán.',
+    unit: '',
+    kind: 'toggle',
+  },
+  source_check_weekly_enabled: {
+    label: 'Lịch kiểm tra cuối tuần',
+    description:
+      'Cho phép workflow GitHub Actions chạy định kỳ cuối tuần cho các lớp/bài tập đã được giảng viên cấu hình.',
+    unit: '',
+    kind: 'toggle',
+  },
+  source_check_provider: {
+    label: 'Công nghệ kiểm tra',
+    description:
+      'JPlag được chọn làm mặc định cho bài Java OOP; CPD/Dolos giữ làm phương án bổ trợ hoặc mở rộng.',
+    unit: '',
+    kind: 'select',
+    options: [
+      { value: 'jplag', label: 'JPlag' },
+      { value: 'pmd_cpd', label: 'PMD CPD' },
+      { value: 'dolos', label: 'Dolos' },
+    ],
+  },
+  source_check_similarity_threshold: {
+    label: 'Ngưỡng tương đồng mã nguồn',
+    description:
+      'Các cặp bài nộp vượt ngưỡng này sẽ được đưa vào danh sách nghi vấn để giảng viên rà soát.',
+    min: 40,
+    max: 95,
+    unit: '%',
+    kind: 'number',
+  },
+  source_check_max_runtime_minutes: {
+    label: 'Giới hạn thời gian mỗi lượt quét',
+    description:
+      'Workflow sẽ dừng hoặc bỏ qua job nếu vượt quá ngân sách thời gian đã cấu hình.',
+    min: 5,
+    max: 120,
+    unit: 'phút',
+    kind: 'number',
   },
 }
 
@@ -92,12 +141,22 @@ export function ConfigPage() {
     const trimmed = value.trim()
     if (!trimmed) return `${meta.label} là bắt buộc`
 
+    if (meta.kind === 'toggle') {
+      return trimmed === '0' || trimmed === '1' ? null : `${meta.label} không hợp lệ`
+    }
+
+    if (meta.kind === 'select') {
+      return meta.options?.some((option) => option.value === trimmed)
+        ? null
+        : `${meta.label} không hợp lệ`
+    }
+
     const num = parseInt(trimmed, 10)
     if (isNaN(num) || num.toString() !== trimmed) {
       return `${meta.label} phải là số nguyên hợp lệ`
     }
 
-    if (num < meta.min || num > meta.max) {
+    if (typeof meta.min === 'number' && typeof meta.max === 'number' && (num < meta.min || num > meta.max)) {
       return `${meta.label} phải nằm trong khoảng ${meta.min} đến ${meta.max}`
     }
 
@@ -166,7 +225,7 @@ export function ConfigPage() {
       return {
         key,
         ...meta,
-        currentValue: entry ? parseInt(entry.value, 10) : 0,
+        currentValue: entry ? parseInt(entry.value, 10) || 0 : 0,
       }
     })
     .filter((p) => configs.some((c) => c.key === p.key))
@@ -201,22 +260,54 @@ export function ConfigPage() {
                   {param.label}
                 </label>
                 <p className="mt-0.5 text-xs text-gray-500">{param.description}</p>
-                <p className="mt-1 text-xs text-gray-400">
-                  Khoảng hợp lệ: {param.min}–{param.max} {param.unit} | Giá trị
-                  hiện tại: {param.currentValue}
-                </p>
+                {param.kind === 'number' && (
+                  <p className="mt-1 text-xs text-gray-400">
+                    Khoảng hợp lệ: {param.min}–{param.max} {param.unit} | Giá trị
+                    hiện tại: {param.currentValue}
+                  </p>
+                )}
 
                 <div className="mt-3 flex items-center gap-3">
-                  <input
-                    id={`config-${param.key}`}
-                    type="number"
-                    min={param.min}
-                    max={param.max}
-                    value={formValues[param.key] ?? ''}
-                    onChange={(e) => handleChange(param.key, e.target.value)}
-                    className={`input w-32 ${errors[param.key] ? 'input-error' : ''}`}
-                  />
-                  <span className="text-xs text-gray-500">{param.unit}</span>
+                  {param.kind === 'toggle' ? (
+                    <button
+                      type="button"
+                      onClick={() => handleChange(param.key, formValues[param.key] === '1' ? '0' : '1')}
+                      className={`inline-flex h-9 items-center rounded-full border px-3 text-xs font-bold transition ${
+                        formValues[param.key] === '1'
+                          ? 'border-primary bg-primary-50 text-primary'
+                          : 'border-gray-200 bg-gray-50 text-gray-500'
+                      }`}
+                      aria-pressed={formValues[param.key] === '1'}
+                    >
+                      {formValues[param.key] === '1' ? 'Đang bật' : 'Đang tắt'}
+                    </button>
+                  ) : param.kind === 'select' ? (
+                    <select
+                      id={`config-${param.key}`}
+                      value={formValues[param.key] ?? ''}
+                      onChange={(e) => handleChange(param.key, e.target.value)}
+                      className={`input w-44 ${errors[param.key] ? 'input-error' : ''}`}
+                    >
+                      {param.options?.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <>
+                      <input
+                        id={`config-${param.key}`}
+                        type="number"
+                        min={param.min}
+                        max={param.max}
+                        value={formValues[param.key] ?? ''}
+                        onChange={(e) => handleChange(param.key, e.target.value)}
+                        className={`input w-32 ${errors[param.key] ? 'input-error' : ''}`}
+                      />
+                      <span className="text-xs text-gray-500">{param.unit}</span>
+                    </>
+                  )}
                 </div>
 
                 {errors[param.key] && (

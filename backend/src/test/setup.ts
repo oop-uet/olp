@@ -141,7 +141,12 @@ beforeAll(() => {
     VALUES
       ('warning_threshold', '3', '1-10'),
       ('time_limit_minutes', '60', '1-180'),
-      ('max_submissions', '10', '1-100');
+      ('max_submissions', '10', '1-100'),
+      ('source_check_enabled', '0', '0-1'),
+      ('source_check_weekly_enabled', '0', '0-1'),
+      ('source_check_similarity_threshold', '70', '40-95'),
+      ('source_check_max_runtime_minutes', '20', '5-120'),
+      ('source_check_provider', 'jplag', 'enum:jplag,pmd_cpd,dolos');
   `);
 });
 

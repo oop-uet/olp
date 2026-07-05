@@ -1,0 +1,74 @@
+name: Source Check
+
+on:
+  workflow_dispatch:
+    inputs:
+      exercise_id:
+        description: Exercise ID to check. Leave empty for due scheduled jobs.
+        required: false
+        type: string
+      section_id:
+        description: Section ID to check. Leave empty for all configured sections.
+        required: false
+        type: string
+      provider:
+        description: Source check provider
+        required: false
+        default: jplag
+        type: choice
+        options:
+          - jplag
+          - pmd_cpd
+          - dolos
+      threshold:
+        description: Similarity threshold percentage
+        required: false
+        default: "70"
+        type: string
+  schedule:
+    # Saturday 22:00 Asia/Ho_Chi_Minh. GitHub Actions cron is UTC.
+    - cron: "0 15 * * 6"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: source-check-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  source-check:
+    name: Run source similarity checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SOURCE_CHECK_API_URL: ${{ secrets.SOURCE_CHECK_API_URL }}
+      SOURCE_CHECK_API_TOKEN: ${{ secrets.SOURCE_CHECK_API_TOKEN }}
+      SOURCE_CHECK_EVENT_NAME: ${{ github.event_name }}
+      SOURCE_CHECK_EXERCISE_ID: ${{ inputs.exercise_id }}
+      SOURCE_CHECK_SECTION_ID: ${{ inputs.section_id }}
+      SOURCE_CHECK_PROVIDER: ${{ inputs.provider || 'jplag' }}
+      SOURCE_CHECK_THRESHOLD: ${{ inputs.threshold || '70' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Java for JPlag
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Prepare output directory
+        run: mkdir -p source-check-output
+
+      - name: Run source check coordinator
+        run: bash scripts/source-check/run-source-check.sh
+
+      - name: Upload source-check artifacts
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: source-check-output
+          path: source-check-output
+          if-no-files-found: ignore

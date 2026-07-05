@@ -129,9 +129,13 @@ The platform’s core goal is to faithfully reproduce all teaching workflows, ad
        - `Chi tiết test cases`: Terminal test reports.
 
 ### Requirement 8: Plagiarism and Source Similarity
-1. **Similarity Comparison:** Instructors can trigger a plagiarism scan for a course section and exercise.
-2. **Analysis Report:** Compares code matches across all student submissions, producing a list of suspicious student pairs sorted by similarity percentage.
-3. **Side-by-Side Review:** Renders a side-by-side code diff viewer highlighting copied segments. It should ignore common starter templates.
+1. **Technology Choice:** Use JPlag as the primary source-similarity engine for Java OOP submissions. PMD CPD may be used as a fast duplicate-fragment pre-check; Dolos is kept as a future provider.
+2. **Manual Scan:** Instructors can trigger a source check for a course section and exercise.
+3. **Weekly Scheduled Scan:** Instructors can configure section/exercise pairs to be checked by GitHub Actions at the end of each week.
+4. **Admin Resource Control:** Administrators can globally enable/disable source checking, enable/disable weekly GitHub Actions scans, choose the provider, set the similarity threshold, and cap runtime per job.
+5. **Analysis Report:** The system compares code across student submissions, producing suspicious student pairs sorted by similarity percentage, provider metadata, and report artifacts.
+6. **Side-by-Side Review:** Renders a side-by-side code diff viewer highlighting copied segments. It should ignore common starter templates/base code.
+7. **Audit Trail:** Scheduled/manual runs must record status, start/end time, provider, threshold, scope, suspicious pair count, and artifact URL.
 
 ### Requirement 9: Anti-Cheating Assessment Monitor
 1. **Assessment Mode:** Instructors can flag any assigned exercise as an "Assessment" (Exam).

@@ -128,6 +128,41 @@ async function seed() {
       updatedAt: now,
       updatedBy: null,
     },
+    {
+      key: "source_check_enabled",
+      value: "0",
+      validRange: "0-1",
+      updatedAt: now,
+      updatedBy: null,
+    },
+    {
+      key: "source_check_weekly_enabled",
+      value: "0",
+      validRange: "0-1",
+      updatedAt: now,
+      updatedBy: null,
+    },
+    {
+      key: "source_check_similarity_threshold",
+      value: "70",
+      validRange: "40-95",
+      updatedAt: now,
+      updatedBy: null,
+    },
+    {
+      key: "source_check_max_runtime_minutes",
+      value: "20",
+      validRange: "5-120",
+      updatedAt: now,
+      updatedBy: null,
+    },
+    {
+      key: "source_check_provider",
+      value: "jplag",
+      validRange: "enum:jplag,pmd_cpd,dolos",
+      updatedAt: now,
+      updatedBy: null,
+    },
   ];
 
   for (const config of configDefaults) {

@@ -161,7 +161,30 @@ Tracks exam violations during assessments.
 Global setup variables.
 * `key`: `text`, primary key.
 * `value`: `text`.
-*(Pre-seeded keys: `'warning_threshold'`, `'default_max_submissions'`)*
+*(Pre-seeded keys: `'warning_threshold'`, `'time_limit'`, `'max_submissions'`, `'source_check_enabled'`, `'source_check_weekly_enabled'`, `'source_check_provider'`, `'source_check_similarity_threshold'`, `'source_check_max_runtime_minutes'`)*
+
+### 3.11 Source Check Jobs (`source_check_jobs`)
+Tracks manual and GitHub Actions source-similarity runs.
+* `id`: `text` (UUID), primary key.
+* `exercise_id`: `text`, foreign key to `exercises(id)`.
+* `section_id`: `text`, nullable foreign key to `class_sections(id)`.
+* `provider`: `text` (enum: `'jplag'`, `'pmd_cpd'`, `'dolos'`).
+* `threshold`: `integer` percentage.
+* `trigger`: `text` (enum: `'manual'`, `'weekly_schedule'`, `'workflow_dispatch'`).
+* `status`: `text` (enum: `'queued'`, `'running'`, `'completed'`, `'failed'`, `'skipped'`).
+* `artifact_url`: `text`, nullable.
+* `summary_json`: `text`, nullable JSON summary.
+* `started_at`: `text`, nullable ISO timestamp.
+* `completed_at`: `text`, nullable ISO timestamp.
+
+### 3.12 Source Check Pairs (`source_check_pairs`)
+Stores suspicious pairs found by a source check run.
+* `id`: `text` (UUID), primary key.
+* `job_id`: `text`, foreign key to `source_check_jobs(id)`.
+* `submission_a_id`: `text`, foreign key to `submissions(id)`.
+* `submission_b_id`: `text`, foreign key to `submissions(id)`.
+* `similarity`: `real`.
+* `review_status`: `text` (enum: `'new'`, `'reviewed'`, `'false_positive'`, `'confirmed'`).
 
 ---
 
@@ -208,6 +231,21 @@ Global setup variables.
 * **`PATCH /api/submissions/:id/grade`** (Instructor Manual Override)
   - Request: `{ "feedback": "...", "score": 80.0, "hasSe": true, "hasPe": false, "hasCe": false }`
 * **`GET /api/submissions/:id/anticheat-log`**
+
+### 4.5 Source Check / Plagiarism
+* **`GET /api/source-check/settings`**
+  - Response: Global admin toggles plus instructor-visible provider/threshold defaults.
+* **`PUT /api/source-check/settings`** (Admin)
+  - Request: `{ "enabled": true, "weeklyEnabled": false, "provider": "jplag", "threshold": 70, "maxRuntimeMinutes": 20 }`
+* **`POST /api/source-check/jobs`** (Instructor)
+  - Request: `{ "exerciseId": "...", "sectionId": "...", "trigger": "manual" }`
+  - Response: Created job metadata.
+* **`GET /api/source-check/jobs/due`** (GitHub Actions token)
+  - Response: Due section/exercise jobs. Returns an empty list when admin toggles are off.
+* **`POST /api/source-check/jobs/:id/complete`** (GitHub Actions token)
+  - Request: `{ "status": "completed", "artifactUrl": "...", "summary": { "pairs": 4 } }`
+* **`GET /api/source-check/reports`**
+  - Query parameters: `exercise_id`, `section_id`, `status`, `page`, `limit`.
   - Response: List of anti-cheat logs logged during the submission window.
 
 ---

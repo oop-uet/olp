@@ -40,9 +40,14 @@ describe('Config Service', () => {
       const db = getDb();
       const configs = await getConfig(db);
 
-      expect(configs).toHaveLength(3);
+      expect(configs).toHaveLength(8);
       expect(configs.map((c) => c.key).sort()).toEqual([
         'max_submissions',
+        'source_check_enabled',
+        'source_check_max_runtime_minutes',
+        'source_check_provider',
+        'source_check_similarity_threshold',
+        'source_check_weekly_enabled',
         'time_limit',
         'warning_threshold',
       ]);
@@ -159,6 +164,36 @@ describe('Config Service', () => {
 
       expect(isConfigError(result)).toBe(false);
       expect(result).toHaveProperty('value', '120');
+    });
+
+    it('should accept source check provider enum values', async () => {
+      const db = getDb();
+
+      const result = await updateConfig('source_check_provider', 'dolos', ADMIN_ID, db);
+
+      expect(isConfigError(result)).toBe(false);
+      expect(result).toHaveProperty('value', 'dolos');
+    });
+
+    it('should reject unsupported source check providers', async () => {
+      const db = getDb();
+
+      const result = await updateConfig('source_check_provider', 'unknown', ADMIN_ID, db);
+
+      expect(isConfigError(result)).toBe(true);
+      if (isConfigError(result)) {
+        expect(result.error.code).toBe('VALIDATION_ERROR');
+        expect(result.error.message).toContain('source_check_provider');
+      }
+    });
+
+    it('should accept source check toggles as 0 or 1', async () => {
+      const db = getDb();
+
+      const result = await updateConfig('source_check_enabled', '1', ADMIN_ID, db);
+
+      expect(isConfigError(result)).toBe(false);
+      expect(result).toHaveProperty('value', '1');
     });
 
     it('should return NOT_FOUND error for non-existent key', async () => {

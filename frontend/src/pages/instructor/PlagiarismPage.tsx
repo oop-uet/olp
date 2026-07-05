@@ -85,11 +85,17 @@ export function PlagiarismPage() {
         api.get('/api/exercises'),
         api.get('/api/instructor/sections').catch(() => ({ data: [] })),
       ])
+      const exerciseData = Array.isArray(exercisesRes.data)
+        ? exercisesRes.data
+        : exercisesRes.data?.data ?? []
+      const sectionData = Array.isArray(sectionsRes.data)
+        ? sectionsRes.data
+        : sectionsRes.data?.data ?? []
       setExercises(
-        (exercisesRes.data as ExerciseOption[]).map((e) => ({ id: e.id, title: e.title }))
+        (exerciseData as ExerciseOption[]).map((e) => ({ id: e.id, title: e.title }))
       )
       setSections(
-        (sectionsRes.data as SectionOption[]).map((s) => ({
+        (sectionData as SectionOption[]).map((s) => ({
           id: s.id,
           name: s.name,
           semester: s.semester,
@@ -176,8 +182,41 @@ export function PlagiarismPage() {
         <p className="text-xs text-white/70 mt-1 font-semibold">Phát hiện gian lận và đối chiếu độ tương đồng mã nguồn giữa các sinh viên</p>
       </div>
 
-      {/* Controls Form */}
-      <div className="card p-5 bg-white border border-slate-100 shadow-sm space-y-4">
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="card border border-slate-100 bg-white p-5 shadow-sm">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Engine khuyến nghị</p>
+          <h2 className="mt-2 text-lg font-black text-slate-900">JPlag cho Java OOP</h2>
+          <p className="mt-2 text-sm leading-relaxed text-slate-600">
+            Chạy trong GitHub Actions, so sánh theo từng bài/lớp, xuất report để giảng viên rà soát cặp nghi vấn.
+          </p>
+        </div>
+
+        <div className="card border border-slate-100 bg-white p-5 shadow-sm">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Quét nhanh hiện có</p>
+          <h2 className="mt-2 text-lg font-black text-slate-900">So khớp nội bộ</h2>
+          <p className="mt-2 text-sm leading-relaxed text-slate-600">
+            Dùng endpoint hiện tại để kiểm tra tức thời. Phù hợp thử nhanh, không thay thế batch JPlag cuối tuần.
+          </p>
+        </div>
+
+        <div className="card border border-slate-100 bg-white p-5 shadow-sm">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Điều phối tài nguyên</p>
+          <h2 className="mt-2 text-lg font-black text-slate-900">Admin bật/tắt</h2>
+          <p className="mt-2 text-sm leading-relaxed text-slate-600">
+            Quản trị viên có thể tắt kiểm tra mã nguồn hoặc tắt lịch cuối tuần trong cấu hình hệ thống.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.8fr)]">
+        {/* Controls Form */}
+        <div className="card p-5 bg-white border border-slate-100 shadow-sm space-y-4">
+          <div>
+            <h2 className="text-base font-black text-slate-900">Quét nhanh theo bài tập</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Chọn bài tập và lớp học phần để chạy kiểm tra thủ công ngay trên backend hiện tại.
+            </p>
+          </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="exercise-select" className="label text-slate-600">
@@ -232,6 +271,25 @@ export function PlagiarismPage() {
               'Bắt đầu kiểm tra'
             )}
           </button>
+        </div>
+      </div>
+
+        <div className="card border border-slate-100 bg-white p-5 shadow-sm">
+          <h2 className="text-base font-black text-slate-900">GitHub Actions cuối tuần</h2>
+          <div className="mt-4 space-y-3 text-sm text-slate-600">
+            <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+              <p className="font-bold text-slate-800">Lịch mặc định</p>
+              <p>Thứ bảy 22:00 giờ Việt Nam, workflow cron `0 15 * * 6`.</p>
+            </div>
+            <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+              <p className="font-bold text-slate-800">Provider mặc định</p>
+              <p>JPlag, ngưỡng theo cấu hình admin.</p>
+            </div>
+            <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+              <p className="font-bold text-slate-800">Trạng thái tích hợp</p>
+              <p>Workflow scaffold đã sẵn sàng; backend job queue sẽ nối ở bước triển khai tiếp theo.</p>
+            </div>
+          </div>
         </div>
       </div>
 

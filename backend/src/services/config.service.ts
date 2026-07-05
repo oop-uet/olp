@@ -25,6 +25,17 @@ export interface ConfigError {
   };
 }
 
+const DEFAULT_CONFIGS = [
+  { key: 'warning_threshold', value: '3', validRange: '1-10' },
+  { key: 'time_limit', value: '60', validRange: '1-180' },
+  { key: 'max_submissions', value: '10', validRange: '1-100' },
+  { key: 'source_check_enabled', value: '0', validRange: '0-1' },
+  { key: 'source_check_weekly_enabled', value: '0', validRange: '0-1' },
+  { key: 'source_check_similarity_threshold', value: '70', validRange: '40-95' },
+  { key: 'source_check_max_runtime_minutes', value: '20', validRange: '5-120' },
+  { key: 'source_check_provider', value: 'jplag', validRange: 'enum:jplag,pmd_cpd,dolos' },
+];
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 export function isConfigError(value: unknown): value is ConfigError {
@@ -45,6 +56,20 @@ function parseRange(validRange: string): { min: number; max: number } | null {
   return { min: parseInt(match[1], 10), max: parseInt(match[2], 10) };
 }
 
+async function ensureDefaultConfigRows(database: Database = defaultDb): Promise<void> {
+  const now = new Date().toISOString();
+  for (const config of DEFAULT_CONFIGS) {
+    await database
+      .insert(systemConfig)
+      .values({
+        ...config,
+        updatedAt: now,
+        updatedBy: null,
+      })
+      .onConflictDoNothing();
+  }
+}
+
 // ─── Database type ───────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -56,6 +81,7 @@ type Database = any;
  * Get all system configuration key-value pairs.
  */
 export async function getConfig(database: Database = defaultDb): Promise<ConfigEntry[]> {
+  await ensureDefaultConfigRows(database);
   const configs = await database.select().from(systemConfig);
   return configs;
 }
@@ -77,6 +103,8 @@ export async function updateConfig(
   updatedBy: string,
   database: Database = defaultDb
 ): Promise<ConfigUpdateResult | ConfigError> {
+  await ensureDefaultConfigRows(database);
+
   // Find the existing config entry
   const existing = await database.select().from(systemConfig).where(eq(systemConfig.key, key));
 
@@ -91,27 +119,41 @@ export async function updateConfig(
 
   const configEntry = existing[0];
 
-  // Validate that value is a valid integer
-  const numericValue = parseInt(value, 10);
-  if (isNaN(numericValue) || numericValue.toString() !== value.trim()) {
-    return {
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: `Value '${value}' is not a valid integer for parameter '${key}'`,
-      },
-    };
-  }
+  const trimmedValue = value.trim();
 
-  // Validate value is within valid range
-  if (configEntry.validRange) {
-    const range = parseRange(configEntry.validRange);
-    if (range && (numericValue < range.min || numericValue > range.max)) {
+  if (configEntry.validRange?.startsWith('enum:')) {
+    const allowedValues = configEntry.validRange.replace('enum:', '').split(',');
+    if (!allowedValues.includes(trimmedValue)) {
       return {
         error: {
           code: 'VALIDATION_ERROR',
-          message: `Value ${numericValue} is out of valid range ${configEntry.validRange} for parameter ${key}`,
+          message: `Value '${trimmedValue}' is not allowed for parameter '${key}'`,
         },
       };
+    }
+  } else {
+    // Validate that value is a valid integer
+    const numericValue = parseInt(trimmedValue, 10);
+    if (isNaN(numericValue) || numericValue.toString() !== trimmedValue) {
+      return {
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: `Value '${value}' is not a valid integer for parameter '${key}'`,
+        },
+      };
+    }
+
+    // Validate value is within valid range
+    if (configEntry.validRange) {
+      const range = parseRange(configEntry.validRange);
+      if (range && (numericValue < range.min || numericValue > range.max)) {
+        return {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: `Value ${numericValue} is out of valid range ${configEntry.validRange} for parameter ${key}`,
+          },
+        };
+      }
     }
   }
 
@@ -128,7 +170,7 @@ export async function updateConfig(
 
   return {
     key,
-    value: value.trim(),
+    value: trimmedValue,
     updatedAt: now,
   };
 }
