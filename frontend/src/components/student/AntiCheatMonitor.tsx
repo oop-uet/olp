@@ -54,6 +54,8 @@ export function AntiCheatMonitor({
   const hasCalledNullifiedRef = useRef(false)
   const lastDevtoolsWarningAtRef = useRef(0)
   const lastExitWarningAtRef = useRef(0)
+  const monitoringStartedAtRef = useRef(0)
+  const devtoolsDetectionStreakRef = useRef(0)
 
   const exitFullscreenIfNeeded = useCallback(() => {
     if (document.fullscreenElement) {
@@ -76,6 +78,9 @@ export function AntiCheatMonitor({
   useEffect(() => {
     const init = async () => {
       const granted = await activate()
+      if (granted) {
+        monitoringStartedAtRef.current = Date.now()
+      }
       setIsInitializing(false)
       if (!granted) {
         // fullscreenDenied state is handled by the hook
@@ -94,7 +99,10 @@ export function AntiCheatMonitor({
   useEffect(() => {
     if (!isActive || isNullified) return
 
+    const isInsideStartupGracePeriod = () => Date.now() - monitoringStartedAtRef.current < 2500
+
     const handleFullscreenChange = () => {
+      if (isInsideStartupGracePeriod()) return
       if (!document.fullscreenElement) {
         recordWarning('fullscreen_exit')
         showNotification('Bạn đã thoát khỏi chế độ toàn màn hình.')
@@ -102,6 +110,7 @@ export function AntiCheatMonitor({
     }
 
     const handleVisibilityChange = () => {
+      if (isInsideStartupGracePeriod()) return
       if (document.visibilityState === 'hidden') {
         recordWarning('visibility_hidden')
         showNotification('Bạn đã chuyển sang tab hoặc ứng dụng khác.')
@@ -109,6 +118,7 @@ export function AntiCheatMonitor({
     }
 
     const handleWindowBlur = () => {
+      if (isInsideStartupGracePeriod() || document.visibilityState === 'hidden') return
       recordWarning('window_blur')
       showNotification('Cửa sổ làm bài không còn được focus.')
     }
@@ -172,19 +182,35 @@ export function AntiCheatMonitor({
     }
   }, [exitFullscreenIfNeeded, isActive, isNullified, navigate, recordWarning, showNotification, threshold, warningCount])
 
-  // Browser APIs cannot truly forbid DevTools, but docked DevTools reliably
-  // shrinks the viewport; detect that state and count it as a violation.
+  // Browser APIs cannot truly forbid DevTools. Viewport gap detection is only
+  // a heuristic, so keep it conservative to avoid punishing normal fullscreen
+  // startup, browser chrome quirks, split-screen windows, or zoom/layout changes.
   useEffect(() => {
     if (!isActive || isNullified) return
 
     const detectDevTools = () => {
+      if (!document.fullscreenElement || Date.now() - monitoringStartedAtRef.current < 5000) {
+        devtoolsDetectionStreakRef.current = 0
+        return
+      }
+
       const widthGap = Math.abs(window.outerWidth - window.innerWidth)
       const heightGap = Math.abs(window.outerHeight - window.innerHeight)
-      const looksOpen = widthGap > 160 || heightGap > 160
+      const widthThreshold = Math.max(260, window.innerWidth * 0.22)
+      const heightThreshold = Math.max(260, window.innerHeight * 0.22)
+      const looksOpen = widthGap > widthThreshold || heightGap > heightThreshold
       const now = Date.now()
 
-      if (looksOpen && now - lastDevtoolsWarningAtRef.current > 10_000) {
+      if (!looksOpen) {
+        devtoolsDetectionStreakRef.current = 0
+        return
+      }
+
+      devtoolsDetectionStreakRef.current += 1
+
+      if (devtoolsDetectionStreakRef.current >= 3 && now - lastDevtoolsWarningAtRef.current > 15_000) {
         lastDevtoolsWarningAtRef.current = now
+        devtoolsDetectionStreakRef.current = 0
         recordWarning('devtools_open')
         showNotification('Phát hiện DevTools đang mở trong phiên làm bài.')
       }

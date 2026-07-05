@@ -26,8 +26,12 @@ function renderWithRouter(ui: ReactElement) {
 }
 
 describe('AntiCheatMonitor', () => {
+  let nowMs = 0
+
   beforeEach(() => {
     mockNavigate.mockReset()
+    nowMs = 0
+    vi.spyOn(Date, 'now').mockImplementation(() => nowMs)
 
     // Mock fullscreen APIs on document.documentElement
     document.documentElement.requestFullscreen = vi.fn().mockResolvedValue(undefined)
@@ -41,6 +45,12 @@ describe('AntiCheatMonitor', () => {
 
     Object.defineProperty(document, 'fullscreenElement', {
       value: document.documentElement,
+      writable: true,
+      configurable: true,
+    })
+
+    Object.defineProperty(document, 'visibilityState', {
+      value: 'visible',
       writable: true,
       configurable: true,
     })
@@ -177,6 +187,7 @@ describe('AntiCheatMonitor', () => {
         </AntiCheatMonitor>
       )
     })
+    nowMs = 3000
 
     // Simulate fullscreen exit
     Object.defineProperty(document, 'fullscreenElement', {
@@ -193,6 +204,29 @@ describe('AntiCheatMonitor', () => {
     expect(screen.getByText('Bạn đã thoát khỏi chế độ toàn màn hình.')).toBeInTheDocument()
   })
 
+  it('does not count fullscreen startup focus churn as a warning', async () => {
+    await act(async () => {
+      renderWithRouter(
+        <AntiCheatMonitor isAssessment={true} exerciseId="ex-1" warningThreshold={3}>
+          <div data-testid="workspace">Workspace</div>
+        </AntiCheatMonitor>
+      )
+    })
+
+    Object.defineProperty(document, 'fullscreenElement', {
+      value: null,
+      writable: true,
+      configurable: true,
+    })
+
+    await act(async () => {
+      document.dispatchEvent(new Event('fullscreenchange'))
+      window.dispatchEvent(new Event('blur'))
+    })
+
+    expect(screen.getByText('Cảnh báo: 0/3')).toBeInTheDocument()
+  })
+
   it('shows notification on visibilitychange event', async () => {
     await act(async () => {
       renderWithRouter(
@@ -201,6 +235,7 @@ describe('AntiCheatMonitor', () => {
         </AntiCheatMonitor>
       )
     })
+    nowMs = 3000
 
     // Simulate visibility hidden
     Object.defineProperty(document, 'visibilityState', {
@@ -225,6 +260,7 @@ describe('AntiCheatMonitor', () => {
         </AntiCheatMonitor>
       )
     })
+    nowMs = 3000
 
     await act(async () => {
       window.dispatchEvent(new Event('blur'))
@@ -242,6 +278,7 @@ describe('AntiCheatMonitor', () => {
         </AntiCheatMonitor>
       )
     })
+    nowMs = 3000
 
     // Trigger 2 violations to reach threshold
     Object.defineProperty(document, 'fullscreenElement', {
@@ -280,6 +317,7 @@ describe('AntiCheatMonitor', () => {
         </AntiCheatMonitor>
       )
     })
+    nowMs = 3000
 
     Object.defineProperty(document, 'fullscreenElement', {
       value: null,
@@ -302,6 +340,7 @@ describe('AntiCheatMonitor', () => {
         </AntiCheatMonitor>
       )
     })
+    nowMs = 3000
 
     Object.defineProperty(document, 'fullscreenElement', {
       value: null,
@@ -317,5 +356,52 @@ describe('AntiCheatMonitor', () => {
     const workspace = screen.getByTestId('workspace')
     expect(workspace.parentElement).toHaveClass('pointer-events-none')
     expect(workspace.parentElement).toHaveClass('opacity-50')
+  })
+
+  it('does not warn for a devtools-like viewport gap during startup', async () => {
+    Object.defineProperty(window, 'outerWidth', { value: 1400, configurable: true })
+    Object.defineProperty(window, 'innerWidth', { value: 900, configurable: true })
+    Object.defineProperty(window, 'outerHeight', { value: 900, configurable: true })
+    Object.defineProperty(window, 'innerHeight', { value: 900, configurable: true })
+
+    await act(async () => {
+      renderWithRouter(
+        <AntiCheatMonitor isAssessment={true} exerciseId="ex-1" warningThreshold={3}>
+          <div data-testid="workspace">Workspace</div>
+        </AntiCheatMonitor>
+      )
+    })
+
+    expect(screen.getByText('Cảnh báo: 0/3')).toBeInTheDocument()
+  })
+
+  it('does not warn before repeated devtools detections are confirmed', async () => {
+    vi.mocked(Date.now).mockRestore()
+    vi.useFakeTimers()
+    vi.setSystemTime(0)
+    Object.defineProperty(window, 'outerWidth', { value: 1400, configurable: true })
+    Object.defineProperty(window, 'innerWidth', { value: 900, configurable: true })
+    Object.defineProperty(window, 'outerHeight', { value: 900, configurable: true })
+    Object.defineProperty(window, 'innerHeight', { value: 900, configurable: true })
+
+    await act(async () => {
+      renderWithRouter(
+        <AntiCheatMonitor isAssessment={true} exerciseId="ex-1" warningThreshold={3}>
+          <div data-testid="workspace">Workspace</div>
+        </AntiCheatMonitor>
+      )
+    })
+
+    await act(async () => {
+      vi.advanceTimersByTime(6500)
+    })
+    expect(screen.getByText('Cảnh báo: 0/3')).toBeInTheDocument()
+
+    await act(async () => {
+      vi.advanceTimersByTime(1500)
+    })
+    expect(screen.getByText('Cảnh báo: 0/3')).toBeInTheDocument()
+
+    vi.useRealTimers()
   })
 })

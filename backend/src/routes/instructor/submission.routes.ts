@@ -9,7 +9,7 @@ import {
 import { requireRole } from "../../middleware/role.guard.js";
 import { validate } from "../../middleware/validate.js";
 import { db } from "../../db/index.js";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { sectionEnrollments } from "../../db/schema.js";
 
 // ─── Router ──────────────────────────────────────────────────────────────────
