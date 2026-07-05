@@ -94,7 +94,7 @@ function createInitialSourceFile(code: string): SourceFile {
     return starterFiles[0]
   }
 
-  const className = code.match(/public\s+class\s+([A-Za-z_$][\w$]*)/)?.[1] ?? 'Main'
+  const className = extractOuterJavaTypeName(code) ?? 'Main'
   return {
     id: `${className}-${Date.now()}`,
     name: `${className}.java`,
@@ -123,6 +123,54 @@ function parseStarterFiles(code: string): SourceFile[] {
   }
 }
 
+function maskJavaCommentsAndStrings(code: string): string {
+  return code
+    .replace(/\/\*[\s\S]*?\*\//g, (match) => ' '.repeat(match.length))
+    .replace(/\/\/.*$/gm, (match) => ' '.repeat(match.length))
+    .replace(/"(?:\\.|[^"\\])*"/g, (match) => ' '.repeat(match.length))
+    .replace(/'(?:\\.|[^'\\])'/g, (match) => ' '.repeat(match.length))
+}
+
+function extractOuterJavaTypeName(code: string): string | null {
+  const masked = maskJavaCommentsAndStrings(code)
+  const typePattern =
+    /\b(public\s+)?(?:final\s+|abstract\s+|sealed\s+|non-sealed\s+)*\b(class|interface|enum|record)\s+([A-Za-z_$][\w$]*)\s*(?:[<{(]|\b)/g
+  const candidates: Array<{ name: string; isPublic: boolean; index: number }> = []
+  let depth = 0
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  while ((match = typePattern.exec(masked)) !== null) {
+    for (let index = lastIndex; index < match.index; index += 1) {
+      const char = masked[index]
+      if (char === '{') depth += 1
+      if (char === '}') depth = Math.max(0, depth - 1)
+    }
+    lastIndex = match.index
+
+    if (depth === 0 && masked.slice(match.index).includes('{')) {
+      candidates.push({
+        name: match[3],
+        isPublic: Boolean(match[1]),
+        index: match.index,
+      })
+    }
+  }
+
+  return (
+    candidates.find((candidate) => candidate.isPublic)?.name ??
+    candidates.sort((a, b) => a.index - b.index)[0]?.name ??
+    null
+  )
+}
+
+function normalizeJavaFileName(input: string): string | null {
+  const trimmed = input.trim()
+  const withExtension = trimmed.toLowerCase().endsWith('.java') ? trimmed : `${trimmed}.java`
+  if (!/^[A-Za-z_$][\w$]*\.java$/.test(withExtension)) return null
+  return withExtension
+}
+
 function createNewSourceFile(existingFiles: SourceFile[]): SourceFile {
   let index = existingFiles.length + 1
   let name = `Class${index}.java`
@@ -144,6 +192,21 @@ function filesForExecution(files: SourceFile[]) {
   return files
     .map((file) => ({ name: file.name.trim(), content: file.content }))
     .filter((file) => file.name.endsWith('.java') && file.content.trim().length > 0)
+}
+
+function maybeRenameFileFromOuterType(file: SourceFile, content: string, allFiles: SourceFile[]): SourceFile {
+  const typeName = extractOuterJavaTypeName(content)
+  if (!typeName) return { ...file, content }
+
+  const nextName = `${typeName}.java`
+  if (
+    file.name === nextName ||
+    allFiles.some((candidate) => candidate.id !== file.id && candidate.name === nextName)
+  ) {
+    return { ...file, content }
+  }
+
+  return { ...file, name: nextName, content }
 }
 
 function serializeSubmissionFiles(files: Array<{ name: string; content: string }>): string {
@@ -548,6 +611,25 @@ export function ExerciseWorkspacePage() {
                   return next
                 })
               }}
+              onRename={(fileId, nextName) => {
+                const normalizedName = normalizeJavaFileName(nextName)
+                if (!normalizedName) {
+                  toast.error('Tên file Java không hợp lệ.')
+                  return false
+                }
+
+                if (files.some((file) => file.id !== fileId && file.name === normalizedName)) {
+                  toast.error('Tên file đã tồn tại trong bài làm.')
+                  return false
+                }
+
+                setFiles((current) =>
+                  current.map((file) =>
+                    file.id === fileId ? { ...file, name: normalizedName } : file
+                  )
+                )
+                return true
+              }}
             />
             <Editor
               height="calc(100% - 45px)"
@@ -557,7 +639,9 @@ export function ExerciseWorkspacePage() {
               onChange={(value) =>
                 setFiles((current) =>
                   current.map((file) =>
-                    file.id === activeFileId ? { ...file, content: value || '' } : file
+                    file.id === activeFileId
+                      ? maybeRenameFileFromOuterType(file, value || '', current)
+                      : file
                   )
                 )
               }
@@ -614,13 +698,45 @@ function FileTabs({
   onSelect,
   onAdd,
   onRemove,
+  onRename,
 }: {
   files: SourceFile[]
   activeFileId: string
   onSelect: (fileId: string) => void
   onAdd: () => void
   onRemove: (fileId: string) => void
+  onRename: (fileId: string, nextName: string) => boolean
 }) {
+  const [editingFileId, setEditingFileId] = useState<string | null>(null)
+  const [draftName, setDraftName] = useState('')
+  const cancelRenameRef = useRef(false)
+
+  function startRename(file: SourceFile) {
+    cancelRenameRef.current = false
+    setEditingFileId(file.id)
+    setDraftName(file.name)
+    onSelect(file.id)
+  }
+
+  function commitRename(fileId: string) {
+    if (cancelRenameRef.current) {
+      cancelRenameRef.current = false
+      return
+    }
+
+    const ok = onRename(fileId, draftName)
+    if (ok) {
+      setEditingFileId(null)
+      setDraftName('')
+    }
+  }
+
+  function cancelRename() {
+    cancelRenameRef.current = true
+    setEditingFileId(null)
+    setDraftName('')
+  }
+
   return (
     <div className="flex h-[45px] items-center gap-1 border-b border-slate-800 bg-slate-900 px-2">
       <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
@@ -633,9 +749,35 @@ function FileTabs({
                 : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
             }`}
           >
-            <button onClick={() => onSelect(file.id)} className="h-full text-left">
-              {file.name}
-            </button>
+            {editingFileId === file.id ? (
+              <input
+                autoFocus
+                value={draftName}
+                onChange={(event) => setDraftName(event.target.value)}
+                onBlur={() => commitRename(file.id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    commitRename(file.id)
+                  }
+                  if (event.key === 'Escape') {
+                    event.preventDefault()
+                    cancelRename()
+                  }
+                }}
+                className="h-6 w-32 rounded border border-slate-500 bg-slate-950 px-2 text-xs font-semibold text-white outline-none focus:border-secondary"
+                aria-label={`Đổi tên ${file.name}`}
+              />
+            ) : (
+              <button
+                onClick={() => onSelect(file.id)}
+                onDoubleClick={() => startRename(file)}
+                className="h-full text-left"
+                title="Double-click để đổi tên file"
+              >
+                {file.name}
+              </button>
+            )}
             {files.length > 1 && (
               <button
                 onClick={(event) => {
