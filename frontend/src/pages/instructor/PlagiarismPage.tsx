@@ -171,7 +171,7 @@ export function PlagiarismPage() {
       </div>
 
       {/* Page header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary-800 via-primary-900 to-slate-900 p-6 text-white shadow-md border-b-4 border-secondary">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 p-6 text-white shadow-md border-b-4 border-secondary">
         <h1 className="text-2xl font-black font-sans uppercase tracking-wide">Kiểm tra mã nguồn</h1>
         <p className="text-xs text-white/70 mt-1 font-semibold">Phát hiện gian lận và đối chiếu độ tương đồng mã nguồn giữa các sinh viên</p>
       </div>

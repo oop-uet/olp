@@ -153,7 +153,7 @@ export function InstructorStatisticPage() {
       </div>
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-slate-100 bg-gradient-to-r from-primary-800 to-primary p-5 text-white md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-4 border-b border-slate-100 bg-gradient-to-r from-teal-600 to-cyan-500 p-5 text-white md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-wide text-primary-100">Bảng thống kê</p>
             <h1 className="mt-1 text-2xl font-black">Theo dõi tiến độ lớp học</h1>
@@ -277,7 +277,7 @@ function MetricCard({ label, value }: { label: string; value: string }) {
 function ExerciseSummary({ exercises, totalStudents }: { exercises: ExerciseStat[]; totalStudents: number }) {
   return (
     <aside className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <div className="border-b border-slate-200 bg-gradient-to-r from-primary-800 to-primary px-4 py-3 text-white">
+      <div className="border-b border-slate-200 bg-gradient-to-r from-teal-600 to-cyan-500 px-4 py-3 text-white">
         <h2 className="text-sm font-black uppercase tracking-wide">Theo bài tập</h2>
       </div>
       <div className="max-h-[560px] divide-y divide-slate-100 overflow-y-auto">

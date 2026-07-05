@@ -106,7 +106,7 @@ export function TopNav() {
     }`
 
   return (
-    <header className="relative bg-gradient-to-r from-primary-800 via-primary-900 to-slate-900 text-white shadow-md border-b border-white/5">
+    <header className="relative bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 text-white shadow-md border-b border-white/5">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 lg:px-6">
         {/* Brand */}
         <NavLink to="/" className="flex shrink-0 items-center gap-2">

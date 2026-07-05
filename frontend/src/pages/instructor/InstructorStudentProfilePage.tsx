@@ -163,7 +163,7 @@ export function InstructorStudentProfilePage() {
       <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
         <aside className="space-y-5">
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="bg-gradient-to-r from-primary-800 to-primary p-5 text-white">
+            <div className="bg-gradient-to-r from-teal-600 to-cyan-500 p-5 text-white">
               <div className="flex items-center gap-4">
                 <div className="flex h-16 w-16 items-center justify-center rounded-full border-4 border-white/40 bg-white/20 text-2xl font-black">
                   {student.fullName.charAt(0).toUpperCase()}
@@ -188,7 +188,7 @@ export function InstructorStudentProfilePage() {
           </div>
 
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="bg-gradient-to-r from-primary-800 to-primary px-4 py-3 text-white">
+            <div className="bg-gradient-to-r from-teal-600 to-cyan-500 px-4 py-3 text-white">
               <h2 className="text-sm font-black uppercase tracking-wide">Mức độ hoàn thành</h2>
             </div>
             <div className="p-5">
@@ -204,7 +204,7 @@ export function InstructorStudentProfilePage() {
 
         <main className="space-y-5">
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="bg-gradient-to-r from-primary-800 to-primary px-5 py-4 text-white">
+            <div className="bg-gradient-to-r from-teal-600 to-cyan-500 px-5 py-4 text-white">
               <h2 className="text-sm font-black uppercase tracking-wide">Danh sách bài nộp</h2>
             </div>
             <div className="overflow-x-auto p-5">
