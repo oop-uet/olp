@@ -117,6 +117,7 @@ export function SectionSchedulePage() {
   const [savingWeek, setSavingWeek] = useState<number | null>(null)
   const [dropWeek, setDropWeek] = useState<number | 'pool' | null>(null)
   const [visibleWeekCount, setVisibleWeekCount] = useState(DEFAULT_TOTAL_WEEKS)
+  const [selectedWeek, setSelectedWeek] = useState(1)
 
   const fetchSchedule = useCallback(async () => {
     if (!id) return
@@ -132,6 +133,7 @@ export function SectionSchedulePage() {
       const weekCount = Math.max(DEFAULT_TOTAL_WEEKS, highestBackendWeek, Number.isFinite(savedWeekCount) ? savedWeekCount : 0)
       setDeadlineInputs(fillCascadingDeadlineInputs(inputs, weekCount))
       setVisibleWeekCount(weekCount)
+      setSelectedWeek((current) => Math.min(Math.max(current, 1), weekCount))
     } catch {
       toast.error('Không thể tải lịch phân bài. Vui lòng thử lại.')
     } finally {
@@ -197,6 +199,7 @@ export function SectionSchedulePage() {
     if (!data) return
     const nextCount = visibleWeekCount + 1
     setVisibleWeekCount(nextCount)
+    setSelectedWeek(nextCount)
     setDeadlineInputs((prev) => ({
       ...prev,
       [nextCount]: prev[nextCount] || addDaysLocalInput(prev[nextCount - 1] ?? '', 7),
@@ -214,6 +217,7 @@ export function SectionSchedulePage() {
     }
     const nextCount = Math.max(DEFAULT_TOTAL_WEEKS, visibleWeekCount - 1)
     setVisibleWeekCount(nextCount)
+    setSelectedWeek((current) => Math.min(current, nextCount))
     localStorage.setItem(getWeekCountKey(data.section.id), String(nextCount))
     toast.success(`Đã xóa tuần ${week}.`)
   }
@@ -311,12 +315,15 @@ export function SectionSchedulePage() {
             <div>
               <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">Các tuần học</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Kéo bài tập từ kho bên phải thả vào tuần. Kéo ngược lại kho hoặc bấm gỡ để bỏ khỏi lịch.
+                Chọn tuần rồi bấm dấu + ở kho bài tập, hoặc kéo thả bài tập giữa kho và các tuần.
               </p>
             </div>
-            <button onClick={addWeek} className="btn-primary btn-sm">
-              Thêm tuần
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="badge-blue">Tuần đang chọn: {selectedWeek}</span>
+              <button onClick={addWeek} className="btn-primary btn-sm">
+                Thêm tuần
+              </button>
+            </div>
           </div>
 
           {/* Unscheduled panel */}
@@ -369,11 +376,22 @@ export function SectionSchedulePage() {
                 onDrop={(e) => handleDropOnWeek(e, w.week)}
                 className={`card p-0 transition-colors ${
                   isOver ? 'ring-2 ring-primary ring-offset-1' : ''
-                }`}
+                } ${selectedWeek === w.week ? 'border-primary ring-2 ring-primary/30' : ''}`}
               >
                 {/* Week header */}
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
-                  <h2 className="text-sm font-semibold text-gray-700">TUẦN {w.week}</h2>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedWeek(w.week)}
+                    className={`rounded-lg px-3 py-1.5 text-sm font-bold transition-colors ${
+                      selectedWeek === w.week
+                        ? 'bg-teal-600 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-700 hover:bg-teal-50 hover:text-teal-700'
+                    }`}
+                    aria-pressed={selectedWeek === w.week}
+                  >
+                    TUẦN {w.week}
+                  </button>
                   <div className="flex items-center gap-2">
                     <input
                       type="datetime-local"
@@ -453,9 +471,12 @@ export function SectionSchedulePage() {
           >
             <div className="flex items-center gap-2 border-b border-gray-200 px-4 py-3">
               <ExerciseIcon className="h-5 w-5 text-gray-500" />
-              <h2 className="text-sm font-semibold text-gray-700">
-                Kho bài tập hệ thống ({pool.length})
-              </h2>
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-gray-700">
+                  Kho bài tập hệ thống ({pool.length})
+                </h2>
+                <p className="mt-0.5 text-xs text-gray-500">Bấm + để thêm vào tuần {selectedWeek}</p>
+              </div>
             </div>
             <div className="space-y-2 p-4 lg:max-h-[calc(100vh-14rem)] lg:overflow-y-auto">
               {pool.length === 0 ? (
@@ -471,7 +492,17 @@ export function SectionSchedulePage() {
                     className="card-hover cursor-grab space-y-2 rounded-lg border border-gray-200 bg-white p-3 active:cursor-grabbing"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <span className="font-medium text-gray-800">{ex.title}</span>
+                      <div className="flex min-w-0 items-start gap-2">
+                        <button
+                          type="button"
+                          onClick={() => assignExercise(ex.id, selectedWeek)}
+                          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-teal-600 text-base font-bold leading-none text-white shadow-sm transition-colors hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+                          aria-label={`Thêm ${ex.title} vào tuần ${selectedWeek}`}
+                        >
+                          +
+                        </button>
+                        <span className="min-w-0 font-medium text-gray-800">{ex.title}</span>
+                      </div>
                       <DifficultyBadge difficulty={ex.difficulty} />
                     </div>
                     {ex.oopTags && ex.oopTags.length > 0 && (
