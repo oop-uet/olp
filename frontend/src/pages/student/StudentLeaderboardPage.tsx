@@ -29,8 +29,12 @@ export function StudentLeaderboardPage() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([])
   const [sections, setSections] = useState<SectionOption[]>([])
   const [selectedSectionId, setSelectedSectionId] = useState<string>('')
+  const [maxPossibleScore, setMaxPossibleScore] = useState<number>(0)
   const [loadingSections, setLoadingSections] = useState(true)
   const [loadingBoard, setLoadingBoard] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [pageSize, setPageSize] = useState(30)
+  const [currentPage, setCurrentPage] = useState(1)
 
   // Fetch enrolled sections on mount.
   useEffect(() => {
@@ -63,24 +67,15 @@ export function StudentLeaderboardPage() {
       const response = await cachedGet(`/api/sections/${sectionId}/leaderboard`, undefined, {
         ttlMs: 30_000,
       })
-      // Endpoint may return either a bare array or { leaderboard: [...] }.
       const data: LeaderboardEntry[] = response.data.leaderboard ?? response.data ?? []
       setEntries(data)
+      setMaxPossibleScore(response.data.maxPossibleScore ?? 0)
     } catch {
       toast.error('Không thể tải bảng xếp hạng. Vui lòng thử lại.')
     } finally {
       setLoadingBoard(false)
     }
   }, [])
-
-
-
-  function getRankBadge(rank: number): React.ReactNode {
-    if (rank === 1) return <span className="text-lg">🥇</span>
-    if (rank === 2) return <span className="text-lg">🥈</span>
-    if (rank === 3) return <span className="text-lg">🥉</span>
-    return <span className="text-sm font-medium text-gray-500">#{rank}</span>
-  }
 
   function isCurrentUser(entry: LeaderboardEntry): boolean {
     if (!user) return false
@@ -107,44 +102,57 @@ export function StudentLeaderboardPage() {
   const currentSection =
     sections.find((section) => section.id === selectedSectionId) ?? sections[0]
 
+  // Filter entries based on search input
+  const filteredEntries = entries.filter((entry) => {
+    const q = searchQuery.toLowerCase().trim()
+    if (!q) return true
+    return (
+      entry.studentName.toLowerCase().includes(q) ||
+      entry.studentId.toLowerCase().includes(q)
+    )
+  })
+
+  // Paginated entries
+  const totalPages = Math.ceil(filteredEntries.length / pageSize)
+  const paginatedEntries = filteredEntries.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  )
+
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Breadcrumb */}
-      <div className="text-xs text-slate-500 font-medium py-1 px-3 bg-slate-50 border-b border-slate-100 rounded flex gap-1.5 items-center">
-        <span className="text-primary cursor-default">Trang chủ</span>
-        <span>/</span>
-        <span className="text-slate-400">Bảng xếp hạng</span>
-      </div>
-
-      {/* Page header */}
-      <div className="bg-white border border-slate-100 rounded-xl p-5 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 font-sans">Bảng Xếp Hạng Lớp Học</h1>
+      {/* Course tab navigation & Dropdown picker */}
+      <div className="border-b border-slate-200 pb-1 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex border-b-2 border-primary -mb-[2px]">
+          <button className="px-4 py-2 text-sm font-bold text-primary">
+            Xếp Hạng Theo Khóa Học
+          </button>
         </div>
+
+        {sections.length > 1 && (
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+            <label htmlFor="section-select">Lớp học phần:</label>
+            <select
+              id="section-select"
+              value={currentSection.id}
+              onChange={(event) => {
+                setSelectedSectionId(event.target.value)
+                fetchLeaderboard(event.target.value)
+                setCurrentPage(1)
+              }}
+              className="h-9 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-800 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10"
+            >
+              {sections.map((section) => (
+                <option key={section.id} value={section.id}>
+                  {section.name} ({section.semester})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
-      {/* Current course section */}
-      <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-          Lớp học phần
-        </p>
-        <select
-          value={currentSection.id}
-          onChange={(event) => {
-            setSelectedSectionId(event.target.value)
-            fetchLeaderboard(event.target.value)
-          }}
-          className="mt-2 h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10"
-        >
-          {sections.map((section) => (
-            <option key={section.id} value={section.id}>
-              {section.name} ({section.semester})
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Loading */}
+      {/* Loading states */}
       {loadingBoard && <PageLoader label="Đang tải bảng xếp hạng..." />}
 
       {/* Empty */}
@@ -155,61 +163,140 @@ export function StudentLeaderboardPage() {
         </div>
       )}
 
-      {/* Leaderboard table */}
+      {/* Main Leaderboard Table */}
       {!loadingBoard && entries.length > 0 && (
-        <div className="card overflow-hidden border border-slate-100 shadow-sm">
-          {/* Table Header Banner */}
-          <div className="panel-header">
-            <h3 className="panel-title">
-              <span>🏆</span>
-              Danh Sách Xếp Hạng Lớp
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          {/* Solid Teal/Cyan Header Bar */}
+          <div className="flex items-center gap-2 bg-[#00acc1] px-5 py-3 text-white">
+            <span className="text-base">📋</span>
+            <h3 className="text-sm font-bold tracking-wide uppercase">
+              {currentSection.name}
             </h3>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-100 text-left">
-              <thead>
-                <tr className="bg-slate-50/70 border-b border-slate-200">
-                  <th className="px-6 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-500 w-24">Hạng</th>
-                  <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Họ và Tên</th>
-                  <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 w-44">Mã sinh viên</th>
-                  <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-500 w-36">Tổng điểm</th>
-                  <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-500 w-48">Bài đã hoàn thành</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-xs text-slate-700 bg-white">
-                {entries.map((entry) => {
-                  const mine = isCurrentUser(entry)
-                  return (
-                    <tr
-                      key={entry.studentId}
-                      className={
-                        mine
-                          ? 'bg-primary-50/40 border-l-4 border-primary font-semibold transition-colors'
-                          : 'hover:bg-slate-50/50 transition-colors'
-                      }
-                    >
-                      <td className="px-6 py-3.5 text-center font-bold">{getRankBadge(entry.rank)}</td>
-                      <td className="px-6 py-3.5 font-semibold text-slate-800">
-                        <span className={mine ? 'text-primary' : ''}>{entry.studentName}</span>
-                        {mine && (
-                          <span className="ml-2 bg-primary text-white text-[9px] font-extrabold rounded-full px-1.5 py-0.5">
-                            Bạn
+          <div className="p-5 space-y-4">
+            {/* Table Controls (Show entries & Search) */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600 font-medium">
+              <div className="flex items-center gap-1.5">
+                <span>Hiển thị</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value))
+                    setCurrentPage(1)
+                  }}
+                  className="border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={30}>30</option>
+                  <option value={50}>50</option>
+                </select>
+                <span>dòng</span>
+              </div>
+
+              <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                <span>Tìm kiếm:</span>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value)
+                    setCurrentPage(1)
+                  }}
+                  className="border border-slate-200 rounded px-2.5 py-1.5 w-full sm:w-60 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                />
+              </div>
+            </div>
+
+            {/* Table layout */}
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-100 border border-slate-200">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-left">
+                    <th className="px-4 py-3 text-center text-xs font-bold text-slate-700 w-16">#</th>
+                    <th className="px-6 py-3 text-xs font-bold text-slate-700">Sinh viên</th>
+                    <th className="px-6 py-3 text-xs font-bold text-slate-700">Lớp học phần</th>
+                    <th className="px-6 py-3 text-xs font-bold text-slate-700 text-right">Điểm SV/Tổng điểm</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs text-slate-700 bg-white">
+                  {paginatedEntries.map((entry) => {
+                    const mine = isCurrentUser(entry)
+                    return (
+                      <tr
+                        key={entry.studentId}
+                        className={
+                          mine
+                            ? 'bg-primary-50/40 border-l-4 border-primary font-semibold transition-colors'
+                            : 'hover:bg-slate-50/50 transition-colors'
+                        }
+                      >
+                        <td className="px-4 py-3.5 text-center font-bold text-slate-800">
+                          {entry.rank}
+                        </td>
+                        <td className="px-6 py-3.5 font-semibold text-slate-800">
+                          <span className="text-primary hover:underline cursor-default">
+                            {entry.studentName}
                           </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-3.5 font-medium text-slate-400">{entry.studentId}</td>
-                      <td className="px-6 py-3.5 text-right font-bold text-slate-900">
-                        <span className={mine ? 'text-primary' : 'text-slate-800'}>
-                          {entry.totalScore.toFixed(1)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-3.5 text-right font-bold text-slate-600">{entry.completedExercises}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                          {mine && (
+                            <span className="ml-2 bg-primary text-white text-[9px] font-extrabold rounded-full px-1.5 py-0.5">
+                              Bạn
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-3.5 text-slate-600 font-medium">
+                          {currentSection.name}
+                        </td>
+                        <td className="px-6 py-3.5 text-right font-black text-slate-800">
+                          {entry.totalScore.toFixed(0)}/{maxPossibleScore || 100}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 text-xs text-slate-500 font-medium">
+                <div>
+                  Hiển thị {(currentPage - 1) * pageSize + 1} đến{' '}
+                  {Math.min(currentPage * pageSize, filteredEntries.length)} của{' '}
+                  {filteredEntries.length} dòng
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                    className="px-3 py-1.5 rounded border border-slate-200 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Trước
+                  </button>
+                  {Array.from({ length: totalPages }).map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setCurrentPage(i + 1)}
+                      className={`px-3 py-1.5 rounded border transition-colors ${
+                        currentPage === i + 1
+                          ? 'bg-primary text-white border-primary font-bold'
+                          : 'border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                  <button
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                    className="px-3 py-1.5 rounded border border-slate-200 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Sau
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

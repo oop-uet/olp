@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { StorageService, loadStorageConfig, createR2Client } from './storage.service.js';
 
 // Mock the AWS SDK modules

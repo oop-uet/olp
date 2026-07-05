@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db as defaultDb } from "../db/index.js";
-import { submissions, sectionEnrollments, users } from "../db/schema.js";
+import { submissions, sectionEnrollments, users, exerciseAssignments } from "../db/schema.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -172,9 +172,16 @@ export async function getLeaderboard(
     .from(submissions)
     .where(eq(submissions.sectionId, sectionId));
 
+  // Get total exercises assigned to this section to calculate max possible score
+  const assignments = await database
+    .select()
+    .from(exerciseAssignments)
+    .where(eq(exerciseAssignments.sectionId, sectionId));
+  const maxPossibleScore = assignments.length * 100;
+
   const leaderboard = computeLeaderboard(studentInfos, sectionSubmissions);
 
-  return { leaderboard };
+  return { leaderboard, maxPossibleScore };
 }
 
 /**
