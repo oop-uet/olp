@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import crypto from "node:crypto";
 import bcrypt from "bcrypt";
 import { db } from "../../db/index.js";
@@ -377,6 +377,72 @@ router.get("/:id/students/:studentId/progress", async (req: Request, res: Respon
   }
 });
 
+async function loadOwnedSection(sectionId: string, userId: string, role: string) {
+  const section = await db.query.classSections.findFirst({
+    where: eq(classSections.id, sectionId),
+  });
+  if (!section) {
+    return { error: { code: "NOT_FOUND", message: "Không tìm thấy lớp." } };
+  }
+  if (role !== "admin" && section.instructorId !== userId) {
+    return { error: { code: "FORBIDDEN", message: "Bạn không phụ trách lớp này." } };
+  }
+  return { section };
+}
+
+function scoreOf(submission: { score: number | null; manualScore?: number | null }) {
+  return submission.manualScore ?? submission.score ?? 0;
+}
+
+function buildStudentStatistics(
+  enrollments: any[],
+  assigned: Array<{ exerciseId: string }>,
+  sectionSubmissions: Array<{ studentId: string; exerciseId: string; score: number | null; manualScore?: number | null }>
+) {
+  const totalPossible = assigned.length * 100;
+  const assignedIds = assigned.map((ex) => ex.exerciseId);
+
+  const rows = enrollments.map((enrollment) => {
+    const studentSubmissions = sectionSubmissions.filter((sub) => sub.studentId === enrollment.userId);
+    const bestByExercise = new Map<string, number>();
+
+    for (const sub of studentSubmissions) {
+      if (!assignedIds.includes(sub.exerciseId)) continue;
+      const currentBest = bestByExercise.get(sub.exerciseId) ?? 0;
+      bestByExercise.set(sub.exerciseId, Math.max(currentBest, scoreOf(sub)));
+    }
+
+    let totalScore = 0;
+    let completedExercises = 0;
+    for (const exerciseId of assignedIds) {
+      const score = bestByExercise.get(exerciseId) ?? 0;
+      totalScore += score;
+      if (score >= 100) completedExercises++;
+    }
+
+    return {
+      userId: enrollment.userId,
+      studentId: enrollment.studentExternalId || enrollment.username,
+      username: enrollment.username,
+      fullName: enrollment.fullName ?? enrollment.username,
+      email: enrollment.email,
+      className: enrollment.className ?? "",
+      attemptedExercises: bestByExercise.size,
+      completedExercises,
+      attemptCount: studentSubmissions.length,
+      totalScore: Math.round(totalScore * 100) / 100,
+      totalPossible,
+      completionPercent: totalPossible > 0 ? Math.round((totalScore / totalPossible) * 10000) / 100 : 0,
+    };
+  });
+
+  const sorted = [...rows].sort((a, b) => b.totalScore - a.totalScore);
+  return rows.map((row) => ({
+    ...row,
+    rank: sorted.findIndex((item) => item.userId === row.userId) + 1,
+  }));
+}
+
 /**
  * GET /api/instructor/sections/:id/stats
  * Aggregate submission and completion stats for each assigned exercise.
@@ -386,22 +452,26 @@ router.get("/:id/stats", async (req: Request, res: Response) => {
     const { userId, role } = req.user!;
     const sectionId = req.params.id;
 
-    const section = await db.query.classSections.findFirst({
-      where: eq(classSections.id, sectionId),
-    });
-    if (!section) {
-      res.status(404).json({ error: { code: "NOT_FOUND", message: "Không tìm thấy lớp." } });
-      return;
-    }
-    if (role !== "admin" && section.instructorId !== userId) {
-      res.status(403).json({ error: { code: "FORBIDDEN", message: "Bạn không phụ trách lớp này." } });
+    const loaded = await loadOwnedSection(sectionId, userId, role);
+    if (loaded.error) {
+      const error = loaded.error;
+      res.status(error.code === "NOT_FOUND" ? 404 : 403).json({ error });
       return;
     }
 
     // Get all enrolled students
-    const enrollments = await db.query.sectionEnrollments.findMany({
-      where: eq(sectionEnrollments.sectionId, sectionId),
-    });
+    const enrollments = await db
+      .select({
+        enrollmentId: sectionEnrollments.id,
+        userId: users.id,
+        username: users.username,
+        email: users.email,
+        fullName: users.fullName,
+        studentExternalId: sectionEnrollments.studentExternalId,
+      })
+      .from(sectionEnrollments)
+      .innerJoin(users, eq(sectionEnrollments.studentId, users.id))
+      .where(eq(sectionEnrollments.sectionId, sectionId));
     const totalStudents = enrollments.length;
 
     // Get all assigned exercises
@@ -417,26 +487,27 @@ router.get("/:id/stats", async (req: Request, res: Response) => {
       .where(eq(exerciseAssignments.sectionId, sectionId));
 
     // For each exercise, calculate attempts and completion
+    const sectionSubmissions = await db
+      .select({
+        id: submissions.id,
+        studentId: submissions.studentId,
+        exerciseId: submissions.exerciseId,
+        score: submissions.score,
+        manualScore: submissions.manualScore,
+        submittedAt: submissions.submittedAt,
+      })
+      .from(submissions)
+      .where(eq(submissions.sectionId, sectionId));
+
     const statsList = [];
     for (const ex of assigned) {
       // Find highest score per student for this exercise and section
-      const studentSubmissions = await db
-        .select({
-          studentId: submissions.studentId,
-          score: submissions.score,
-        })
-        .from(submissions)
-        .where(
-          and(
-            eq(submissions.sectionId, sectionId),
-            eq(submissions.exerciseId, ex.exerciseId)
-          )
-        );
+      const studentSubmissions = sectionSubmissions.filter((sub) => sub.exerciseId === ex.exerciseId);
 
       const highestScoresByStudent = new Map<string, number>();
       for (const sub of studentSubmissions) {
         const currentBest = highestScoresByStudent.get(sub.studentId) ?? 0;
-        highestScoresByStudent.set(sub.studentId, Math.max(currentBest, sub.score ?? 0));
+        highestScoresByStudent.set(sub.studentId, Math.max(currentBest, scoreOf(sub)));
       }
 
       let attemptedCount = 0;
@@ -464,8 +535,126 @@ router.get("/:id/stats", async (req: Request, res: Response) => {
     res.status(200).json({
       totalStudents,
       exercises: statsList,
+      students: buildStudentStatistics(enrollments, assigned, sectionSubmissions),
     });
   } catch (error) {
+    res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } });
+  }
+});
+
+/**
+ * GET /api/instructor/sections/:id/students/:studentId/profile
+ * Detailed student profile: summary, submission history and chart-ready data.
+ */
+router.get("/:id/students/:studentId/profile", async (req: Request, res: Response) => {
+  try {
+    const { userId, role } = req.user!;
+    const sectionId = req.params.id;
+    const studentUserId = req.params.studentId;
+
+    const loaded = await loadOwnedSection(sectionId, userId, role);
+    if (loaded.error) {
+      const error = loaded.error;
+      res.status(error.code === "NOT_FOUND" ? 404 : 403).json({ error });
+      return;
+    }
+
+    const enrollmentRows = await db
+      .select({
+        enrollmentId: sectionEnrollments.id,
+        userId: users.id,
+        username: users.username,
+        email: users.email,
+        fullName: users.fullName,
+        studentExternalId: sectionEnrollments.studentExternalId,
+      })
+      .from(sectionEnrollments)
+      .innerJoin(users, eq(sectionEnrollments.studentId, users.id))
+      .where(eq(sectionEnrollments.sectionId, sectionId));
+
+    const enrollment = enrollmentRows.find((row) => row.userId === studentUserId);
+    if (!enrollment) {
+      res.status(404).json({ error: { code: "NOT_FOUND", message: "Sinh viên không thuộc lớp này." } });
+      return;
+    }
+
+    const assigned = await db
+      .select({
+        exerciseId: exerciseAssignments.exerciseId,
+        title: exercises.title,
+        difficulty: exercises.difficulty,
+        week: exerciseAssignments.week,
+        deadline: exerciseAssignments.deadline,
+      })
+      .from(exerciseAssignments)
+      .innerJoin(exercises, eq(exerciseAssignments.exerciseId, exercises.id))
+      .where(eq(exerciseAssignments.sectionId, sectionId));
+
+    const allSectionSubmissions = await db
+      .select({
+        id: submissions.id,
+        studentId: submissions.studentId,
+        exerciseId: submissions.exerciseId,
+        score: submissions.score,
+        manualScore: submissions.manualScore,
+        attemptNumber: submissions.attemptNumber,
+        submittedAt: submissions.submittedAt,
+        exerciseTitle: exercises.title,
+      })
+      .from(submissions)
+      .innerJoin(exercises, eq(submissions.exerciseId, exercises.id))
+      .where(eq(submissions.sectionId, sectionId))
+      .orderBy(desc(submissions.submittedAt));
+
+    const statsRows = buildStudentStatistics(enrollmentRows, assigned, allSectionSubmissions);
+    const summary = statsRows.find((row) => row.userId === studentUserId)!;
+    const studentSubmissions = allSectionSubmissions.filter((sub) => sub.studentId === studentUserId);
+
+    const progress = assigned.map((exercise) => {
+      const related = studentSubmissions.filter((sub) => sub.exerciseId === exercise.exerciseId);
+      const bestScore = related.reduce((best, sub) => Math.max(best, scoreOf(sub)), 0);
+      const latest = related[0]?.submittedAt ?? null;
+      return {
+        exerciseId: exercise.exerciseId,
+        title: exercise.title,
+        difficulty: exercise.difficulty,
+        week: exercise.week ?? null,
+        deadline: exercise.deadline ?? null,
+        bestScore,
+        attemptCount: related.length,
+        lastSubmittedAt: latest,
+        status: bestScore >= 100 ? "completed" : related.length > 0 ? "in_progress" : "not_started",
+      };
+    });
+
+    res.status(200).json({
+      section: {
+        id: loaded.section.id,
+        name: loaded.section.name,
+        semester: loaded.section.semester,
+      },
+      student: {
+        userId: enrollment.userId,
+        studentId: enrollment.studentExternalId || enrollment.username,
+        username: enrollment.username,
+        fullName: enrollment.fullName ?? enrollment.username,
+        email: enrollment.email,
+      },
+      summary,
+      submissions: studentSubmissions.map((sub) => ({
+        id: sub.id,
+        exerciseId: sub.exerciseId,
+        exerciseTitle: sub.exerciseTitle,
+        score: sub.score,
+        manualScore: sub.manualScore,
+        effectiveScore: scoreOf(sub),
+        attemptNumber: sub.attemptNumber,
+        submittedAt: sub.submittedAt,
+        status: scoreOf(sub) >= 100 ? "finished" : "submitted",
+      })),
+      progress,
+    });
+  } catch {
     res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } });
   }
 });

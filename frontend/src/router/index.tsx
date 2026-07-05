@@ -45,6 +45,7 @@ const InstructorSectionsPage = lazy(() => import('../pages/instructor/Instructor
 const InstructorSectionDetailPage = lazy(() => import('../pages/instructor/InstructorSectionDetailPage').then((m) => ({ default: m.InstructorSectionDetailPage })))
 const InstructorCourseDetailPage = lazy(() => import('../pages/instructor/InstructorCourseDetailPage').then((m) => ({ default: m.InstructorCourseDetailPage })))
 const InstructorStatisticPage = lazy(() => import('../pages/instructor/InstructorStatisticPage').then((m) => ({ default: m.InstructorStatisticPage })))
+const InstructorStudentProfilePage = lazy(() => import('../pages/instructor/InstructorStudentProfilePage').then((m) => ({ default: m.InstructorStudentProfilePage })))
 
 // Shared (admin + instructor)
 const SectionSchedulePage = lazy(() => import('../pages/SectionSchedulePage').then((m) => ({ default: m.SectionSchedulePage })))
@@ -98,6 +99,7 @@ export const router = createBrowserRouter(
         { path: 'classes', element: withSuspense(<InstructorSectionsPage />) },
         { path: 'classes/:id', element: withSuspense(<InstructorCourseDetailPage />) },
         { path: 'classes/:id/students', element: withSuspense(<InstructorSectionDetailPage />) },
+        { path: 'classes/:id/students/:studentId/profile', element: withSuspense(<InstructorStudentProfilePage />) },
         { path: 'classes/:id/schedule', element: withSuspense(<SectionSchedulePage />) },
         { path: 'course/:id', element: withSuspense(<InstructorCourseDetailPage />) },
         { path: 'statistic', element: withSuspense(<InstructorStatisticPage />) },
