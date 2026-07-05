@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { cachedGet } from '../../lib/api'
 import { PageLoader, ExerciseIcon, LeaderboardIcon, CalendarIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
+import { useAuthStore } from '../../stores/auth.store'
 
 interface Exercise {
   id: string
@@ -26,6 +27,14 @@ interface SectionInfo {
   semester: string
 }
 
+interface LeaderboardEntry {
+  rank: number
+  studentName: string
+  studentId: string
+  totalScore: number
+  completedExercises: number
+}
+
 const difficultyConfig: Record<Exercise['difficulty'], { label: string; className: string }> = {
   easy: { label: 'Dễ', className: 'badge-green' },
   medium: { label: 'Trung bình', className: 'badge-yellow' },
@@ -40,7 +49,7 @@ const statusConfig: Record<Exercise['status'], { label: string; className: strin
 }
 
 function formatDeadline(deadline: string | null): string {
-  if (!deadline) return 'Không giới hạn thời gian'
+  if (!deadline) return 'Không giới hạn'
   return new Date(deadline).toLocaleString('vi-VN', {
     day: '2-digit',
     month: '2-digit',
@@ -50,10 +59,24 @@ function formatDeadline(deadline: string | null): string {
   })
 }
 
+function getWeekDeadline(exercises: Exercise[]): string | null {
+  return exercises
+    .map((exercise) => exercise.deadline)
+    .filter((deadline): deadline is string => Boolean(deadline))
+    .sort()[0] ?? null
+}
+
+function scoreLabel(score: number | null): string {
+  return `${Math.round(score ?? 0)}/100`
+}
+
 export function StudentCourseDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const user = useAuthStore((state) => state.user)
   const [section, setSection] = useState<SectionInfo | null>(null)
   const [exercises, setExercises] = useState<Exercise[]>([])
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -63,7 +86,6 @@ export function StudentCourseDetailPage() {
   async function fetchSectionAndExercises() {
     setLoading(true)
     try {
-      // Fetch sections list to find current section name
       const [sectionsRes, exercisesRes] = await Promise.all([
         cachedGet('/api/students/sections'),
         cachedGet('/api/students/exercises'),
@@ -71,20 +93,35 @@ export function StudentCourseDetailPage() {
 
       const sections: SectionInfo[] = sectionsRes.data ?? []
       const foundSection = id ? sections.find((s) => s.id === id) : sections[0]
-      if (foundSection) {
-        setSection(foundSection)
-      }
+      setSection(foundSection ?? null)
 
-      // Filter exercises belonging to this section
       const allExercises = exercisesRes.data.exercises ?? []
       const sectionExercises = foundSection
         ? allExercises.filter((ex: Exercise) => ex.sectionId === foundSection.id)
         : []
       setExercises(sectionExercises)
+
+      if (foundSection) {
+        fetchLeaderboard(foundSection.id)
+      }
     } catch {
       toast.error('Không thể tải bài học phần. Vui lòng thử lại.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function fetchLeaderboard(sectionId: string) {
+    setLeaderboardLoading(true)
+    try {
+      const response = await cachedGet(`/api/sections/${sectionId}/leaderboard`, undefined, {
+        ttlMs: 30_000,
+      })
+      setLeaderboard(response.data.leaderboard ?? response.data ?? [])
+    } catch {
+      setLeaderboard([])
+    } finally {
+      setLeaderboardLoading(false)
     }
   }
 
@@ -95,171 +132,135 @@ export function StudentCourseDetailPage() {
   if (!section) {
     return (
       <div className="card flex flex-col items-center justify-center p-12 text-center border border-slate-100">
-        <p className="text-slate-500 font-medium">Không tìm thấy lớp học phần hoặc bạn chưa được ghi danh.</p>
-        <Link to="/student/exercises" className="btn-primary mt-4 btn-sm">
+        <p className="font-medium text-slate-500">
+          Không tìm thấy lớp học phần hoặc bạn chưa được ghi danh.
+        </p>
+        <button onClick={fetchSectionAndExercises} className="btn-primary btn-sm mt-4">
           Tải lại danh sách bài tập
-        </Link>
+        </button>
       </div>
     )
   }
 
-  // Group exercises by week lanes (1 to 15)
   const weeks = Array.from({ length: 15 }, (_, i) => i + 1)
   const exercisesByWeek = new Map<number, Exercise[]>()
   const unscheduledExercises: Exercise[] = []
-  weeks.forEach((w) => exercisesByWeek.set(w, []))
+  weeks.forEach((week) => exercisesByWeek.set(week, []))
 
-  exercises.forEach((ex) => {
-    if (!ex.week || ex.week < 1 || ex.week > 15) {
-      unscheduledExercises.push(ex)
+  exercises.forEach((exercise) => {
+    if (!exercise.week || exercise.week < 1 || exercise.week > 15) {
+      unscheduledExercises.push(exercise)
       return
     }
-    const list = exercisesByWeek.get(ex.week) || []
-    list.push(ex)
-    exercisesByWeek.set(ex.week, list)
+    exercisesByWeek.get(exercise.week)?.push(exercise)
   })
 
-  // Check if there are any assigned exercises at all
   const hasExercises = exercises.length > 0
 
   return (
-    <div className="space-y-6">
-      {/* Course Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-white border border-slate-100 rounded-xl p-5 shadow-sm">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <span className="badge-blue font-semibold">{section.semester}</span>
+    <div className="space-y-5">
+      <div className="rounded-lg border border-slate-200 bg-white px-5 py-4 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-teal-700">
+              {section.semester}
+            </p>
+            <h1 className="mt-1 text-xl font-bold text-slate-900">{section.name}</h1>
           </div>
-          <h1 className="text-xl font-bold text-slate-800">{section.name}</h1>
-        </div>
-        <div>
-          <Link
-            to={`/student/leaderboard?section_id=${section.id}`}
-            className="btn-primary btn-sm inline-flex items-center gap-2"
-          >
-            <LeaderboardIcon className="h-4 w-4" />
-            Xếp hạng lớp học
+          <Link to={`/student/leaderboard?section_id=${section.id}`} className="btn-primary h-9 px-3 text-sm">
+            Xem bảng xếp hạng
           </Link>
         </div>
       </div>
 
-      {/* Main Grid: Weekly lanes */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        {/* Left 2 columns: Lanes */}
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="space-y-5">
           {!hasExercises ? (
             <div className="card flex flex-col items-center justify-center p-12 text-center border border-slate-100 shadow-sm">
               <ExerciseIcon className="mb-3 h-10 w-10 text-slate-300" />
-              <p className="text-slate-600 font-semibold">Chưa có bài tập nào được giao cho lớp này.</p>
-              <p className="text-sm text-slate-400 mt-1">Vui lòng quay lại sau khi giảng viên gán bài tập thực hành.</p>
+              <p className="font-semibold text-slate-600">
+                Chưa có bài tập nào được giao cho lớp này.
+              </p>
+              <p className="mt-1 text-sm text-slate-400">
+                Vui lòng quay lại sau khi giảng viên gán bài tập thực hành.
+              </p>
             </div>
           ) : (
             <>
               {unscheduledExercises.length > 0 && (
-                <ExerciseWeekCard
-                  title="CHƯA XẾP TUẦN"
-                  exercises={unscheduledExercises}
-                />
+                <ExerciseWeekCard title="CHƯA XẾP TUẦN" exercises={unscheduledExercises} />
               )}
 
               {weeks.map((weekNum) => {
-              const weekExercises = exercisesByWeek.get(weekNum) ?? []
-              if (weekExercises.length === 0) return null
+                const weekExercises = exercisesByWeek.get(weekNum) ?? []
+                if (weekExercises.length === 0) return null
 
-              return (
-                <ExerciseWeekCard
-                  key={weekNum}
-                  title={`TUẦN ${weekNum}`}
-                  exercises={weekExercises}
-                />
-              )
-            })}
+                return (
+                  <ExerciseWeekCard
+                    key={weekNum}
+                    title={`TUẦN ${weekNum}`}
+                    exercises={weekExercises}
+                  />
+                )
+              })}
             </>
           )}
         </div>
 
-        {/* Right 1 column: Statistics & Leaderboard widget */}
-        <div className="space-y-6">
-          {/* Summary stats card */}
-          <div className="card border border-slate-100 shadow-sm">
-            <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider pb-3 border-b border-slate-100">
-              Tổng quan
-            </h2>
-            <div className="py-4 space-y-4">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-slate-500">Bài tập thực hành:</span>
-                <span className="font-semibold text-slate-800">{exercises.length}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-slate-500">Bài đã làm:</span>
-                <span className="font-semibold text-emerald-600">
-                  {exercises.filter((ex) => ex.bestScore !== null).length}
-                </span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-slate-500">Hoàn thành đạt (100%):</span>
-                <span className="font-semibold text-primary">
-                  {exercises.filter((ex) => ex.bestScore === 100).length}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <LeaderboardPanel
+          section={section}
+          entries={leaderboard}
+          loading={leaderboardLoading}
+          currentUserId={user?.id}
+          currentUsername={user?.username}
+        />
       </div>
     </div>
   )
 }
 
-function ExerciseWeekCard({
-  title,
-  exercises,
-}: {
-  title: string
-  exercises: Exercise[]
-}) {
+function ExerciseWeekCard({ title, exercises }: { title: string; exercises: Exercise[] }) {
+  const deadline = getWeekDeadline(exercises)
+
   return (
-    <div className="card p-0 border border-slate-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
-      <div className="bg-slate-50/80 border-b border-slate-100 px-5 py-3.5 flex items-center justify-between border-l-4 border-teal-600">
-        <span className="text-sm font-bold text-slate-700 tracking-wide uppercase">
-          {title}
-        </span>
+    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between bg-slate-100 px-5 py-3">
+        <span className="text-base font-bold uppercase tracking-wide text-slate-800">{title}</span>
+        {deadline && (
+          <span className="text-sm italic text-slate-500">Hạn nộp: {formatDeadline(deadline)}</span>
+        )}
       </div>
 
-      <div className="divide-y divide-slate-100">
-        {exercises.map((ex) => (
-          <div
-            key={ex.id}
-            className="p-5 hover:bg-slate-50/40 transition-colors duration-150 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+      <div className="space-y-2 bg-white p-3">
+        {exercises.map((exercise) => (
+          <Link
+            key={exercise.id}
+            to={`/student/exercises/${exercise.id}`}
+            className="flex min-h-14 items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 shadow-sm transition hover:border-teal-200 hover:bg-white hover:shadow-md"
           >
-            <div className="space-y-1.5 min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <Link
-                  to={`/student/exercises/${ex.id}`}
-                  className="text-base font-semibold text-slate-800 hover:text-primary hover:underline truncate"
-                >
-                  {ex.title}
-                </Link>
-                {ex.isAssessment && (
-                  <span className="badge-yellow text-xs font-semibold">Kiểm tra</span>
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <span className="truncate text-base font-bold text-slate-700">{exercise.title}</span>
+                {exercise.isAssessment && (
+                  <span className="rounded-md border border-yellow-200 bg-yellow-50 px-2 py-0.5 text-[11px] font-bold uppercase text-yellow-700">
+                    Kiểm tra
+                  </span>
                 )}
               </div>
 
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-500">
-                <span className="flex items-center gap-1">
+              <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium text-slate-500">
+                <span className="inline-flex items-center gap-1">
                   <CalendarIcon className="h-3.5 w-3.5" />
-                  {formatDeadline(ex.deadline)}
+                  {formatDeadline(exercise.deadline)}
                 </span>
-                <span className="flex items-center gap-1 font-medium">
-                  Độ khó:
-                  <span className={difficultyConfig[ex.difficulty].className}>
-                    {difficultyConfig[ex.difficulty].label}
-                  </span>
+                <span className={difficultyConfig[exercise.difficulty].className}>
+                  {difficultyConfig[exercise.difficulty].label}
                 </span>
               </div>
 
-              {ex.oopTags && ex.oopTags.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {ex.oopTags.map((tag) => (
+              {exercise.oopTags?.length > 0 && (
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {exercise.oopTags.slice(0, 3).map((tag) => (
                     <span key={tag} className="badge-gray text-[10px]">
                       {tag}
                     </span>
@@ -268,33 +269,96 @@ function ExerciseWeekCard({
               )}
             </div>
 
-            <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-3 shrink-0">
-              <div className="flex items-center gap-2.5">
-                {ex.bestScore !== null && (
-                  <span className="text-sm font-bold text-slate-700">
-                    {ex.bestScore.toFixed(1)}%
-                  </span>
-                )}
-                <span className={statusConfig[ex.status].className}>
-                  {statusConfig[ex.status].label}
-                </span>
+            <div className="flex shrink-0 items-center gap-4">
+              <div className="text-right">
+                <p className="text-base font-extrabold text-slate-700">
+                  {scoreLabel(exercise.bestScore)}
+                </p>
+                <p className="mt-0.5 text-[11px] font-semibold text-slate-400">
+                  {exercise.attemptCount}/{exercise.maxSubmissions} lần
+                </p>
               </div>
-
-              <div className="text-xs text-slate-400">
-                Lần nộp: <span className="font-semibold text-slate-600">{ex.attemptCount}</span>/
-                {ex.maxSubmissions}
-              </div>
-
-              <Link
-                to={`/student/exercises/${ex.id}`}
-                className="btn-secondary btn-xs inline-flex items-center"
-              >
-                Vào làm bài →
-              </Link>
+              <span className={statusConfig[exercise.status].className}>
+                {statusConfig[exercise.status].label}
+              </span>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
-    </div>
+    </section>
+  )
+}
+
+function LeaderboardPanel({
+  section,
+  entries,
+  loading,
+  currentUserId,
+  currentUsername,
+}: {
+  section: SectionInfo
+  entries: LeaderboardEntry[]
+  loading: boolean
+  currentUserId?: string
+  currentUsername?: string
+}) {
+  const visibleEntries = entries.slice(0, 10)
+
+  function isCurrentUser(entry: LeaderboardEntry) {
+    return entry.studentId === currentUserId || entry.studentName === currentUsername
+  }
+
+  return (
+    <aside className="sticky top-4 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
+      <div className="bg-teal-600 px-5 py-4 text-white">
+        <div className="flex items-center gap-2">
+          <LeaderboardIcon className="h-5 w-5" />
+          <h2 className="text-base font-bold">Bảng Xếp Hạng</h2>
+        </div>
+      </div>
+
+      <div className="p-5">
+        <div className="inline-flex rounded-md bg-sky-500 px-3 py-2 text-sm font-semibold text-white">
+          {section.name}
+        </div>
+
+        <div className="mt-4 divide-y divide-slate-200 border-t border-slate-200">
+          {loading ? (
+            <p className="py-6 text-center text-sm text-slate-500">Đang tải bảng xếp hạng...</p>
+          ) : visibleEntries.length === 0 ? (
+            <p className="py-6 text-center text-sm text-slate-500">Chưa có dữ liệu xếp hạng.</p>
+          ) : (
+            visibleEntries.map((entry) => {
+              const mine = isCurrentUser(entry)
+              return (
+                <div
+                  key={`${entry.rank}-${entry.studentId}`}
+                  className={`grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-3 py-3 text-sm ${
+                    mine ? 'bg-teal-50 px-2' : ''
+                  }`}
+                >
+                  <span className="text-center text-base font-extrabold text-slate-700">
+                    {entry.rank}
+                  </span>
+                  <span className="min-w-0 truncate font-semibold text-sky-600">
+                    {entry.studentName}
+                  </span>
+                  <span className="font-extrabold text-sky-600">
+                    {Math.round(entry.totalScore)}
+                  </span>
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        <Link
+          to={`/student/leaderboard?section_id=${section.id}`}
+          className="mt-4 inline-flex h-9 w-full items-center justify-center rounded-md border border-teal-200 text-sm font-bold text-teal-700 transition hover:bg-teal-50"
+        >
+          Xem đầy đủ
+        </Link>
+      </div>
+    </aside>
   )
 }

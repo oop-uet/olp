@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { cachedGet } from '../../lib/api'
 import { PageLoader, LeaderboardIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
@@ -24,8 +25,10 @@ interface SectionOption {
 
 export function StudentLeaderboardPage() {
   const user = useAuthStore((state) => state.user)
+  const [searchParams] = useSearchParams()
   const [entries, setEntries] = useState<LeaderboardEntry[]>([])
   const [sections, setSections] = useState<SectionOption[]>([])
+  const [selectedSectionId, setSelectedSectionId] = useState<string>('')
   const [loadingSections, setLoadingSections] = useState(true)
   const [loadingBoard, setLoadingBoard] = useState(false)
 
@@ -40,8 +43,12 @@ export function StudentLeaderboardPage() {
       const response = await cachedGet('/api/students/sections')
       const data: SectionOption[] = response.data ?? []
       setSections(data)
-      if (data.length > 0) {
-        await fetchLeaderboard(data[0].id)
+      const requestedSectionId = searchParams.get('section_id')
+      const initialSection =
+        data.find((section) => section.id === requestedSectionId) ?? data[0]
+      if (initialSection) {
+        setSelectedSectionId(initialSection.id)
+        await fetchLeaderboard(initialSection.id)
       }
     } catch {
       toast.error('Không thể tải danh sách lớp học. Vui lòng thử lại.')
@@ -97,7 +104,8 @@ export function StudentLeaderboardPage() {
     )
   }
 
-  const currentSection = sections[0]
+  const currentSection =
+    sections.find((section) => section.id === selectedSectionId) ?? sections[0]
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -123,9 +131,20 @@ export function StudentLeaderboardPage() {
         <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
           Lớp học phần
         </p>
-        <p className="mt-1 text-sm font-bold text-slate-800">
-          {currentSection.name} ({currentSection.semester})
-        </p>
+        <select
+          value={currentSection.id}
+          onChange={(event) => {
+            setSelectedSectionId(event.target.value)
+            fetchLeaderboard(event.target.value)
+          }}
+          className="mt-2 h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800"
+        >
+          {sections.map((section) => (
+            <option key={section.id} value={section.id}>
+              {section.name} ({section.semester})
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Loading */}
