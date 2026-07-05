@@ -41,15 +41,6 @@ interface SectionDetail {
   exerciseCount: number
 }
 
-interface SubmissionRecord {
-  id: string
-  studentId: string
-  studentName: string
-  studentUsername: string
-  score: number | null
-  submittedAt: string
-}
-
 interface LeaderboardEntry {
   rank: number
   studentName: string
@@ -67,10 +58,7 @@ export function InstructorCourseDetailPage() {
   const [loading, setLoading] = useState(true)
   const [accessError, setAccessError] = useState<string | null>(null)
 
-  // Submissions lists keyed by exerciseId
-  const [submissionsByEx, setSubmissionsByEx] = useState<Record<string, SubmissionRecord[]>>({})
-  const [loadingSubmissions, setLoadingSubmissions] = useState<Record<string, boolean>>({})
-  const [expandedEx, setExpandedEx] = useState<Record<string, boolean>>({})
+
 
   // Mini-leaderboard state
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
@@ -156,46 +144,7 @@ export function InstructorCourseDetailPage() {
     }
   }
 
-  // Lazy-load submission attempts for a selected exercise
-  async function toggleSubmissionsList(exerciseId: string) {
-    const isExpanded = !!expandedEx[exerciseId]
-    setExpandedEx((prev) => ({ ...prev, [exerciseId]: !isExpanded }))
 
-    if (isExpanded || submissionsByEx[exerciseId]) {
-      return // collapse or already loaded
-    }
-
-    setLoadingSubmissions((prev) => ({ ...prev, [exerciseId]: true }))
-    try {
-      const response = await api.get(`/api/submissions`, {
-        params: { section_id: id, exercise_id: exerciseId },
-      })
-      // The API returns an array of submissions with user/student details
-      interface ApiSubmission {
-        id: string
-        studentId: string
-        student?: {
-          username?: string
-          fullName?: string
-        } | null
-        score: number | null
-        submittedAt: string
-      }
-      const list = (response.data ?? []).map((sub: ApiSubmission) => ({
-        id: sub.id,
-        studentId: sub.studentId,
-        studentName: sub.student?.fullName || sub.student?.username || 'Sinh viên',
-        studentUsername: sub.student?.username || '',
-        score: sub.score,
-        submittedAt: sub.submittedAt,
-      }))
-      setSubmissionsByEx((prev) => ({ ...prev, [exerciseId]: list }))
-    } catch {
-      toast.error('Không thể tải lịch sử nộp bài.')
-    } finally {
-      setLoadingSubmissions((prev) => ({ ...prev, [exerciseId]: false }))
-    }
-  }
 
   if (loading) {
     return <PageLoader label="Đang tải thông tin khóa học..." />
@@ -243,11 +192,7 @@ export function InstructorCourseDetailPage() {
               title="CHƯA XẾP TUẦN"
               subtitle={`${unscheduledExercises.length} bài tập cần xếp lịch`}
               exercises={unscheduledExercises}
-              expandedEx={expandedEx}
-              submissionsByEx={submissionsByEx}
-              loadingSubmissions={loadingSubmissions}
               onUpdateSettings={handleUpdateAssignmentSettings}
-              onToggleSubmissions={toggleSubmissionsList}
             />
           )}
 
@@ -261,11 +206,7 @@ export function InstructorCourseDetailPage() {
                 title={`TUẦN ${weekNum}`}
                 subtitle=""
                 exercises={weekExercises}
-                expandedEx={expandedEx}
-                submissionsByEx={submissionsByEx}
-                loadingSubmissions={loadingSubmissions}
                 onUpdateSettings={handleUpdateAssignmentSettings}
-                onToggleSubmissions={toggleSubmissionsList}
               />
             )
           })}
@@ -359,25 +300,17 @@ interface WeekPanelProps {
   title: string
   subtitle: string
   exercises: SectionExercise[]
-  expandedEx: Record<string, boolean>
-  submissionsByEx: Record<string, SubmissionRecord[]>
-  loadingSubmissions: Record<string, boolean>
   onUpdateSettings: (
     exerciseId: string,
     patch: { isVisible?: boolean; allowSubmission?: boolean; maxSubmissions?: number | null }
   ) => void
-  onToggleSubmissions: (exerciseId: string) => void
 }
 
 function WeekPanel({
   title,
   subtitle,
   exercises,
-  expandedEx,
-  submissionsByEx,
-  loadingSubmissions,
   onUpdateSettings,
-  onToggleSubmissions,
 }: WeekPanelProps) {
   const deadlineText = getWeekDeadline(exercises) || subtitle
 
@@ -402,138 +335,76 @@ function WeekPanel({
           </p>
         ) : (
           exercises.map((ex) => {
-            const isExpanded = !!expandedEx[ex.exerciseId]
-            const list = submissionsByEx[ex.exerciseId] || []
-            const isLoadingList = !!loadingSubmissions[ex.exerciseId]
-
             return (
               <div
                 key={ex.assignmentId}
-                className="flex flex-col border border-slate-200/85 rounded-lg p-2.5 bg-[#f8f9fa] hover:bg-[#f1f3f5] transition-colors duration-150 shadow-sm"
+                className="flex items-center justify-between border border-slate-200/80 rounded-lg px-4 py-2 bg-[#f8f9fa] hover:bg-[#f1f3f5] transition-colors duration-150 shadow-sm"
               >
-                <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-800 text-sm">{ex.title}</span>
-                    {ex.isAssessment && (
-                      <span className="badge-yellow text-[9px] px-1 py-0.5 font-bold uppercase">Kiểm tra</span>
-                    )}
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-3">
-                    {/* Max Submissions Selector Dropdown */}
-                    <div className="flex items-center">
-                      <select
-                        value={ex.maxSubmissions ?? 10}
-                        onChange={(e) => onUpdateSettings(ex.exerciseId, { maxSubmissions: Number(e.target.value) })}
-                        className="h-7 rounded border border-slate-300 bg-white px-2 py-0 text-xs font-bold text-slate-700 outline-none focus:border-sky-500 cursor-pointer shadow-sm"
-                      >
-                        {SUBMISSION_LIMIT_OPTIONS.map((limit) => (
-                          <option key={limit} value={limit}>
-                            {limit}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Allow submission sliding toggle */}
-                    <button
-                      type="button"
-                      onClick={() => onUpdateSettings(ex.exerciseId, { allowSubmission: !ex.allowSubmission })}
-                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full items-center transition-colors duration-200 ease-in-out outline-none border border-slate-200 shadow-sm ${
-                        ex.allowSubmission ? 'bg-sky-500' : 'bg-slate-300'
-                      }`}
-                      title="Cho phép nộp bài"
-                    >
-                      <span
-                        className={`absolute text-[8px] font-black text-white select-none ${
-                          ex.allowSubmission ? 'left-1.5' : 'right-1.5'
-                        }`}
-                      >
-                        {ex.allowSubmission ? '✓' : '×'}
-                      </span>
-                      <span
-                        className={`pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                          ex.allowSubmission ? 'translate-x-5.5' : 'translate-x-0.5'
-                        }`}
-                      />
-                    </button>
-
-                    {/* Visibility checkmark box */}
-                    <button
-                      type="button"
-                      onClick={() => onUpdateSettings(ex.exerciseId, { isVisible: !ex.isVisible })}
-                      className={`h-6.5 w-6.5 rounded flex items-center justify-center font-bold text-xs transition-colors shadow-sm outline-none cursor-pointer border border-slate-200 ${
-                        ex.isVisible ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-slate-300 hover:bg-slate-400 text-slate-500'
-                      }`}
-                      title={ex.isVisible ? 'Hiển thị' : 'Đang ẩn'}
-                    >
-                      {ex.isVisible ? '✓' : '×'}
-                    </button>
-
-                    {/* Submissions list trigger */}
-                    <button
-                      type="button"
-                      onClick={() => onToggleSubmissions(ex.exerciseId)}
-                      className={`h-7 rounded border px-2.5 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer outline-none border-slate-300 ${
-                        isExpanded
-                          ? 'bg-teal-50 text-teal-700 border-teal-200'
-                          : 'bg-white hover:bg-slate-50 text-slate-600'
-                      }`}
-                    >
-                      Bài nộp ({isLoadingList ? '...' : (list.length || 0)})
-                      <span className="text-[9px]">{isExpanded ? '▲' : '▼'}</span>
-                    </button>
-                  </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="font-bold text-slate-800 text-sm">{ex.title}</span>
+                  {ex.isAssessment && (
+                    <span className="badge-yellow text-[9px] px-1 py-0.5 font-bold uppercase">Kiểm tra</span>
+                  )}
                 </div>
 
-                {isExpanded && (
-                  <div className="border-t border-slate-200 pt-2.5 mt-2 space-y-2">
-                    <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
-                      Danh sách bài nộp của sinh viên
-                    </h4>
-
-                    {isLoadingList ? (
-                      <div className="flex items-center gap-2 py-3 justify-center text-xs text-slate-400">
-                        <Spinner /> Đang tải bài nộp...
-                      </div>
-                    ) : list.length === 0 ? (
-                      <p className="text-xs text-slate-400 py-2 italic text-center font-medium">Chưa có lượt nộp bài nào.</p>
-                    ) : (
-                      <div className="max-h-60 overflow-y-auto border border-slate-100 rounded-lg text-xs">
-                        <table className="min-w-full divide-y divide-slate-100 text-left">
-                          <thead className="bg-slate-50 text-slate-500 font-bold">
-                            <tr>
-                              <th className="px-3 py-2 w-12 text-center">#</th>
-                              <th className="px-3 py-2">Mã SV</th>
-                              <th className="px-3 py-2">Họ tên</th>
-                              <th className="px-3 py-2">Thời gian</th>
-                              <th className="px-3 py-2 text-right">Điểm</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-50 text-slate-700">
-                            {list.map((sub, idx) => (
-                              <tr key={sub.id} className="hover:bg-slate-50 transition-colors">
-                                <td className="px-3 py-2 text-center text-slate-400 font-bold">{idx + 1}</td>
-                                <td className="px-3 py-2 font-semibold">
-                                  <Link to="/instructor/submissions" className="text-primary hover:underline">
-                                    {sub.studentUsername}
-                                  </Link>
-                                </td>
-                                <td className="px-3 py-2 font-medium">{sub.studentName}</td>
-                                <td className="px-3 py-2 text-slate-500 font-medium">
-                                  {new Date(sub.submittedAt).toLocaleString('vi-VN')}
-                                </td>
-                                <td className="px-3 py-2 text-right font-bold text-primary">
-                                  {sub.score != null ? sub.score.toFixed(1) : '—'}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
+                <div className="flex items-center gap-3 text-xs">
+                  {/* Max Submissions Selector Dropdown */}
+                  <div className="flex items-center">
+                    <select
+                      value={ex.maxSubmissions ?? 10}
+                      onChange={(e) => onUpdateSettings(ex.exerciseId, { maxSubmissions: Number(e.target.value) })}
+                      className="h-7 rounded bg-[#cfd8dc] pl-3 pr-6 py-0 text-xs font-bold text-slate-800 border-none outline-none cursor-pointer hover:bg-[#b0bec5] transition-colors"
+                      style={{
+                        appearance: 'none',
+                        WebkitAppearance: 'none',
+                        backgroundImage: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'%23374151\' width=\'18px\' height=\'18px\'><path d=\'M7 10l5 5 5-5z\'/></svg>")',
+                        backgroundRepeat: 'no-repeat',
+                        backgroundPosition: 'right 4px center'
+                      }}
+                    >
+                      {SUBMISSION_LIMIT_OPTIONS.map((limit) => (
+                        <option key={limit} value={limit}>
+                          {limit}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                )}
+
+                  {/* Allow submission sliding toggle */}
+                  <button
+                    type="button"
+                    onClick={() => onUpdateSettings(ex.exerciseId, { allowSubmission: !ex.allowSubmission })}
+                    className={`relative inline-flex h-6.5 w-13 shrink-0 cursor-pointer rounded-full items-center transition-colors duration-200 ease-in-out outline-none border border-slate-200 shadow-sm ${
+                      ex.allowSubmission ? 'bg-[#0096c7]' : 'bg-[#e0e0e0]'
+                    }`}
+                    title="Cho phép nộp bài"
+                  >
+                    <span
+                      className={`absolute text-[10px] font-bold text-white select-none ${
+                        ex.allowSubmission ? 'left-2.5' : 'right-2.5'
+                      }`}
+                    >
+                      {ex.allowSubmission ? '✓' : '×'}
+                    </span>
+                    <span
+                      className={`pointer-events-none inline-block h-5.5 w-5.5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                        ex.allowSubmission ? 'translate-x-7' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </button>
+
+                  {/* Visibility checkmark box */}
+                  <button
+                    type="button"
+                    onClick={() => onUpdateSettings(ex.exerciseId, { isVisible: !ex.isVisible })}
+                    className={`h-6.5 w-6.5 rounded flex items-center justify-center font-bold text-xs transition-colors shadow-sm outline-none cursor-pointer border-none ${
+                      ex.isVisible ? 'bg-[#2ec4b6] hover:bg-[#20a79a] text-white' : 'bg-[#bdbdbd] hover:bg-[#a5a5a5] text-white'
+                    }`}
+                    title={ex.isVisible ? 'Hiển thị' : 'Đang ẩn'}
+                  >
+                    {ex.isVisible ? '✓' : '×'}
+                  </button>
+                </div>
               </div>
             )
           })
