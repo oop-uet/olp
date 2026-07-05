@@ -259,8 +259,8 @@ export function TestCaseEditorPage() {
       <div className="bg-white border border-slate-100 rounded-xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 font-sans">Trình Soạn Bộ Test</h1>
-          <p className="mt-1 text-xs font-semibold text-slate-400">
-            Cấu hình bộ test case đầu vào đầu ra của bài tập ({testCases.length}/{MAX_TEST_CASES} bộ test).
+          <p className="mt-1 text-xs font-bold text-slate-400">
+            Số bộ test hiện tại: {testCases.length}/{MAX_TEST_CASES}
           </p>
         </div>
         <div className="flex items-center gap-2">

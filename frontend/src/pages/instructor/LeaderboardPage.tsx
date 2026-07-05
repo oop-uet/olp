@@ -133,9 +133,6 @@ export function LeaderboardPage() {
       <div className="bg-white border border-slate-100 rounded-xl p-5 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 font-sans">Bảng Xếp Hạng Lớp Học</h1>
-          <p className="mt-1 text-xs font-semibold text-slate-400">
-            Xem thứ hạng và tiến độ thực hành của sinh viên trong lớp học phần.
-          </p>
         </div>
         {lastRefreshed && (
           <div className="text-right text-[11px] font-semibold text-slate-400 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 self-start md:self-auto">

@@ -61,9 +61,6 @@ export function InstructorSectionsPage() {
       {/* Page header */}
       <div className="bg-white border border-slate-100 rounded-xl p-5 shadow-sm">
         <h1 className="text-2xl font-bold text-slate-800 font-sans">Quản Lý Lớp Học</h1>
-        <p className="mt-1 text-xs font-semibold text-slate-400">
-          Danh sách các lớp học phần bạn đang giảng dạy và quản lý thông tin.
-        </p>
       </div>
 
       {sections.length === 0 ? (

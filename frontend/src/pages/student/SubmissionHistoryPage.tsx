@@ -123,9 +123,6 @@ export function SubmissionHistoryPage() {
       {/* Page header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Lịch sử nộp bài</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Các bài nộp được nhóm theo bài tập, sắp xếp theo thời gian gần nhất.
-        </p>
       </div>
 
       {/* Grouped submissions */}

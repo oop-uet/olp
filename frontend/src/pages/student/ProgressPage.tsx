@@ -85,9 +85,6 @@ export function ProgressPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Tổng quan tiến độ</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            Theo dõi kết quả của bạn qua các bài tập.
-          </p>
         </div>
 
         <div className="card flex flex-col items-center justify-center gap-3 p-12 text-center">
@@ -108,9 +105,6 @@ export function ProgressPage() {
       {/* Page header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Tổng quan tiến độ</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Kết quả tổng thể của bạn trong lớp học phần này.
-        </p>
       </div>
 
       {/* Student has exactly one course section. */}

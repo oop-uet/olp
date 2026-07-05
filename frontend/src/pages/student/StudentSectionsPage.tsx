@@ -39,7 +39,6 @@ export function StudentSectionsPage() {
       {/* Page header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-slate-800">CÁC LỚP HỌC PHẦN</h1>
-        <p className="mt-1 text-sm text-slate-500">Danh sách lớp thực hành hướng đối tượng Java của bạn</p>
       </div>
 
       {sections.length === 0 ? (

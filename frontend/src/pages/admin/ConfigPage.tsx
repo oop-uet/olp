@@ -180,9 +180,6 @@ export function ConfigPage() {
         </span>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Cấu hình hệ thống</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            Điều chỉnh các tham số hệ thống. Thay đổi sẽ áp dụng cho các phiên mới sau khi cập nhật.
-          </p>
         </div>
       </div>
 

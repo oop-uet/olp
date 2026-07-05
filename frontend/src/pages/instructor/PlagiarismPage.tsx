@@ -173,9 +173,6 @@ export function PlagiarismPage() {
       {/* Page header */}
       <div className="bg-white border border-slate-100 rounded-xl p-5 shadow-sm">
         <h1 className="text-2xl font-bold text-slate-800 font-sans">Kiểm tra mã nguồn</h1>
-        <p className="mt-1 text-xs font-semibold text-slate-400">
-          Phát hiện các bài nộp có mức độ tương đồng mã nguồn bất thường (chống gian lận).
-        </p>
       </div>
 
       {/* Controls Form */}

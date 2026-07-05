@@ -314,9 +314,6 @@ export function SectionSchedulePage() {
           <div className="card flex flex-wrap items-center justify-between gap-3 p-4">
             <div>
               <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">Các tuần học</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Chọn tuần rồi bấm dấu + ở kho bài tập, hoặc kéo thả bài tập giữa kho và các tuần.
-              </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="badge-blue">Tuần đang chọn: {selectedWeek}</span>
