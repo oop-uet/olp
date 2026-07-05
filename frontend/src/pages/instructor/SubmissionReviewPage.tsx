@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { AxiosError } from 'axios'
 import { api } from '../../lib/api'
@@ -81,6 +81,8 @@ interface LeaderboardEntry {
 
 // --- Helpers ---
 
+const PAGE_SIZE = 10
+
 function formatTimestamp(ts: string): string {
   const date = new Date(ts)
   if (Number.isNaN(date.getTime())) return ts
@@ -94,10 +96,41 @@ function formatTimestamp(ts: string): string {
   })
 }
 
+function formatTableTimestamp(ts: string): string {
+  const date = new Date(ts)
+  if (Number.isNaN(date.getTime())) return ts
+  const time = date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  })
+  const day = date.toLocaleDateString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+  return `${time}, ${day}`
+}
+
 function getScoreColor(score: number): string {
   if (score >= 80) return 'text-primary'
   if (score >= 50) return 'text-amber-600'
   return 'text-rose-600'
+}
+
+function formatNumberScore(score: number): string {
+  return Number.isInteger(score) ? String(score) : score.toFixed(1)
+}
+
+function getSubmissionResult(score: number) {
+  if (score >= 100) {
+    return { label: 'Accepted', className: 'bg-emerald-500 text-white' }
+  }
+  if (score > 0) {
+    return { label: 'Finished', className: 'bg-emerald-500 text-white' }
+  }
+  return { label: 'Compile Error', className: 'bg-rose-500 text-white' }
 }
 
 function isPassed(value: number | boolean): boolean {
@@ -143,6 +176,7 @@ export function SubmissionReviewPage() {
   const [submissions, setSubmissions] = useState<SubmissionListItem[]>([])
   const [exercises, setExercises] = useState<ExerciseOption[]>([])
   const [loadingList, setLoadingList] = useState(true)
+  const [currentPage, setCurrentPage] = useState(0)
 
   // Sidebar leaderboard & sections state
   const [sections, setSections] = useState<SectionOption[]>([])
@@ -165,6 +199,12 @@ export function SubmissionReviewPage() {
 
   // Map of exerciseId -> title for display
   const exerciseTitleById = new Map(exercises.map((ex) => [ex.id, ex.title]))
+  const selectedSection = sections.find((sec) => sec.id === selectedSectionId)
+  const totalPages = Math.max(1, Math.ceil(submissions.length / PAGE_SIZE))
+  const pageItems = useMemo(
+    () => submissions.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE),
+    [currentPage, submissions]
+  )
 
   // Fetch initial data
   useEffect(() => {
@@ -176,6 +216,16 @@ export function SubmissionReviewPage() {
   useEffect(() => {
     fetchSubmissions()
   }, [selectedExerciseId])
+
+  useEffect(() => {
+    setCurrentPage(0)
+  }, [selectedExerciseId])
+
+  useEffect(() => {
+    if (currentPage >= totalPages) {
+      setCurrentPage(totalPages - 1)
+    }
+  }, [currentPage, totalPages])
 
   // Fetch leaderboard when section filter changes
   useEffect(() => {
@@ -312,6 +362,10 @@ export function SubmissionReviewPage() {
 
   function handleSelectSubmission(submissionId: string) {
     fetchSubmissionDetail(submissionId)
+  }
+
+  function goToPage(page: number) {
+    setCurrentPage(Math.min(Math.max(page, 0), totalPages - 1))
   }
 
   // --- Detail View ---
@@ -550,28 +604,20 @@ export function SubmissionReviewPage() {
         <span className="text-slate-400">Chấm bài</span>
       </div>
 
-      {/* Two columns layout: Left (75%) Submissions Table, Right (25%) Mini-Leaderboard */}
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-        
-        {/* Left Side: Submissions listing (75% width) */}
-        <div className="space-y-6 lg:w-3/4">
-          
-          <div className="bg-white border border-slate-100 rounded-xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-800 font-sans">Lịch Sử Nộp Bài</h1>
-              <p className="mt-1 text-xs font-semibold text-slate-400">
-                Theo dõi tất cả bài thực hành và chấm điểm thủ công/feedback cho sinh viên.
-              </p>
-            </div>
-            
-            {/* Filter by exercise */}
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
-              <label htmlFor="exercise-filter">Bài thực hành:</label>
+      <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <section className="card rounded-2xl border border-slate-200 bg-white shadow-[0_10px_28px_rgba(15,23,42,0.10)]">
+          <div className="flex items-center justify-between gap-4 bg-gradient-to-r from-cyan-500 to-teal-500 px-6 py-4 text-white">
+            <h1 className="flex items-center gap-3 text-lg font-bold">
+              <span className="text-xl leading-none">≡</span>
+              Danh Sách Các Bài Nộp
+            </h1>
+            <div className="hidden items-center gap-2 text-sm font-semibold md:flex">
+              <span>Lọc bài tập</span>
               <select
                 id="exercise-filter"
                 value={selectedExerciseId}
                 onChange={(e) => handleExerciseFilter(e.target.value)}
-                className="input py-1 px-3 max-w-xs text-[11px] font-semibold"
+                className="h-9 min-w-56 rounded-md border border-white/40 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm outline-none"
               >
                 <option value="">Tất cả bài tập</option>
                 {exercises.map((ex) => (
@@ -583,144 +629,197 @@ export function SubmissionReviewPage() {
             </div>
           </div>
 
-          {/* Submissions list card */}
-          {loadingList ? (
-            <div className="py-20 text-slate-400 text-center flex flex-col items-center justify-center gap-2">
-              <Spinner /> Đang nạp danh sách bài nộp...
-            </div>
-          ) : submissions.length === 0 ? (
-            <div className="card flex flex-col items-center justify-center p-12 text-center border border-slate-100 shadow-sm">
-              <SubmissionIcon className="mb-3 h-10 w-10 text-slate-300" />
-              <p className="text-slate-500 font-medium">Không tìm thấy bài nộp nào phù hợp.</p>
-            </div>
-          ) : (
-            <div className="card overflow-hidden border border-slate-100 shadow-sm">
-              {/* Header banner */}
-              <div className="panel-header py-3 px-5 border-b border-slate-100">
-                <h3 className="panel-title uppercase tracking-wide">Danh Sách Các Bài Nộp</h3>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-100 text-left">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-bold uppercase">
-                      <th className="px-5 py-3">Sinh viên</th>
-                      <th className="px-5 py-3">Bài thực hành</th>
-                      <th className="px-5 py-3 text-center w-32">Điểm số</th>
-                      <th className="px-5 py-3 text-center w-48">Thời điểm nộp</th>
-                      <th className="px-5 py-3 text-right w-32">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-xs text-slate-700 bg-white">
-                    {submissions.map((sub) => {
-                      const effective = sub.manualScore ?? sub.score ?? 0
-                      return (
-                        <tr key={sub.id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="px-5 py-3.5">
-                            <p className="text-sm font-semibold text-slate-800">
-                              {sub.student?.fullName || sub.student?.username || 'Sinh viên'}
-                            </p>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide mt-0.5">
-                              MSSV: {sub.student?.username || ''}
-                            </p>
-                          </td>
-                          <td className="px-5 py-3.5 font-medium text-slate-600">
-                            {exerciseTitleById.get(sub.exerciseId) || '—'}
-                          </td>
-                          <td className="px-5 py-3.5 text-center">
-                            <div className="flex flex-col items-center">
-                              <span className={`font-bold text-sm ${getScoreColor(effective)}`}>
-                                {effective.toFixed(1)}%
-                              </span>
-                              {sub.manualScore != null && (
-                                <span className="bg-blue-50 text-blue-700 text-[9px] font-extrabold rounded-full px-1.5 py-0.2 mt-0.5">Đã sửa</span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-5 py-3.5 text-center text-slate-400 font-medium">
-                            {formatTimestamp(sub.submittedAt)}
-                          </td>
-                          <td className="px-5 py-3.5 text-right">
-                            <button
-                              onClick={() => handleSelectSubmission(sub.id)}
-                              className="btn-secondary btn-sm font-bold text-primary hover:text-primary-700"
-                            >
-                              Chấm bài
-                            </button>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-        </div>
-
-        {/* Right Side: Course Mini-Leaderboard widget (25% width) */}
-        <div className="lg:sticky lg:top-4 lg:w-1/4 space-y-6">
-          <div className="card p-0 bg-white border border-slate-100 shadow-sm overflow-hidden">
-            
-            {/* Header */}
-            <div className="panel-header py-2.5 px-4">
-              <h3 className="panel-title">
-                <span>🏆</span>
-                Bảng Xếp Hạng Lớp
-              </h3>
-            </div>
-
-            {/* Course Selector Dropdown inside Right Card */}
-            <div className="p-3 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between gap-1.5 text-[11px]">
-              <label htmlFor="board-section-select" className="font-bold text-slate-600 uppercase">Lớp:</label>
-              <select
-                id="board-section-select"
-                value={selectedSectionId}
-                onChange={(e) => setSelectedSectionId(e.target.value)}
-                className="input py-1 px-2 text-[10px] font-semibold bg-white max-w-[170px]"
+          <div className="border-b border-slate-200 px-6 py-6">
+            <div className="flex flex-wrap items-center gap-0">
+              <button
+                type="button"
+                onClick={() => goToPage(0)}
+                disabled={currentPage === 0}
+                className={`h-11 min-w-12 border border-slate-300 px-4 text-sm font-bold transition ${
+                  currentPage === 0 ? 'bg-sky-500 text-white' : 'bg-white text-sky-500 hover:bg-sky-50'
+                }`}
               >
-                <option value="">-- Chọn lớp --</option>
-                {sections.map((sec) => (
-                  <option key={sec.id} value={sec.id}>
-                    {sec.name}
+                0
+              </button>
+              {Array.from({ length: Math.min(totalPages - 1, 4) }, (_, index) => index + 1).map((page) => (
+                <button
+                  key={page}
+                  type="button"
+                  onClick={() => goToPage(page)}
+                  className={`h-11 min-w-12 border border-l-0 border-slate-300 px-4 text-sm font-bold transition ${
+                    currentPage === page ? 'bg-sky-500 text-white' : 'bg-white text-sky-500 hover:bg-sky-50'
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={currentPage >= totalPages - 1}
+                className="h-11 border border-l-0 border-slate-300 bg-white px-5 text-sm font-bold text-sky-500 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:text-slate-300"
+              >
+                Next ›
+              </button>
+              <button
+                type="button"
+                onClick={() => goToPage(totalPages - 1)}
+                disabled={currentPage >= totalPages - 1}
+                className="h-11 border border-l-0 border-slate-300 bg-white px-5 text-sm font-bold text-sky-500 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:text-slate-300"
+              >
+                Last ››
+              </button>
+            </div>
+
+            <div className="mt-4 block md:hidden">
+              <label htmlFor="exercise-filter-mobile" className="mb-2 block text-xs font-bold uppercase text-slate-500">
+                Lọc bài tập
+              </label>
+              <select
+                id="exercise-filter-mobile"
+                value={selectedExerciseId}
+                onChange={(e) => handleExerciseFilter(e.target.value)}
+                className="input"
+              >
+                <option value="">Tất cả bài tập</option>
+                {exercises.map((ex) => (
+                  <option key={ex.id} value={ex.id}>
+                    {ex.title}
                   </option>
                 ))}
               </select>
             </div>
-
-            {/* Leaderboard content */}
-            <div className="p-4">
-              {!selectedSectionId ? (
-                <p className="text-[11px] text-slate-400 italic text-center py-4">Chọn một lớp học để xem xếp hạng.</p>
-              ) : loadingLeaderboard ? (
-                <div className="flex items-center gap-2 py-4 justify-center text-[11px] text-slate-400">
-                  <Spinner /> Nạp bảng xếp hạng...
-                </div>
-              ) : leaderboard.length === 0 ? (
-                <p className="text-[11px] text-slate-400 italic text-center py-4">Chưa có xếp hạng cho lớp này.</p>
-              ) : (
-                <ul className="divide-y divide-slate-100 text-xs">
-                  {leaderboard.map((item, idx) => (
-                    <li key={item.studentId} className="flex items-center justify-between py-2 text-slate-700">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-slate-400 w-4 text-center text-[10px]">
-                          {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
-                        </span>
-                        <span className="font-semibold truncate max-w-[110px]" title={item.studentName}>
-                          {item.studentName}
-                        </span>
-                      </div>
-                      <span className="font-bold text-primary">{item.totalScore.toFixed(1)}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
           </div>
-        </div>
 
+          {loadingList ? (
+            <div className="flex items-center justify-center gap-2 py-24 text-sm font-semibold text-slate-500">
+              <Spinner /> Đang nạp danh sách bài nộp...
+            </div>
+          ) : submissions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center p-16 text-center">
+              <SubmissionIcon className="mb-3 h-10 w-10 text-slate-300" />
+              <p className="text-sm font-semibold text-slate-500">Không tìm thấy bài nộp nào phù hợp.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto px-6 pb-8">
+              <table className="min-w-full border-separate border-spacing-0 text-left">
+                <thead>
+                  <tr className="text-base font-bold text-slate-800">
+                    <th className="border-b-2 border-slate-300 px-4 py-5">#</th>
+                    <th className="border-b-2 border-slate-300 px-4 py-5">Sinh viên</th>
+                    <th className="border-b-2 border-slate-300 px-4 py-5">Bài tập</th>
+                    <th className="border-b-2 border-slate-300 px-4 py-5">Thời gian</th>
+                    <th className="border-b-2 border-slate-300 px-4 py-5 text-center">Điểm</th>
+                    <th className="border-b-2 border-slate-300 px-4 py-5">Kết quả</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageItems.map((sub) => {
+                    const effective = sub.manualScore ?? sub.score ?? 0
+                    const result = getSubmissionResult(effective)
+                    const studentName = sub.student?.fullName || sub.student?.username || 'Sinh viên'
+                    return (
+                      <tr key={sub.id} className="text-base text-slate-700 hover:bg-slate-50">
+                        <td className="border-b border-slate-200 px-4 py-4">
+                          <button
+                            type="button"
+                            onClick={() => handleSelectSubmission(sub.id)}
+                            className="font-semibold text-sky-500 hover:underline"
+                          >
+                            {sub.id.slice(0, 6)}
+                          </button>
+                        </td>
+                        <td className="border-b border-slate-200 px-4 py-4">
+                          <button
+                            type="button"
+                            onClick={() => handleSelectSubmission(sub.id)}
+                            className="font-bold text-sky-500 hover:underline"
+                          >
+                            {studentName}
+                          </button>
+                        </td>
+                        <td className="border-b border-slate-200 px-4 py-4">
+                          <button
+                            type="button"
+                            onClick={() => handleSelectSubmission(sub.id)}
+                            className="font-medium text-sky-500 hover:underline"
+                          >
+                            {exerciseTitleById.get(sub.exerciseId) || 'Bài thực hành'}
+                          </button>
+                        </td>
+                        <td className="whitespace-nowrap border-b border-slate-200 px-4 py-4 text-slate-600">
+                          {formatTableTimestamp(sub.submittedAt)}
+                        </td>
+                        <td className="border-b border-slate-200 px-4 py-4 text-center font-semibold text-slate-700">
+                          {formatNumberScore(effective)}
+                        </td>
+                        <td className="border-b border-slate-200 px-4 py-4">
+                          <span className={`inline-flex rounded px-2 py-1 text-xs font-bold ${result.className}`}>
+                            {result.label}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        <aside className="card rounded-2xl border border-slate-200 bg-white shadow-[0_10px_28px_rgba(15,23,42,0.12)] xl:sticky xl:top-6">
+          <div className="bg-gradient-to-r from-cyan-500 to-teal-500 px-6 py-4 text-white">
+            <h2 className="flex items-center gap-2 text-lg font-bold">
+              <span className="text-xl leading-none">≡</span>
+              Bảng Xếp Hạng
+            </h2>
+          </div>
+
+          <div className="px-6 py-5">
+            <select
+              id="board-section-select"
+              value={selectedSectionId}
+              onChange={(e) => setSelectedSectionId(e.target.value)}
+              className="mb-5 inline-flex h-11 max-w-full rounded bg-sky-500 px-4 text-base font-semibold text-white outline-none"
+              aria-label="Chọn lớp học phần"
+            >
+              <option value="">Chọn lớp</option>
+              {sections.map((sec) => (
+                <option key={sec.id} value={sec.id}>
+                  {sec.name}
+                </option>
+              ))}
+            </select>
+
+            {selectedSection && (
+              <p className="mb-4 border-b border-slate-200 pb-4 text-sm font-semibold text-slate-500">
+                {selectedSection.semester}
+              </p>
+            )}
+
+            {!selectedSectionId ? (
+              <p className="py-8 text-center text-sm text-slate-400">Chọn một lớp học để xem xếp hạng.</p>
+            ) : loadingLeaderboard ? (
+              <div className="flex items-center justify-center gap-2 py-8 text-sm text-slate-400">
+                <Spinner /> Nạp bảng xếp hạng...
+              </div>
+            ) : leaderboard.length === 0 ? (
+              <p className="py-8 text-center text-sm text-slate-400">Chưa có xếp hạng cho lớp này.</p>
+            ) : (
+              <ul className="divide-y divide-slate-200">
+                {leaderboard.map((item, index) => (
+                  <li key={item.studentId} className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 py-4">
+                    <span className="text-base font-bold text-slate-800">{index + 1}</span>
+                    <span className="min-w-0 truncate text-base font-medium text-sky-500" title={item.studentName}>
+                      {item.studentName}
+                    </span>
+                    <span className="text-base font-bold text-sky-500">{formatNumberScore(item.totalScore)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </aside>
       </div>
 
     </div>
