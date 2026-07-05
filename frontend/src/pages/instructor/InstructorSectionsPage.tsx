@@ -59,8 +59,9 @@ export function InstructorSectionsPage() {
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Page header */}
-      <div className="bg-white border border-slate-100 rounded-xl p-5 shadow-sm">
-        <h1 className="text-2xl font-bold text-slate-800 font-sans">Quản Lý Lớp Học</h1>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary-800 via-primary-900 to-slate-900 p-6 text-white shadow-md border-b-4 border-secondary">
+        <h1 className="text-2xl font-black font-sans uppercase tracking-wide">Quản Lý Lớp Học</h1>
+        <p className="text-xs text-white/70 mt-1 font-semibold">Danh sách các lớp học phần được phân công giảng dạy</p>
       </div>
 
       {sections.length === 0 ? (
@@ -96,7 +97,7 @@ export function InstructorSectionsPage() {
 
                     <div className="space-y-2">
                       <div className="flex items-center gap-2.5">
-                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-50 text-primary transition-colors group-hover:bg-primary group-hover:text-white">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-50 text-primary transition-colors group-hover:bg-gradient-to-br group-hover:from-primary-800 group-hover:to-primary group-hover:text-white">
                           <SectionIcon className="h-4.5 w-4.5" />
                         </span>
                         <h3 className="font-bold text-slate-800 text-base leading-tight group-hover:text-primary-700 transition-colors">

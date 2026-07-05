@@ -72,10 +72,10 @@
     @apply card hover:shadow-md hover:translate-y-[-2px] hover:border-slate-200;
   }
   .panel-header {
-    @apply flex flex-wrap items-center justify-between border-b border-slate-100 bg-slate-50/80 px-5 py-3.5 border-l-4 border-primary;
+    @apply flex flex-wrap items-center justify-between bg-gradient-to-r from-primary-800 to-primary px-5 py-3 text-white;
   }
   .panel-title {
-    @apply text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2;
+    @apply text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2;
   }
 
   /* ─── Inputs ───────────────────────────────────────────────────────────── */

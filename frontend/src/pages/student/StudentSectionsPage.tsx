@@ -37,8 +37,9 @@ export function StudentSectionsPage() {
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-800">CÁC LỚP HỌC PHẦN</h1>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary-800 via-primary-900 to-slate-900 p-6 text-white shadow-md border-b-4 border-secondary">
+        <h1 className="text-2xl font-black font-sans uppercase tracking-wide">Các Lớp Học Phần</h1>
+        <p className="text-xs text-white/70 mt-1 font-semibold">Danh sách các lớp học phần bạn đã ghi danh</p>
       </div>
 
       {sections.length === 0 ? (
@@ -56,7 +57,7 @@ export function StudentSectionsPage() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-all duration-200">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-gradient-to-br group-hover:from-primary-800 group-hover:to-primary group-hover:text-white transition-all duration-200">
                     <SectionIcon className="h-5 w-5" />
                   </span>
                   <h2 className="font-semibold text-slate-800 group-hover:text-primary transition-colors duration-200">

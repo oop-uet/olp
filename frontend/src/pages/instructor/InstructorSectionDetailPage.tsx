@@ -344,25 +344,28 @@ export function InstructorSectionDetailPage() {
       </div>
 
       {/* Page Header Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold text-gray-800">{section.name}</h1>
-          <span className="badge-blue font-bold">{section.semester}</span>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary-800 via-primary-900 to-slate-900 p-6 text-white shadow-md border-b-4 border-secondary flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div>
+          <h1 className="text-2xl font-black font-sans uppercase tracking-wide">{section.name}</h1>
+          <p className="text-xs text-white/70 mt-1 font-semibold">Học kỳ: {section.semester} | Quản lý thành viên lớp học phần</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link
             to={`/instructor/classes/${section.id}`}
-            className="btn-primary btn-sm inline-flex items-center gap-1.5"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
           >
             {/* Book Icon */}
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <svg className="h-4 w-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
             Xem bài tập tuần
           </Link>
-          <Link to="/instructor/leaderboard" className="btn-secondary btn-sm inline-flex items-center gap-1.5">
+          <Link 
+            to="/instructor/leaderboard" 
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-white/10 border border-white/20 px-3 py-2 text-xs font-bold text-white hover:bg-white/25 transition-colors"
+          >
             {/* Trophy Icon */}
-            <svg className="h-4 w-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <svg className="h-4 w-4 text-amber-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5a2 2 0 10-2 2h2zm0 0h4m-4 0H8m12 0a2 2 0 10-2-2v2h2zm-2 0V6a2 2 0 10-2-2v2h2zm-8-2v2h2v-2H8zm-2 0v2h2v-2H6zm0 0a2 2 0 11-2-2v2h2zm-2 0V6a2 2 0 10-2-2v2h2z" />
             </svg>
             Bảng xếp hạng
