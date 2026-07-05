@@ -8,6 +8,9 @@ import {
 } from "../../services/submission.service.js";
 import { requireRole } from "../../middleware/role.guard.js";
 import { validate } from "../../middleware/validate.js";
+import { db } from "../../db/index.js";
+import { eq, and } from "drizzle-orm";
+import { sectionEnrollments } from "../../db/schema.js";
 
 // ─── Router ──────────────────────────────────────────────────────────────────
 
@@ -31,6 +34,7 @@ router.get("/", async (req: Request, res: Response) => {
       exerciseId?: string;
       sectionId?: string;
       studentId?: string;
+      sectionIds?: string[];
     } = {};
 
     if (typeof exercise_id === "string" && exercise_id) {
@@ -43,14 +47,34 @@ router.get("/", async (req: Request, res: Response) => {
       filters.studentId = student_id;
     }
 
-    // Students can only see their own submissions
+    // Students can see submissions from classes they are enrolled in
     if (req.user?.role === "student") {
-      filters.studentId = req.user.userId;
+      const enrollments = await db
+        .select({ sectionId: sectionEnrollments.sectionId })
+        .from(sectionEnrollments)
+        .where(eq(sectionEnrollments.studentId, req.user.userId));
+
+      const enrolledSectionIds = enrollments.map((e) => e.sectionId);
+
+      if (enrolledSectionIds.length === 0) {
+        res.status(200).json({ grouped: {}, submissions: [] });
+        return;
+      }
+
+      if (typeof section_id === "string" && section_id) {
+        if (!enrolledSectionIds.includes(section_id)) {
+          res.status(403).json({ error: { code: "FORBIDDEN", message: "Bạn không tham gia lớp học này." } });
+          return;
+        }
+        filters.sectionId = section_id;
+      } else {
+        filters.sectionIds = enrolledSectionIds;
+      }
     }
 
     const result = await listSubmissions(filters);
 
-    // For students, group submissions by exercise
+    // For students, group submissions by exercise as fallback
     if (req.user?.role === "student") {
       const grouped: Record<string, typeof result> = {};
       for (const submission of result) {

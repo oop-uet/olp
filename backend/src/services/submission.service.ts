@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { eq, and, count, desc } from "drizzle-orm";
+import { eq, and, count, desc, inArray } from "drizzle-orm";
 import { db as defaultDb } from "../db/index.js";
 import {
   submissions,
@@ -33,6 +33,7 @@ export interface SubmissionFilters {
   exerciseId?: string;
   sectionId?: string;
   studentId?: string;
+  sectionIds?: string[];
 }
 
 export interface SubmissionError {
@@ -342,6 +343,10 @@ export async function listSubmissions(
     conditions.push(eq(submissions.studentId, filters.studentId));
   }
 
+  if (filters.sectionIds && filters.sectionIds.length > 0) {
+    conditions.push(inArray(submissions.sectionId, filters.sectionIds));
+  }
+
   const whereClause =
     conditions.length > 0
       ? conditions.length === 1
@@ -358,6 +363,19 @@ export async function listSubmissions(
           id: true,
           username: true,
           email: true,
+          fullName: true,
+        },
+      },
+      exercise: {
+        columns: {
+          id: true,
+          title: true,
+        },
+      },
+      section: {
+        columns: {
+          id: true,
+          name: true,
         },
       },
     },
