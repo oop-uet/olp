@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 import { db as defaultDb } from "../db/index.js";
 import {
   classSections,
@@ -8,8 +8,10 @@ import {
   sectionWeeks,
 } from "../db/schema.js";
 
-// Number of weeks in a course schedule.
+// Default number of weeks in a course schedule. Instructors can extend this
+// when a section needs extra make-up/project weeks.
 export const TOTAL_WEEKS = 15;
+const MAX_SCHEDULE_WEEK = 60;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Database = any;
@@ -80,12 +82,18 @@ export interface SectionSchedule {
   section: { id: string; name: string; semester: string };
   weeks: ScheduleWeek[];
   unscheduled: ScheduleExercise[];
-  pool: Array<{ id: string; title: string; difficulty: string; oopTags: string[] }>;
+  pool: Array<{
+    id: string;
+    title: string;
+    difficulty: string;
+    oopTags: string[];
+    assignedWeek: number | null;
+  }>;
 }
 
 /**
  * Build the 15-week schedule view for a section: assigned exercises grouped by
- * week, per-week deadlines, plus the pool of exercises not yet assigned.
+ * week, per-week deadlines, plus the exercise library/system pool.
  */
 export async function getSectionSchedule(
   sectionId: string,
@@ -132,11 +140,20 @@ export async function getSectionSchedule(
     deadline: a.deadline ?? null,
   });
 
-  const assignedExerciseIds = new Set<string>(assignments.map((a: any) => a.exerciseId));
+  const assignedWeekByExerciseId = new Map<string, number | null>();
+  for (const a of assignments as any[]) {
+    assignedWeekByExerciseId.set(a.exerciseId, a.week ?? null);
+  }
 
-  // Build weeks 1..TOTAL_WEEKS.
+  const maxConfiguredWeek = Math.max(
+    TOTAL_WEEKS,
+    ...((assignments as any[]).map((a) => Number(a.week) || 0)),
+    ...((weekRows as any[]).map((w) => Number(w.week) || 0))
+  );
+
+  // Build weeks 1..maxConfiguredWeek.
   const weeks: ScheduleWeek[] = [];
-  for (let i = 1; i <= TOTAL_WEEKS; i++) {
+  for (let i = 1; i <= maxConfiguredWeek; i++) {
     weeks.push({
       week: i,
       deadline: deadlineByWeek.get(i) ?? null,
@@ -147,25 +164,25 @@ export async function getSectionSchedule(
   }
 
   const unscheduled = assignments
-    .filter((a: any) => !a.week || a.week < 1 || a.week > TOTAL_WEEKS)
+    .filter((a: any) => !a.week || a.week < 1)
     .map(toScheduleExercise);
 
-  // Pool: exercises the user may assign that are not yet assigned to this section.
+  // Pool: all system-library exercises plus the instructor's own exercises.
+  // Assigned items stay visible so the instructor can drag them to another week.
   const poolSource =
     role === "admin"
       ? await database.query.exercises.findMany()
       : await database.query.exercises.findMany({
-          where: eq(exercises.createdBy, userId),
+          where: or(eq(exercises.isLibrary, 1), eq(exercises.createdBy, userId)),
         });
 
-  const pool = poolSource
-    .filter((e: any) => !assignedExerciseIds.has(e.id))
-    .map((e: any) => ({
-      id: e.id,
-      title: e.title,
-      difficulty: e.difficulty,
-      oopTags: parseOopTags(e.oopTags),
-    }));
+  const pool = poolSource.map((e: any) => ({
+    id: e.id,
+    title: e.title,
+    difficulty: e.difficulty,
+    oopTags: parseOopTags(e.oopTags),
+    assignedWeek: assignedWeekByExerciseId.get(e.id) ?? null,
+  }));
 
   return {
     section: { id: section.id, name: section.name, semester: section.semester },
@@ -190,7 +207,7 @@ export async function assignExerciseToWeek(
   const loaded = await loadSectionForUser(sectionId, userId, role, database);
   if (isScheduleError(loaded)) return loaded;
 
-  if (!Number.isInteger(week) || week < 1 || week > TOTAL_WEEKS) {
+  if (!isValidScheduleWeek(week)) {
     return { error: { code: "VALIDATION_ERROR", message: "Tuần không hợp lệ." } };
   }
 
@@ -274,7 +291,7 @@ export async function setWeekDeadline(
   const loaded = await loadSectionForUser(sectionId, userId, role, database);
   if (isScheduleError(loaded)) return loaded;
 
-  if (!Number.isInteger(week) || week < 1 || week > TOTAL_WEEKS) {
+  if (!isValidScheduleWeek(week)) {
     return { error: { code: "VALIDATION_ERROR", message: "Tuần không hợp lệ." } };
   }
 
@@ -343,4 +360,8 @@ export async function toggleExerciseVisibility(
     .where(eq(exerciseAssignments.id, existing.id));
 
   return { success: true, exerciseId, isVisible };
+}
+
+function isValidScheduleWeek(week: number): boolean {
+  return Number.isInteger(week) && week >= 1 && week <= MAX_SCHEDULE_WEEK;
 }

@@ -37,6 +37,7 @@ interface PoolExercise {
   title: string
   difficulty: Difficulty
   oopTags: string[]
+  assignedWeek: number | null
 }
 
 interface ScheduleData {
@@ -431,7 +432,7 @@ export function SectionSchedulePage() {
             <div className="flex items-center gap-2 border-b border-gray-200 px-4 py-3">
               <ExerciseIcon className="h-5 w-5 text-gray-500" />
               <h2 className="text-sm font-semibold text-gray-700">
-                Kho bài tập ({pool.length})
+                Kho bài tập hệ thống ({pool.length})
               </h2>
             </div>
             <div className="space-y-2 p-4 lg:max-h-[calc(100vh-14rem)] lg:overflow-y-auto">
@@ -451,6 +452,9 @@ export function SectionSchedulePage() {
                       <span className="font-medium text-gray-800">{ex.title}</span>
                       <DifficultyBadge difficulty={ex.difficulty} />
                     </div>
+                    {ex.assignedWeek && (
+                      <span className="badge-green w-fit">Đang ở tuần {ex.assignedWeek}</span>
+                    )}
                     {ex.oopTags && ex.oopTags.length > 0 && (
                       <div className="flex flex-wrap gap-1">
                         {ex.oopTags.map((tag) => (
