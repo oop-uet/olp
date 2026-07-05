@@ -125,7 +125,7 @@ export async function createTestCase(
       error: {
         code: "VALIDATION_ERROR",
         message: "Expected output exceeds maximum size.",
-        details: [{ field: "expected_output", message: `Must be at most ${MAX_EXPECTED_OUTPUT_SIZE} characters (10KB).` }],
+        details: [{ field: "expected_output", message: `Must be at most ${MAX_EXPECTED_OUTPUT_SIZE} characters (64KB).` }],
       },
     };
   }
@@ -202,7 +202,7 @@ export async function updateTestCase(
       error: {
         code: "VALIDATION_ERROR",
         message: "Expected output exceeds maximum size.",
-        details: [{ field: "expected_output", message: `Must be at most ${MAX_EXPECTED_OUTPUT_SIZE} characters (10KB).` }],
+        details: [{ field: "expected_output", message: `Must be at most ${MAX_EXPECTED_OUTPUT_SIZE} characters (64KB).` }],
       },
     };
   }

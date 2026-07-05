@@ -158,9 +158,9 @@ describe("TestCase Service", () => {
       }
     });
 
-    it("should reject expected_output exceeding 10KB", async () => {
+    it("should reject expected_output exceeding 64KB", async () => {
       const db = getDb();
-      const largeOutput = "y".repeat(10241);
+      const largeOutput = "y".repeat(65537);
       const result = await createTestCase(
         exerciseId,
         {
