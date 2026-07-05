@@ -285,7 +285,7 @@ export function SubmissionDetailPage() {
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 p-4 xl:grid-cols-[340px_minmax(0,1fr)]">
         <aside className="space-y-4">
           <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-            <div className="bg-primary px-4 py-3">
+            <div className="bg-gradient-to-r from-primary-800 to-primary px-4 py-3">
               <h2 className="text-sm font-bold uppercase tracking-wide text-white">
                 Chi tiết bài nộp
               </h2>
@@ -326,7 +326,7 @@ export function SubmissionDetailPage() {
           </section>
 
           <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-            <div className="bg-primary px-4 py-3">
+            <div className="bg-gradient-to-r from-primary-800 to-primary px-4 py-3">
               <h2 className="text-sm font-bold uppercase tracking-wide text-white">
                 Bài đã nộp
               </h2>
@@ -354,7 +354,7 @@ export function SubmissionDetailPage() {
           </section>
 
           <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-            <div className="bg-primary px-4 py-3">
+            <div className="bg-gradient-to-r from-primary-800 to-primary px-4 py-3">
               <h2 className="text-sm font-bold uppercase tracking-wide text-white">
                 Quy tắc lập trình
               </h2>

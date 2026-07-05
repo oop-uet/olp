@@ -197,7 +197,7 @@ export function StudentLeaderboardPage() {
 
       {!loadingBoard && entries.length > 0 && (
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center gap-2 bg-primary px-5 py-3 text-white">
+          <div className="flex items-center gap-2 bg-gradient-to-r from-primary-800 to-primary px-5 py-3 text-white">
             <LeaderboardIcon className="h-4 w-4" />
             <h3 className="text-sm font-bold uppercase tracking-wide">
               {currentSection.name}

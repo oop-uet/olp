@@ -240,7 +240,7 @@ export function SubmissionHistoryPage() {
         {/* Left Column: Submissions Table Card */}
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           {/* Card Header Banner */}
-          <div className="flex flex-wrap items-center justify-between bg-primary px-5 py-3.5 text-white gap-2">
+          <div className="flex flex-wrap items-center justify-between bg-gradient-to-r from-primary-800 to-primary px-5 py-3.5 text-white gap-2">
             <div className="flex items-center gap-2">
               <span className="text-base">📋</span>
               <h3 className="text-xs font-bold tracking-wide uppercase">
