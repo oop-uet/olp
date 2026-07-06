@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader, ExerciseIcon } from '../ui'
 import { toast } from '../../stores/toast.store'
@@ -38,6 +39,7 @@ function parseOopTags(tags: unknown): string[] {
 }
 
 export function ExerciseLibrary() {
+  const navigate = useNavigate()
   const [exercises, setExercises] = useState<LibraryExercise[]>([])
   const [sections, setSections] = useState<Section[]>([])
   const [loading, setLoading] = useState(true)
@@ -121,7 +123,13 @@ export function ExerciseLibrary() {
             return (
               <div key={exercise.id} className="card-hover flex flex-col p-4">
                 <div className="mb-2 flex items-start justify-between">
-                  <h3 className="text-sm font-medium text-gray-900">{exercise.title}</h3>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/instructor/exercises/${exercise.id}`)}
+                    className="text-left text-sm font-bold text-sky-700 hover:underline"
+                  >
+                    {exercise.title}
+                  </button>
                   <span className={`ml-2 shrink-0 ${badge.className}`}>{badge.label}</span>
                 </div>
 
@@ -186,12 +194,20 @@ export function ExerciseLibrary() {
                       </div>
                     </div>
                   ) : (
-                    <button
-                      onClick={() => setAssigningId(exercise.id)}
-                      className="btn-secondary btn-sm w-full"
-                    >
-                      Gán vào lớp
-                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => navigate(`/instructor/exercises/${exercise.id}`)}
+                        className="btn-secondary btn-sm"
+                      >
+                        Xem chi tiết
+                      </button>
+                      <button
+                        onClick={() => setAssigningId(exercise.id)}
+                        className="btn-primary btn-sm"
+                      >
+                        Gán vào lớp
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>

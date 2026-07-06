@@ -1,11 +1,14 @@
 import crypto from "node:crypto";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { db as defaultDb } from "../db/index.js";
 import {
   exercises,
   exerciseAssignments,
   testCases,
   classSections,
+  sectionEnrollments,
+  sectionInstructors,
+  submissions,
 } from "../db/schema.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -46,6 +49,8 @@ export interface AssignExerciseInput {
 export interface ExerciseError {
   error: { code: string; message: string };
 }
+
+type Database = typeof defaultDb;
 
 // ─── Service ─────────────────────────────────────────────────────────────────
 
@@ -90,6 +95,181 @@ export async function getExerciseById(id: string, database = defaultDb) {
   }
 
   return exercise;
+}
+
+/**
+ * Build the instructor-facing exercise page:
+ * - description and metadata
+ * - all test cases
+ * - submission history in sections taught by the current instructor
+ * - per-section statistics for those sections
+ */
+export async function getInstructorExerciseOverview(
+  id: string,
+  userId: string,
+  role: string,
+  database: Database = defaultDb
+) {
+  const exercise = await database.query.exercises.findFirst({
+    where: eq(exercises.id, id),
+    with: { testCases: true },
+  });
+
+  if (!exercise) {
+    return {
+      error: {
+        code: "NOT_FOUND",
+        message: "Exercise not found.",
+      },
+    };
+  }
+
+  const taughtSections = await listAccessibleSectionsForExercise(id, userId, role, database);
+  const taughtSectionIds = taughtSections.map((section) => section.id);
+
+  const canView =
+    role === "admin" ||
+    exercise.createdBy === userId ||
+    exercise.isLibrary === 1 ||
+    taughtSectionIds.length > 0;
+
+  if (!canView) {
+    return {
+      error: {
+        code: "FORBIDDEN",
+        message: "You do not have permission to view this exercise.",
+      },
+    };
+  }
+
+  const history =
+    taughtSectionIds.length > 0
+      ? await database.query.submissions.findMany({
+          where: and(
+            eq(submissions.exerciseId, id),
+            inArray(submissions.sectionId, taughtSectionIds)
+          ),
+          orderBy: [desc(submissions.submittedAt)],
+          with: {
+            student: {
+              columns: {
+                id: true,
+                username: true,
+                fullName: true,
+                email: true,
+              },
+            },
+            section: {
+              columns: {
+                id: true,
+                name: true,
+                semester: true,
+              },
+            },
+          },
+        })
+      : [];
+
+  const sectionStats = [];
+  for (const section of taughtSections) {
+    const enrollments = await database
+      .select({ studentId: sectionEnrollments.studentId })
+      .from(sectionEnrollments)
+      .where(eq(sectionEnrollments.sectionId, section.id));
+
+    const sectionSubmissions = history.filter((submission) => submission.sectionId === section.id);
+    const submittedStudentIds = new Set(sectionSubmissions.map((submission) => submission.studentId));
+    const effectiveScores = sectionSubmissions
+      .map((submission) => submission.manualScore ?? submission.score ?? 0)
+      .filter((score) => Number.isFinite(score));
+    const bestScoreByStudent = new Map<string, number>();
+
+    for (const submission of sectionSubmissions) {
+      const score = submission.manualScore ?? submission.score ?? 0;
+      const current = bestScoreByStudent.get(submission.studentId) ?? 0;
+      if (score > current) bestScoreByStudent.set(submission.studentId, score);
+    }
+
+    const acceptedCount = [...bestScoreByStudent.values()].filter((score) => score >= 100).length;
+    const averageBestScore =
+      bestScoreByStudent.size > 0
+        ? [...bestScoreByStudent.values()].reduce((sum, score) => sum + score, 0) /
+          bestScoreByStudent.size
+        : 0;
+
+    sectionStats.push({
+      sectionId: section.id,
+      sectionName: section.name,
+      semester: section.semester,
+      studentCount: enrollments.length,
+      submittedStudentCount: submittedStudentIds.size,
+      submissionCount: sectionSubmissions.length,
+      acceptedCount,
+      averageScore:
+        effectiveScores.length > 0
+          ? effectiveScores.reduce((sum, score) => sum + score, 0) / effectiveScores.length
+          : 0,
+      averageBestScore,
+      maxScore: effectiveScores.length > 0 ? Math.max(...effectiveScores) : 0,
+    });
+  }
+
+  return {
+    exercise,
+    testCases: exercise.testCases,
+    sections: taughtSections,
+    stats: sectionStats,
+    submissions: history.map((submission) => ({
+      id: submission.id,
+      studentId: submission.studentId,
+      student: submission.student,
+      sectionId: submission.sectionId,
+      section: submission.section,
+      score: submission.score,
+      manualScore: submission.manualScore,
+      effectiveScore: submission.manualScore ?? submission.score ?? 0,
+      attemptNumber: submission.attemptNumber,
+      submittedAt: submission.submittedAt,
+    })),
+  };
+}
+
+async function listAccessibleSectionsForExercise(
+  exerciseId: string,
+  userId: string,
+  role: string,
+  database: Database
+) {
+  const assignedRows = await database
+    .select({
+      id: classSections.id,
+      name: classSections.name,
+      semester: classSections.semester,
+      instructorId: classSections.instructorId,
+    })
+    .from(exerciseAssignments)
+    .innerJoin(classSections, eq(exerciseAssignments.sectionId, classSections.id))
+    .where(eq(exerciseAssignments.exerciseId, exerciseId));
+
+  if (role === "admin") return assignedRows;
+
+  if (assignedRows.length === 0) return [];
+
+  const sectionIds = assignedRows.map((section) => section.id);
+  const memberships = await database
+    .select({ sectionId: sectionInstructors.sectionId })
+    .from(sectionInstructors)
+    .where(
+      and(
+        eq(sectionInstructors.instructorId, userId),
+        inArray(sectionInstructors.sectionId, sectionIds)
+      )
+    );
+  const memberSectionIds = new Set(memberships.map((membership) => membership.sectionId));
+
+  return assignedRows.filter(
+    (section) => section.instructorId === userId || memberSectionIds.has(section.id)
+  );
 }
 
 /**

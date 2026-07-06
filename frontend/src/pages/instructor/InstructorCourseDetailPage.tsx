@@ -345,7 +345,12 @@ function WeekPanel({
                 className="flex items-center justify-between border border-slate-200/80 rounded-lg px-4 py-2 bg-[#f8f9fa] hover:bg-[#f1f3f5] transition-colors duration-150 shadow-sm"
               >
                 <div className="flex items-center gap-2 text-xs">
-                  <span className="font-bold text-slate-800 text-sm">{ex.title}</span>
+                  <Link
+                    to={`/instructor/exercises/${ex.exerciseId}`}
+                    className="text-sm font-bold text-sky-700 hover:underline"
+                  >
+                    {ex.title}
+                  </Link>
                   {ex.isAssessment && (
                     <span className="badge-yellow text-[9px] px-1 py-0.5 font-bold uppercase">Kiểm tra</span>
                   )}

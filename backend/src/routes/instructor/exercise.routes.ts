@@ -9,6 +9,7 @@ import {
   deleteExercise,
   browseLibrary,
   assignToSection,
+  getInstructorExerciseOverview,
   isExerciseError,
 } from "../../services/exercise.service.js";
 import {
@@ -110,6 +111,32 @@ router.get("/", async (req: Request, res: Response) => {
 router.get("/library", async (_req: Request, res: Response) => {
   try {
     const result = await browseLibrary();
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "An unexpected error occurred",
+      },
+    });
+  }
+});
+
+/**
+ * GET /api/exercises/:id/instructor-overview
+ * Instructor coding-page style view: prompt, test cases, submissions and stats.
+ */
+router.get("/:id/instructor-overview", async (req: Request, res: Response) => {
+  try {
+    const { userId, role } = req.user!;
+    const result = await getInstructorExerciseOverview(req.params.id, userId, role);
+
+    if (isExerciseError(result)) {
+      const statusCode = getErrorStatusCode(result.error.code);
+      res.status(statusCode).json({ error: result.error });
+      return;
+    }
+
     res.status(200).json(result);
   } catch (error) {
     res.status(500).json({

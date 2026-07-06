@@ -230,7 +230,15 @@ export function ExerciseManagerPage() {
                             <td className="table-td text-center text-slate-500 font-bold">
                               {index + 1 + (currentPage - 1) * PAGE_SIZE}
                             </td>
-                            <td className="table-td font-medium text-gray-900">{exercise.title}</td>
+                            <td className="table-td font-medium text-gray-900">
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/instructor/exercises/${exercise.id}`)}
+                                className="text-left font-bold text-sky-600 hover:underline"
+                              >
+                                {exercise.title}
+                              </button>
+                            </td>
                             <td className="table-td">
                               <span className={badge.className}>{badge.label}</span>
                             </td>
@@ -244,6 +252,12 @@ export function ExerciseManagerPage() {
                               </div>
                             </td>
                             <td className="table-td text-right">
+                              <button
+                                onClick={() => navigate(`/instructor/exercises/${exercise.id}`)}
+                                className="btn-ghost btn-sm mr-2"
+                              >
+                                Xem
+                              </button>
                               <button
                                 onClick={() => navigate(`/instructor/exercises/${exercise.id}/testcases`)}
                                 className="btn-ghost btn-sm mr-2"

@@ -56,6 +56,7 @@ const StudentLeaderboardPage = lazy(() => import('../pages/student/StudentLeader
 // Instructor
 const ExerciseManagerPage = lazy(() => import('../pages/instructor/ExerciseManagerPage').then((m) => ({ default: m.ExerciseManagerPage })))
 const ExerciseFormPage = lazy(() => import('../pages/instructor/ExerciseFormPage').then((m) => ({ default: m.ExerciseFormPage })))
+const InstructorExerciseDetailPage = lazy(() => import('../pages/instructor/InstructorExerciseDetailPage').then((m) => ({ default: m.InstructorExerciseDetailPage })))
 const TestCaseEditorPage = lazy(() => import('../pages/instructor/TestCaseEditorPage').then((m) => ({ default: m.TestCaseEditorPage })))
 const SubmissionReviewPage = lazy(() => import('../pages/instructor/SubmissionReviewPage').then((m) => ({ default: m.SubmissionReviewPage })))
 const LeaderboardPage = lazy(() => import('../pages/instructor/LeaderboardPage').then((m) => ({ default: m.LeaderboardPage })))
@@ -131,6 +132,7 @@ export const router = createBrowserRouter(
       children: [
         { path: 'exercises', element: withSuspense(<ExerciseManagerPage />) },
         { path: 'exercises/new', element: withSuspense(<ExerciseFormPage />) },
+        { path: 'exercises/:id', element: withSuspense(<InstructorExerciseDetailPage />) },
         { path: 'exercises/:id/edit', element: withSuspense(<ExerciseFormPage />) },
         { path: 'exercises/:id/testcases', element: withSuspense(<TestCaseEditorPage />) },
         { path: 'classes', element: withSuspense(<InstructorSectionsPage />) },
