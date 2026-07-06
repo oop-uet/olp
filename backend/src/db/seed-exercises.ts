@@ -2,7 +2,17 @@ import "dotenv/config";
 import { inArray, eq } from "drizzle-orm";
 import crypto from "node:crypto";
 import { db } from "./index.js";
-import { classSections, exerciseAssignments, exercises, testCases } from "./schema.js";
+import {
+  anticheatEvents,
+  classSections,
+  exerciseAssignments,
+  exercises,
+  projectGroupMembers,
+  projectGroups,
+  submissionResults,
+  submissions,
+  testCases,
+} from "./schema.js";
 
 interface ExerciseSeed {
   title: string;
@@ -1407,7 +1417,7 @@ public class AdapterTest {
   },
 ];
 
-async function prepareExerciseLibrary(nextLibraryExerciseIds: string[]) {
+async function replaceExerciseLibrary() {
   const oldLibraryExercises = await db
     .select({ id: exercises.id })
     .from(exercises)
@@ -1417,32 +1427,37 @@ async function prepareExerciseLibrary(nextLibraryExerciseIds: string[]) {
     return;
   }
 
-  const nextIds = new Set(nextLibraryExerciseIds);
-  const retiredIds = oldLibraryExercises
-    .map((exercise) => exercise.id)
-    .filter((id) => !nextIds.has(id));
+  const oldIds = oldLibraryExercises.map((exercise) => exercise.id);
+  const oldSubmissions = await db
+    .select({ id: submissions.id })
+    .from(submissions)
+    .where(inArray(submissions.exerciseId, oldIds));
+  const oldSubmissionIds = oldSubmissions.map((submission) => submission.id);
+  const oldProjectGroups = await db
+    .select({ id: projectGroups.id })
+    .from(projectGroups)
+    .where(inArray(projectGroups.exerciseId, oldIds));
+  const oldProjectGroupIds = oldProjectGroups.map((group) => group.id);
 
-  if (retiredIds.length === 0) {
-    return;
+  if (oldSubmissionIds.length > 0) {
+    await db.delete(submissionResults).where(inArray(submissionResults.submissionId, oldSubmissionIds));
+  }
+  if (oldProjectGroupIds.length > 0) {
+    await db.delete(projectGroupMembers).where(inArray(projectGroupMembers.groupId, oldProjectGroupIds));
   }
 
-  // Do not hard-delete retired exercises/test cases because submissions and
-  // submission_results may reference them. Hide them from the system library
-  // and remove their current assignments so new classes use the 10-week set.
-  await db.delete(exerciseAssignments).where(inArray(exerciseAssignments.exerciseId, retiredIds));
-  for (const id of retiredIds) {
-    await db
-      .update(exercises)
-      .set({ isLibrary: 0, updatedAt: new Date().toISOString() })
-      .where(eq(exercises.id, id));
-  }
+  await db.delete(anticheatEvents).where(inArray(anticheatEvents.exerciseId, oldIds));
+  await db.delete(projectGroups).where(inArray(projectGroups.exerciseId, oldIds));
+  await db.delete(submissions).where(inArray(submissions.exerciseId, oldIds));
+  await db.delete(exerciseAssignments).where(inArray(exerciseAssignments.exerciseId, oldIds));
+  await db.delete(testCases).where(inArray(testCases.exerciseId, oldIds));
+  await db.delete(exercises).where(eq(exercises.isLibrary, 1));
 }
 
 async function seedExercises() {
   console.log("Seeding OOP practice exercise library...");
 
-  const plannedExerciseIds = exerciseSeeds.map((seed) => stableId(seed.title));
-  await prepareExerciseLibrary(plannedExerciseIds);
+  await replaceExerciseLibrary();
 
   const now = new Date().toISOString();
   let testCaseCount = 0;
