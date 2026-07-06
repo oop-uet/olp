@@ -13,7 +13,7 @@ const router = Router();
  */
 router.post("/import-roster", async (req: Request, res: Response) => {
   try {
-    const { data } = req.body;
+    const { data, semester } = req.body;
 
     if (!data || typeof data !== "string") {
       res.status(400).json({
@@ -35,7 +35,7 @@ router.post("/import-roster", async (req: Request, res: Response) => {
     }
 
     const instructorId = req.user?.userId || null;
-    const report = await importClassRoster(buffer, instructorId);
+    const report = await importClassRoster(buffer, instructorId, semester);
 
     res.status(200).json(report);
   } catch (error) {

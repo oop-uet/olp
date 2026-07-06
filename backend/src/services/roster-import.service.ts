@@ -196,12 +196,45 @@ export function parseRosterFile(buffer: Buffer): {
  * - Creates student accounts with username=password=MSSV, mustChangePassword=1
  * - Enrolls students in the section
  */
+function getSemesterPrefix(semester: string): string {
+  if (!semester) return "";
+  
+  // Format 1: 2025-2026-HK2
+  const match1 = semester.match(/^(\d{4})-(\d{4})-HK(\d)$/i);
+  if (match1) {
+    const startYear = match1[1].slice(2);
+    const endYear = match1[2].slice(2);
+    const hkNum = parseInt(match1[3]);
+    const hk = hkNum === 1 ? "I" : hkNum === 2 ? "II" : "III";
+    return `${hk}${startYear}${endYear}`;
+  }
+
+  // Format 2: Học kỳ II năm học 2025-2026
+  const match2 = semester.match(/h[oọ]c\s*k[yỳì]\s*(I{1,3}|[123])\s*n[aă]m\s*h[oọ]c\s*(\d{4})[-–\s]+(\d{4})/i);
+  if (match2) {
+    let hk = match2[1].toUpperCase();
+    if (hk === "1") hk = "I";
+    else if (hk === "2") hk = "II";
+    else if (hk === "3") hk = "III";
+    const startYear = match2[2].slice(2);
+    const endYear = match2[3].slice(2);
+    return `${hk}${startYear}${endYear}`;
+  }
+
+  return "";
+}
+
 export async function importClassRoster(
   buffer: Buffer,
   instructorId: string | null,
+  semesterOverride?: string,
   database = defaultDb
 ): Promise<RosterImportReport> {
   const { metadata, students } = parseRosterFile(buffer);
+
+  if (semesterOverride) {
+    metadata.semester = semesterOverride;
+  }
 
   const now = new Date().toISOString();
 
@@ -242,7 +275,14 @@ export async function importClassRoster(
 
   // 1. Create or find the class section
   const sectionId = crypto.randomUUID();
-  const sectionName = metadata.sectionName || "Imported Section";
+  let sectionName = metadata.sectionName || "Imported Section";
+
+  if (metadata.semester) {
+    const prefix = getSemesterPrefix(metadata.semester);
+    if (prefix && !sectionName.startsWith(prefix)) {
+      sectionName = `${prefix} ${sectionName}`;
+    }
+  }
 
   const [_section] = await database
     .insert(classSections)

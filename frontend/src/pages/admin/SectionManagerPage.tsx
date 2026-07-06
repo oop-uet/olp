@@ -33,6 +33,14 @@ interface SectionFormData {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
+function getSemesterDisplayName(semId: string): string {
+  const match = semId.match(/^(\d{4})-(\d{4})-HK(\d)$/);
+  if (!match) return semId;
+  const hkNum = parseInt(match[3]);
+  const hk = hkNum === 1 ? "I" : hkNum === 2 ? "II" : hkNum === 3 ? "III" : match[3];
+  return `Học kỳ ${hk} năm học ${match[1]}-${match[2]}`;
+}
+
 function getSectionInstructorText(section: Section) {
   const names =
     section.instructors?.map(
@@ -66,10 +74,65 @@ export function SectionManagerPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const PAGE_SIZE = 10
 
+  const [selectedSemester, setSelectedSemester] = useState<string>(() => {
+    return localStorage.getItem('admin_selected_semester') || 'ALL'
+  })
+  const [customSemesters, setCustomSemesters] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('admin_semesters') || '[]')
+    } catch {
+      return []
+    }
+  })
+
+  const semesters = useMemo(() => {
+    const dbSemesters = sections.map((s) => s.semester).filter(Boolean)
+    const set = new Set(['2025-2026-HK2', ...dbSemesters, ...customSemesters])
+    return [...set].sort((a, b) => {
+      const matchA = a.match(/^(\d{4})-(\d{4})-HK(\d)$/)
+      const matchB = b.match(/^(\d{4})-(\d{4})-HK(\d)$/)
+      if (!matchA || !matchB) return a.localeCompare(b)
+      const yearDiff = parseInt(matchA[1]) - parseInt(matchB[1])
+      if (yearDiff !== 0) return yearDiff
+      return parseInt(matchA[3]) - parseInt(matchB[3])
+    })
+  }, [sections, customSemesters])
+
+  const handleAddSemester = () => {
+    const latest = semesters[semesters.length - 1] || '2025-2026-HK2'
+    const nextSem = (latestId: string): string => {
+      const match = latestId.match(/^(\d{4})-(\d{4})-HK(\d)$/)
+      if (!match) return '2025-2026-HK2'
+      const startYear = parseInt(match[1])
+      const endYear = parseInt(match[2])
+      const hk = parseInt(match[3])
+
+      if (hk === 1) {
+        return `${startYear}-${endYear}-HK2`
+      } else {
+        return `${startYear + 1}-${endYear + 1}-HK1`
+      }
+    }
+    const nextVal = nextSem(latest)
+    const newCustom = [...customSemesters]
+    if (!newCustom.includes(nextVal)) {
+      newCustom.push(nextVal)
+      setCustomSemesters(newCustom)
+      localStorage.setItem('admin_semesters', JSON.stringify(newCustom))
+    }
+    setSelectedSemester(nextVal)
+    localStorage.setItem('admin_selected_semester', nextVal)
+    toast.success(`Đã thêm học kỳ ${getSemesterDisplayName(nextVal)}`)
+  }
+
   const filteredSections = useMemo(() => {
-    if (!search.trim()) return sections
+    let list = sections
+    if (selectedSemester !== 'ALL') {
+      list = list.filter((s) => s.semester === selectedSemester)
+    }
+    if (!search.trim()) return list
     const q = search.toLowerCase()
-    return sections.filter(
+    return list.filter(
       (s) =>
         s.name.toLowerCase().includes(q) ||
         s.semester.toLowerCase().includes(q) ||
@@ -77,7 +140,7 @@ export function SectionManagerPage() {
         (s.instructor?.fullName || '').toLowerCase().includes(q) ||
         (s.instructor?.username || '').toLowerCase().includes(q)
     )
-  }, [sections, search])
+  }, [sections, search, selectedSemester])
 
   const sortedSections = useMemo(() => {
     if (!sortField) return filteredSections
@@ -142,7 +205,10 @@ export function SectionManagerPage() {
 
   function openCreateForm() {
     setEditingSection(null)
-    setFormData({ name: '', semester: '', instructor_id: null, instructor_ids: [] })
+    const defaultSem = selectedSemester === 'ALL' 
+      ? (semesters[semesters.length - 1] || '2025-2026-HK2') 
+      : selectedSemester
+    setFormData({ name: '', semester: defaultSem, instructor_id: null, instructor_ids: [] })
     setInstructorSearch('')
     setShowForm(true)
   }
@@ -273,11 +339,16 @@ export function SectionManagerPage() {
     setRosterImporting(true)
     setRosterResult(null)
 
+    const targetSemester = selectedSemester === 'ALL'
+      ? (semesters[semesters.length - 1] || '2025-2026-HK2')
+      : selectedSemester;
+
     try {
       const base64 = await fileToBase64(rosterFile)
       const response = await api.post('/api/admin/import-roster', {
         data: base64,
         filename: rosterFile.name,
+        semester: targetSemester,
       })
       setRosterResult(response.data)
       setRosterFile(null)
@@ -327,7 +398,9 @@ export function SectionManagerPage() {
             Import Danh sách lớp (.xls / .xlsx)
           </h2>
           <p className="mb-4 text-xs text-gray-500">
-            Tải lên file danh sách lớp (định dạng UET-VNU). Hệ thống sẽ tự tạo lớp, tạo tài khoản sinh viên (tên đăng nhập = mật khẩu = MSSV), và yêu cầu đổi mật khẩu khi đăng nhập lần đầu.
+            Tải lên file danh sách lớp (định dạng UET-VNU). Lớp sẽ được tạo thuộc học kỳ{' '}
+            <strong className="text-primary-700">{getSemesterDisplayName(selectedSemester === 'ALL' ? (semesters[semesters.length - 1] || '2025-2026-HK2') : selectedSemester)}</strong>. 
+            Mã lớp sẽ tự động được gán mã tiền tố tương ứng (Ví dụ: II2526).
           </p>
 
           <div className="flex items-center gap-3">
@@ -592,17 +665,47 @@ export function SectionManagerPage() {
 
       {/* Search filter */}
       {sections.length > 0 && (
-        <div className="flex items-center gap-3">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value)
-              setCurrentPage(1)
-            }}
-            className="input max-w-sm"
-            placeholder="Tìm theo tên lớp, học kỳ, giảng viên..."
-          />
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setCurrentPage(1)
+              }}
+              className="input max-w-sm"
+              placeholder="Tìm theo tên lớp, học kỳ, giảng viên..."
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Học kỳ:</span>
+            <select
+              value={selectedSemester}
+              onChange={(e) => {
+                setSelectedSemester(e.target.value)
+                localStorage.setItem('admin_selected_semester', e.target.value)
+                setCurrentPage(1)
+              }}
+              className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 min-w-[240px] cursor-pointer"
+            >
+              <option value="ALL">Tất cả học kỳ</option>
+              {semesters.map((sem) => (
+                <option key={sem} value={sem}>
+                  {getSemesterDisplayName(sem)}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={handleAddSemester}
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-primary transition shadow-sm font-extrabold text-lg cursor-pointer"
+              title="Thêm học kỳ mới"
+            >
+              +
+            </button>
+          </div>
         </div>
       )}
 
@@ -664,7 +767,7 @@ export function SectionManagerPage() {
                     </Link>
                   </td>
                   <td className="table-td">
-                    <span className="badge-blue">{section.semester}</span>
+                    <span className="badge-blue">{getSemesterDisplayName(section.semester)}</span>
                   </td>
                   <td className="table-td">
                     {section.instructors && section.instructors.length > 0 ? (
