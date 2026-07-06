@@ -452,40 +452,34 @@ export function InstructorSectionDetailPage() {
             <div className="overflow-x-auto">
               <table className="min-w-full border-collapse">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 text-xs font-bold uppercase">
-                    <th className="px-4 py-3 text-center w-12 text-slate-500">#</th>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 text-xs font-bold uppercase select-none">
+                    <th className="px-4 py-3 text-center w-12 text-slate-500 font-black">#</th>
                     <th
                       onClick={() => toggleSort('studentId')}
-                      className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-500"
+                      className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors text-slate-500 font-black"
                     >
                       MSSV {sortField === 'studentId' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                     </th>
                     <th
                       onClick={() => toggleSort('fullName')}
-                      className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-500"
+                      className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors text-slate-500 font-black"
                     >
                       Sinh viên {sortField === 'fullName' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                     </th>
-                    <th className="px-4 py-3 text-left text-slate-500">Lớp học phần</th>
-                    <th
-                      onClick={() => toggleSort('email')}
-                      className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-500"
-                    >
-                      Email {sortField === 'email' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
-                    </th>
-                    <th className="px-4 py-3 text-center w-60 text-slate-500">Chức năng</th>
+                    <th className="px-4 py-3 text-left text-slate-500 font-black">Lớp học phần</th>
+                    <th className="px-4 py-3 text-center w-64 text-slate-500 font-black">Chức năng</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
                   {paginatedStudents.map((student, idx) => {
                     const rowNum = (currentPage - 1) * pageSize + idx + 1
                     return (
-                      <tr key={student.enrollmentId} className="hover:bg-slate-50 transition-colors">
+                      <tr key={student.enrollmentId} className="hover:bg-slate-50/50 transition-colors border-b border-slate-100 last:border-b-0">
                         <td className="px-4 py-2.5 text-center text-slate-400 font-semibold">{rowNum}</td>
                         <td className="px-4 py-2.5">
                           <button
                             onClick={() => handleViewProgress(student)}
-                            className="font-bold text-primary hover:underline hover:text-primary/80"
+                            className="font-bold text-sky-600 hover:text-sky-700 hover:underline cursor-pointer"
                           >
                             {student.studentId}
                           </button>
@@ -493,19 +487,18 @@ export function InstructorSectionDetailPage() {
                         <td className="px-4 py-2.5">
                           <button
                             onClick={() => handleViewProgress(student)}
-                            className="font-semibold text-primary hover:underline hover:text-primary/80"
+                            className="font-semibold text-sky-600 hover:text-sky-700 hover:underline cursor-pointer"
                           >
                             {student.fullName || student.username}
                           </button>
                         </td>
                         <td className="px-4 py-2.5 text-slate-500 font-medium">{section.name}</td>
-                        <td className="px-4 py-2.5 text-slate-500 font-mono">{student.email}</td>
                         <td className="px-4 py-2.5 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
+                          <div className="flex items-center justify-center gap-2">
                             {/* Sửa button (green) */}
                             <button
                               onClick={() => openEditModal(student)}
-                              className="btn-success btn-sm font-bold text-white px-2.5 py-1 rounded"
+                              className="bg-[#2ece71] hover:bg-[#27ae60] text-white text-[11px] font-bold px-3 py-1.5 rounded transition-all active:scale-[0.97] cursor-pointer shadow-sm"
                             >
                               Sửa
                             </button>
@@ -513,7 +506,7 @@ export function InstructorSectionDetailPage() {
                             <button
                               onClick={() => handleResetPassword(student)}
                               disabled={resettingPasswordId === student.userId}
-                              className="btn-gray btn-sm font-bold px-2 py-1 rounded disabled:opacity-5"
+                              className="bg-[#bdc3c7] hover:bg-[#95a5a6] disabled:bg-[#eaeded] disabled:text-[#95a5a6] text-white text-[11px] font-bold px-3 py-1.5 rounded transition-all active:scale-[0.97] cursor-pointer shadow-sm"
                             >
                               {resettingPasswordId === student.userId ? 'Đang reset...' : 'reset mật khẩu'}
                             </button>
@@ -521,7 +514,7 @@ export function InstructorSectionDetailPage() {
                             <button
                               onClick={() => handleRemoveStudent(student)}
                               disabled={removingStudentId === student.userId}
-                              className="btn-danger btn-sm font-bold text-white px-2 py-1 rounded"
+                              className="bg-[#e67e22] hover:bg-[#d35400] disabled:bg-[#eaeded] disabled:text-[#95a5a6] text-white text-[11px] font-bold px-3 py-1.5 rounded transition-all active:scale-[0.97] cursor-pointer shadow-sm"
                             >
                               {removingStudentId === student.userId ? 'Đang xóa...' : 'Xóa'}
                             </button>
