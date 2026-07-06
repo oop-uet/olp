@@ -956,28 +956,28 @@ export function SubmissionReviewPage() {
               <table className="min-w-full border-separate border-spacing-0 text-left">
                 <thead>
                   <tr className="text-base font-bold text-slate-800">
-                    <th className="border-b-2 border-slate-300 px-4 py-3.5 text-center w-20 select-none whitespace-nowrap">STT</th>
-                    <th className="border-b-2 border-slate-300 px-4 py-3.5 whitespace-nowrap"># ID</th>
-                    <th className="border-b-2 border-slate-300 px-4 py-3.5 whitespace-nowrap">Sinh viên</th>
+                    <th className="border-b-2 border-slate-300 px-4 py-5 text-center w-20 select-none">STT</th>
+                    <th className="border-b-2 border-slate-300 px-4 py-5 w-28"># ID</th>
+                    <th className="border-b-2 border-slate-300 px-4 py-5">Sinh viên</th>
                     <th
                       onClick={() => toggleSort('exerciseTitle')}
-                      className="border-b-2 border-slate-300 px-4 py-3.5 cursor-pointer hover:bg-slate-100 transition-colors select-none whitespace-nowrap"
+                      className="border-b-2 border-slate-300 px-4 py-5 cursor-pointer hover:bg-slate-100 transition-colors select-none"
                     >
                       Bài tập {sortField === 'exerciseTitle' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                     </th>
                     <th
                       onClick={() => toggleSort('submittedAt')}
-                      className="border-b-2 border-slate-300 px-4 py-3.5 cursor-pointer hover:bg-slate-100 transition-colors select-none whitespace-nowrap"
+                      className="border-b-2 border-slate-300 px-4 py-5 cursor-pointer hover:bg-slate-100 transition-colors select-none"
                     >
                       Thời gian {sortField === 'submittedAt' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                     </th>
                     <th
                       onClick={() => toggleSort('score')}
-                      className="border-b-2 border-slate-300 px-4 py-3.5 text-center cursor-pointer hover:bg-slate-100 transition-colors select-none whitespace-nowrap"
+                      className="border-b-2 border-slate-300 px-4 py-5 text-center cursor-pointer hover:bg-slate-100 transition-colors select-none"
                     >
                       Điểm {sortField === 'score' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                     </th>
-                    <th className="border-b-2 border-slate-300 px-4 py-3.5 whitespace-nowrap">Kết quả</th>
+                    <th className="border-b-2 border-slate-300 px-4 py-5 w-36">Kết quả</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -987,47 +987,45 @@ export function SubmissionReviewPage() {
                     const studentName = sub.student?.fullName || sub.student?.username || 'Sinh viên'
                     const exerciseTitle = sub.exercise?.title || exerciseTitleById.get(sub.exerciseId) || 'Bài thực hành'
                     return (
-                      <tr key={sub.id} className="text-base text-slate-700 hover:bg-slate-50 transition-colors">
-                        <td className="border-b border-slate-200 px-4 py-3 text-center text-slate-400 font-bold whitespace-nowrap">
+                      <tr key={sub.id} className="text-base text-slate-700 hover:bg-slate-50">
+                        <td className="border-b border-slate-200 px-4 py-4 text-center text-slate-400 font-bold">
                           {index + 1 + currentPage * PAGE_SIZE}
                         </td>
-                        <td className="border-b border-slate-200 px-4 py-3 whitespace-nowrap">
+                        <td className="border-b border-slate-200 px-4 py-4">
                           <button
                             type="button"
                             onClick={() => handleSelectSubmission(sub.id)}
                             className="font-semibold text-sky-500 hover:underline"
                           >
-                            {sub.id.slice(0, 6)}
+                            {sub.id.slice(0, 8)}
                           </button>
                         </td>
-                        <td className="border-b border-slate-200 px-4 py-3 whitespace-nowrap max-w-[160px] truncate">
+                        <td className="border-b border-slate-200 px-4 py-4">
                           <button
                             type="button"
                             onClick={() => handleSelectSubmission(sub.id)}
-                            className="font-bold text-sky-500 hover:underline truncate block text-left w-full"
-                            title={studentName}
+                            className="font-bold text-sky-500 hover:underline"
                           >
                             {studentName}
                           </button>
                         </td>
-                        <td className="border-b border-slate-200 px-4 py-3 max-w-[260px] truncate">
+                        <td className="border-b border-slate-200 px-4 py-4">
                           <button
                             type="button"
                             onClick={() => handleSelectSubmission(sub.id)}
-                            className="font-medium text-sky-500 hover:underline truncate block text-left w-full"
-                            title={exerciseTitle}
+                            className="font-medium text-sky-500 hover:underline"
                           >
                             {exerciseTitle}
                           </button>
                         </td>
-                        <td className="whitespace-nowrap border-b border-slate-200 px-4 py-3 text-slate-600">
+                        <td className="whitespace-nowrap border-b border-slate-200 px-4 py-4 text-slate-600">
                           {formatTableTimestamp(sub.submittedAt)}
                         </td>
-                        <td className="border-b border-slate-200 px-4 py-3 text-center font-semibold text-slate-700 whitespace-nowrap">
+                        <td className="border-b border-slate-200 px-4 py-4 text-center font-semibold text-slate-700">
                           {formatNumberScore(effective)}
                         </td>
-                        <td className="border-b border-slate-200 px-4 py-3 whitespace-nowrap">
-                          <span className={`inline-flex rounded px-2.5 py-0.5 text-xs font-bold ${result.className}`}>
+                        <td className="border-b border-slate-200 px-4 py-4">
+                          <span className={`inline-flex rounded px-2 py-1 text-xs font-bold ${result.className}`}>
                             {result.label}
                           </span>
                         </td>

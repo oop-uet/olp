@@ -330,13 +330,8 @@ export function SubmissionHistoryPage() {
                             {submission.student.fullName || submission.student.username}
                           </Link>
                         </td>
-                        <td className="border-b border-slate-200 px-4 py-4">
-                          <Link
-                            to={`/student/exercises/${submission.exerciseId}`}
-                            className="font-medium text-sky-500 hover:underline"
-                          >
-                            {submission.exercise.title}
-                          </Link>
+                        <td className="border-b border-slate-200 px-4 py-4 text-slate-800 font-semibold">
+                          {submission.exercise.title}
                         </td>
                         <td className="whitespace-nowrap border-b border-slate-200 px-4 py-4 text-slate-600">
                           {formatTimestamp(submission.submittedAt)}
@@ -431,13 +426,13 @@ export function SubmissionHistoryPage() {
           {/* Sidebar Content */}
           <div className="px-6 py-5">
             {selectedSection && (
-              <div className="mb-4 flex items-center justify-between border-b border-slate-200 pb-4">
-                <span className="inline-flex rounded-full bg-sky-500 px-3 py-1 text-xs font-bold text-white uppercase">
+              <div className="mb-4 border-b border-slate-200 pb-4 space-y-2">
+                <div className="inline-flex rounded bg-sky-500 px-3 py-1 text-xs font-bold text-white uppercase">
                   {selectedSection.name}
-                </span>
-                <span className="text-xs font-semibold text-slate-500">
+                </div>
+                <p className="text-xs font-semibold text-slate-500">
                   {selectedSection.semester}
-                </span>
+                </p>
               </div>
             )}
 
