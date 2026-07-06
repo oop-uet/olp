@@ -21,6 +21,41 @@ interface HelpSection {
   items: HelpItem[]
 }
 
+// Custom parser to dynamically render markdown-like images e.g. ![alt](src)
+function renderContent(text: string) {
+  const imgRegex = /!\[(.*?)\]\((.*?)\)/g
+  const parts = []
+  let lastIndex = 0
+  let match
+
+  while ((match = imgRegex.exec(text)) !== null) {
+    const matchIndex = match.index
+    if (matchIndex > lastIndex) {
+      parts.push(<span key={lastIndex}>{text.substring(lastIndex, matchIndex)}</span>)
+    }
+    const alt = match[1]
+    const src = match[2]
+    const resolvedSrc = src.startsWith('http') ? src : `${import.meta.env.BASE_URL}${src.startsWith('/') ? src.slice(1) : src}`
+    parts.push(
+      <div key={matchIndex} className="my-4 flex flex-col items-center select-none max-w-full">
+        <img
+          src={resolvedSrc}
+          alt={alt}
+          className="max-w-full h-auto rounded-lg border border-slate-200 shadow-md max-h-[320px] object-contain bg-white p-1"
+        />
+        {alt && <span className="mt-1.5 text-[10px] text-slate-400 font-bold uppercase tracking-wider">{alt}</span>}
+      </div>
+    )
+    lastIndex = imgRegex.lastIndex
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(<span key={lastIndex}>{text.substring(lastIndex)}</span>)
+  }
+
+  return parts.length > 0 ? <span className="inline-block w-full">{parts}</span> : text
+}
+
 export function StudentGuidePage() {
   const [sections, setSections] = useState<HelpSection[]>([])
   const [loading, setLoading] = useState(true)
@@ -130,7 +165,7 @@ export function StudentGuidePage() {
                         <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-600 text-[10px] font-bold text-white shadow-sm">
                           {index + 1}
                         </span>
-                        <span className="pt-0.5">{item.content}</span>
+                        <span className="pt-0.5 w-full">{renderContent(item.content)}</span>
                       </li>
                     ))}
                   </ol>
@@ -147,7 +182,7 @@ export function StudentGuidePage() {
                     {faqs.map((faq) => (
                       <div key={faq.id} className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 hover:bg-slate-50 transition-colors">
                         <h3 className="text-xs font-bold text-slate-800">{faq.title}</h3>
-                        <p className="mt-2 text-xs leading-relaxed text-slate-500 font-medium">{faq.content}</p>
+                        <p className="mt-2 text-xs leading-relaxed text-slate-500 font-medium">{renderContent(faq.content)}</p>
                       </div>
                     ))}
                   </div>
@@ -197,7 +232,7 @@ function InfoCard({ title, text }: { title: string; text: string }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 hover:bg-teal-50/30 transition-colors">
       <h3 className="text-xs font-bold text-slate-800">{title}</h3>
-      <p className="mt-2 text-xs leading-relaxed text-slate-500 font-medium">{text}</p>
+      <p className="mt-2 text-xs leading-relaxed text-slate-500 font-medium">{renderContent(text)}</p>
     </div>
   )
 }
@@ -206,7 +241,7 @@ function ChecklistItem({ text }: { text: string }) {
   return (
     <div className="rounded-lg border border-teal-200/50 bg-white px-4 py-3 font-bold text-teal-800 shadow-sm flex items-center gap-2 select-none">
       <span className="text-teal-500 font-black text-sm">✓</span>
-      {text}
+      {renderContent(text)}
     </div>
   )
 }

@@ -31,13 +31,13 @@ async function seedHelp() {
     { sectionId: "login", type: "step", title: null, content: "Nếu hệ thống yêu cầu đổi mật khẩu, hãy đặt mật khẩu mới trước khi vào lớp học.", orderIndex: 3 },
     { sectionId: "login", type: "step", title: null, content: "Sau khi đăng nhập, hệ thống đưa bạn tới lớp học phần duy nhất của mình và danh sách bài tập.", orderIndex: 4 },
 
-    // Executor steps
     { sectionId: "executor", type: "step", title: null, content: "Tải file Local Executor từ thông báo trên hệ thống hoặc từ nút tải ở thanh trạng thái Executor.", orderIndex: 1 },
-    { sectionId: "executor", type: "step", title: null, content: "Cài JDK 17 hoặc cài IntelliJ IDEA kèm JDK. Trên Windows, nếu lệnh java chưa có trong PATH, Executor sẽ tự dò JDK trong IntelliJ ở các thư mục cài đặt phổ biến.", orderIndex: 2 },
+    { sectionId: "executor", type: "step", title: null, content: "Cài JDK >= 17 hoặc cài IntelliJ IDEA kèm JDK. Trên Windows, nếu lệnh java chưa có trong PATH, Executor sẽ tự dò JDK trong IntelliJ ở các thư mục cài đặt phổ biến.", orderIndex: 2 },
     { sectionId: "executor", type: "step", title: null, content: "Mở file Executor đã tải. Nếu hệ điều hành không cho chạy bằng cách nhấp đúp, mở Terminal hoặc Command Prompt tại thư mục Downloads và chạy java -jar oop-local-executor-1.0.0.jar.", orderIndex: 3 },
     { sectionId: "executor", type: "step", title: null, content: "Giữ cửa sổ Executor đang chạy trong suốt thời gian làm bài. Khi sẵn sàng, màn hình sẽ hiện địa chỉ ws://127.0.0.1:9876 hoặc ws://localhost:9876.", orderIndex: 4 },
     { sectionId: "executor", type: "step", title: null, content: "Quay lại website và bấm nút Executor trên thanh trên cùng để kiểm tra kết nối.", orderIndex: 5 },
-    { sectionId: "executor", type: "info", title: "Lưu ý hệ điều hành", content: "Nếu dùng macOS, lần đầu mở file có thể cần xác nhận trong Security & Privacy. Nếu dùng Windows, nên cài IntelliJ IDEA kèm JDK hoặc JDK 17 trước khi chạy Executor.", orderIndex: 6 },
+    { sectionId: "executor", type: "step", title: null, content: "Nếu trình duyệt hiển thị hộp thoại bảo mật \"Access other apps and services on this device\" (Truy cập các ứng dụng và dịch vụ khác trên thiết bị này), hãy chọn \"Allow\" (Cho phép) như hình dưới để website kết nối được với Local Executor: ![Hộp thoại Allow Access](/guide.jpg)", orderIndex: 6 },
+    { sectionId: "executor", type: "info", title: "Lưu ý hệ điều hành", content: "Nếu dùng macOS, lần đầu mở file có thể cần xác nhận trong Security & Privacy. Nếu dùng Windows, nên cài IntelliJ IDEA kèm JDK hoặc JDK >= 17 trước khi chạy Executor.", orderIndex: 7 },
 
     // Exercise steps
     { sectionId: "exercise", type: "step", title: null, content: "Vào mục Bài tập để xem lớp học phần và danh sách bài theo tuần.", orderIndex: 1 },

@@ -1407,7 +1407,7 @@ public class AdapterTest {
   },
 ];
 
-async function replaceExerciseLibrary() {
+async function prepareExerciseLibrary(nextLibraryExerciseIds: string[]) {
   const oldLibraryExercises = await db
     .select({ id: exercises.id })
     .from(exercises)
@@ -1417,16 +1417,32 @@ async function replaceExerciseLibrary() {
     return;
   }
 
-  const oldIds = oldLibraryExercises.map((exercise) => exercise.id);
-  await db.delete(testCases).where(inArray(testCases.exerciseId, oldIds));
-  await db.delete(exerciseAssignments).where(inArray(exerciseAssignments.exerciseId, oldIds));
-  await db.delete(exercises).where(eq(exercises.isLibrary, 1));
+  const nextIds = new Set(nextLibraryExerciseIds);
+  const retiredIds = oldLibraryExercises
+    .map((exercise) => exercise.id)
+    .filter((id) => !nextIds.has(id));
+
+  if (retiredIds.length === 0) {
+    return;
+  }
+
+  // Do not hard-delete retired exercises/test cases because submissions and
+  // submission_results may reference them. Hide them from the system library
+  // and remove their current assignments so new classes use the 10-week set.
+  await db.delete(exerciseAssignments).where(inArray(exerciseAssignments.exerciseId, retiredIds));
+  for (const id of retiredIds) {
+    await db
+      .update(exercises)
+      .set({ isLibrary: 0, updatedAt: new Date().toISOString() })
+      .where(eq(exercises.id, id));
+  }
 }
 
 async function seedExercises() {
   console.log("Seeding OOP practice exercise library...");
 
-  await replaceExerciseLibrary();
+  const plannedExerciseIds = exerciseSeeds.map((seed) => stableId(seed.title));
+  await prepareExerciseLibrary(plannedExerciseIds);
 
   const now = new Date().toISOString();
   let testCaseCount = 0;
@@ -1435,31 +1451,57 @@ async function seedExercises() {
   for (const seed of exerciseSeeds) {
     const exerciseId = stableId(seed.title);
 
-    await db.insert(exercises).values({
-      id: exerciseId,
-      title: seed.title,
-      description: seed.description,
-      difficulty: seed.difficulty,
-      starterCode: seed.starterCode,
-      isLibrary: 1,
-      oopTags: JSON.stringify(seed.oopTags),
-      createdBy: null,
-      createdAt: now,
-      updatedAt: now,
-    });
+    await db
+      .insert(exercises)
+      .values({
+        id: exerciseId,
+        title: seed.title,
+        description: seed.description,
+        difficulty: seed.difficulty,
+        starterCode: seed.starterCode,
+        isLibrary: 1,
+        oopTags: JSON.stringify(seed.oopTags),
+        createdBy: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: exercises.id,
+        set: {
+          title: seed.title,
+          description: seed.description,
+          difficulty: seed.difficulty,
+          starterCode: seed.starterCode,
+          isLibrary: 1,
+          oopTags: JSON.stringify(seed.oopTags),
+          updatedAt: now,
+        },
+      });
     seededExerciseIds.push({ id: exerciseId, title: seed.title });
 
     for (const [index, tc] of seed.testCasesData.entries()) {
-      await db.insert(testCases).values({
-        id: `${exerciseId}-tc-${index + 1}`,
-        exerciseId,
-        inputData: tc.inputData,
-        expectedOutput: tc.expectedOutput,
-        isVisible: tc.isVisible,
-        pointValue: tc.pointValue,
-        timeLimitSeconds: tc.timeLimitSeconds ?? 10,
-        createdAt: now,
-      });
+      await db
+        .insert(testCases)
+        .values({
+          id: `${exerciseId}-tc-${index + 1}`,
+          exerciseId,
+          inputData: tc.inputData,
+          expectedOutput: tc.expectedOutput,
+          isVisible: tc.isVisible,
+          pointValue: tc.pointValue,
+          timeLimitSeconds: tc.timeLimitSeconds ?? 10,
+          createdAt: now,
+        })
+        .onConflictDoUpdate({
+          target: testCases.id,
+          set: {
+            inputData: tc.inputData,
+            expectedOutput: tc.expectedOutput,
+            isVisible: tc.isVisible,
+            pointValue: tc.pointValue,
+            timeLimitSeconds: tc.timeLimitSeconds ?? 10,
+          },
+        });
       testCaseCount++;
     }
 
@@ -1484,7 +1526,17 @@ async function seedExercises() {
           week: weekFromTitle(exercise.title),
           assignedAt: now,
         })
-        .onConflictDoNothing();
+        .onConflictDoUpdate({
+          target: [exerciseAssignments.exerciseId, exerciseAssignments.sectionId],
+          set: {
+            deadline: null,
+            isAssessment: isDefaultAssessment(exercise.title),
+            isVisible: 1,
+            allowSubmission: 1,
+            maxSubmissions: null,
+            week: weekFromTitle(exercise.title),
+          },
+        });
       assignmentCount++;
     }
   }
