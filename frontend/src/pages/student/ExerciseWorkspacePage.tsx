@@ -901,7 +901,7 @@ function ExecutorGate({
           <div className="mt-4 rounded-md border border-red-200 bg-red-50 p-4">
             <p className="text-sm font-semibold text-red-800">{errorMessage}</p>
             {setupInstructions && (
-              <pre className="mt-2 whitespace-pre-wrap text-xs leading-5 text-red-700">
+              <pre className="mt-2 whitespace-pre-wrap font-sans text-xs leading-5 text-red-700">
                 {setupInstructions}
               </pre>
             )}

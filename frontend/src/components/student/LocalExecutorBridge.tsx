@@ -79,7 +79,7 @@ export function LocalExecutorBridge({
         <div className="mb-3 rounded border border-red-200 bg-red-50 p-3">
           <p className="mb-2 text-sm font-medium text-red-800">{connectionError.message}</p>
           {connectionError.setupInstructions && (
-            <pre className="mb-3 whitespace-pre-wrap rounded bg-red-100 p-2 text-xs text-red-700">
+            <pre className="mb-3 whitespace-pre-wrap rounded bg-red-100 p-2 font-sans text-xs text-red-700">
               {connectionError.setupInstructions}
             </pre>
           )}

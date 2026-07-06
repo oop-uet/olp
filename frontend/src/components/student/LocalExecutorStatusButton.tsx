@@ -102,7 +102,7 @@ export function LocalExecutorStatusButton() {
           )}
 
           {connectionError?.setupInstructions && (
-            <pre className="mt-2 whitespace-pre-wrap rounded-md border border-amber-100 bg-amber-50 p-2 text-xs leading-5 text-amber-800">
+            <pre className="mt-2 whitespace-pre-wrap rounded-md border border-amber-100 bg-amber-50 p-2 font-sans text-xs leading-5 text-amber-800">
               {connectionError.setupInstructions}
             </pre>
           )}
