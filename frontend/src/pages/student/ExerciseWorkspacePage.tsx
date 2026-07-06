@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 import { api } from '../../lib/api'
 import { PageLoader, Spinner } from '../../components/ui'
@@ -274,6 +274,7 @@ function clearWorkspaceDraft(exerciseId: string, userId: string) {
 
 export function ExerciseWorkspacePage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const userId = useAuthStore((state) => state.user?.id ?? 'anonymous')
   const [exercise, setExercise] = useState<ExerciseDetail | null>(null)
   const [files, setFiles] = useState<SourceFile[]>(() => [
@@ -448,6 +449,12 @@ export function ExerciseWorkspacePage() {
       const score = response.data.score
       clearWorkspaceDraft(exercise.id, userId)
       toast.success(`Nộp bài thành công! Điểm: ${score.toFixed(1)}%`)
+      navigate('/student/exercises', { replace: true })
+      window.setTimeout(() => {
+        if (document.fullscreenElement && typeof document.exitFullscreen === 'function') {
+          void document.exitFullscreen().catch(() => undefined)
+        }
+      }, 0)
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
       const message =
@@ -456,7 +463,7 @@ export function ExerciseWorkspacePage() {
     } finally {
       setSubmitting(false)
     }
-  }, [antiCheatNullified, exercise, executionResult, files, userId])
+  }, [antiCheatNullified, exercise, executionResult, files, navigate, userId])
 
   const handleAntiCheatNullified = useCallback(async () => {
     if (!exercise || zeroSubmissionSentRef.current) return
