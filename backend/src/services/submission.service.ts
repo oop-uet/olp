@@ -495,9 +495,53 @@ export async function getSubmissionById(id: string, database: Database = default
     };
   }
 
+  const recheckedStyle = await recheckUnavailableStyle(submission, database);
+  const hydratedSubmission = recheckedStyle ? { ...submission, ...recheckedStyle } : submission;
+
   return {
-    ...submission,
-    effectiveScore: submission.manualScore ?? submission.score,
+    ...hydratedSubmission,
+    effectiveScore: hydratedSubmission.manualScore ?? hydratedSubmission.score,
+  };
+}
+
+async function recheckUnavailableStyle(submission: any, database: Database) {
+  if (submission.styleStatus !== "unavailable") return null;
+  if (submission.feedback) return null;
+
+  const styleSettings = await getStyleSettings(database);
+  if (!styleSettings.enabled) return null;
+
+  const styleEvaluation = await evaluateCheckstyle(submission.code, {
+    penaltyPerViolation: styleSettings.penaltyPerViolation,
+    maxViolations: styleSettings.maxViolations,
+  });
+  const functionalScore = Number.isFinite(Number(submission.functionalScore))
+    ? Number(submission.functionalScore)
+    : Number(submission.score ?? 0);
+  const score = combineScores(
+    functionalScore,
+    styleEvaluation.status === "unavailable" ? null : styleEvaluation.score,
+    styleSettings.weightPercent
+  );
+  const styleReport = buildStyleReport(styleEvaluation);
+
+  await database
+    .update(submissions)
+    .set({
+      score,
+      styleScore: styleEvaluation.score,
+      styleStatus: styleEvaluation.status,
+      styleFeedback: styleEvaluation.feedback,
+      styleReport,
+    })
+    .where(eq(submissions.id, submission.id));
+
+  return {
+    score,
+    styleScore: styleEvaluation.score,
+    styleStatus: styleEvaluation.status,
+    styleFeedback: styleEvaluation.feedback,
+    styleReport,
   };
 }
 

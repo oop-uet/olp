@@ -16,6 +16,7 @@ const CHECKSTYLE_URL =
 const DEFAULT_CACHE_DIR = path.join(os.homedir(), ".cache", "oop-uet");
 const DEFAULT_JAR_PATH = path.join(DEFAULT_CACHE_DIR, `checkstyle-${CHECKSTYLE_VERSION}-all.jar`);
 const CHECKSTYLE_TIMEOUT_MS = Number(process.env.CHECKSTYLE_TIMEOUT_MS ?? 15_000);
+const JRE_DOWNLOAD_TIMEOUT_MS = Number(process.env.CHECKSTYLE_JRE_DOWNLOAD_TIMEOUT_MS ?? 180_000);
 const COMMON_JAVA_COMMANDS = [
   "java",
   "/usr/bin/java",
@@ -24,6 +25,7 @@ const COMMON_JAVA_COMMANDS = [
   "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
   "/opt/render/project/.jdk/bin/java",
 ];
+let bundledJavaInstallPromise: Promise<string | null> | null = null;
 
 export interface JavaSourceFile {
   name: string;
@@ -62,10 +64,10 @@ export async function evaluateCheckstyle(
     return unavailable("Không tìm thấy file Java để kiểm tra quy tắc lập trình.");
   }
 
-  const javaCommand = await resolveJavaCommand();
+  const javaCommand = await resolveJavaCommand() ?? await ensureBundledJavaRuntime();
   if (!javaCommand) {
     return unavailable(
-      "Không tìm thấy Java runtime trong môi trường backend. Hãy cài OpenJDK hoặc đặt CHECKSTYLE_JAVA_BIN/JAVA_HOME."
+      "Không tìm thấy Java runtime trong môi trường backend và không thể tự chuẩn bị JRE cho Checkstyle."
     );
   }
 
@@ -167,6 +169,66 @@ function localJavaCandidates(): string[] {
     path.resolve(process.cwd(), ".java", "bin", executable),
     path.resolve(process.cwd(), "backend", ".java", "bin", executable),
   ];
+}
+
+async function ensureBundledJavaRuntime(): Promise<string | null> {
+  if ((process.env.CHECKSTYLE_AUTO_DOWNLOAD_JRE ?? "1") !== "1") return null;
+  if (process.platform !== "linux") return null;
+
+  if (!bundledJavaInstallPromise) {
+    bundledJavaInstallPromise = installBundledJavaRuntime().catch((error) => {
+      console.warn("[checkstyle] Cannot prepare bundled Java runtime:", error);
+      bundledJavaInstallPromise = null;
+      return null;
+    });
+  }
+
+  return bundledJavaInstallPromise;
+}
+
+async function installBundledJavaRuntime(): Promise<string | null> {
+  for (const candidate of localJavaCandidates()) {
+    if (await hasCommand(candidate, ["-version"])) return candidate;
+  }
+
+  const arch = os.arch() === "arm64" ? "aarch64" : os.arch() === "x64" ? "x64" : null;
+  if (!arch) return null;
+
+  const executable = path.resolve(process.cwd(), ".java", "bin", "java");
+  const targetDir = path.dirname(path.dirname(executable));
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "oop-checkstyle-jre-"));
+  const archivePath = path.join(tempDir, "jre.tar.gz");
+  const downloadUrl =
+    `https://api.adoptium.net/v3/binary/latest/17/ga/linux/${arch}/jre/hotspot/normal/eclipse?project=jdk`;
+
+  try {
+    await downloadFile(downloadUrl, archivePath, JRE_DOWNLOAD_TIMEOUT_MS);
+    await execFileAsync("tar", ["-xzf", archivePath, "-C", tempDir], {
+      timeout: JRE_DOWNLOAD_TIMEOUT_MS,
+      maxBuffer: 10 * 1024 * 1024,
+    });
+
+    const extractedJavaHome = await findJavaHome(tempDir);
+    if (!extractedJavaHome) return null;
+
+    await fs.rm(targetDir, { recursive: true, force: true });
+    await fs.cp(extractedJavaHome, targetDir, { recursive: true });
+    await fs.chmod(executable, 0o755).catch(() => undefined);
+
+    return await hasCommand(executable, ["-version"]) ? executable : null;
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
+async function findJavaHome(rootDir: string): Promise<string | null> {
+  const entries = await fs.readdir(rootDir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const candidate = path.join(rootDir, entry.name, "bin", "java");
+    if (await fileExists(candidate)) return path.join(rootDir, entry.name);
+  }
+  return null;
 }
 
 async function runCheckstyle(javaCommand: string, jarPath: string, reportPath: string, filePaths: string[]) {
@@ -282,14 +344,14 @@ async function fileExists(filePath: string): Promise<boolean> {
   }
 }
 
-function downloadFile(url: string, targetPath: string): Promise<void> {
+function downloadFile(url: string, targetPath: string, timeoutMs = 30_000): Promise<void> {
   return new Promise((resolve, reject) => {
     const file = createWriteStream(targetPath);
     const request = https.get(url, (response) => {
       if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
         file.close();
         fs.rm(targetPath, { force: true })
-          .then(() => downloadFile(response.headers.location as string, targetPath))
+          .then(() => downloadFile(response.headers.location as string, targetPath, timeoutMs))
           .then(resolve, reject);
         return;
       }
@@ -313,8 +375,8 @@ function downloadFile(url: string, targetPath: string): Promise<void> {
       file.close();
       fs.rm(targetPath, { force: true }).finally(() => reject(error));
     });
-    request.setTimeout(30_000, () => {
-      request.destroy(new Error("Hết thời gian tải Checkstyle."));
+    request.setTimeout(timeoutMs, () => {
+      request.destroy(new Error("Hết thời gian tải tài nguyên Checkstyle."));
     });
   });
 }
