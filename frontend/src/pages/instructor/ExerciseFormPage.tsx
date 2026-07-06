@@ -83,13 +83,17 @@ export const SAMPLE_TEMPLATE: ExerciseTemplateFile & {
       files: [
         {
           name: 'Student.java',
-          content:
-            'public class Student {\\n    // TODO: declare fields, constructor and methods\\n}\\n',
+          content: `public class Student {
+    // TODO: declare fields, constructor and methods
+}
+`,
         },
         {
           name: 'StudentManagement.java',
-          content:
-            'public class StudentManagement {\\n    // TODO: manage students\\n}\\n',
+          content: `public class StudentManagement {
+    // TODO: manage students
+}
+`,
         },
       ],
     },
@@ -99,16 +103,35 @@ export const SAMPLE_TEMPLATE: ExerciseTemplateFile & {
   test_cases: [
     {
       input_data: '__OOP_JAVA_TEST__\nMyTest.java',
-      expected_output:
-        'import org.junit.Test;\\nimport static org.junit.Assert.*;\\n\\npublic class MyTest {\\n    @Test\\n    public void testStudentConstructor() {\\n        Student s = new Student(\"Nguyen Van A\", \"24000001\", 3.5);\\n        assertEquals(\"Nguyen Van A\", s.getName());\\n        assertEquals(\"24000001\", s.getStudentId());\\n        assertEquals(3.5, s.getGpa(), 0.001);\\n    }\\n}\\n',
+      expected_output: `import org.junit.Test;
+import static org.junit.Assert.*;
+
+public class MyTest {
+    @Test
+    public void testStudentConstructor() {
+        Student s = new Student("Nguyen Van A", "24000001", 3.5);
+        assertEquals("Nguyen Van A", s.getName());
+        assertEquals("24000001", s.getStudentId());
+        assertEquals(3.5, s.getGpa(), 0.001);
+    }
+}
+`,
       is_visible: true,
       point_value: 50,
       time_limit_seconds: 3,
     },
     {
       input_data: '__OOP_JAVA_TEST__\nHiddenTest.java',
-      expected_output:
-        'import org.junit.Test;\\nimport static org.junit.Assert.*;\\n\\npublic class HiddenTest {\\n    @Test\\n    public void testValidation() {\\n        assertThrows(IllegalArgumentException.class, () -> new Student(\"A\", \"1\", -1.0));\\n    }\\n}\\n',
+      expected_output: `import org.junit.Test;
+import static org.junit.Assert.*;
+
+public class HiddenTest {
+    @Test
+    public void testValidation() {
+        assertThrows(IllegalArgumentException.class, () -> new Student("A", "1", -1.0));
+    }
+}
+`,
       is_visible: false,
       point_value: 50,
       time_limit_seconds: 3,
@@ -169,7 +192,7 @@ export function ExerciseFormPage() {
           loadedTestCases.map((tc: TestCaseForm) => ({
             input_data: tc.input_data || '',
             expected_output: tc.expected_output || '',
-            is_visible: tc.is_visible ?? true,
+            is_visible: Boolean(tc.is_visible ?? true),
             point_value: tc.point_value || 10,
             time_limit_seconds: tc.time_limit_seconds,
           }))
