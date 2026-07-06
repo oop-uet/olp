@@ -41,6 +41,26 @@ function getSemesterDisplayName(semId: string): string {
   return `Học kỳ ${hk} năm học ${match[1]}-${match[2]}`;
 }
 
+function parseSemester(sem: string) {
+  const m1 = sem.match(/^(\d{4})-(\d{4})-HK(\d)$/);
+  if (m1) {
+    return { startYear: parseInt(m1[1]), hk: parseInt(m1[3]) };
+  }
+  const m2 = sem.match(/Học kỳ (I|II|III) (?:\w+ )?(\d{4})-(\d{4})/i);
+  if (m2) {
+    const hkVal = m2[1].toUpperCase();
+    const hk = hkVal === 'I' ? 1 : hkVal === 'II' ? 2 : 3;
+    return { startYear: parseInt(m2[2]), hk };
+  }
+  const m3 = sem.match(/Học kỳ (I|II|III) (\d{4})/i);
+  if (m3) {
+    const hkVal = m3[1].toUpperCase();
+    const hk = hkVal === 'I' ? 1 : hkVal === 'II' ? 2 : 3;
+    return { startYear: parseInt(m3[2]), hk };
+  }
+  return null;
+}
+
 function getSectionInstructorText(section: Section) {
   const names =
     section.instructors?.map(
@@ -85,31 +105,32 @@ export function SectionManagerPage() {
     const dbSemesters = sections.map((s) => s.semester).filter(Boolean)
     const set = new Set(['2025-2026-HK2', ...dbSemesters, ...customSemesters])
     return [...set].sort((a, b) => {
-      const matchA = a.match(/^(\d{4})-(\d{4})-HK(\d)$/)
-      const matchB = b.match(/^(\d{4})-(\d{4})-HK(\d)$/)
-      if (!matchA || !matchB) return a.localeCompare(b)
-      const yearDiff = parseInt(matchA[1]) - parseInt(matchB[1])
+      const parsedA = parseSemester(a)
+      const parsedB = parseSemester(b)
+      if (!parsedA || !parsedB) return a.localeCompare(b)
+      const yearDiff = parsedA.startYear - parsedB.startYear
       if (yearDiff !== 0) return yearDiff
-      return parseInt(matchA[3]) - parseInt(matchB[3])
+      return parsedA.hk - parsedB.hk
     })
   }, [sections, customSemesters])
 
   const handleAddSemester = () => {
-    const latest = semesters[semesters.length - 1] || '2025-2026-HK2'
-    const nextSem = (latestId: string): string => {
-      const match = latestId.match(/^(\d{4})-(\d{4})-HK(\d)$/)
-      if (!match) return '2025-2026-HK2'
-      const startYear = parseInt(match[1])
-      const endYear = parseInt(match[2])
-      const hk = parseInt(match[3])
-
+    // Find the latest valid semester we can parse
+    const parseable = semesters.map(s => ({ raw: s, parsed: parseSemester(s) })).filter(x => x.parsed !== null)
+    const latestObj = parseable[parseable.length - 1]
+    
+    let nextVal: string
+    if (latestObj && latestObj.parsed) {
+      const { startYear, hk } = latestObj.parsed
       if (hk === 1) {
-        return `${startYear}-${endYear}-HK2`
+        nextVal = `${startYear}-${startYear + 1}-HK2`
       } else {
-        return `${startYear + 1}-${endYear + 1}-HK1`
+        nextVal = `${startYear + 1}-${startYear + 2}-HK1`
       }
+    } else {
+      nextVal = '2025-2026-HK2'
     }
-    const nextVal = nextSem(latest)
+
     const newCustom = [...customSemesters]
     if (!newCustom.includes(nextVal)) {
       newCustom.push(nextVal)
@@ -119,6 +140,21 @@ export function SectionManagerPage() {
     setSelectedSemester(nextVal)
     localStorage.setItem('admin_selected_semester', nextVal)
     toast.success(`Đã thêm học kỳ ${getSemesterDisplayName(nextVal)}`)
+  }
+
+  const handleDeleteSemester = (semId: string) => {
+    if (!window.confirm(`Bạn có chắc muốn xóa học kỳ ${getSemesterDisplayName(semId)}?`)) return
+    const newCustom = customSemesters.filter((s) => s !== semId)
+    setCustomSemesters(newCustom)
+    localStorage.setItem('admin_semesters', JSON.stringify(newCustom))
+    
+    if (selectedSemester === semId) {
+      const remaining = semesters.filter((s) => s !== semId)
+      const nextSelect = remaining[remaining.length - 1] || '2025-2026-HK2'
+      setSelectedSemester(nextSelect)
+      localStorage.setItem('admin_selected_semester', nextSelect)
+    }
+    toast.success(`Đã xóa học kỳ ${getSemesterDisplayName(semId)}`)
   }
 
   const filteredSections = useMemo(() => {
@@ -699,6 +735,19 @@ export function SectionManagerPage() {
                         <span className="badge-blue text-[9px] font-extrabold tracking-wide uppercase select-none">
                           Đang chọn
                         </span>
+                      )}
+                      {customSemesters.includes(sem) && sections.filter(s => s.semester === sem).length === 0 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteSemester(sem)
+                          }}
+                          className="inline-flex items-center justify-center rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 px-2 py-1 text-[10px] font-bold transition-all border border-rose-200/55 cursor-pointer"
+                          title="Xóa học kỳ này"
+                        >
+                          🗑️ Xóa học kỳ
+                        </button>
                       )}
                     </div>
 
