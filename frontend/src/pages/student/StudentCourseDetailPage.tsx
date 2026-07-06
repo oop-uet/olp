@@ -48,6 +48,8 @@ const statusConfig: Record<Exercise['status'], { label: string; className: strin
   overdue: { label: 'Quá hạn', className: 'badge-red' },
 }
 
+const DEFAULT_TOTAL_WEEKS = 10
+
 function formatDeadline(deadline: string | null): string {
   if (!deadline) return 'Không giới hạn'
   return new Date(deadline).toLocaleString('vi-VN', {
@@ -142,13 +144,13 @@ export function StudentCourseDetailPage() {
     )
   }
 
-  const weeks = Array.from({ length: 15 }, (_, i) => i + 1)
+  const weeks = Array.from({ length: DEFAULT_TOTAL_WEEKS }, (_, i) => i + 1)
   const exercisesByWeek = new Map<number, Exercise[]>()
   const unscheduledExercises: Exercise[] = []
   weeks.forEach((week) => exercisesByWeek.set(week, []))
 
   exercises.forEach((exercise) => {
-    if (!exercise.week || exercise.week < 1 || exercise.week > 15) {
+    if (!exercise.week || exercise.week < 1 || exercise.week > DEFAULT_TOTAL_WEEKS) {
       unscheduledExercises.push(exercise)
       return
     }

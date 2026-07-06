@@ -11,7 +11,7 @@ import { userCanAccessSection } from "./section.service.js";
 
 // Default number of weeks in a course schedule. Instructors can extend this
 // when a section needs extra make-up/project weeks.
-export const TOTAL_WEEKS = 15;
+export const TOTAL_WEEKS = 10;
 const MAX_SCHEDULE_WEEK = 60;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -95,7 +95,7 @@ export interface SectionSchedule {
 }
 
 /**
- * Build the 15-week schedule view for a section: assigned exercises grouped by
+ * Build the default 10-week schedule view for a section: assigned exercises grouped by
  * week, per-week deadlines, plus the exercise library/system pool.
  */
 export async function getSectionSchedule(

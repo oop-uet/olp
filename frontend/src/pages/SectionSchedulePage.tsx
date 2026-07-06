@@ -46,7 +46,7 @@ interface ScheduleData {
   pool: PoolExercise[]
 }
 
-const DEFAULT_TOTAL_WEEKS = 15
+const DEFAULT_TOTAL_WEEKS = 10
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

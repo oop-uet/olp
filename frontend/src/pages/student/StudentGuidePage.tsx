@@ -50,22 +50,22 @@ export function StudentGuidePage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
-      <header className="bg-gradient-to-r from-[#003366] to-[#002b56] text-white shadow-md border-b-4 border-[#f37021]">
+      <header className="bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 text-white shadow-md border-b border-white/10">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 border border-white/20 text-xs font-black text-[#f37021] tracking-wider shadow-inner">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 border border-white/20 text-xs font-black text-white tracking-wider shadow-inner">
               UET
             </div>
             <div>
-              <h1 className="text-lg font-black tracking-tight text-white flex items-center gap-1.5">
-                UET OASIS <span className="text-[10px] font-bold bg-[#f37021] text-white px-1.5 py-0.5 rounded tracking-wide uppercase">Cẩm nang</span>
+              <h1 className="text-lg font-bold tracking-wide text-white flex items-center gap-1.5">
+                UET OASIS <span className="text-[10px] font-bold bg-white/20 text-white px-1.5 py-0.5 rounded tracking-wide uppercase border border-white/15">Cẩm nang</span>
               </h1>
-              <p className="text-xs text-slate-300 font-medium">Hướng dẫn sử dụng dành cho sinh viên Lập trình hướng đối tượng</p>
+              <p className="text-xs text-white/80 font-medium">Hướng dẫn sử dụng dành cho sinh viên Lập trình hướng đối tượng</p>
             </div>
           </div>
           <Link
             to="/login"
-            className="px-4 py-2 text-xs font-bold text-white bg-[#f37021] hover:bg-[#e05f10] active:scale-[0.98] transition-all rounded-lg shadow-sm border border-[#f37021]/30 cursor-pointer"
+            className="px-4 py-2 text-xs font-bold text-teal-600 bg-white hover:bg-slate-50 active:scale-[0.98] transition-all rounded-lg shadow-sm cursor-pointer"
           >
             Đăng nhập
           </Link>
@@ -83,9 +83,9 @@ export function StudentGuidePage() {
                 <a
                   key={section.id}
                   href={`#${section.id}`}
-                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-slate-600 hover:bg-[#003366]/5 hover:text-[#003366] transition-all duration-150 active:scale-[0.98] cursor-pointer"
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-slate-600 hover:bg-teal-50 hover:text-teal-600 transition-all duration-150 active:scale-[0.98] cursor-pointer"
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#f37021] shrink-0" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-teal-500 shrink-0" />
                   {section.title}
                 </a>
               ))}
@@ -95,10 +95,10 @@ export function StudentGuidePage() {
 
         <div className="space-y-6">
           <section className="relative overflow-hidden rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-8 shadow-sm">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-[#f37021]/5 rounded-full -mr-8 -mt-8 blur-lg" />
-            <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#003366]/5 rounded-full -ml-12 -mb-12 blur-xl" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/5 rounded-full -mr-8 -mt-8 blur-lg" />
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-500/5 rounded-full -ml-12 -mb-12 blur-xl" />
             
-            <p className="text-[11px] font-black uppercase tracking-widest text-[#f37021] select-none">
+            <p className="text-[11px] font-black uppercase tracking-widest text-teal-600 select-none">
               Khởi động nhanh
             </p>
             <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-800 leading-snug">
@@ -123,7 +123,7 @@ export function StudentGuidePage() {
                   <ol className="space-y-3.5">
                     {steps.map((item, index) => (
                       <li key={item.id} className="flex gap-3.5 text-xs leading-relaxed text-slate-600 font-medium">
-                        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#003366] text-[10px] font-bold text-white shadow-sm">
+                        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-600 text-[10px] font-bold text-white shadow-sm">
                           {index + 1}
                         </span>
                         <span className="pt-0.5">{item.content}</span>
@@ -153,11 +153,11 @@ export function StudentGuidePage() {
           })}
 
           {checklistItems.length > 0 && (
-            <section className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-6 shadow-sm">
-              <h2 className="text-base font-bold text-emerald-900 flex items-center gap-2">
+            <section className="rounded-xl border border-teal-200 bg-teal-50/60 p-6 shadow-sm">
+              <h2 className="text-base font-bold text-teal-900 flex items-center gap-2">
                 <span className="text-lg">✓</span> Checklist chuẩn bị trước khi làm bài kiểm tra
               </h2>
-              <div className="mt-4 grid gap-3 text-xs text-emerald-900 md:grid-cols-2">
+              <div className="mt-4 grid gap-3 text-xs text-teal-900 md:grid-cols-2">
                 {checklistItems.map((item) => (
                   <ChecklistItem key={item.id} text={item.content} />
                 ))}
@@ -180,7 +180,7 @@ function GuideSection({
   children: ReactNode
 }) {
   return (
-    <section id={id} className="scroll-mt-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm border-l-4 border-l-[#003366]">
+    <section id={id} className="scroll-mt-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm border-l-4 border-l-teal-600">
       <h2 className="mb-4 text-base font-bold text-slate-800 border-b border-slate-100 pb-3">{title}</h2>
       <div className="space-y-3">
         {children}
@@ -191,7 +191,7 @@ function GuideSection({
 
 function InfoCard({ title, text }: { title: string; text: string }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 hover:bg-slate-50 transition-colors">
+    <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 hover:bg-teal-50/30 transition-colors">
       <h3 className="text-xs font-bold text-slate-800">{title}</h3>
       <p className="mt-2 text-xs leading-relaxed text-slate-500 font-medium">{text}</p>
     </div>
@@ -200,8 +200,8 @@ function InfoCard({ title, text }: { title: string; text: string }) {
 
 function ChecklistItem({ text }: { text: string }) {
   return (
-    <div className="rounded-lg border border-emerald-200/50 bg-white px-4 py-3 font-bold text-emerald-800 shadow-sm flex items-center gap-2 select-none">
-      <span className="text-emerald-500 font-black text-sm">✓</span>
+    <div className="rounded-lg border border-teal-200/50 bg-white px-4 py-3 font-bold text-teal-800 shadow-sm flex items-center gap-2 select-none">
+      <span className="text-teal-500 font-black text-sm">✓</span>
       {text}
     </div>
   )
