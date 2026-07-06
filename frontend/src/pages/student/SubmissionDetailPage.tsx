@@ -208,16 +208,19 @@ function getFunctionalMessage(tc: TestCaseResult) {
   return 'Kết quả sai.'
 }
 
-function getSubmissionStatus(submission: SubmissionDetail) {
+function isSubmissionNullified(submission: SubmissionDetail) {
   const feedback = submission.feedback?.toLowerCase() ?? ''
-  const isNullified =
+  return (
     submission.score === 0 &&
     (feedback.includes('hủy') ||
       feedback.includes('0 điểm') ||
       feedback.includes('cảnh báo') ||
       feedback.includes('toàn màn hình'))
+  )
+}
 
-  if (isNullified) {
+function getSubmissionStatus(submission: SubmissionDetail) {
+  if (isSubmissionNullified(submission)) {
     return { label: 'Bị hủy', className: 'badge-red' }
   }
 
@@ -284,8 +287,16 @@ export function SubmissionDetailPage() {
 
   const review = useMemo(() => {
     const results = submission?.testCaseResults ?? []
+    if (submission && isSubmissionNullified(submission)) {
+      return {
+        results: results.map((tc) => ({ ...tc, passed: false, status: 'failed' as ResultStatus })),
+        passedCount: 0,
+        rawPassedCount: results.filter((tc) => tc.passed).length,
+      }
+    }
+
     const passedCount = results.filter((tc) => tc.passed).length
-    return { results, passedCount }
+    return { results, passedCount, rawPassedCount: passedCount }
   }, [submission])
 
   if (loading) {
@@ -310,6 +321,7 @@ export function SubmissionDetailPage() {
   const functionalScore = submission.functionalScore ?? submission.score
   const styleViolationCount = submission.styleReport?.violationCount ?? submission.styleReport?.violations?.length ?? 0
   const submissionStatus = getSubmissionStatus(submission)
+  const nullified = isSubmissionNullified(submission)
 
   return (
     <div className="-m-6 min-h-[calc(100vh-8.25rem)] bg-slate-100">
@@ -513,11 +525,17 @@ export function SubmissionDetailPage() {
                 <EmptyResults />
               ) : (
                 <div className="space-y-4">
+                  {nullified && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+                      Bài nộp đã bị hủy điểm, nên {review.rawPassedCount}/{review.results.length} test public chạy đúng không được tính vào điểm.
+                    </div>
+                  )}
                   {review.results.map((tc, index) => (
                     <FunctionalResultCard
                       key={tc.id}
                       result={tc}
                       index={index}
+                      nullified={nullified}
                     />
                   ))}
                 </div>
@@ -611,15 +629,29 @@ function StyleSummary({
 function FunctionalResultCard({
   result,
   index,
+  nullified = false,
 }: {
   result: TestCaseResult
   index: number
+  nullified?: boolean
 }) {
   const [expanded, setExpanded] = useState(!result.passed)
   const statusClass = result.passed
     ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
     : 'border-rose-200 bg-rose-50 text-rose-700'
   const iconClass = result.passed ? 'bg-emerald-600' : 'bg-rose-600'
+  const statusLabel = nullified
+    ? 'Bị hủy'
+    : result.passed
+      ? 'Accepted'
+      : result.status === 'timeout'
+        ? 'Timeout'
+        : result.status === 'error'
+          ? 'Error'
+          : 'Wrong answer'
+  const message = nullified
+    ? 'Kết quả test không được tính vì bài nộp đã bị hủy điểm.'
+    : getFunctionalMessage(result)
 
   return (
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -644,12 +676,12 @@ function FunctionalResultCard({
             </h3>
             <p className="mt-1 text-xs font-semibold text-slate-500">
               {result.executionTimeMs != null ? `${result.executionTimeMs} ms · ` : ''}
-              {getFunctionalMessage(result)}
+              {message}
             </p>
           </div>
         </div>
         <span className={`rounded-md border px-3 py-1 text-xs font-bold uppercase ${statusClass}`}>
-          {result.passed ? 'Accepted' : result.status === 'timeout' ? 'Timeout' : result.status === 'error' ? 'Error' : 'Wrong answer'}
+          {statusLabel}
         </span>
       </button>
 
