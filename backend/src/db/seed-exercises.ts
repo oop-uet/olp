@@ -2,7 +2,7 @@ import "dotenv/config";
 import { inArray, eq } from "drizzle-orm";
 import crypto from "node:crypto";
 import { db } from "./index.js";
-import { exerciseAssignments, exercises, testCases } from "./schema.js";
+import { classSections, exerciseAssignments, exercises, testCases } from "./schema.js";
 
 interface ExerciseSeed {
   title: string;
@@ -53,6 +53,17 @@ function stdoutCase(inputData: string, expectedOutput: string, pointValue: numbe
 
 function stableId(title: string) {
   return `exercise-${crypto.createHash("sha1").update(title).digest("hex").slice(0, 24)}`;
+}
+
+function weekFromTitle(title: string): number | null {
+  const match = title.match(/Tuần\s+(\d+)/i);
+  if (!match) return null;
+  const week = Number.parseInt(match[1], 10);
+  return Number.isInteger(week) && week >= 1 ? week : null;
+}
+
+function isDefaultAssessment(title: string): number {
+  return title.includes("Quản lý sinh viên") || title.includes("Phân số") ? 1 : 0;
 }
 
 const studentManagementTest = `
@@ -190,6 +201,109 @@ const exerciseSeeds: ExerciseSeed[] = [
     testCasesData: [
       stdoutCase("", "Hello World", 40),
       stdoutCase("An", "Hello World\nHello An", 60, 0),
+    ],
+  },
+  {
+    title: "Tuần 1 - Robot và Engine",
+    description: [
+      "# Tuần 1. Khái niệm lập trình hướng đối tượng",
+      "",
+      "Bài này bổ sung cho module `Java Introduction + Object Oriented Programming Concept` trong `timeline.md`, dựa trên ví dụ robot/engine trong slide `2.0_OOP_Intro.pdf`.",
+      "",
+      "## Yêu cầu",
+      "- Cài đặt lớp `Engine` có thuộc tính `private String serialNumber`, `private int power`.",
+      "- `Engine(String serialNumber, int power)` khởi tạo động cơ. Nếu `power < 0`, đưa về `0`.",
+      "- `void setPower(int power)` cập nhật công suất, không cho giá trị âm.",
+      "- `String getSerialNumber()` và `int getPower()`.",
+      "- Cài đặt lớp `HouseBot` có `private String id`, `private String name`, `private Engine engine`.",
+      "- `HouseBot(String id, String name, Engine engine)` khởi tạo robot.",
+      "- `String forward()` trả về `Robot <name> moves forward with power <power>`.",
+      "- `String turnLeft()` trả về `Robot <name> turns left`.",
+      "- `String cleanUp()` trả về `Robot <name> cleans the room`.",
+      "",
+      "Bài này kiểm tra khả năng tách đối tượng theo trạng thái/hành vi và quan hệ has-a giữa `HouseBot` và `Engine`.",
+    ].join("\n"),
+    difficulty: "easy",
+    oopTags: ["oop-concepts", "composition", "classes"],
+    starterCode: javaStarterFiles([
+      {
+        name: "Engine.java",
+        content: [
+          "public class Engine {",
+          "    private String serialNumber;",
+          "    private int power;",
+          "",
+          "    public Engine(String serialNumber, int power) {",
+          "        // TODO",
+          "    }",
+          "",
+          "    public String getSerialNumber() { return serialNumber; }",
+          "    public int getPower() { return power; }",
+          "    public void setPower(int power) {",
+          "        // TODO",
+          "    }",
+          "}",
+        ].join("\n"),
+      },
+      {
+        name: "HouseBot.java",
+        content: [
+          "public class HouseBot {",
+          "    private String id;",
+          "    private String name;",
+          "    private Engine engine;",
+          "",
+          "    public HouseBot(String id, String name, Engine engine) {",
+          "        // TODO",
+          "    }",
+          "",
+          "    public String forward() { return \"\"; }",
+          "    public String turnLeft() { return \"\"; }",
+          "    public String cleanUp() { return \"\"; }",
+          "}",
+        ].join("\n"),
+      },
+    ]),
+    testCasesData: [
+      javaTestCase(
+        "RobotTest.java",
+        `
+import net.bqc.oasis.junit.JavaReflection;
+import org.junit.Assert;
+import org.junit.Test;
+
+public class RobotTest {
+    @Test
+    public void fieldsArePrivateAndCompositionIsUsed() {
+        Assert.assertTrue(JavaReflection.checkField(Engine.class, "serialNumber", "String|java.lang.String", "private"));
+        Assert.assertTrue(JavaReflection.checkField(Engine.class, "power", "int", "private"));
+        Assert.assertTrue(JavaReflection.checkField(HouseBot.class, "id", "String|java.lang.String", "private"));
+        Assert.assertTrue(JavaReflection.checkField(HouseBot.class, "name", "String|java.lang.String", "private"));
+        Assert.assertTrue(JavaReflection.checkField(HouseBot.class, "engine", "Engine", "private"));
+    }
+
+    @Test
+    public void behaviorUsesObjectState() {
+        Engine engine = new Engine("E-01", 75);
+        HouseBot bot = new HouseBot("HB-01", "Mika", engine);
+        Assert.assertEquals("E-01", engine.getSerialNumber());
+        Assert.assertEquals(75, engine.getPower());
+        Assert.assertEquals("Robot Mika moves forward with power 75", bot.forward());
+        Assert.assertEquals("Robot Mika turns left", bot.turnLeft());
+        Assert.assertEquals("Robot Mika cleans the room", bot.cleanUp());
+    }
+
+    @Test
+    public void negativePowerIsClampedToZero() {
+        Engine engine = new Engine("E-02", -10);
+        Assert.assertEquals(0, engine.getPower());
+        engine.setPower(-5);
+        Assert.assertEquals(0, engine.getPower());
+    }
+}
+        `,
+        100
+      ),
     ],
   },
   {
@@ -458,11 +572,11 @@ public class FractionTest {
     ],
   },
   {
-    title: "Tuần 4 - Static, mảng và BMI",
+    title: "Tuần 3 - Static, mảng và BMI",
     description: [
-      "# Tuần 4. Static, mảng, JUnit",
+      "# Tuần 3. Static, mảng, JUnit",
       "",
-      "Tương ứng slide `3.2_HieuThem_Java-2.pdf` và phần Tuần 4 trong tài liệu thực hành.",
+      "Tương ứng slide `3.2_HieuThem_Java-2.pdf`; bài được xếp vào module 3 theo timeline 10 tuần.",
       "",
       "Cài đặt lớp `Week4` với các phương thức `public static`:",
       "- `int max2Int(int a, int b)` trả về số lớn hơn.",
@@ -520,9 +634,9 @@ public class Week4Test {
     ],
   },
   {
-    title: "Tuần 5 - Circle và Cylinder",
+    title: "Tuần 4 - Circle và Cylinder",
     description: [
-      "# Tuần 5. Kế thừa, constructor, overriding",
+      "# Tuần 4. Kế thừa, constructor, overriding",
       "",
       "Tương ứng slide `4-OOP_ThuaKe.pdf` và bài Circle/Cylinder trong tài liệu thực hành.",
       "",
@@ -622,11 +736,11 @@ public class CircleCylinderTest {
     ],
   },
   {
-    title: "Tuần 6 - Biểu thức đại số",
+    title: "Tuần 5 - Biểu thức đại số",
     description: [
-      "# Tuần 6. Đa hình, abstract, exception",
+      "# Tuần 5. Đa hình, abstract, exception",
       "",
-      "Bám theo slide `5-OOP_Dahinh.pdf`, `6 - Exceptions.pdf` và bài biểu thức trong Tuần 8 của tài liệu thực hành.",
+      "Bám theo slide `5-OOP_Dahinh.pdf`, `6 - Exceptions.pdf` và bài biểu thức trong tài liệu thực hành; bài được xếp vào module 5 theo timeline 10 tuần.",
       "",
       "Cài đặt mô hình biểu thức:",
       "- `abstract class Expression` có `abstract int evaluate()`.",
@@ -719,9 +833,9 @@ public class ExpressionTest {
     ],
   },
   {
-    title: "Tuần 7 - Sơ đồ hình học, Layer và Diagram",
+    title: "Tuần 5 - Sơ đồ hình học, Layer và Diagram",
     description: [
-      "# Tuần 7. Đa hình, interface, quản lý danh sách đối tượng",
+      "# Tuần 5. Đa hình, interface, quản lý danh sách đối tượng",
       "",
       "Tương ứng slide `5-OOP_Dahinh.pdf` và bài Diagram/Layer trong tài liệu thực hành.",
       "",
@@ -815,9 +929,9 @@ public class DiagramTest {
     ],
   },
   {
-    title: "Tuần 8 - Xử lý ngoại lệ",
+    title: "Tuần 6 - Xử lý ngoại lệ",
     description: [
-      "# Tuần 8. try-catch, throw, custom exception",
+      "# Tuần 6. try-catch, throw, custom exception",
       "",
       "Tương ứng slide `6 - Exceptions.pdf` và bảng bài tập ngoại lệ trong tài liệu thực hành.",
       "",
@@ -869,9 +983,9 @@ public class Week8Task2Test {
     ],
   },
   {
-    title: "Tuần 9 - Utils đọc ghi tệp",
+    title: "Tuần 7 - Utils đọc ghi tệp",
     description: [
-      "# Tuần 9. I/O Streams và lớp `File`",
+      "# Tuần 7. I/O Streams và lớp `File`",
       "",
       "Tương ứng slide `7 - IOStreams.pdf` và bài `Utils` trong tài liệu thực hành.",
       "",
@@ -936,11 +1050,11 @@ public class UtilsTest {
     ],
   },
   {
-    title: "Tuần 10 - String, List và Map",
+    title: "Tuần 9 - String, List và Map",
     description: [
-      "# Tuần 10. Data structures: String, List, ArrayList, HashMap",
+      "# Tuần 9. Data structures: String, List, ArrayList, HashMap",
       "",
-      "Tương ứng slide `9_Data structures.pdf` và phần Tuần 10 trong tài liệu thực hành.",
+      "Tương ứng slide `9_Data structures.pdf`; bài được xếp vào module 9 theo timeline 10 tuần.",
       "",
       "Cài đặt lớp `TextAnalyzer`:",
       "- `List<String> normalizeWords(String text)`: tách từ theo khoảng trắng, bỏ dấu câu ở đầu/cuối, chuyển về chữ thường, bỏ token rỗng.",
@@ -1002,9 +1116,9 @@ public class TextAnalyzerTest {
     ],
   },
   {
-    title: "Tuần 11 - Generic sort và Person",
+    title: "Tuần 8 - Generic sort và Person",
     description: [
-      "# Tuần 11. Lập trình tổng quát",
+      "# Tuần 8. Lập trình tổng quát",
       "",
       "Tương ứng slide `8 - Generic.pdf` và bài Generic trong tài liệu thực hành.",
       "",
@@ -1075,9 +1189,9 @@ public class Week11Test {
     ],
   },
   {
-    title: "Tuần 12 - Phả hệ với Composite",
+    title: "Tuần 10 - Phả hệ với Composite",
     description: [
-      "# Tuần 12. Design Pattern: Composite",
+      "# Tuần 10. Design Pattern: Composite",
       "",
       "Tương ứng slide `10.1-Design Patterns 1.pdf` và bài phả hệ trong tài liệu thực hành.",
       "",
@@ -1160,9 +1274,9 @@ public class GenealogyTest {
     ],
   },
   {
-    title: "Tuần 12 - Sắp xếp với Strategy",
+    title: "Tuần 10 - Sắp xếp với Strategy",
     description: [
-      "# Tuần 12. Design Pattern: Strategy",
+      "# Tuần 10. Design Pattern: Strategy",
       "",
       "Tương ứng slide `10.1-Design Patterns 1.pdf` và câu Strategy trong tài liệu thực hành.",
       "",
@@ -1227,9 +1341,9 @@ public class SorterTest {
     ],
   },
   {
-    title: "Tuần 13 - Adapter cho thư viện sắp xếp",
+    title: "Tuần 10 - Adapter cho thư viện sắp xếp",
     description: [
-      "# Tuần 13. Design Pattern: Adapter",
+      "# Tuần 10. Design Pattern: Adapter",
       "",
       "Tương ứng slide `10.2-Design Patterns 2 (2023).pdf`: dùng Adapter khi framework yêu cầu một interface nhưng thư viện sẵn có lại có API khác.",
       "",
@@ -1316,6 +1430,7 @@ async function seedExercises() {
 
   const now = new Date().toISOString();
   let testCaseCount = 0;
+  const seededExerciseIds: Array<{ id: string; title: string }> = [];
 
   for (const seed of exerciseSeeds) {
     const exerciseId = stableId(seed.title);
@@ -1332,6 +1447,7 @@ async function seedExercises() {
       createdAt: now,
       updatedAt: now,
     });
+    seededExerciseIds.push({ id: exerciseId, title: seed.title });
 
     for (const [index, tc] of seed.testCasesData.entries()) {
       await db.insert(testCases).values({
@@ -1350,10 +1466,34 @@ async function seedExercises() {
     console.log(`  - ${seed.title} (${seed.difficulty}) [${seed.oopTags.join(", ")}]`);
   }
 
+  const sections = await db.select({ id: classSections.id }).from(classSections);
+  let assignmentCount = 0;
+  for (const section of sections) {
+    for (const exercise of seededExerciseIds) {
+      await db
+        .insert(exerciseAssignments)
+        .values({
+          id: crypto.randomUUID(),
+          exerciseId: exercise.id,
+          sectionId: section.id,
+          deadline: null,
+          isAssessment: isDefaultAssessment(exercise.title),
+          isVisible: 1,
+          allowSubmission: 1,
+          maxSubmissions: null,
+          week: weekFromTitle(exercise.title),
+          assignedAt: now,
+        })
+        .onConflictDoNothing();
+      assignmentCount++;
+    }
+  }
+
   console.log("");
   console.log("Exercise library seeded successfully.");
   console.log(`Total exercises: ${exerciseSeeds.length}`);
   console.log(`Total test cases: ${testCaseCount}`);
+  console.log(`Default assignments created: ${assignmentCount}`);
   console.log("Topics covered: Java basics, class/object, primitive/static, inheritance, polymorphism, exception, IO, collections, generics, design patterns.");
   process.exit(0);
 }

@@ -57,10 +57,14 @@ export function LoginPage() {
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-8 -mt-8 blur-lg" />
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full -ml-12 -mb-12 blur-xl" />
 
-          {/* Header: FIT UET */}
+          {/* Header: UET Logo */}
           <div className="flex flex-col items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center bg-white/15 border border-white/20 font-bold rounded-xl shadow-inner">
-              <span className="text-[11px] font-black tracking-tight text-white">FIT UET</span>
+            <div className="flex h-12 w-12 items-center justify-center bg-white rounded-xl shadow-inner overflow-hidden p-1 select-none">
+              <img
+                src={`${import.meta.env.BASE_URL}logo-final.png`}
+                alt="UET Logo"
+                className="h-full w-full object-contain"
+              />
             </div>
             <div className="space-y-1">
               <h1 className="text-sm font-black tracking-wider uppercase text-white leading-tight">

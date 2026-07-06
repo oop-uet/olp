@@ -229,8 +229,12 @@ export function HelpEditorPage() {
             <header className="bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 text-white shadow-md border-b border-white/10">
               <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 border border-white/20 text-xs font-black text-white tracking-wider shadow-inner">
-                    UET
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-inner overflow-hidden p-1 select-none shrink-0">
+                    <img
+                      src={`${import.meta.env.BASE_URL}logo-final.png`}
+                      alt="UET Logo"
+                      className="h-full w-full object-contain"
+                    />
                   </div>
                   <div>
                     <h1 className="text-lg font-bold tracking-wide text-white flex items-center gap-1.5">

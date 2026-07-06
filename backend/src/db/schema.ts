@@ -124,7 +124,7 @@ export const exerciseAssignments = sqliteTable(
   })
 );
 
-// ─── Section Weeks (per-week deadline for the 15-week schedule) ───────────────
+// ─── Section Weeks (per-week deadline for the default 10-week schedule) ───────
 
 export const sectionWeeks = sqliteTable(
   "section_weeks",

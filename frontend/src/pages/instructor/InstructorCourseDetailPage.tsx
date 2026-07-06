@@ -48,7 +48,7 @@ interface LeaderboardEntry {
   totalScore: number
 }
 
-const TOTAL_WEEKS = 15
+const TOTAL_WEEKS = 10
 const SUBMISSION_LIMIT_OPTIONS = [0, 3, 5, 8, 10, 20, 50, 100]
 
 export function InstructorCourseDetailPage() {
@@ -167,7 +167,7 @@ export function InstructorCourseDetailPage() {
 
   const { section, exercises } = detail
 
-  // Group exercises by week 1..15
+  // Group exercises by the default 10-week course timeline.
   const exercisesByWeek: Record<number, SectionExercise[]> = {}
   for (let i = 1; i <= TOTAL_WEEKS; i++) exercisesByWeek[i] = []
   const unscheduledExercises: SectionExercise[] = []
