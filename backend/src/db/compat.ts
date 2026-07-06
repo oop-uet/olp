@@ -1,4 +1,7 @@
 import { db as defaultDb } from "./index.js";
+import { eq } from "drizzle-orm";
+import { classSections } from "./schema.js";
+import { normalizeSectionNameForSemester } from "../utils/semester.js";
 
 type Database = typeof defaultDb;
 
@@ -62,4 +65,26 @@ export async function ensureDatabaseCompatibility(database: Database = defaultDb
        WHERE key = 'compat_default_assignments_hidden_20260706'
      )`
   );
+
+  await normalizeExistingSectionNames(database);
+}
+
+async function normalizeExistingSectionNames(database: Database) {
+  const rows = await database
+    .select({
+      id: classSections.id,
+      name: classSections.name,
+      semester: classSections.semester,
+    })
+    .from(classSections);
+
+  for (const row of rows) {
+    const normalizedName = normalizeSectionNameForSemester(row.name, row.semester);
+    if (normalizedName !== row.name) {
+      await database
+        .update(classSections)
+        .set({ name: normalizedName })
+        .where(eq(classSections.id, row.id));
+    }
+  }
 }

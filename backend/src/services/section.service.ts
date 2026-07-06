@@ -12,6 +12,7 @@ import {
   submissionResults,
   anticheatEvents,
 } from "../db/schema.js";
+import { normalizeSectionNameForSemester } from "../utils/semester.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -80,7 +81,7 @@ export async function createSection(
     .insert(classSections)
     .values({
       id,
-      name: input.name,
+      name: normalizeSectionNameForSemester(input.name, input.semester),
       semester: input.semester,
       instructorId: instructorIds[0] || null,
       createdAt: now,
@@ -128,7 +129,10 @@ export async function updateSection(
   }
 
   const updateData: Record<string, unknown> = {};
-  if (input.name !== undefined) updateData.name = input.name;
+  const nextSemester = input.semester ?? existing.semester;
+  if (input.name !== undefined || input.semester !== undefined) {
+    updateData.name = normalizeSectionNameForSemester(input.name ?? existing.name, nextSemester);
+  }
   if (input.semester !== undefined) updateData.semester = input.semester;
   if (instructorIds) updateData.instructorId = instructorIds[0] || null;
 

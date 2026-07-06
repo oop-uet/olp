@@ -61,6 +61,24 @@ function parseSemester(sem: string) {
   return null;
 }
 
+function getSemesterCompactPrefix(sem: string): string {
+  const parsed = parseSemester(sem)
+  if (!parsed) return ''
+  const hk = parsed.hk === 1 ? 'I' : parsed.hk === 2 ? 'II' : parsed.hk === 3 ? 'III' : `${parsed.hk}`
+  return `${hk}${String(parsed.startYear).slice(2)}${String(parsed.startYear + 1).slice(2)}`
+}
+
+function stripSemesterCompactPrefix(name: string): string {
+  return name.trim().replace(/^(?:I|II|III)\d{4}\s+/i, '').trim()
+}
+
+function getPreviewSectionName(name: string, semester: string): string {
+  const prefix = getSemesterCompactPrefix(semester)
+  const baseName = stripSemesterCompactPrefix(name)
+  if (!prefix || !baseName) return name.trim()
+  return `${prefix} ${baseName}`
+}
+
 function getSectionInstructorText(section: Section) {
   const names =
     section.instructors?.map(
@@ -201,11 +219,11 @@ export function SectionManagerPage() {
 
   // ─── Form Handlers ─────────────────────────────────────────────────────
 
-  function openCreateForm() {
+  function openCreateForm(semesterOverride?: string) {
     setEditingSection(null)
-    const defaultSem = selectedSemester === 'ALL' 
+    const defaultSem = semesterOverride || (selectedSemester === 'ALL'
       ? (semesters[semesters.length - 1] || '2025-2026-HK2') 
-      : selectedSemester
+      : selectedSemester)
     setFormData({ name: '', semester: defaultSem, instructor_id: null, instructor_ids: [] })
     setInstructorSearch('')
     setShowForm(true)
@@ -323,6 +341,7 @@ export function SectionManagerPage() {
   // ─── Roster Import State ───────────────────────────────────────────────
   const [showRosterImport, setShowRosterImport] = useState(false)
   const [rosterFile, setRosterFile] = useState<File | null>(null)
+  const [rosterImportSemester, setRosterImportSemester] = useState<string | null>(null)
   const [rosterImporting, setRosterImporting] = useState(false)
   const [rosterResult, setRosterResult] = useState<{
     section: { id: string; name: string; semester: string };
@@ -332,14 +351,23 @@ export function SectionManagerPage() {
     instructor: { id: string; name: string; matched: boolean } | null;
   } | null>(null)
 
+  function openRosterImport(semester: string) {
+    setRosterImportSemester(semester)
+    setRosterResult(null)
+    setRosterFile(null)
+    setShowRosterImport(true)
+    setSelectedSemester(semester)
+    localStorage.setItem('admin_selected_semester', semester)
+  }
+
   async function handleRosterImport() {
     if (!rosterFile) return
     setRosterImporting(true)
     setRosterResult(null)
 
-    const targetSemester = selectedSemester === 'ALL'
+    const targetSemester = rosterImportSemester || (selectedSemester === 'ALL'
       ? (semesters[semesters.length - 1] || '2025-2026-HK2')
-      : selectedSemester;
+      : selectedSemester)
 
     try {
       const base64 = await fileToBase64(rosterFile)
@@ -383,7 +411,14 @@ export function SectionManagerPage() {
           </h2>
           <p className="mb-4 text-xs text-gray-500">
             Tải lên file danh sách lớp (định dạng UET-VNU). Lớp sẽ được tạo thuộc học kỳ{' '}
-            <strong className="text-primary-700">{getSemesterDisplayName(selectedSemester === 'ALL' ? (semesters[semesters.length - 1] || '2025-2026-HK2') : selectedSemester)}</strong>. 
+            <strong className="text-primary-700">
+              {getSemesterDisplayName(
+                rosterImportSemester ||
+                  (selectedSemester === 'ALL'
+                    ? semesters[semesters.length - 1] || '2025-2026-HK2'
+                    : selectedSemester)
+              )}
+            </strong>.
             Mã lớp sẽ tự động được gán mã tiền tố tương ứng (Ví dụ: II2526).
           </p>
 
@@ -471,6 +506,14 @@ export function SectionManagerPage() {
                   className="input"
                   placeholder="VD: OOP - INT2204 - K68"
                 />
+                {formData.name.trim() && (
+                  <p className="mt-1.5 text-[11px] font-semibold text-slate-500">
+                    Tên sẽ lưu:{' '}
+                    <span className="text-primary-700">
+                      {getPreviewSectionName(formData.name, formData.semester)}
+                    </span>
+                  </p>
+                )}
               </div>
 
               {/* Semester */}
@@ -674,7 +717,7 @@ export function SectionManagerPage() {
           </span>
           <p className="text-gray-500">Chưa có lớp học phần nào.</p>
           <button
-            onClick={openCreateForm}
+            onClick={() => openCreateForm()}
             className="mt-3 text-sm font-medium text-primary hover:text-primary-700"
           >
             Tạo lớp đầu tiên
@@ -756,13 +799,19 @@ export function SectionManagerPage() {
                     {isSelected && (
                       <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
                         <button
-                          onClick={() => setShowRosterImport(!showRosterImport)}
+                          onClick={() => {
+                            if (showRosterImport && rosterImportSemester === sem) {
+                              setShowRosterImport(false)
+                              return
+                            }
+                            openRosterImport(sem)
+                          }}
                           className="bg-[#bdc3c7] hover:bg-[#95a5a6] text-white text-[10px] font-bold px-3 py-1.5 rounded-md transition-all active:scale-[0.97] shadow-sm cursor-pointer"
                         >
                           📥 Import Danh sách lớp
                         </button>
                         <button
-                          onClick={openCreateForm}
+                          onClick={() => openCreateForm(sem)}
                           className="bg-primary hover:bg-primary-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-md transition-all active:scale-[0.97] shadow-sm cursor-pointer"
                         >
                           Tạo lớp
