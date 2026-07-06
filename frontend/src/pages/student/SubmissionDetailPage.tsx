@@ -208,6 +208,30 @@ function getFunctionalMessage(tc: TestCaseResult) {
   return 'Kết quả sai.'
 }
 
+function getSubmissionStatus(submission: SubmissionDetail) {
+  const feedback = submission.feedback?.toLowerCase() ?? ''
+  const isNullified =
+    submission.score === 0 &&
+    (feedback.includes('hủy') ||
+      feedback.includes('0 điểm') ||
+      feedback.includes('cảnh báo') ||
+      feedback.includes('toàn màn hình'))
+
+  if (isNullified) {
+    return { label: 'Bị hủy', className: 'badge-red' }
+  }
+
+  if (submission.score >= 100) {
+    return { label: 'Accepted', className: 'badge-green' }
+  }
+
+  if (submission.score > 0) {
+    return { label: 'Finished', className: 'badge-blue' }
+  }
+
+  return { label: 'Wrong answer', className: 'badge-red' }
+}
+
 function downloadTextFile(fileName: string, content: string) {
   const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
   const url = URL.createObjectURL(blob)
@@ -282,10 +306,10 @@ export function SubmissionDetailPage() {
   const submittedFiles = parseSubmittedFiles(submission.code)
   const currentSubmittedFile =
     submittedFiles.find((file) => file.name === activeSubmittedFile) ?? submittedFiles[0]
-  const accepted = submission.score >= 100 || (review.results.length > 0 && review.passedCount === review.results.length)
   const hasPublicResults = review.results.length > 0
   const functionalScore = submission.functionalScore ?? submission.score
   const styleViolationCount = submission.styleReport?.violationCount ?? submission.styleReport?.violations?.length ?? 0
+  const submissionStatus = getSubmissionStatus(submission)
 
   return (
     <div className="-m-6 min-h-[calc(100vh-8.25rem)] bg-slate-100">
@@ -334,11 +358,7 @@ export function SubmissionDetailPage() {
             <div className="space-y-3 p-4 text-sm">
               <div className="flex items-center justify-between gap-3">
                 <span className="font-semibold text-slate-500">Trạng thái</span>
-                {accepted ? (
-                  <span className="badge-green">Accepted</span>
-                ) : (
-                  <span className="badge-red">Wrong answer</span>
-                )}
+                <span className={submissionStatus.className}>{submissionStatus.label}</span>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <span className="font-semibold text-slate-500">Điểm chức năng</span>
