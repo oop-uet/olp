@@ -332,7 +332,7 @@ export function LeaderboardPage() {
                   <button
                     disabled={currentPage === 1}
                     onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                    className="rounded border border-slate-200 px-3 py-1.5 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="btn btn-secondary btn-sm select-none"
                   >
                     Trước
                   </button>
@@ -340,10 +340,10 @@ export function LeaderboardPage() {
                     <button
                       key={i}
                       onClick={() => setCurrentPage(i + 1)}
-                      className={`rounded border px-3 py-1.5 transition-colors ${
+                      className={`btn btn-sm select-none ${
                         currentPage === i + 1
-                          ? 'border-primary bg-primary font-bold text-white'
-                          : 'border-slate-200 hover:bg-slate-50'
+                          ? 'btn-primary'
+                          : 'btn-secondary'
                       }`}
                     >
                       {i + 1}
@@ -352,7 +352,7 @@ export function LeaderboardPage() {
                   <button
                     disabled={currentPage === totalPages}
                     onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                    className="rounded border border-slate-200 px-3 py-1.5 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="btn btn-secondary btn-sm select-none"
                   >
                     Sau
                   </button>

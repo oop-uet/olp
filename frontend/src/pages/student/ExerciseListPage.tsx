@@ -273,7 +273,7 @@ export function ExerciseListPage() {
                     <button
                       disabled={currentPage === 1}
                       onClick={() => setCurrentPage(currentPage - 1)}
-                      className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600"
+                      className="btn btn-secondary btn-sm select-none"
                     >
                       Trước
                     </button>
@@ -281,10 +281,10 @@ export function ExerciseListPage() {
                       <button
                         key={i}
                         onClick={() => setCurrentPage(i + 1)}
-                        className={`px-2.5 py-1 border rounded font-bold ${
+                        className={`btn btn-sm select-none ${
                           currentPage === i + 1
-                            ? 'bg-primary text-white border-primary'
-                            : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                            ? 'btn-primary'
+                            : 'btn-secondary'
                         }`}
                       >
                         {i + 1}
@@ -293,7 +293,7 @@ export function ExerciseListPage() {
                     <button
                       disabled={currentPage === totalPages}
                       onClick={() => setCurrentPage(currentPage + 1)}
-                      className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600"
+                      className="btn btn-secondary btn-sm select-none"
                     >
                       Sau
                     </button>
