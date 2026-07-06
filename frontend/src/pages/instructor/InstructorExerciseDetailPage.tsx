@@ -201,36 +201,46 @@ export function InstructorExerciseDetailPage() {
   ).size
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col gap-4 rounded-xl border border-slate-100 bg-white p-5 shadow-sm lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <button onClick={() => navigate(-1)} className="btn-ghost btn-sm mb-4">
-            ← Quay lại
-          </button>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-3xl font-bold text-slate-900">{exercise.title}</h1>
-            <span className={difficulty.className}>{difficulty.label}</span>
-          </div>
-          {tags.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {tags.map((tag) => (
-                <span key={tag} className="badge-blue">
-                  {tag}
-                </span>
-              ))}
+    <div className="space-y-5 animate-fade-in">
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 space-y-3">
+            <button onClick={() => navigate(-1)} className="btn-ghost btn-sm">
+              ← Quay lại
+            </button>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/5 text-primary">
+                <ExerciseIcon className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="truncate text-2xl font-bold tracking-tight text-slate-900">{exercise.title}</h1>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <span className={difficulty.className}>{difficulty.label}</span>
+                  <span className="text-xs font-semibold text-slate-400">{testCases.length} test case</span>
+                  <span className="text-xs font-semibold text-slate-400">{data.submissions.length} lượt nộp</span>
+                </div>
+              </div>
             </div>
-          )}
-        </div>
-        <div className="grid min-w-[260px] grid-cols-2 overflow-hidden rounded-lg border border-slate-200 text-sm">
-          <div className="bg-slate-50 px-4 py-2 font-semibold text-slate-500">Tổng số bài làm đúng</div>
-          <div className="px-4 py-2 text-right font-bold text-primary">{correctCount}</div>
-          <div className="bg-slate-50 px-4 py-2 font-semibold text-slate-500">Tổng lượt nộp</div>
-          <div className="px-4 py-2 text-right font-bold text-slate-800">{data.submissions.length}</div>
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {tags.map((tag) => (
+                  <span key={tag} className="badge-blue">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[360px]">
+            <StatTile label="Bài làm đúng" value={correctCount} />
+            <StatTile label="Tổng lượt nộp" value={data.submissions.length} />
+          </div>
         </div>
       </div>
 
-      <div className="border-b border-slate-200">
-        <nav className="-mb-px flex flex-wrap gap-2" aria-label="Exercise tabs">
+      <div className="rounded-xl border border-slate-200 bg-white px-4 shadow-sm">
+        <nav className="flex flex-wrap gap-1" aria-label="Exercise tabs">
           <TabButton active={activeTab === 'description'} onClick={() => setActiveTab('description')}>
             Mô tả
           </TabButton>
@@ -247,18 +257,14 @@ export function InstructorExerciseDetailPage() {
       </div>
 
       {activeTab === 'description' && (
-        <div className="card">
-          <div className="panel-header">
-            <h2 className="panel-title">Đề bài</h2>
-          </div>
-          <div className="grid gap-6 p-5 lg:grid-cols-[1fr_360px]">
-            <div className="prose max-w-none whitespace-pre-line text-sm leading-7 text-slate-700">
-              {exercise.description}
-            </div>
-            <div className="space-y-3">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <SectionHeader title="Đề bài" />
+          <div className="grid gap-5 p-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+            <MarkdownContent value={exercise.description} />
+            <aside className="space-y-3">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Mã nguồn mẫu</p>
-                <pre className="mt-3 max-h-80 overflow-auto rounded-lg bg-slate-950 p-4 text-xs leading-6 text-slate-100">
+                <pre className="mt-3 max-h-[420px] overflow-auto rounded-lg bg-slate-950 p-4 font-mono text-xs leading-6 text-slate-100">
                   {exercise.starterCode || 'Bài tập này chưa có mã nguồn mẫu.'}
                 </pre>
               </div>
@@ -268,19 +274,21 @@ export function InstructorExerciseDetailPage() {
               <Link to={`/instructor/exercises/${exercise.id}/testcases`} className="btn-primary w-full">
                 Soạn bộ test
               </Link>
-            </div>
+            </aside>
           </div>
         </div>
       )}
 
       {activeTab === 'testcases' && (
-        <div className="card">
-          <div className="panel-header">
-            <h2 className="panel-title">Chi tiết test cases</h2>
-            <Link to={`/instructor/exercises/${exercise.id}/testcases`} className="btn-secondary btn-sm">
-              Chỉnh sửa test
-            </Link>
-          </div>
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <SectionHeader
+            title="Chi tiết test cases"
+            action={
+              <Link to={`/instructor/exercises/${exercise.id}/testcases`} className="btn-secondary btn-sm">
+                Chỉnh sửa test
+              </Link>
+            }
+          />
           <div className="space-y-4 p-5">
             {testCases.length === 0 ? (
               <p className="text-sm font-semibold text-slate-400">Bài tập chưa có test case.</p>
@@ -314,16 +322,18 @@ export function InstructorExerciseDetailPage() {
       )}
 
       {activeTab === 'history' && (
-        <div className="card">
-          <div className="panel-header">
-            <h2 className="panel-title">Danh sách các bài nộp</h2>
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <SectionHeader
+            title="Danh sách các bài nộp"
+            action={
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              className="input max-w-xs bg-white py-1.5 text-xs"
+              className="input max-w-xs py-1.5 text-xs"
               placeholder="Tìm sinh viên, lớp, mã bài nộp..."
             />
-          </div>
+            }
+          />
           <div className="overflow-x-auto p-5">
             <table className="min-w-full">
               <thead>
@@ -380,10 +390,8 @@ export function InstructorExerciseDetailPage() {
       )}
 
       {activeTab === 'stats' && (
-        <div className="card">
-          <div className="panel-header">
-            <h2 className="panel-title">Bảng thống kê theo lớp giảng viên dạy</h2>
-          </div>
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <SectionHeader title="Bảng thống kê theo lớp giảng viên dạy" />
           <div className="overflow-x-auto p-5">
             <table className="min-w-full">
               <thead>
@@ -433,6 +441,110 @@ export function InstructorExerciseDetailPage() {
   )
 }
 
+function StatTile({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+      <p className="text-xs font-bold uppercase tracking-wider text-slate-500">{label}</p>
+      <p className="mt-1 text-2xl font-bold text-primary">{value}</p>
+    </div>
+  )
+}
+
+function SectionHeader({ title, action }: { title: string; action?: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3">
+      <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">{title}</h2>
+      {action}
+    </div>
+  )
+}
+
+function MarkdownContent({ value }: { value: string }) {
+  const blocks: ReactNode[] = []
+  const bulletItems: ReactNode[] = []
+
+  function flushBullets() {
+    if (bulletItems.length === 0) return
+    blocks.push(
+      <ul key={`ul-${blocks.length}`} className="space-y-2 pl-5 text-sm leading-7 text-slate-700">
+        {bulletItems.splice(0).map((item, index) => (
+          <li key={index} className="list-disc">
+            {item}
+          </li>
+        ))}
+      </ul>
+    )
+  }
+
+  value.split(/\r?\n/).forEach((rawLine, index) => {
+    const line = rawLine.trim()
+    if (!line) {
+      flushBullets()
+      return
+    }
+
+    if (line.startsWith('### ')) {
+      flushBullets()
+      blocks.push(
+        <h4 key={index} className="pt-2 text-sm font-bold uppercase tracking-wider text-slate-600">
+          {renderInlineMarkdown(line.slice(4))}
+        </h4>
+      )
+      return
+    }
+
+    if (line.startsWith('## ')) {
+      flushBullets()
+      blocks.push(
+        <h3 key={index} className="pt-3 text-base font-bold text-slate-900">
+          {renderInlineMarkdown(line.slice(3))}
+        </h3>
+      )
+      return
+    }
+
+    if (line.startsWith('# ')) {
+      flushBullets()
+      blocks.push(
+        <h2 key={index} className="text-lg font-bold text-slate-900">
+          {renderInlineMarkdown(line.slice(2))}
+        </h2>
+      )
+      return
+    }
+
+    if (/^[-*]\s+/.test(line)) {
+      bulletItems.push(renderInlineMarkdown(line.replace(/^[-*]\s+/, '')))
+      return
+    }
+
+    flushBullets()
+    blocks.push(
+      <p key={index} className="text-sm leading-7 text-slate-700">
+        {renderInlineMarkdown(line)}
+      </p>
+    )
+  })
+
+  flushBullets()
+
+  return <div className="space-y-4">{blocks}</div>
+}
+
+function renderInlineMarkdown(text: string): ReactNode[] {
+  const parts = text.split(/(`[^`]+`)/g)
+  return parts.map((part, index) => {
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return (
+        <code key={index} className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[12px] font-semibold text-primary">
+          {part.slice(1, -1)}
+        </code>
+      )
+    }
+    return <span key={index}>{part}</span>
+  })
+}
+
 function TabButton({
   active,
   onClick,
@@ -446,10 +558,10 @@ function TabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-t-lg border px-4 py-2 text-sm font-bold transition-colors ${
+      className={`border-b-2 px-4 py-3 text-sm font-bold transition-colors active:scale-[0.98] ${
         active
-          ? 'border-slate-200 border-b-white bg-white text-primary'
-          : 'border-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+          ? 'border-primary text-primary'
+          : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800'
       }`}
     >
       {children}
