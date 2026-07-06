@@ -60,6 +60,7 @@ export function SectionManagerPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const [search, setSearch] = useState('')
+  const [instructorSearch, setInstructorSearch] = useState('')
   const [sortField, setSortField] = useState<'name' | 'semester' | ''>('')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [currentPage, setCurrentPage] = useState(1)
@@ -142,6 +143,7 @@ export function SectionManagerPage() {
   function openCreateForm() {
     setEditingSection(null)
     setFormData({ name: '', semester: '', instructor_id: null, instructor_ids: [] })
+    setInstructorSearch('')
     setShowForm(true)
   }
 
@@ -159,6 +161,7 @@ export function SectionManagerPage() {
       instructor_id: instructorIds[0] || null,
       instructor_ids: instructorIds,
     })
+    setInstructorSearch('')
     setShowForm(true)
   }
 
@@ -166,6 +169,7 @@ export function SectionManagerPage() {
     setShowForm(false)
     setEditingSection(null)
     setFormData({ name: '', semester: '', instructor_id: null, instructor_ids: [] })
+    setInstructorSearch('')
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -435,35 +439,128 @@ export function SectionManagerPage() {
               </div>
 
               {/* Instructors */}
-              <div>
-                <label htmlFor="section-instructor" className="label">
-                  Giảng viên phụ trách
-                </label>
-                <select
-                  id="section-instructor"
-                  multiple
-                  value={formData.instructor_ids}
-                  onChange={(e) => {
-                    const selectedIds = Array.from(
-                      e.currentTarget.selectedOptions,
-                      (option) => option.value
-                    )
-                    setFormData((prev) => ({
-                      ...prev,
-                      instructor_id: selectedIds[0] || null,
-                      instructor_ids: selectedIds,
-                    }))
-                  }}
-                  className="input min-h-32"
-                >
-                  {instructors.map((instructor) => (
-                    <option key={instructor.id} value={instructor.id}>
-                      {instructor.fullName || instructor.username} ({instructor.email})
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1 text-xs text-gray-500">
-                  Có thể chọn nhiều giảng viên. Người đầu tiên trong danh sách được lưu làm giảng viên chính.
+              <div className="space-y-2">
+                <label className="label">Giảng viên phụ trách</label>
+                
+                {/* Selected Instructors Chips */}
+                {formData.instructor_ids && formData.instructor_ids.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 border border-slate-200 rounded-xl">
+                    {formData.instructor_ids.map((id, index) => {
+                      const inst = instructors.find((i) => i.id === id);
+                      if (!inst) return null;
+                      return (
+                        <div
+                          key={id}
+                          className="inline-flex items-center gap-1.5 bg-white border border-slate-200 px-2 py-1 rounded-lg text-xs shadow-sm font-semibold text-slate-700"
+                        >
+                          {index === 0 && (
+                            <span className="bg-primary-50 text-primary text-[9px] font-extrabold px-1 py-0.5 rounded tracking-wide uppercase">
+                              Chính
+                            </span>
+                          )}
+                          <span>{inst.fullName || inst.username}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newIds = formData.instructor_ids.filter((x) => x !== id);
+                              setFormData((prev) => ({
+                                ...prev,
+                                instructor_id: newIds[0] || null,
+                                instructor_ids: newIds,
+                              }));
+                            }}
+                            className="text-slate-400 hover:text-rose-600 transition-colors font-bold text-xs"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Search Input for Instructors */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={instructorSearch}
+                    onChange={(e) => setInstructorSearch(e.target.value)}
+                    className="input text-xs py-2 px-3"
+                    placeholder="Tìm kiếm giảng viên theo tên, email..."
+                  />
+                  {instructorSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setInstructorSearch('')}
+                      className="absolute right-3 top-2.5 text-xs text-slate-400 hover:text-slate-600"
+                    >
+                      Xóa
+                    </button>
+                  )}
+                </div>
+
+                {/* Filtered Dropdown list of checkboxes */}
+                <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100 bg-white">
+                  {instructors
+                    .filter((inst) => {
+                      const searchLower = instructorSearch.toLowerCase().trim();
+                      if (!searchLower) return true;
+                      return (
+                        (inst.fullName || '').toLowerCase().includes(searchLower) ||
+                        (inst.username || '').toLowerCase().includes(searchLower) ||
+                        (inst.email || '').toLowerCase().includes(searchLower)
+                      );
+                    })
+                    .map((inst) => {
+                      const isChecked = formData.instructor_ids.includes(inst.id);
+                      return (
+                        <label
+                          key={inst.id}
+                          className="flex items-center gap-3 px-4 py-2 hover:bg-slate-50 transition-colors cursor-pointer text-xs"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {
+                              let newIds: string[];
+                              if (isChecked) {
+                                newIds = formData.instructor_ids.filter((x) => x !== inst.id);
+                              } else {
+                                newIds = [...formData.instructor_ids, inst.id];
+                              }
+                              setFormData((prev) => ({
+                                ...prev,
+                                instructor_id: newIds[0] || null,
+                                instructor_ids: newIds,
+                              }));
+                            }}
+                            className="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-slate-800 truncate">
+                              {inst.fullName || inst.username}
+                            </p>
+                            <p className="text-[10px] text-slate-500 truncate">{inst.email}</p>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  {instructors.filter((inst) => {
+                    const searchLower = instructorSearch.toLowerCase().trim();
+                    if (!searchLower) return true;
+                    return (
+                      (inst.fullName || '').toLowerCase().includes(searchLower) ||
+                      (inst.username || '').toLowerCase().includes(searchLower) ||
+                      (inst.email || '').toLowerCase().includes(searchLower)
+                    );
+                  }).length === 0 && (
+                    <div className="p-4 text-center text-xs text-slate-400">
+                      Không tìm thấy giảng viên nào khớp với từ khóa.
+                    </div>
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-400 font-medium italic">
+                  * Người đầu tiên được chọn hoặc xuất hiện ở danh sách thẻ trên sẽ là Giảng viên chính của lớp học phần.
                 </p>
               </div>
 
