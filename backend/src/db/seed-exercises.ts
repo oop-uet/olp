@@ -13,6 +13,7 @@ import {
   submissions,
   testCases,
 } from "./schema.js";
+import { ensureDatabaseCompatibility } from "./compat.js";
 
 interface ExerciseSeed {
   title: string;
@@ -2129,6 +2130,7 @@ async function replaceExerciseLibrary() {
 async function seedExercises() {
   console.log("Seeding OOP practice exercise library...");
 
+  await ensureDatabaseCompatibility(db);
   await replaceExerciseLibrary();
 
   const now = new Date().toISOString();

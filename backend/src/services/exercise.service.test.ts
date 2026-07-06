@@ -245,6 +245,47 @@ describe("Exercise Service", () => {
       expect((result as any).title).toBe("Admin Updated");
     });
 
+    it("should replace test cases when admin updates an exercise", async () => {
+      const db = getDb();
+      const userId = seedUser();
+      const adminId = seedUser("admin");
+      const created = await createExercise(validInput(), userId, db);
+      const exerciseId = (created as any).id;
+
+      const result = await updateExercise(
+        exerciseId,
+        {
+          test_cases: [
+            {
+              input_data: "",
+              expected_output: "Hello World",
+              is_visible: true,
+              point_value: 40,
+              time_limit_seconds: 5,
+            },
+            {
+              input_data: "An",
+              expected_output: "Hello World\nHello An",
+              is_visible: true,
+              point_value: 60,
+              time_limit_seconds: 5,
+            },
+          ],
+        },
+        adminId,
+        "admin",
+        db
+      );
+
+      expect(isExerciseError(result)).toBe(false);
+      expect((result as any).testCases).toHaveLength(2);
+      expect((result as any).testCases[0].timeLimitSeconds).toBe(5);
+
+      const loaded = await getExerciseById(exerciseId, db);
+      expect((loaded as any).testCases).toHaveLength(2);
+      expect((loaded as any).testCases.map((tc: any) => tc.pointValue)).toEqual([40, 60]);
+    });
+
     it("should return NOT_FOUND for non-existent exercise", async () => {
       const db = getDb();
       const userId = seedUser();

@@ -20,7 +20,7 @@ import {
 // ─── Zod Schemas ─────────────────────────────────────────────────────────────
 
 const testCaseSchema = z.object({
-  input_data: z.string().min(1, "Input data is required"),
+  input_data: z.string(),
   expected_output: z.string().min(1, "Expected output is required"),
   is_visible: z.boolean().optional(),
   point_value: z.number().int().min(1).max(100).optional(),

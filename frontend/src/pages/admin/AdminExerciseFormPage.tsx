@@ -216,11 +216,9 @@ export function AdminExerciseFormPage() {
       newErrors.tags = 'Tối đa 5 thẻ OOP'
     }
 
-    const validTestCases = testCases.filter(
-      (tc) => tc.inputData.trim() !== '' && tc.expectedOutput.trim() !== ''
-    )
+    const validTestCases = testCases.filter((tc) => tc.expectedOutput.trim() !== '')
     if (validTestCases.length < 1) {
-      newErrors.testCases = 'Cần ít nhất 1 bộ test có đầu vào và kết quả mong đợi'
+      newErrors.testCases = 'Cần ít nhất 1 bộ test có kết quả mong đợi'
     }
 
     setErrors(newErrors)
@@ -318,12 +316,11 @@ export function AdminExerciseFormPage() {
       starterCode: String(raw.starter_code ?? ''),
       isLibrary: Boolean(raw.is_library ?? true),
       testCases: normalizedTestCases.map((tc, index) => {
-        const inputData = String(tc.input_data ?? '').trim()
+        const inputData = String(tc.input_data ?? '')
         const expectedOutput = String(tc.expected_output ?? '')
         const pointValue = Number(tc.point_value ?? 10)
         const timeLimit = tc.time_limit_seconds == null ? undefined : Number(tc.time_limit_seconds)
 
-        if (!inputData) throw new Error(`Test case #${index + 1} thiếu input_data.`)
         if (!expectedOutput.trim()) throw new Error(`Test case #${index + 1} thiếu expected_output.`)
         if (!Number.isInteger(pointValue) || pointValue < 1 || pointValue > 100) {
           throw new Error(`point_value của test case #${index + 1} phải từ 1 đến 100.`)
@@ -406,7 +403,7 @@ export function AdminExerciseFormPage() {
           starter_code: starterCode,
           is_library: isLibrary,
           test_cases: testCases
-            .filter((tc) => tc.inputData.trim() !== '' && tc.expectedOutput.trim() !== '')
+            .filter((tc) => tc.expectedOutput.trim() !== '')
             .map((tc) => ({
               input_data: tc.inputData,
               expected_output: tc.expectedOutput,
@@ -425,7 +422,7 @@ export function AdminExerciseFormPage() {
           starter_code: starterCode || undefined,
           is_library: isLibrary,
           test_cases: testCases
-            .filter((tc) => tc.inputData.trim() !== '' && tc.expectedOutput.trim() !== '')
+            .filter((tc) => tc.expectedOutput.trim() !== '')
             .map((tc) => ({
               input_data: tc.inputData,
               expected_output: tc.expectedOutput,

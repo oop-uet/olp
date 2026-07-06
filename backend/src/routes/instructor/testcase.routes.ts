@@ -14,7 +14,6 @@ import {
 export const createTestCaseSchema = z.object({
   input_data: z
     .string()
-    .min(1, "input_data is required")
     .max(10240, "input_data must be at most 10240 characters (10KB)"),
   expected_output: z
     .string()
@@ -36,7 +35,6 @@ export const createTestCaseSchema = z.object({
 export const updateTestCaseSchema = z.object({
   input_data: z
     .string()
-    .min(1, "input_data cannot be empty")
     .max(10240, "input_data must be at most 10240 characters (10KB)")
     .optional(),
   expected_output: z

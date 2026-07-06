@@ -27,6 +27,7 @@ import { authMiddleware } from './middleware/auth.middleware.js';
 import { requireRole } from './middleware/role.guard.js';
 import { migrate } from 'drizzle-orm/libsql/migrator';
 import { db } from './db/index.js';
+import { ensureDatabaseCompatibility } from './db/compat.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -92,8 +93,9 @@ app.use('/api/sections', authMiddleware(), requireRole('instructor', 'student'),
 // Start server
 if (process.env.NODE_ENV !== 'test') {
   migrate(db, { migrationsFolder: './drizzle' })
+    .then(() => ensureDatabaseCompatibility(db))
     .then(() => {
-      console.log('[server] Database migrations applied successfully');
+      console.log('[server] Database migrations and compatibility checks applied successfully');
     })
     .catch((err) => {
       console.error('[server] Database migration failed:', err);

@@ -230,11 +230,9 @@ export function ExerciseFormPage() {
       newErrors.tags = 'Tối đa 5 thẻ'
     }
 
-    const validTestCases = testCases.filter(
-      (tc) => tc.input_data.trim() !== '' && tc.expected_output.trim() !== ''
-    )
+    const validTestCases = testCases.filter((tc) => tc.expected_output.trim() !== '')
     if (validTestCases.length < 1) {
-      newErrors.testCases = 'Cần ít nhất 1 bộ test có đầu vào và kết quả mong đợi'
+      newErrors.testCases = 'Cần ít nhất 1 bộ test có kết quả mong đợi'
     }
 
     setErrors(newErrors)
@@ -333,10 +331,9 @@ export function ExerciseFormPage() {
     const mappedTestCases = normalizedTestCases.map((tc, index) => {
       const pointValue = Number(tc.point_value ?? 10)
       const timeLimit = tc.time_limit_seconds == null ? undefined : Number(tc.time_limit_seconds)
-      const inputData = String(tc.input_data ?? '').trim()
+      const inputData = String(tc.input_data ?? '')
       const expectedOutput = String(tc.expected_output ?? '')
 
-      if (!inputData) throw new Error(`Test case #${index + 1} thiếu input_data.`)
       if (!expectedOutput.trim()) throw new Error(`Test case #${index + 1} thiếu expected_output.`)
       if (!Number.isInteger(pointValue) || pointValue < 1 || pointValue > 100) {
         throw new Error(`point_value của test case #${index + 1} phải từ 1 đến 100.`)
@@ -437,7 +434,7 @@ export function ExerciseFormPage() {
         difficulty,
         oop_tags: selectedTags,
         starter_code: starterCode,
-        test_cases: testCases.filter((tc) => tc.input_data.trim() !== '' && tc.expected_output.trim() !== ''),
+        test_cases: testCases.filter((tc) => tc.expected_output.trim() !== ''),
       }
 
       if (isEditing && id) {

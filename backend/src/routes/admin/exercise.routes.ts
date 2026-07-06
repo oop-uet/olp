@@ -13,7 +13,7 @@ import {
 const router = Router();
 
 const testCaseSchema = z.object({
-  input_data: z.string().min(1, "Input data is required"),
+  input_data: z.string(),
   expected_output: z.string().min(1, "Expected output is required"),
   is_visible: z.boolean().optional(),
   point_value: z.number().int().min(1).max(100).optional(),
@@ -49,7 +49,8 @@ router.get("/", async (req: Request, res: Response) => {
     const userId = req.user!.userId;
     const result = await listExercises(userId, "admin");
     res.status(200).json(result);
-  } catch {
+  } catch (error) {
+    console.error("[admin-exercises] list failed:", error);
     res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } });
   }
 });
@@ -67,7 +68,8 @@ router.post("/", validate(createExerciseSchema), async (req: Request, res: Respo
       return;
     }
     res.status(201).json(result);
-  } catch {
+  } catch (error) {
+    console.error("[admin-exercises] create failed:", error);
     res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } });
   }
 });
@@ -84,7 +86,8 @@ router.get("/:id", async (req: Request, res: Response) => {
       return;
     }
     res.status(200).json(result);
-  } catch {
+  } catch (error) {
+    console.error("[admin-exercises] get failed:", error);
     res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } });
   }
 });
@@ -103,7 +106,8 @@ router.put("/:id", validate(updateExerciseSchema), async (req: Request, res: Res
       return;
     }
     res.status(200).json(result);
-  } catch {
+  } catch (error) {
+    console.error("[admin-exercises] update failed:", error);
     res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } });
   }
 });
@@ -122,7 +126,8 @@ router.delete("/:id", async (req: Request, res: Response) => {
       return;
     }
     res.status(200).json(result);
-  } catch {
+  } catch (error) {
+    console.error("[admin-exercises] delete failed:", error);
     res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } });
   }
 });
