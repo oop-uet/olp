@@ -78,7 +78,7 @@ export function StudentGuidePage() {
   }, [])
 
   if (loading) {
-    return <PageLoader label="Đang tải cẩm nang hướng dẫn..." />
+    return <PageLoader label="Đang tải hướng dẫn..." />
   }
 
   const checklistItems = sections.flatMap((sec) => sec.items || []).filter((it) => it.type === 'checklist')
@@ -97,7 +97,7 @@ export function StudentGuidePage() {
             </div>
             <div>
               <h1 className="text-lg font-bold tracking-wide text-white flex items-center gap-1.5">
-                UET OASIS <span className="text-[10px] font-bold bg-white/20 text-white px-1.5 py-0.5 rounded tracking-wide uppercase border border-white/15">Cẩm nang</span>
+                UET OASIS <span className="text-[10px] font-bold bg-white/20 text-white px-1.5 py-0.5 rounded tracking-wide uppercase border border-white/15">Hướng dẫn</span>
               </h1>
               <p className="text-xs text-white/80 font-medium">Hướng dẫn sử dụng dành cho sinh viên Lập trình hướng đối tượng</p>
             </div>

@@ -194,9 +194,9 @@ export function HelpEditorPage() {
           <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
             <Link to="/admin/dashboard" className="hover:text-primary">Trang chủ</Link>
             <span>/</span>
-            <span className="text-slate-600">Biên tập Cẩm nang Help</span>
+            <span className="text-slate-600">Biên tập Hướng dẫn</span>
           </div>
-          <h1 className="text-xl font-bold text-slate-900">Biên tập Cẩm nang hướng dẫn</h1>
+          <h1 className="text-xl font-bold text-slate-900">Biên tập Hướng dẫn sử dụng</h1>
         </div>
 
         <div className="flex items-center gap-2">
@@ -238,7 +238,7 @@ export function HelpEditorPage() {
                   </div>
                   <div>
                     <h1 className="text-lg font-bold tracking-wide text-white flex items-center gap-1.5">
-                      UET OASIS <span className="text-[10px] font-bold bg-white/20 text-white px-1.5 py-0.5 rounded tracking-wide uppercase border border-white/15">Cẩm nang</span>
+                      UET OASIS <span className="text-[10px] font-bold bg-white/20 text-white px-1.5 py-0.5 rounded tracking-wide uppercase border border-white/15">Hướng dẫn</span>
                     </h1>
                     <p className="text-xs text-white/80 font-medium">Hướng dẫn sử dụng dành cho sinh viên Lập trình hướng đối tượng</p>
                   </div>

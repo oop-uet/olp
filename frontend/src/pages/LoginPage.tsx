@@ -181,7 +181,7 @@ export function LoginPage() {
               to="/help"
               className="text-xs font-bold text-teal-600 hover:text-teal-700 transition-colors leading-relaxed block"
             >
-              Cẩm nang Hướng dẫn sử dụng dành cho sinh viên
+              Hướng dẫn sử dụng dành cho sinh viên
             </Link>
           </div>
         </div>
