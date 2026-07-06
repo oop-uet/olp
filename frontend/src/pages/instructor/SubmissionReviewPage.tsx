@@ -314,6 +314,14 @@ export function SubmissionReviewPage() {
     fetchSubmissions()
   }, [selectedExerciseId])
 
+  // Load specific submission if submission_id is present in URL
+  const selectedSubmissionId = searchParams.get('submission_id')
+  useEffect(() => {
+    if (selectedSubmissionId) {
+      fetchSubmissionDetail(selectedSubmissionId)
+    }
+  }, [selectedSubmissionId])
+
   useEffect(() => {
     setCurrentPage(0)
   }, [selectedExerciseId])
@@ -460,6 +468,9 @@ export function SubmissionReviewPage() {
   function handleBackToList() {
     setSelectedSubmission(null)
     setDetailError(null)
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.delete('submission_id')
+    setSearchParams(nextParams)
   }
 
   function handleSelectSubmission(submissionId: string) {

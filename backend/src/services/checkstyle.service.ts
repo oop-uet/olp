@@ -16,6 +16,14 @@ const CHECKSTYLE_URL =
 const DEFAULT_CACHE_DIR = path.join(os.homedir(), ".cache", "oop-uet");
 const DEFAULT_JAR_PATH = path.join(DEFAULT_CACHE_DIR, `checkstyle-${CHECKSTYLE_VERSION}-all.jar`);
 const CHECKSTYLE_TIMEOUT_MS = Number(process.env.CHECKSTYLE_TIMEOUT_MS ?? 15_000);
+const COMMON_JAVA_COMMANDS = [
+  "java",
+  "/usr/bin/java",
+  "/usr/local/bin/java",
+  "/usr/lib/jvm/java-17-openjdk-amd64/bin/java",
+  "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+  "/opt/render/project/.jdk/bin/java",
+];
 
 export interface JavaSourceFile {
   name: string;
@@ -54,9 +62,11 @@ export async function evaluateCheckstyle(
     return unavailable("Không tìm thấy file Java để kiểm tra quy tắc lập trình.");
   }
 
-  const javaReady = await hasCommand("java", ["-version"]);
-  if (!javaReady) {
-    return unavailable("Không tìm thấy lệnh java trong môi trường backend.");
+  const javaCommand = await resolveJavaCommand();
+  if (!javaCommand) {
+    return unavailable(
+      "Không tìm thấy Java runtime trong môi trường backend. Hãy cài OpenJDK hoặc đặt CHECKSTYLE_JAVA_BIN/JAVA_HOME."
+    );
   }
 
   const jarPath = await resolveCheckstyleJar();
@@ -69,7 +79,7 @@ export async function evaluateCheckstyle(
     const filePaths = await writeJavaFiles(workingDir, files);
     const reportPath = path.join(workingDir, "checkstyle-report.xml");
 
-    await runCheckstyle(jarPath, reportPath, filePaths);
+    await runCheckstyle(javaCommand, jarPath, reportPath, filePaths);
     const report = await fs.readFile(reportPath, "utf8").catch(() => "");
     const violations = parseCheckstyleXml(report, workingDir);
     const penalty = clampNumber(options.penaltyPerViolation ?? 5, 1, 100);
@@ -131,7 +141,25 @@ async function resolveCheckstyleJar(): Promise<string | null> {
   return await fileExists(DEFAULT_JAR_PATH) ? DEFAULT_JAR_PATH : null;
 }
 
-async function runCheckstyle(jarPath: string, reportPath: string, filePaths: string[]) {
+async function resolveJavaCommand(): Promise<string | null> {
+  const configuredJava = process.env.CHECKSTYLE_JAVA_BIN;
+  if (configuredJava && await hasCommand(configuredJava, ["-version"])) return configuredJava;
+
+  const javaHome = process.env.JAVA_HOME;
+  if (javaHome) {
+    const javaHomeCommand = path.join(javaHome, "bin", process.platform === "win32" ? "java.exe" : "java");
+    if (await hasCommand(javaHomeCommand, ["-version"])) return javaHomeCommand;
+  }
+
+  const candidates = process.platform === "win32" ? ["java"] : COMMON_JAVA_COMMANDS;
+  for (const candidate of candidates) {
+    if (await hasCommand(candidate, ["-version"])) return candidate;
+  }
+
+  return null;
+}
+
+async function runCheckstyle(javaCommand: string, jarPath: string, reportPath: string, filePaths: string[]) {
   const args = [
     "-jar",
     jarPath,
@@ -145,7 +173,7 @@ async function runCheckstyle(jarPath: string, reportPath: string, filePaths: str
   ];
 
   try {
-    await execFileAsync("java", args, {
+    await execFileAsync(javaCommand, args, {
       timeout: CHECKSTYLE_TIMEOUT_MS,
       maxBuffer: 10 * 1024 * 1024,
     });

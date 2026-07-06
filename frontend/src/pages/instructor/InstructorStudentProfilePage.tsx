@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
@@ -88,6 +88,8 @@ export function InstructorStudentProfilePage() {
   const { id, studentId } = useParams<{ id: string; studentId: string }>()
   const [profile, setProfile] = useState<ProfileResponse | null>(null)
   const [loading, setLoading] = useState(true)
+  
+  const isStudentView = window.location.pathname.startsWith('/student')
 
   useEffect(() => {
     if (id && studentId) fetchProfile(id, studentId)
@@ -281,8 +283,22 @@ export function InstructorStudentProfilePage() {
                             <td className="px-3 py-3 font-semibold text-slate-500 text-center">
                               {index + 1 + (currentPage - 1) * PAGE_SIZE}
                             </td>
-                            <td className="px-3 py-3 font-bold text-primary">{submission.id.slice(0, 8)}</td>
-                            <td className="px-3 py-3 font-semibold text-slate-700">{submission.exerciseTitle}</td>
+                            <td className="px-3 py-3 font-bold">
+                              <Link
+                                to={isStudentView ? `/student/submissions/${submission.id}` : `/instructor/submissions?submission_id=${submission.id}`}
+                                className="text-primary hover:text-primary-800 hover:underline transition-colors"
+                              >
+                                {submission.id.slice(0, 8)}
+                              </Link>
+                            </td>
+                            <td className="px-3 py-3 font-semibold text-slate-700">
+                              <Link
+                                to={isStudentView ? `/student/exercises/${submission.exerciseId}` : `/instructor/exercises/${submission.exerciseId}`}
+                                className="hover:text-primary hover:underline transition-colors"
+                              >
+                                {submission.exerciseTitle}
+                              </Link>
+                            </td>
                             <td className="px-3 py-3 text-slate-500">{formatTimestamp(submission.submittedAt)}</td>
                             <td className="px-3 py-3 text-center font-bold">{submission.effectiveScore.toFixed(1)}/100</td>
                             <td className="px-3 py-3 text-center">
