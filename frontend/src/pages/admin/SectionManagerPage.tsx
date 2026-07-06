@@ -717,19 +717,21 @@ export function SectionManagerPage() {
                   }}
                   className={`card p-0 transition-all border overflow-hidden cursor-pointer ${
                     isSelected
-                      ? 'border-primary ring-2 ring-primary/30 shadow-md bg-slate-50/10'
+                      ? 'border-primary ring-2 ring-primary/30 shadow-md'
                       : 'border-slate-200 hover:border-slate-300 shadow-sm bg-white'
                   }`}
                 >
                   {/* Semester Header */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/50 px-5 py-3.5 select-none">
-                    <div className="flex items-center gap-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/50 px-5 py-3 select-none">
+                    <div className="flex items-center gap-3">
                       <span
-                        className={`text-sm font-black transition-colors ${
-                          isSelected ? 'text-primary font-black' : 'text-slate-700 font-bold'
+                        className={`rounded-lg px-3 py-1.5 text-xs font-black transition-colors ${
+                          isSelected
+                            ? 'bg-primary text-white shadow-sm'
+                            : 'bg-slate-100 text-slate-700 hover:bg-primary-50 hover:text-primary'
                         }`}
                       >
-                        {getSemesterDisplayName(sem)}
+                        {getSemesterDisplayName(sem).toUpperCase()}
                       </span>
                       {isSelected && (
                         <span className="badge-blue text-[9px] font-extrabold tracking-wide uppercase select-none">
@@ -743,7 +745,7 @@ export function SectionManagerPage() {
                             e.stopPropagation()
                             handleDeleteSemester(sem)
                           }}
-                          className="inline-flex items-center justify-center rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 px-2 py-1 text-[10px] font-bold transition-all border border-rose-200/55 cursor-pointer"
+                          className="inline-flex items-center justify-center rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 px-2.5 py-1.5 text-[10px] font-bold transition-all border border-rose-200/55 cursor-pointer"
                           title="Xóa học kỳ này"
                         >
                           🗑️ Xóa học kỳ
@@ -770,109 +772,94 @@ export function SectionManagerPage() {
                   </div>
 
                   {/* Semester Body */}
-                  <div className="p-5 bg-white">
+                  <div className="space-y-2.5 p-4 bg-slate-50/10 rounded-b-xl">
                     {sectionsInSem.length === 0 ? (
-                      <div className="text-center py-6 text-slate-400 text-xs font-semibold italic">
+                      <div className="text-center py-6 text-slate-400 text-xs font-semibold italic bg-white rounded-xl border border-slate-200 border-dashed">
                         {search.trim() !== ''
                           ? 'Không tìm thấy lớp học phần nào khớp với từ khóa tìm kiếm.'
                           : 'Chưa có lớp học phần nào trong học kỳ này.'}
                       </div>
                     ) : (
-                      <div className="overflow-x-auto" onClick={(e) => e.stopPropagation()}>
-                        <table className="min-w-full border-separate border-spacing-0 text-left">
-                          <thead>
-                            <tr className="select-none bg-slate-50/50">
-                              <th className="table-th text-center w-16 select-none border-b border-slate-200">STT</th>
-                              <th className="table-th select-none border-b border-slate-200">Tên lớp</th>
-                              <th className="table-th select-none border-b border-slate-200">Giảng viên</th>
-                              <th className="table-th text-center w-56 select-none border-b border-slate-200">Thao tác</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100 bg-white">
-                            {sectionsInSem.map((section: Section, index: number) => (
-                              <tr key={section.id} className="hover:bg-slate-50/50 transition-colors">
-                                <td className="table-td text-center text-slate-400 font-bold border-b border-slate-100">
-                                  {index + 1}
-                                </td>
-                                <td className="table-td font-semibold text-slate-800 border-b border-slate-100">
-                                  <Link
-                                    to={`/admin/sections/${section.id}`}
-                                    className="text-primary hover:text-primary-700 hover:underline"
-                                  >
-                                    {section.name}
-                                  </Link>
-                                </td>
-                                <td className="table-td border-b border-slate-100">
+                      <div className="space-y-2.5" onClick={(e) => e.stopPropagation()}>
+                        {sectionsInSem.map((section: Section) => (
+                          <div
+                            key={section.id}
+                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-5 py-3.5 shadow-sm hover:shadow hover:border-slate-300 transition-all"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-50 text-primary">
+                                <SectionIcon className="h-5 w-5" />
+                              </span>
+                              <div>
+                                <Link
+                                  to={`/admin/sections/${section.id}`}
+                                  className="font-bold text-slate-800 hover:text-primary hover:underline text-sm block"
+                                >
+                                  {section.name}
+                                </Link>
+                                <div className="flex flex-wrap items-center gap-1.5 mt-1">
                                   {section.instructors && section.instructors.length > 0 ? (
-                                    <div className="flex flex-wrap gap-1.5">
-                                      {section.instructors.map((instructor) => (
-                                        <span
-                                          key={instructor.id}
-                                          className="inline-flex items-center gap-1 rounded-full border border-primary-100 bg-primary-50 px-2 py-0.5 text-[11px] font-medium text-primary-800"
-                                        >
-                                          {instructor.fullName || instructor.username}
-                                          {instructor.isPrimary && (
-                                            <span className="rounded-full bg-primary px-1.5 py-0.5 text-[9px] font-bold uppercase text-white scale-90">
-                                              Chính
-                                            </span>
-                                          )}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  ) : section.instructor ? (
-                                    <span className="text-[12px] text-slate-700 font-medium">
-                                      {section.instructor.fullName || section.instructor.username}
-                                    </span>
-                                  ) : instructors.length > 0 ? (
-                                    <select
-                                      className="rounded-lg border border-gray-300 px-2 py-1 text-xs text-gray-600 focus:border-primary focus:outline-none"
-                                      defaultValue=""
-                                      onChange={(e) => {
-                                        if (e.target.value) {
-                                          handleAssignInstructor(section.id, e.target.value)
-                                        }
-                                      }}
-                                    >
-                                      <option value="">Phân công giảng viên...</option>
-                                      {instructors.map((instructor) => (
-                                        <option key={instructor.id} value={instructor.id}>
-                                          {instructor.fullName || instructor.username}
-                                        </option>
-                                      ))}
-                                    </select>
+                                    section.instructors.map((instructor) => (
+                                      <span
+                                        key={instructor.id}
+                                        className="inline-flex items-center gap-1 rounded-full border border-primary-50 bg-primary-50 px-2 py-0.5 text-[10px] font-semibold text-primary-800"
+                                      >
+                                        {instructor.fullName || instructor.username}
+                                        {instructor.isPrimary && (
+                                          <span className="rounded-full bg-primary px-1.5 py-0.5 text-[8px] font-bold uppercase text-white scale-90">
+                                            Chính
+                                          </span>
+                                        )}
+                                      </span>
+                                    ))
                                   ) : (
-                                    <span className="text-xs italic text-gray-400">
-                                      Chưa phân công
-                                    </span>
+                                    <span className="text-[10px] text-slate-400 font-medium italic">Chưa phân công giảng viên</span>
                                   )}
-                                </td>
-                                <td className="table-td text-center border-b border-slate-100">
-                                  <div className="flex items-center justify-center gap-2">
-                                    <Link
-                                      to={`/admin/sections/${section.id}`}
-                                      className="bg-primary hover:bg-primary-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all active:scale-[0.97] cursor-pointer shadow-sm inline-block"
-                                    >
-                                      Chi tiết
-                                    </Link>
-                                    <button
-                                      onClick={() => openEditForm(section)}
-                                      className="bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all active:scale-[0.97] cursor-pointer shadow-sm inline-block"
-                                    >
-                                      Sửa
-                                    </button>
-                                    <button
-                                      onClick={() => handleDelete(section.id)}
-                                      disabled={deletingId === section.id}
-                                      className="bg-rose-500 hover:bg-rose-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all active:scale-[0.97] cursor-pointer shadow-sm disabled:opacity-50 inline-block"
-                                    >
-                                      {deletingId === section.id ? 'Đang xóa...' : 'Xóa'}
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2">
+                              {(!section.instructors || section.instructors.length === 0) && instructors.length > 0 && (
+                                <select
+                                  className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs text-slate-600 bg-white focus:border-primary focus:outline-none cursor-pointer"
+                                  defaultValue=""
+                                  onChange={(e) => {
+                                    if (e.target.value) {
+                                      handleAssignInstructor(section.id, e.target.value)
+                                    }
+                                  }}
+                                >
+                                  <option value="">Phân công giảng viên...</option>
+                                  {instructors.map((instructor) => (
+                                    <option key={instructor.id} value={instructor.id}>
+                                      {instructor.fullName || instructor.username}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                              <Link
+                                to={`/admin/sections/${section.id}`}
+                                className="bg-primary hover:bg-primary-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all active:scale-[0.97] cursor-pointer shadow-sm"
+                              >
+                                Chi tiết
+                              </Link>
+                              <button
+                                onClick={() => openEditForm(section)}
+                                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 hover:text-emerald-800 text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all active:scale-[0.97] cursor-pointer"
+                              >
+                                Sửa
+                              </button>
+                              <button
+                                onClick={() => handleDelete(section.id)}
+                                disabled={deletingId === section.id}
+                                className="bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-800 text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all active:scale-[0.97] cursor-pointer disabled:opacity-50"
+                              >
+                                {deletingId === section.id ? 'Đang xóa...' : 'Xóa'}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>

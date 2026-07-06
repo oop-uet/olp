@@ -50,6 +50,14 @@ const DEFAULT_TOTAL_WEEKS = 10
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+function getSemesterDisplayName(semId: string): string {
+  const match = semId.match(/^(\d{4})-(\d{4})-HK(\d)$/);
+  if (!match) return semId;
+  const hkNum = parseInt(match[3]);
+  const hk = hkNum === 1 ? "I" : hkNum === 2 ? "II" : hkNum === 3 ? "III" : match[3];
+  return `Học kỳ ${hk} năm học ${match[1]}-${match[2]}`;
+}
+
 const DIFFICULTY_BADGE: Record<Difficulty, { className: string; label: string }> = {
   easy: { className: 'badge-green', label: 'Dễ' },
   medium: { className: 'badge-yellow', label: 'Trung bình' },
@@ -292,19 +300,21 @@ export function SectionSchedulePage() {
       </Link>
 
       {/* Header */}
-      <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary">
-          <ExerciseIcon className="h-6 w-6" />
-        </span>
-        <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-semibold text-gray-800">Phân bài theo tuần</h1>
-            <span className="badge-blue">{section.semester}</span>
+      <div className="bg-white border border-slate-200 rounded-xl px-6 py-4 font-bold text-slate-800 text-lg shadow-sm flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary">
+            <ExerciseIcon className="h-5 w-5" />
+          </span>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="uppercase text-slate-800 text-[17px] font-bold">Phân bài theo tuần</span>
+            <span className="badge-blue text-xs font-bold py-0.5 px-2.5 rounded-full">
+              {getSemesterDisplayName(section.semester)}
+            </span>
           </div>
-          <p className="text-sm text-gray-500">
-            Lớp: <span className="font-medium text-gray-700">{section.name}</span>
-          </p>
         </div>
+        <p className="text-xs font-semibold text-slate-500">
+          Lớp: <span className="text-primary font-bold">{section.name}</span>
+        </p>
       </div>
 
       {/* Split layout */}
