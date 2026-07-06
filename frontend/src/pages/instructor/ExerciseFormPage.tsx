@@ -28,6 +28,7 @@ interface TestCaseForm {
   expected_output: string
   is_visible: boolean
   point_value: number
+  time_limit_seconds?: number
 }
 
 interface FormErrors {
@@ -36,6 +37,89 @@ interface FormErrors {
   difficulty?: string
   tags?: string
   testCases?: string
+}
+
+interface ExerciseTemplateFile {
+  format?: string
+  version?: number
+  title?: string
+  description?: string
+  difficulty?: Difficulty
+  oop_tags?: string[]
+  starter_code?: string
+  test_cases?: Partial<TestCaseForm>[]
+  exercise?: {
+    title?: string
+    description?: string
+    difficulty?: Difficulty
+    oop_tags?: string[]
+    starter_code?: string
+  }
+}
+
+const TEMPLATE_FORMAT = 'uet-oasis-oop-exercise-template'
+
+export const EMPTY_TEST_CASE: TestCaseForm = {
+  input_data: '',
+  expected_output: '',
+  is_visible: true,
+  point_value: 10,
+}
+
+export const SAMPLE_TEMPLATE: ExerciseTemplateFile & {
+  authoring_notes: string[]
+} = {
+  format: TEMPLATE_FORMAT,
+  version: 1,
+  title: 'Student Management',
+  description:
+    'Viết lớp Student và StudentManagement theo yêu cầu. Mô tả rõ các lớp, thuộc tính, constructor, getter/setter và hành vi cần kiểm tra.',
+  difficulty: 'medium',
+  oop_tags: ['classes and objects', 'encapsulation'],
+  starter_code: JSON.stringify(
+    {
+      format: 'oop-java-files',
+      version: 1,
+      files: [
+        {
+          name: 'Student.java',
+          content:
+            'public class Student {\\n    // TODO: declare fields, constructor and methods\\n}\\n',
+        },
+        {
+          name: 'StudentManagement.java',
+          content:
+            'public class StudentManagement {\\n    // TODO: manage students\\n}\\n',
+        },
+      ],
+    },
+    null,
+    2
+  ),
+  test_cases: [
+    {
+      input_data: '__OOP_JAVA_TEST__\nMyTest.java',
+      expected_output:
+        'import org.junit.Test;\\nimport static org.junit.Assert.*;\\n\\npublic class MyTest {\\n    @Test\\n    public void testStudentConstructor() {\\n        Student s = new Student(\"Nguyen Van A\", \"24000001\", 3.5);\\n        assertEquals(\"Nguyen Van A\", s.getName());\\n        assertEquals(\"24000001\", s.getStudentId());\\n        assertEquals(3.5, s.getGpa(), 0.001);\\n    }\\n}\\n',
+      is_visible: true,
+      point_value: 50,
+      time_limit_seconds: 3,
+    },
+    {
+      input_data: '__OOP_JAVA_TEST__\nHiddenTest.java',
+      expected_output:
+        'import org.junit.Test;\\nimport static org.junit.Assert.*;\\n\\npublic class HiddenTest {\\n    @Test\\n    public void testValidation() {\\n        assertThrows(IllegalArgumentException.class, () -> new Student(\"A\", \"1\", -1.0));\\n    }\\n}\\n',
+      is_visible: false,
+      point_value: 50,
+      time_limit_seconds: 3,
+    },
+  ],
+  authoring_notes: [
+    'Giữ format/version để hệ thống nhận diện template.',
+    'Với JUnit test, input_data đặt dạng __OOP_JAVA_TEST__ + tên file test; expected_output là toàn bộ nội dung file .java.',
+    'Tổng point_value nên bằng 100 để dễ đọc điểm.',
+    'is_visible=false dùng cho test ẩn, sinh viên không nhìn thấy chi tiết.',
+  ],
 }
 
 export function ExerciseFormPage() {

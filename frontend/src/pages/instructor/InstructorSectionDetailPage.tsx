@@ -275,29 +275,11 @@ export function InstructorSectionDetailPage() {
 
 
 
-  if (loading) {
-    return <PageLoader label="Đang tải thông tin lớp..." />
-  }
-
-  if (accessError) {
-    return (
-      <div className="card flex flex-col items-center justify-center p-12 text-center">
-        <p className="text-gray-600">{accessError}</p>
-        <Link to="/instructor/classes" className="btn-secondary btn-sm mt-4">
-          ← Quay lại danh sách lớp
-        </Link>
-      </div>
-    )
-  }
-
-  if (!detail) {
-    return null
-  }
-
-  const { section, students } = detail
-
   const [sortField, setSortField] = useState<'studentId' | 'fullName' | 'email' | ''>('')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+
+  const students = detail?.students ?? []
+  const section = detail?.section
 
   // ─── Client Filter, Search & Sort ──────────────────────────────────────────
   const filteredStudents = useMemo(() => {
@@ -332,6 +314,25 @@ export function InstructorSectionDetailPage() {
   // Pagination
   const totalPages = Math.ceil(filteredStudents.length / pageSize)
   const paginatedStudents = filteredStudents.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+
+  if (loading) {
+    return <PageLoader label="Đang tải thông tin lớp..." />
+  }
+
+  if (accessError) {
+    return (
+      <div className="card flex flex-col items-center justify-center p-12 text-center">
+        <p className="text-gray-600">{accessError}</p>
+        <Link to="/instructor/classes" className="btn-secondary btn-sm mt-4">
+          ← Quay lại danh sách lớp
+        </Link>
+      </div>
+    )
+  }
+
+  if (!detail || !section) {
+    return null
+  }
 
   return (
     <div className="space-y-6">
