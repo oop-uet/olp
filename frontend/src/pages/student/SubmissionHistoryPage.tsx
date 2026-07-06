@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../lib/api'
-import { PageLoader, SubmissionIcon } from '../../components/ui'
+import { PageLoader, SubmissionIcon, Spinner } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 
 interface StudentInfo {
@@ -419,49 +419,50 @@ export function SubmissionHistoryPage() {
         </div>
 
         {/* Right Column: Leaderboard Sidebar */}
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_10px_28px_rgba(15,23,42,0.12)]">
           {/* Sidebar Header */}
-          <div className="bg-gradient-to-r from-teal-600 to-cyan-500 px-4 py-3.5 text-white">
-            <h3 className="text-xs font-black uppercase tracking-wide flex items-center gap-1.5">
-              <span>🏆</span> Bảng Xếp Hạng
-            </h3>
-            <div className="mt-1 flex items-center justify-between">
-              <span className="text-[10px] bg-secondary/80 text-white font-extrabold px-1.5 py-0.5 rounded uppercase">
-                {selectedSection?.name}
-              </span>
-            </div>
+          <div className="bg-gradient-to-r from-cyan-500 to-teal-500 px-6 py-4 text-white">
+            <h2 className="flex items-center gap-2 text-lg font-bold">
+              <span className="text-xl leading-none">≡</span>
+              Bảng Xếp Hạng
+            </h2>
           </div>
 
           {/* Sidebar Content */}
-          <div className="p-4 space-y-3">
-            {loadingData ? (
-              <p className="text-xs text-slate-400 py-4 text-center">Đang tải...</p>
-            ) : leaderboard.length === 0 ? (
-              <p className="text-xs text-slate-400 py-4 text-center">Không có xếp hạng.</p>
-            ) : (
-              <div className="divide-y divide-slate-100">
-                {leaderboard.slice(0, 10).map((entry) => (
-                  <div
-                    key={entry.studentId}
-                    className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0 text-xs gap-2"
-                  >
-                    <div className="flex items-center gap-2 overflow-hidden">
-                      <span className="font-bold text-slate-500 w-4 select-none">
-                        {entry.rank}
-                      </span>
-                      <Link
-                        to={`/student/classes/${selectedSectionId}/students/${
-                          entry.studentUserId || entry.studentId
-                        }/profile`}
-                        className="font-semibold text-primary hover:underline truncate"
-                      >
-                        {entry.studentName}
-                      </Link>
-                    </div>
-                    <span className="text-slate-400 font-mono select-none">{entry.studentId}</span>
-                  </div>
-                ))}
+          <div className="px-6 py-5">
+            {selectedSection && (
+              <div className="mb-4 flex items-center justify-between border-b border-slate-200 pb-4">
+                <span className="inline-flex rounded-full bg-sky-500 px-3 py-1 text-xs font-bold text-white uppercase">
+                  {selectedSection.name}
+                </span>
+                <span className="text-xs font-semibold text-slate-500">
+                  {selectedSection.semester}
+                </span>
               </div>
+            )}
+
+            {loadingData ? (
+              <div className="flex items-center justify-center gap-2 py-8 text-sm text-slate-400">
+                <Spinner /> Nạp bảng xếp hạng...
+              </div>
+            ) : leaderboard.length === 0 ? (
+              <p className="py-8 text-center text-sm text-slate-400">Chưa có xếp hạng cho lớp này.</p>
+            ) : (
+              <ul className="divide-y divide-slate-200">
+                {leaderboard.slice(0, 10).map((entry, index) => (
+                  <li key={entry.studentId} className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 py-4">
+                    <span className="text-base font-bold text-slate-800">{index + 1}</span>
+                    <Link
+                      to={`/student/classes/${selectedSectionId}/students/${entry.studentUserId || entry.studentId}/profile`}
+                      className="min-w-0 truncate text-base font-medium text-sky-500 hover:underline"
+                      title={entry.studentName}
+                    >
+                      {entry.studentName}
+                    </Link>
+                    <span className="text-base font-bold text-sky-500">{entry.totalScore.toFixed(0)}</span>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         </div>
