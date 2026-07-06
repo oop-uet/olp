@@ -189,8 +189,9 @@ async function seed() {
   const libraryExercises = await db.select().from(exercises);
   if (libraryExercises.length > 0) {
     for (const ex of libraryExercises) {
-      // Set some as assessments to showcase anti-cheat monitoring
-      const isAssessment = ex.title.includes("Creation") || ex.title.includes("Operations") ? 1 : 0;
+      const weekMatch = ex.title.match(/Tuần\s+(\d+)/i);
+      const week = weekMatch ? Number.parseInt(weekMatch[1], 10) : null;
+      const isAssessment = ex.title.includes("Quản lý sinh viên") || ex.title.includes("Phân số") ? 1 : 0;
       await db
         .insert(exerciseAssignments)
         .values({
@@ -199,6 +200,7 @@ async function seed() {
           sectionId: sectionId,
           isAssessment,
           deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 days
+          week,
           assignedAt: now,
         })
         .onConflictDoNothing();
