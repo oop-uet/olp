@@ -620,7 +620,7 @@ function FunctionalResultCard({
           </span>
           <div className="min-w-0">
             <h3 className={`truncate text-base font-bold ${result.passed ? 'text-emerald-700' : 'text-rose-700'}`}>
-              Test case {index + 1} ({result.pointValue} điểm): {result.testCaseLabel || `test_${index + 1}`}
+              {result.testCaseLabel || `Test case ${index + 1}`} ({result.pointValue} điểm)
             </h3>
             <p className="mt-1 text-xs font-semibold text-slate-500">
               {result.executionTimeMs != null ? `${result.executionTimeMs} ms · ` : ''}
