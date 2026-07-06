@@ -58,19 +58,24 @@ const troubleshooting = [
 
 export function StudentGuidePage() {
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
+    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
+      <header className="bg-gradient-to-r from-[#003366] to-[#002b56] text-white shadow-md border-b-4 border-[#f37021]">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary text-xs font-bold text-white">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 border border-white/20 text-xs font-black text-[#f37021] tracking-wider shadow-inner">
               UET
             </div>
             <div>
-              <h1 className="text-lg font-bold tracking-tight text-slate-900">Hướng dẫn sử dụng UET OASIS</h1>
-              <p className="text-sm text-slate-500">Dành cho sinh viên học Lập trình hướng đối tượng</p>
+              <h1 className="text-lg font-black tracking-tight text-white flex items-center gap-1.5">
+                UET OASIS <span className="text-[10px] font-bold bg-[#f37021] text-white px-1.5 py-0.5 rounded tracking-wide uppercase">Cẩm nang</span>
+              </h1>
+              <p className="text-xs text-slate-300 font-medium">Hướng dẫn sử dụng dành cho sinh viên Lập trình hướng đối tượng</p>
             </div>
           </div>
-          <Link to="/login" className="btn-primary btn-sm">
+          <Link
+            to="/login"
+            className="px-4 py-2 text-xs font-bold text-white bg-[#f37021] hover:bg-[#e05f10] active:scale-[0.98] transition-all rounded-lg shadow-sm border border-[#f37021]/30 cursor-pointer"
+          >
             Đăng nhập
           </Link>
         </div>
@@ -78,15 +83,18 @@ export function StudentGuidePage() {
 
       <main className="mx-auto grid max-w-6xl gap-8 px-6 py-8 lg:grid-cols-[260px_1fr]">
         <aside className="hidden lg:block">
-          <div className="sticky top-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">Nội dung</p>
+          <div className="sticky top-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-slate-400 select-none">
+              Mục lục hướng dẫn
+            </p>
             <nav className="space-y-1">
               {sections.map((section) => (
                 <a
                   key={section.id}
                   href={`#${section.id}`}
-                  className="block rounded-md px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-primary-50 hover:text-primary"
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-slate-600 hover:bg-[#003366]/5 hover:text-[#003366] transition-all duration-150 active:scale-[0.98] cursor-pointer"
                 >
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#f37021] shrink-0" />
                   {section.title}
                 </a>
               ))}
@@ -95,41 +103,55 @@ export function StudentGuidePage() {
         </aside>
 
         <div className="space-y-6">
-          <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-            <p className="text-sm font-bold uppercase tracking-wide text-primary">Bắt đầu nhanh</p>
-            <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
-              Làm bài Java OOP trên website, chạy mã bằng máy cá nhân
+          <section className="relative overflow-hidden rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-8 shadow-sm">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[#f37021]/5 rounded-full -mr-8 -mt-8 blur-lg" />
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#003366]/5 rounded-full -ml-12 -mb-12 blur-xl" />
+            
+            <p className="text-[11px] font-black uppercase tracking-widest text-[#f37021] select-none">
+              Khởi động nhanh
+            </p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-800 leading-snug">
+              Làm bài Java OOP trên website, biên dịch trực tiếp bằng máy cá nhân
             </h2>
-            <p className="mt-4 max-w-3xl text-base leading-7 text-slate-600">
-              UET OASIS dùng trình duyệt để hiển thị đề bài, soạn mã và nộp bài. Phần biên dịch Java chạy trên máy
-              của bạn thông qua Local Executor, vì vậy trước khi làm bài hãy đảm bảo Executor đã kết nối thành công.
+            <p className="mt-4 text-sm leading-relaxed text-slate-600 max-w-3xl">
+              Hệ thống UET OASIS cung cấp trình soạn thảo trực tuyến chuyên nghiệp. Trình biên dịch Java sẽ được chạy trực tiếp trên máy tính cá nhân của bạn thông qua phần mềm <strong>Local Executor</strong>, đảm bảo tốc độ biên dịch tối ưu và trải nghiệm làm bài tốt nhất.
             </p>
           </section>
 
           <GuideSection id="login" title="1. Đăng nhập lần đầu">
-            <ol className="space-y-3 text-sm leading-6 text-slate-700">
-              <li><strong>1.</strong> Mở trang đăng nhập và nhập tài khoản được giảng viên hoặc quản trị viên cung cấp.</li>
-              <li><strong>2.</strong> Thông thường tài khoản sinh viên là MSSV. Nếu là lần đầu đăng nhập, mật khẩu mặc định cũng có thể là MSSV.</li>
-              <li><strong>3.</strong> Nếu hệ thống yêu cầu đổi mật khẩu, hãy đặt mật khẩu mới trước khi vào lớp học.</li>
-              <li><strong>4.</strong> Sau khi đăng nhập, hệ thống đưa bạn tới lớp học phần duy nhất của mình và danh sách bài tập.</li>
+            <ol className="space-y-3.5 text-xs leading-relaxed text-slate-600 font-medium">
+              <li className="flex gap-3">
+                <span className="font-bold text-slate-800">1.</span>
+                <span>Mở trang đăng nhập và nhập tài khoản được giảng viên hoặc quản trị viên cung cấp.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="font-bold text-slate-800">2.</span>
+                <span>Thông thường tài khoản sinh viên là MSSV. Nếu là lần đầu đăng nhập, mật khẩu mặc định cũng có thể là MSSV.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="font-bold text-slate-800">3.</span>
+                <span>Nếu hệ thống yêu cầu đổi mật khẩu, hãy đặt mật khẩu mới trước khi vào lớp học.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="font-bold text-slate-800">4.</span>
+                <span>Sau khi đăng nhập, hệ thống đưa bạn tới lớp học phần duy nhất của mình và danh sách bài tập.</span>
+              </li>
             </ol>
           </GuideSection>
 
           <GuideSection id="executor" title="2. Cài và kiểm tra Local Executor">
-            <p className="mb-4 text-sm leading-6 text-slate-700">
-              Local Executor là chương trình nhỏ chạy trên máy cá nhân để biên dịch và chạy test Java. Website chỉ bắt đầu
-              làm bài khi Executor sẵn sàng.
+            <p className="mb-4 text-xs leading-relaxed text-slate-500 font-semibold">
+              Local Executor là chương trình nhỏ chạy trên máy cá nhân để biên dịch và chạy test Java. Website chỉ bắt đầu làm bài khi Executor sẵn sàng.
             </p>
             <StepList items={executorSteps} />
-            <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
-              <strong>Lưu ý:</strong> Nếu dùng macOS, lần đầu mở file có thể cần xác nhận trong Security & Privacy. Nếu
-              dùng Windows, nên cài IntelliJ IDEA kèm JDK hoặc JDK 17 trước khi chạy Executor.
+            <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50/70 p-4 text-xs leading-relaxed text-amber-900 font-medium">
+              <strong>Lưu ý:</strong> Nếu dùng macOS, lần đầu mở file có thể cần xác nhận trong Security & Privacy. Nếu dùng Windows, nên cài IntelliJ IDEA kèm JDK hoặc JDK 17 trước khi chạy Executor.
             </div>
           </GuideSection>
 
           <GuideSection id="exercise" title="3. Làm bài thực hành">
             <StepList items={workflowSteps} />
-            <div className="mt-5 grid gap-3 md:grid-cols-2">
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
               <InfoCard
                 title="Bài có nhiều file Java"
                 text="Dùng nút thêm file trong editor. File chứa public class phải có tên trùng class, ví dụ public class Student thì file nên là Student.java."
@@ -150,9 +172,8 @@ export function StudentGuidePage() {
           </GuideSection>
 
           <GuideSection id="assessment" title="4. Làm bài kiểm tra và quy định cảnh báo">
-            <p className="mb-4 text-sm leading-6 text-slate-700">
-              Bài kiểm tra có chế độ giám sát khác bài luyện tập. Hãy chuẩn bị Executor, đóng ứng dụng không cần thiết,
-              và chỉ bắt đầu khi bạn đã sẵn sàng làm liên tục.
+            <p className="mb-4 text-xs leading-relaxed text-slate-500 font-semibold">
+              Bài kiểm tra có chế độ giám sát khác bài luyện tập. Hãy chuẩn bị Executor, đóng ứng dụng không cần thiết, và chỉ bắt đầu khi bạn đã sẵn sàng làm liên tục.
             </p>
             <StepList items={assessmentRules} />
           </GuideSection>
@@ -177,17 +198,19 @@ export function StudentGuidePage() {
           <GuideSection id="troubleshooting" title="6. Xử lý lỗi thường gặp">
             <div className="space-y-3">
               {troubleshooting.map((item) => (
-                <div key={item.title} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <h3 className="font-bold text-slate-900">{item.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">{item.detail}</p>
+                <div key={item.title} className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 hover:bg-slate-50 transition-colors">
+                  <h3 className="text-xs font-bold text-slate-800">{item.title}</h3>
+                  <p className="mt-2 text-xs leading-relaxed text-slate-500 font-medium">{item.detail}</p>
                 </div>
               ))}
             </div>
           </GuideSection>
 
-          <section className="rounded-lg border border-primary-100 bg-primary-50 p-6">
-            <h2 className="text-lg font-bold text-primary-900">Checklist trước khi làm bài kiểm tra</h2>
-            <div className="mt-4 grid gap-3 text-sm text-primary-900 md:grid-cols-2">
+          <section className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-6 shadow-sm">
+            <h2 className="text-base font-bold text-emerald-900 flex items-center gap-2">
+              <span className="text-lg">✓</span> Checklist chuẩn bị trước khi làm bài kiểm tra
+            </h2>
+            <div className="mt-4 grid gap-3 text-xs text-emerald-900 md:grid-cols-2">
               <ChecklistItem text="Executor đang chạy và báo sẵn sàng." />
               <ChecklistItem text="Trình duyệt đang dùng Chrome hoặc Edge khi có thể." />
               <ChecklistItem text="Đã đóng DevTools và các tab không cần thiết." />
@@ -210,22 +233,24 @@ function GuideSection({
   children: ReactNode
 }) {
   return (
-    <section id={id} className="scroll-mt-8 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-      <h2 className="mb-4 text-xl font-bold text-slate-900">{title}</h2>
-      {children}
+    <section id={id} className="scroll-mt-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm border-l-4 border-l-[#003366]">
+      <h2 className="mb-4 text-base font-bold text-slate-800 border-b border-slate-100 pb-3">{title}</h2>
+      <div className="space-y-3">
+        {children}
+      </div>
     </section>
   )
 }
 
 function StepList({ items }: { items: string[] }) {
   return (
-    <ol className="space-y-3">
+    <ol className="space-y-3.5">
       {items.map((item, index) => (
-        <li key={item} className="flex gap-3 text-sm leading-6 text-slate-700">
-          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
+        <li key={item} className="flex gap-3.5 text-xs leading-relaxed text-slate-600 font-medium">
+          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#003366] text-[10px] font-bold text-white shadow-sm">
             {index + 1}
           </span>
-          <span>{item}</span>
+          <span className="pt-0.5">{item}</span>
         </li>
       ))}
     </ol>
@@ -234,16 +259,17 @@ function StepList({ items }: { items: string[] }) {
 
 function InfoCard({ title, text }: { title: string; text: string }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-      <h3 className="font-bold text-slate-900">{title}</h3>
-      <p className="mt-2 text-sm leading-6 text-slate-600">{text}</p>
+    <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 hover:bg-slate-50 transition-colors">
+      <h3 className="text-xs font-bold text-slate-800">{title}</h3>
+      <p className="mt-2 text-xs leading-relaxed text-slate-500 font-medium">{text}</p>
     </div>
   )
 }
 
 function ChecklistItem({ text }: { text: string }) {
   return (
-    <div className="rounded-md border border-primary-100 bg-white px-4 py-3 font-semibold">
+    <div className="rounded-lg border border-emerald-200/50 bg-white px-4 py-3 font-bold text-emerald-800 shadow-sm flex items-center gap-2 select-none">
+      <span className="text-emerald-500 font-black text-sm">✓</span>
       {text}
     </div>
   )
