@@ -126,16 +126,19 @@ export function AdminExercisesPage() {
   // ─── Render ────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Page Header */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50 text-primary">
-            <ExerciseIcon className="h-6 w-6" />
+      <div className="bg-white border border-slate-200 rounded-xl px-6 py-4 font-bold text-slate-800 text-lg shadow-sm flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-50 text-primary">
+            <ExerciseIcon className="h-5 w-5" />
           </span>
-          <h1 className="text-2xl font-semibold text-gray-800">Quản lý bài tập</h1>
+          <span>QUẢN LÝ BÀI TẬP</span>
         </div>
-        <Link to="/admin/exercises/new" className="btn-primary btn-sm">
+        <Link
+          to="/admin/exercises/new"
+          className="bg-primary hover:bg-primary-700 text-white text-[11px] font-bold px-4 py-2.5 rounded-lg transition-all active:scale-[0.97] shadow-sm cursor-pointer"
+        >
           Tạo bài tập
         </Link>
       </div>
@@ -160,55 +163,56 @@ export function AdminExercisesPage() {
       {loading ? (
         <PageLoader label="Đang tải danh sách bài tập..." />
       ) : exercises.length === 0 ? (
-        <div className="card flex flex-col items-center justify-center border-dashed p-12 text-center">
+        <div className="card flex flex-col items-center justify-center border-dashed p-12 text-center border-slate-200">
           <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-400">
             <ExerciseIcon className="h-7 w-7" />
           </span>
-          <p className="text-gray-500">Chưa có bài tập nào.</p>
+          <p className="text-gray-500 font-medium">Chưa có bài tập nào.</p>
         </div>
       ) : filteredExercises.length === 0 ? (
-        <div className="card flex flex-col items-center justify-center p-12 text-center">
+        <div className="card flex flex-col items-center justify-center p-12 text-center border-slate-200">
           <ExerciseIcon className="mb-3 h-10 w-10 text-gray-300" />
-          <p className="text-gray-500">Không tìm thấy bài tập nào khớp với từ khóa tìm kiếm.</p>
+          <p className="text-gray-500 font-medium">Không tìm thấy bài tập nào khớp với từ khóa tìm kiếm.</p>
         </div>
       ) : (
-        <div className="card overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="table-th text-center w-16 select-none">STT</th>
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+          <table className="min-w-full border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 text-xs font-bold uppercase select-none">
+                <th className="px-4 py-3 text-center w-16 text-slate-500 font-black">STT</th>
                 <th
                   onClick={() => toggleSort('title')}
-                  className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                  className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors text-slate-500 font-black"
                 >
                   Tiêu đề {sortField === 'title' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
                 <th
                   onClick={() => toggleSort('difficulty')}
-                  className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                  className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors text-slate-500 font-black"
                 >
                   Độ khó {sortField === 'difficulty' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
-                <th className="table-th">Thẻ OOP</th>
-                <th className="table-th">Số test case</th>
-                <th className="table-th text-right">Thao tác</th>
+                <th className="px-4 py-3 text-left text-slate-500 font-black">Thẻ OOP</th>
+                <th className="px-4 py-3 text-left text-slate-500 font-black">Số test case</th>
+                <th className="px-4 py-3 text-center w-36 text-slate-500 font-black">Thao tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
               {paginatedExercises.map((exercise, index) => {
                 const tags = parseOopTags(exercise.oopTags)
+                const rowNum = index + 1 + (currentPage - 1) * PAGE_SIZE
                 return (
-                  <tr key={exercise.id} className="hover:bg-gray-50">
-                    <td className="table-td text-center text-slate-500 font-bold">
-                      {index + 1 + (currentPage - 1) * PAGE_SIZE}
+                  <tr key={exercise.id} className="hover:bg-slate-50/50 transition-colors border-b border-slate-100 last:border-b-0">
+                    <td className="px-4 py-2.5 text-center text-slate-400 font-bold">
+                      {rowNum}
                     </td>
-                    <td className="table-td font-medium text-gray-900">
+                    <td className="px-4 py-2.5 font-semibold text-slate-800">
                       {exercise.title}
                     </td>
-                    <td className="table-td">
+                    <td className="px-4 py-2.5">
                       <DifficultyBadge difficulty={exercise.difficulty} />
                     </td>
-                    <td className="table-td">
+                    <td className="px-4 py-2.5">
                       {tags.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                           {tags.map((tag) => (
@@ -221,23 +225,23 @@ export function AdminExercisesPage() {
                         <span className="text-gray-400">—</span>
                       )}
                     </td>
-                    <td className="table-td text-gray-700">
+                    <td className="px-4 py-2.5 text-slate-600 font-medium">
                       {Array.isArray(exercise.testCases)
                         ? exercise.testCases.length
                         : '—'}
                     </td>
-                    <td className="px-5 py-3.5 text-right">
-                      <div className="flex justify-end gap-3">
+                    <td className="px-4 py-2.5 text-center">
+                      <div className="flex items-center justify-center gap-2">
                         <Link
                           to={`/admin/exercises/${exercise.id}/edit`}
-                          className="text-sm font-medium text-primary hover:text-primary-600"
+                          className="bg-[#2ece71] hover:bg-[#27ae60] text-white text-[11px] font-bold px-3 py-1.5 rounded transition-all active:scale-[0.97] cursor-pointer shadow-sm inline-block"
                         >
                           Sửa
                         </Link>
                         <button
                           onClick={() => handleDelete(exercise)}
                           disabled={deletingId === exercise.id}
-                          className="text-sm font-medium text-danger-600 hover:text-danger-700 disabled:opacity-50"
+                          className="bg-[#e67e22] hover:bg-[#d35400] text-white text-[11px] font-bold px-3 py-1.5 rounded transition-all active:scale-[0.97] cursor-pointer shadow-sm disabled:opacity-50"
                         >
                           {deletingId === exercise.id ? 'Đang xóa...' : 'Xóa'}
                         </button>
@@ -260,7 +264,7 @@ export function AdminExercisesPage() {
                 <button
                   disabled={currentPage === 1}
                   onClick={() => setCurrentPage(currentPage - 1)}
-                  className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600"
+                  className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600 cursor-pointer"
                 >
                   Trước
                 </button>
@@ -268,7 +272,7 @@ export function AdminExercisesPage() {
                   <button
                     key={i}
                     onClick={() => setCurrentPage(i + 1)}
-                    className={`px-2.5 py-1 border rounded font-bold ${
+                    className={`px-2.5 py-1 border rounded font-bold cursor-pointer ${
                       currentPage === i + 1
                         ? 'bg-primary text-white border-primary'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -280,7 +284,7 @@ export function AdminExercisesPage() {
                 <button
                   disabled={currentPage === totalPages}
                   onClick={() => setCurrentPage(currentPage + 1)}
-                  className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600"
+                  className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600 cursor-pointer"
                 >
                   Sau
                 </button>

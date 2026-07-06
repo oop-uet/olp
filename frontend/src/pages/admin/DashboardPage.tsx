@@ -66,13 +66,15 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Page Header */}
-      <div className="flex items-center gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50 text-primary">
-          <DashboardIcon className="h-6 w-6" />
-        </span>
-        <h1 className="text-2xl font-semibold text-gray-800">Tổng quan</h1>
+      <div className="bg-white border border-slate-200 rounded-xl px-6 py-4 font-bold text-slate-800 text-lg shadow-sm flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-50 text-primary">
+            <DashboardIcon className="h-5 w-5" />
+          </span>
+          <span>TỔNG QUAN HỆ THỐNG</span>
+        </div>
       </div>
 
       {/* Stat Cards Grid */}

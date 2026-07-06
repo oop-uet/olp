@@ -146,16 +146,16 @@ export function StudentImportPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Page header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-gray-800">
-          Nhập / Xuất sinh viên
-        </h1>
+      <div className="bg-white border border-slate-200 rounded-xl px-6 py-4 font-bold text-slate-800 text-lg shadow-sm flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <span>NHẬP / XUẤT SINH VIÊN</span>
+        </div>
         <button
           onClick={handleExport}
           disabled={exporting}
-          className="btn-primary"
+          className="bg-primary hover:bg-primary-700 text-white text-[11px] font-bold px-4 py-2.5 rounded-lg transition-all active:scale-[0.97] shadow-sm cursor-pointer flex items-center gap-1.5"
         >
           {exporting ? (
             <>
@@ -164,7 +164,7 @@ export function StudentImportPage() {
             </>
           ) : (
             <>
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
               Xuất CSV
@@ -308,29 +308,29 @@ export function StudentImportPage() {
 
           {/* Skipped rows table */}
           {importResult.skipped.length > 0 && (
-            <div>
-              <h3 className="mb-2 text-sm font-medium text-gray-700">
+            <div className="space-y-2.5">
+              <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide">
                 Các dòng bị bỏ qua
               </h3>
-              <div className="overflow-hidden rounded-lg border border-gray-200">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="table-th">Dòng</th>
-                      <th className="table-th">MSSV</th>
-                      <th className="table-th">Họ tên</th>
-                      <th className="table-th">Email</th>
-                      <th className="table-th">Lý do</th>
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                <table className="min-w-full border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 text-xs font-bold uppercase select-none">
+                      <th className="px-4 py-3 text-center w-16 text-slate-500 font-black">Dòng</th>
+                      <th className="px-4 py-3 text-left text-slate-500 font-black">MSSV</th>
+                      <th className="px-4 py-3 text-left text-slate-500 font-black">Họ tên</th>
+                      <th className="px-4 py-3 text-left text-slate-500 font-black">Email</th>
+                      <th className="px-4 py-3 text-left text-slate-500 font-black">Lý do</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200 bg-white">
+                  <tbody className="divide-y divide-slate-100 text-xs text-slate-700 bg-white">
                     {importResult.skipped.map((row, index) => (
-                      <tr key={index} className="hover:bg-gray-50">
-                        <td className="table-td text-gray-600">{row.row}</td>
-                        <td className="table-td text-gray-600">{row.student_id || '—'}</td>
-                        <td className="table-td text-gray-600">{row.full_name || '—'}</td>
-                        <td className="table-td text-gray-600">{row.email || '—'}</td>
-                        <td className="px-5 py-3.5 text-sm text-danger-600">{row.reason}</td>
+                      <tr key={index} className="hover:bg-slate-50/50 transition-colors border-b border-slate-100 last:border-b-0">
+                        <td className="px-4 py-2.5 text-center text-slate-400 font-bold">{row.row}</td>
+                        <td className="px-4 py-2.5 font-semibold text-slate-800">{row.student_id || '—'}</td>
+                        <td className="px-4 py-2.5 text-slate-700 font-semibold">{row.full_name || '—'}</td>
+                        <td className="px-4 py-2.5 text-slate-600 font-medium">{row.email || '—'}</td>
+                        <td className="px-4 py-2.5 text-red-600 font-bold">{row.reason}</td>
                       </tr>
                     ))}
                   </tbody>

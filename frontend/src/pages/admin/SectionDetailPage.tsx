@@ -393,55 +393,57 @@ export function SectionDetailPage() {
             Không tìm thấy sinh viên nào.
           </p>
         ) : (
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="table-th text-center w-16 select-none">STT</th>
-                <th
-                  onClick={() => toggleStudentSort('studentId')}
-                  className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
-                >
-                  MSSV {studentSortField === 'studentId' ? (studentSortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
-                </th>
-                <th
-                  onClick={() => toggleStudentSort('fullName')}
-                  className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
-                >
-                  Họ tên {studentSortField === 'fullName' ? (studentSortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
-                </th>
-                <th
-                  onClick={() => toggleStudentSort('email')}
-                  className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
-                >
-                  Email {studentSortField === 'email' ? (studentSortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
-                </th>
-                <th className="table-th text-right">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {paginatedStudents.map((student: SectionStudent, index: number) => (
-                <tr key={student.enrollmentId} className="hover:bg-gray-50">
-                  <td className="table-td text-center text-slate-500 font-bold">
-                    {index + 1 + (studentCurrentPage - 1) * STUDENT_PAGE_SIZE}
-                  </td>
-                  <td className="table-td font-medium text-gray-900">
-                    {student.studentId || student.username}
-                  </td>
-                  <td className="table-td text-gray-700">{student.fullName || '—'}</td>
-                  <td className="table-td text-gray-700">{student.email}</td>
-                  <td className="px-5 py-3.5 text-right">
-                    <button
-                      onClick={() => handleRemoveStudent(student)}
-                      disabled={busyKey === `student-${student.userId}`}
-                      className="text-sm font-medium text-danger-600 hover:text-danger-700 disabled:opacity-50"
-                    >
-                      Gỡ khỏi lớp
-                    </button>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="min-w-full border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 text-xs font-bold uppercase select-none">
+                  <th className="px-4 py-3 text-center w-16 text-slate-500 font-black">STT</th>
+                  <th
+                    onClick={() => toggleStudentSort('studentId')}
+                    className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors text-slate-500 font-black"
+                  >
+                    MSSV {studentSortField === 'studentId' ? (studentSortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                  </th>
+                  <th
+                    onClick={() => toggleStudentSort('fullName')}
+                    className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors text-slate-500 font-black"
+                  >
+                    Họ tên {studentSortField === 'fullName' ? (studentSortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                  </th>
+                  <th
+                    onClick={() => toggleStudentSort('email')}
+                    className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors text-slate-500 font-black"
+                  >
+                    Email {studentSortField === 'email' ? (studentSortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                  </th>
+                  <th className="px-4 py-3 text-center w-36 text-slate-500 font-black">Thao tác</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
+                {paginatedStudents.map((student: SectionStudent, index: number) => (
+                  <tr key={student.enrollmentId} className="hover:bg-slate-50/50 transition-colors border-b border-slate-100 last:border-b-0">
+                    <td className="px-4 py-2.5 text-center text-slate-400 font-bold">
+                      {index + 1 + (studentCurrentPage - 1) * STUDENT_PAGE_SIZE}
+                    </td>
+                    <td className="px-4 py-2.5 font-semibold text-slate-800">
+                      {student.studentId || student.username}
+                    </td>
+                    <td className="px-4 py-2.5 text-slate-700 font-medium">{student.fullName || '—'}</td>
+                    <td className="px-4 py-2.5 text-slate-600 font-medium">{student.email}</td>
+                    <td className="px-4 py-2.5 text-center">
+                      <button
+                        onClick={() => handleRemoveStudent(student)}
+                        disabled={busyKey === `student-${student.userId}`}
+                        className="bg-[#e67e22] hover:bg-[#d35400] text-white text-[11px] font-bold px-3 py-1.5 rounded transition-all active:scale-[0.97] cursor-pointer shadow-sm disabled:opacity-50"
+                      >
+                        Gỡ khỏi lớp
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
 
         {studentTotalPages > 1 && (
@@ -590,64 +592,66 @@ export function SectionDetailPage() {
             Không tìm thấy bài tập nào.
           </p>
         ) : (
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="table-th text-center w-16 select-none">STT</th>
-                <th
-                  onClick={() => toggleExSort('title')}
-                  className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
-                >
-                  Tiêu đề {exSortField === 'title' ? (exSortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
-                </th>
-                <th
-                  onClick={() => toggleExSort('difficulty')}
-                  className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
-                >
-                  Độ khó {exSortField === 'difficulty' ? (exSortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
-                </th>
-                <th
-                  onClick={() => toggleExSort('deadline')}
-                  className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
-                >
-                  Hạn nộp {exSortField === 'deadline' ? (exSortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
-                </th>
-                <th className="table-th text-right">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {paginatedEx.map((exercise: SectionExercise, index: number) => (
-                <tr key={exercise.assignmentId} className="hover:bg-gray-50">
-                  <td className="table-td text-center text-slate-500 font-bold">
-                    {index + 1 + (exCurrentPage - 1) * EX_PAGE_SIZE}
-                  </td>
-                  <td className="table-td">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900">{exercise.title}</span>
-                      {exercise.isAssessment && (
-                        <span className="badge-blue">Đánh giá</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="table-td">
-                    <DifficultyBadge difficulty={exercise.difficulty} />
-                  </td>
-                  <td className="table-td text-gray-500">
-                    {formatDateTime(exercise.deadline)}
-                  </td>
-                  <td className="px-5 py-3.5 text-right">
-                    <button
-                      onClick={() => handleRemoveExercise(exercise)}
-                      disabled={busyKey === `exercise-${exercise.exerciseId}`}
-                      className="text-sm font-medium text-danger-600 hover:text-danger-700 disabled:opacity-50"
-                    >
-                      Gỡ
-                    </button>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="min-w-full border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 text-xs font-bold uppercase select-none">
+                  <th className="px-4 py-3 text-center w-16 text-slate-500 font-black">STT</th>
+                  <th
+                    onClick={() => toggleExSort('title')}
+                    className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors text-slate-500 font-black"
+                  >
+                    Tiêu đề {exSortField === 'title' ? (exSortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                  </th>
+                  <th
+                    onClick={() => toggleExSort('difficulty')}
+                    className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors text-slate-500 font-black"
+                  >
+                    Độ khó {exSortField === 'difficulty' ? (exSortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                  </th>
+                  <th
+                    onClick={() => toggleExSort('deadline')}
+                    className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors text-slate-500 font-black"
+                  >
+                    Hạn nộp {exSortField === 'deadline' ? (exSortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                  </th>
+                  <th className="px-4 py-3 text-center w-28 text-slate-500 font-black">Thao tác</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
+                {paginatedEx.map((exercise: SectionExercise, index: number) => (
+                  <tr key={exercise.assignmentId} className="hover:bg-slate-50/50 transition-colors border-b border-slate-100 last:border-b-0">
+                    <td className="px-4 py-2.5 text-center text-slate-400 font-bold">
+                      {index + 1 + (exCurrentPage - 1) * EX_PAGE_SIZE}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-slate-800">{exercise.title}</span>
+                        {exercise.isAssessment && (
+                          <span className="badge-blue font-bold text-[10px]">Đánh giá</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <DifficultyBadge difficulty={exercise.difficulty} />
+                    </td>
+                    <td className="px-4 py-2.5 text-slate-500 font-medium">
+                      {formatDateTime(exercise.deadline)}
+                    </td>
+                    <td className="px-4 py-2.5 text-center">
+                      <button
+                        onClick={() => handleRemoveExercise(exercise)}
+                        disabled={busyKey === `exercise-${exercise.exerciseId}`}
+                        className="bg-[#e67e22] hover:bg-[#d35400] text-white text-[11px] font-bold px-3 py-1.5 rounded transition-all active:scale-[0.97] cursor-pointer shadow-sm disabled:opacity-50"
+                      >
+                        Gỡ
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
 
         {exTotalPages > 1 && (

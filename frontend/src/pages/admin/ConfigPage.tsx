@@ -231,14 +231,14 @@ export function ConfigPage() {
     .filter((p) => configs.some((c) => c.key === p.key))
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Page header */}
-      <div className="flex items-center gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50 text-primary">
-          <ConfigIcon className="h-6 w-6" />
-        </span>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Cấu hình hệ thống</h1>
+      <div className="bg-white border border-slate-200 rounded-xl px-6 py-4 font-bold text-slate-800 text-lg shadow-sm flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-50 text-primary">
+            <ConfigIcon className="h-5 w-5" />
+          </span>
+          <span>CẤU HÌNH HỆ THỐNG</span>
         </div>
       </div>
 

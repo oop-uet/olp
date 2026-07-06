@@ -102,7 +102,7 @@ export function TopNav() {
   }
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 ${
+    `flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold text-shadow-sm transition-all duration-200 ${
       isActive
         ? 'bg-white/15 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] border border-white/20'
         : 'text-white/85 hover:bg-white/5 hover:text-white border border-transparent'
@@ -122,7 +122,7 @@ export function TopNav() {
               <path d="M 50 35 Q 65 30 70 42" strokeWidth="6" />
             </svg>
           </span>
-          <span className="text-lg font-bold tracking-wide text-white">UET OASIS</span>
+          <span className="text-lg font-black tracking-wide text-white text-shadow-sm">UET OASIS</span>
         </NavLink>
 
         {/* Desktop menu */}

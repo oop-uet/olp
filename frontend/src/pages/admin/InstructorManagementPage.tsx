@@ -203,16 +203,19 @@ export function InstructorManagementPage() {
   // ─── Render ────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50 text-primary">
-            <TeacherIcon className="h-6 w-6" />
+      <div className="bg-white border border-slate-200 rounded-xl px-6 py-4 font-bold text-slate-800 text-lg shadow-sm flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-50 text-primary">
+            <TeacherIcon className="h-5 w-5" />
           </span>
-          <h1 className="text-2xl font-semibold text-gray-800">Quản lý giảng viên</h1>
+          <span>QUẢN LÝ GIẢNG VIÊN</span>
         </div>
-        <button onClick={openCreateForm} className="btn-primary">
+        <button
+          onClick={openCreateForm}
+          className="bg-primary hover:bg-primary-700 text-white text-[11px] font-bold px-4 py-2.5 rounded-lg transition-all active:scale-[0.97] shadow-sm cursor-pointer"
+        >
           Tạo giảng viên
         </button>
       </div>
@@ -325,48 +328,48 @@ export function InstructorManagementPage() {
       {loading ? (
         <PageLoader label="Đang tải danh sách giảng viên..." />
       ) : users.length === 0 ? (
-        <div className="card flex flex-col items-center justify-center border-dashed p-12 text-center">
+        <div className="card flex flex-col items-center justify-center border-dashed p-12 text-center border-slate-200">
           <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-400">
             <TeacherIcon className="h-7 w-7" />
           </span>
-          <p className="text-gray-500">Chưa có giảng viên nào.</p>
+          <p className="text-gray-500 font-medium">Chưa có giảng viên nào.</p>
         </div>
       ) : (
-        <div className="card overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="table-th text-center w-16 select-none">STT</th>
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+          <table className="min-w-full border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 text-xs font-bold uppercase select-none">
+                <th className="px-4 py-3 text-center w-16 text-slate-500 font-black">STT</th>
                 <th
                   onClick={() => toggleSort('fullName')}
-                  className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                  className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors text-slate-500 font-black"
                 >
                   Họ tên {sortField === 'fullName' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
                 <th
                   onClick={() => toggleSort('username')}
-                  className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                  className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors text-slate-500 font-black"
                 >
                   Tên đăng nhập {sortField === 'username' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
                 <th
                   onClick={() => toggleSort('email')}
-                  className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                  className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors text-slate-500 font-black"
                 >
                   Email {sortField === 'email' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
-                <th className="table-th text-right">Thao tác</th>
+                <th className="px-4 py-3 text-center w-72 text-slate-500 font-black">Thao tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
               {paginatedUsers.map((user, index) => (
-                <tr key={user.id} className="hover:bg-gray-50">
-                  <td className="table-td text-center text-slate-500 font-bold">
+                <tr key={user.id} className="hover:bg-slate-50/50 transition-colors border-b border-slate-100 last:border-b-0">
+                  <td className="px-4 py-2.5 text-center text-slate-400 font-bold">
                     {index + 1 + (currentPage - 1) * PAGE_SIZE}
                   </td>
-                  <td className="table-td">
+                  <td className="px-4 py-2.5">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900">
+                      <span className="font-semibold text-slate-800">
                         {user.fullName || '—'}
                       </span>
                       {user.mustChangePassword && (
@@ -374,30 +377,32 @@ export function InstructorManagementPage() {
                       )}
                     </div>
                   </td>
-                  <td className="table-td text-gray-700">{user.username}</td>
-                  <td className="table-td text-gray-700">{user.email}</td>
-                  <td className="px-5 py-3.5 text-right">
-                    <button
-                      onClick={() => openEditForm(user)}
-                      disabled={busyId === user.id}
-                      className="mr-3 text-sm font-medium text-primary hover:text-primary-700 disabled:opacity-50"
-                    >
-                      Sửa
-                    </button>
-                    <button
-                      onClick={() => handleResetPassword(user)}
-                      disabled={busyId === user.id}
-                      className="mr-3 text-sm font-medium text-warning-600 hover:text-warning-700 disabled:opacity-50"
-                    >
-                      Đặt lại mật khẩu
-                    </button>
-                    <button
-                      onClick={() => handleDelete(user)}
-                      disabled={busyId === user.id}
-                      className="text-sm font-medium text-danger-600 hover:text-danger-700 disabled:opacity-50"
-                    >
-                      Xóa
-                    </button>
+                  <td className="px-4 py-2.5 text-slate-600 font-semibold">{user.username}</td>
+                  <td className="px-4 py-2.5 text-slate-600 font-medium">{user.email}</td>
+                  <td className="px-4 py-2.5 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => openEditForm(user)}
+                        disabled={busyId === user.id}
+                        className="bg-[#2ece71] hover:bg-[#27ae60] text-white text-[11px] font-bold px-3 py-1.5 rounded transition-all active:scale-[0.97] cursor-pointer shadow-sm inline-block disabled:opacity-50"
+                      >
+                        Sửa
+                      </button>
+                      <button
+                        onClick={() => handleResetPassword(user)}
+                        disabled={busyId === user.id}
+                        className="bg-[#bdc3c7] hover:bg-[#95a5a6] text-white text-[11px] font-bold px-3 py-1.5 rounded transition-all active:scale-[0.97] cursor-pointer shadow-sm disabled:opacity-50"
+                      >
+                        Đặt lại mật khẩu
+                      </button>
+                      <button
+                        onClick={() => handleDelete(user)}
+                        disabled={busyId === user.id}
+                        className="bg-[#e67e22] hover:bg-[#d35400] text-white text-[11px] font-bold px-3 py-1.5 rounded transition-all active:scale-[0.97] cursor-pointer shadow-sm disabled:opacity-50"
+                      >
+                        Xóa
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -415,7 +420,7 @@ export function InstructorManagementPage() {
                 <button
                   disabled={currentPage === 1}
                   onClick={() => setCurrentPage(currentPage - 1)}
-                  className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600"
+                  className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600 cursor-pointer"
                 >
                   Trước
                 </button>
@@ -423,7 +428,7 @@ export function InstructorManagementPage() {
                   <button
                     key={i}
                     onClick={() => setCurrentPage(i + 1)}
-                    className={`px-2.5 py-1 border rounded font-bold ${
+                    className={`px-2.5 py-1 border rounded font-bold cursor-pointer ${
                       currentPage === i + 1
                         ? 'bg-primary text-white border-primary'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -435,7 +440,7 @@ export function InstructorManagementPage() {
                 <button
                   disabled={currentPage === totalPages}
                   onClick={() => setCurrentPage(currentPage + 1)}
-                  className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600"
+                  className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600 cursor-pointer"
                 >
                   Sau
                 </button>

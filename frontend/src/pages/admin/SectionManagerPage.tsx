@@ -291,25 +291,26 @@ export function SectionManagerPage() {
   // ─── Render ────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50 text-primary">
-            <SectionIcon className="h-6 w-6" />
+      <div className="bg-white border border-slate-200 rounded-xl px-6 py-4 font-bold text-slate-800 text-lg shadow-sm flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-50 text-primary">
+            <SectionIcon className="h-5 w-5" />
           </span>
-          <h1 className="text-2xl font-semibold text-gray-800">
-            Quản lý lớp học phần
-          </h1>
+          <span>QUẢN LÝ LỚP HỌC PHẦN</span>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowRosterImport(!showRosterImport)}
-            className="btn-secondary"
+            className="bg-[#bdc3c7] hover:bg-[#95a5a6] text-white text-[11px] font-bold px-4 py-2.5 rounded-lg transition-all active:scale-[0.97] shadow-sm cursor-pointer"
           >
             📥 Import Danh sách lớp
           </button>
-          <button onClick={openCreateForm} className="btn-primary">
+          <button
+            onClick={openCreateForm}
+            className="bg-primary hover:bg-primary-700 text-white text-[11px] font-bold px-4 py-2.5 rounded-lg transition-all active:scale-[0.97] shadow-sm cursor-pointer"
+          >
             Tạo lớp
           </button>
         </div>
@@ -530,55 +531,55 @@ export function SectionManagerPage() {
           <p className="text-gray-500">Không tìm thấy lớp học phần nào khớp với từ khóa tìm kiếm.</p>
         </div>
       ) : (
-        <div className="card overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="table-th text-center w-16 select-none">STT</th>
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+          <table className="min-w-full border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 text-xs font-bold uppercase select-none">
+                <th className="px-4 py-3 text-center w-16 text-slate-500 font-black">STT</th>
                 <th
                   onClick={() => toggleSort('name')}
-                  className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                  className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors text-slate-500 font-black"
                 >
                   Tên lớp {sortField === 'name' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
                 <th
                   onClick={() => toggleSort('semester')}
-                  className="table-th cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                  className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors text-slate-500 font-black"
                 >
                   Học kỳ {sortField === 'semester' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
-                <th className="table-th">Giảng viên</th>
-                <th className="table-th text-right">Thao tác</th>
+                <th className="px-4 py-3 text-left text-slate-500 font-black">Giảng viên</th>
+                <th className="px-4 py-3 text-center w-56 text-slate-500 font-black">Thao tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
               {paginatedSections.map((section: Section, index: number) => (
-                <tr key={section.id} className="hover:bg-gray-50">
-                  <td className="table-td text-center text-slate-500 font-bold">
+                <tr key={section.id} className="hover:bg-slate-50/50 transition-colors border-b border-slate-100 last:border-b-0">
+                  <td className="px-4 py-2.5 text-center text-slate-400 font-bold">
                     {index + 1 + (currentPage - 1) * PAGE_SIZE}
                   </td>
-                  <td className="table-td">
+                  <td className="px-4 py-2.5 font-semibold text-slate-800">
                     <Link
                       to={`/admin/sections/${section.id}`}
-                      className="font-medium text-primary hover:text-primary-700"
+                      className="text-primary hover:text-primary-700 hover:underline"
                     >
                       {section.name}
                     </Link>
                   </td>
-                  <td className="table-td">
+                  <td className="px-4 py-2.5">
                     <span className="badge-blue">{section.semester}</span>
                   </td>
-                  <td className="px-5 py-3.5">
+                  <td className="px-4 py-2.5">
                     {section.instructors && section.instructors.length > 0 ? (
                       <div className="flex flex-wrap gap-1.5">
                         {section.instructors.map((instructor) => (
                           <span
                             key={instructor.id}
-                            className="inline-flex items-center gap-1 rounded-full border border-primary-100 bg-primary-50 px-2 py-1 text-xs font-medium text-primary-800"
+                            className="inline-flex items-center gap-1 rounded-full border border-primary-100 bg-primary-50 px-2 py-0.5 text-[11px] font-medium text-primary-800"
                           >
                             {instructor.fullName || instructor.username}
                             {instructor.isPrimary && (
-                              <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
+                              <span className="rounded-full bg-primary px-1.5 py-0.5 text-[9px] font-bold uppercase text-white scale-90">
                                 Chính
                               </span>
                             )}
@@ -586,7 +587,7 @@ export function SectionManagerPage() {
                         ))}
                       </div>
                     ) : section.instructor ? (
-                      <span className="text-sm text-gray-700">
+                      <span className="text-[12px] text-slate-700 font-medium">
                         {section.instructor.fullName || section.instructor.username}
                       </span>
                     ) : instructors.length > 0 ? (
@@ -612,26 +613,28 @@ export function SectionManagerPage() {
                       </span>
                     )}
                   </td>
-                  <td className="px-5 py-3.5 text-right">
-                    <Link
-                      to={`/admin/sections/${section.id}`}
-                      className="mr-3 text-sm font-medium text-primary hover:text-primary-700"
-                    >
-                      Chi tiết
-                    </Link>
-                    <button
-                      onClick={() => openEditForm(section)}
-                      className="mr-3 text-sm font-medium text-primary hover:text-primary-700"
-                    >
-                      Sửa
-                    </button>
-                    <button
-                      onClick={() => handleDelete(section.id)}
-                      disabled={deletingId === section.id}
-                      className="text-sm font-medium text-danger-600 hover:text-danger-700 disabled:opacity-50"
-                    >
-                      {deletingId === section.id ? 'Đang xóa...' : 'Xóa'}
-                    </button>
+                  <td className="px-4 py-2.5 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <Link
+                        to={`/admin/sections/${section.id}`}
+                        className="bg-[#3498db] hover:bg-[#2980b9] text-white text-[11px] font-bold px-3 py-1.5 rounded transition-all active:scale-[0.97] cursor-pointer shadow-sm inline-block"
+                      >
+                        Chi tiết
+                      </Link>
+                      <button
+                        onClick={() => openEditForm(section)}
+                        className="bg-[#2ece71] hover:bg-[#27ae60] text-white text-[11px] font-bold px-3 py-1.5 rounded transition-all active:scale-[0.97] cursor-pointer shadow-sm inline-block"
+                      >
+                        Sửa
+                      </button>
+                      <button
+                        onClick={() => handleDelete(section.id)}
+                        disabled={deletingId === section.id}
+                        className="bg-[#e67e22] hover:bg-[#d35400] text-white text-[11px] font-bold px-3 py-1.5 rounded transition-all active:scale-[0.97] cursor-pointer shadow-sm disabled:opacity-50"
+                      >
+                        {deletingId === section.id ? 'Đang xóa...' : 'Xóa'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -649,7 +652,7 @@ export function SectionManagerPage() {
                 <button
                   disabled={currentPage === 1}
                   onClick={() => setCurrentPage(currentPage - 1)}
-                  className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600"
+                  className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600 cursor-pointer"
                 >
                   Trước
                 </button>
@@ -657,7 +660,7 @@ export function SectionManagerPage() {
                   <button
                     key={i}
                     onClick={() => setCurrentPage(i + 1)}
-                    className={`px-2.5 py-1 border rounded font-bold ${
+                    className={`px-2.5 py-1 border rounded font-bold cursor-pointer ${
                       currentPage === i + 1
                         ? 'bg-primary text-white border-primary'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -669,7 +672,7 @@ export function SectionManagerPage() {
                 <button
                   disabled={currentPage === totalPages}
                   onClick={() => setCurrentPage(currentPage + 1)}
-                  className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600"
+                  className="px-2.5 py-1 border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent font-bold text-slate-600 cursor-pointer"
                 >
                   Sau
                 </button>

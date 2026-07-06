@@ -357,9 +357,9 @@ export function InstructorSectionDetailPage() {
       
       {/* Page Header Bar */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 p-6 text-white shadow-md border-b-4 border-secondary flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
+        <div className="text-shadow-md">
           <h1 className="text-2xl font-black font-sans uppercase tracking-wide">{section.name}</h1>
-          <p className="text-xs text-white/70 mt-1 font-semibold">Học kỳ: {section.semester} | Quản lý thành viên lớp học phần</p>
+          <p className="text-xs text-white/90 mt-1.5 font-bold">Học kỳ: {section.semester} | Quản lý thành viên lớp học phần</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link

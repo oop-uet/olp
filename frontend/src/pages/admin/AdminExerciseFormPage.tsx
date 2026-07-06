@@ -455,13 +455,16 @@ export function AdminExerciseFormPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6 animate-fade-in">
       {/* Page header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-gray-800">
-          {isEditing ? 'Sửa bài tập' : 'Tạo bài tập'}
-        </h1>
-        <button onClick={() => navigate('/admin/exercises')} className="btn-ghost btn-sm">
+      <div className="bg-white border border-slate-200 rounded-xl px-6 py-4 font-bold text-slate-800 text-lg shadow-sm flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <span>{isEditing ? 'SỬA BÀI TẬP' : 'TẠO BÀI TẬP'}</span>
+        </div>
+        <button
+          onClick={() => navigate('/admin/exercises')}
+          className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold px-4 py-2.5 rounded-lg transition-all active:scale-[0.97] shadow-sm cursor-pointer"
+        >
           ← Quay lại danh sách
         </button>
       </div>
