@@ -306,6 +306,20 @@ export async function importStudents(
 
     const studentId = row.student_id!.toString().trim();
     const email = row.email!.toString().trim().toLowerCase();
+    const fullName = row.full_name?.toString().trim();
+
+    // Find user by email first to update their name if it changed
+    let user = await database.query.users.findFirst({
+      where: eq(users.email, email),
+    });
+
+    if (user && fullName && user.fullName !== fullName) {
+      await database
+        .update(users)
+        .set({ fullName, updatedAt: new Date().toISOString() })
+        .where(eq(users.id, user.id));
+      user.fullName = fullName;
+    }
 
     // Check for duplicates already enrolled in target section
     if (enrolledExternalIds.has(studentId)) {
@@ -332,11 +346,6 @@ export async function importStudents(
 
     seenStudentIds.add(studentId);
 
-    // Find or create user by email
-    let user = await database.query.users.findFirst({
-      where: eq(users.email, email),
-    });
-
     const existingEnrollment = user
       ? enrollmentByStudentId.get(user.id)
       : enrollmentByExternalId.get(studentId);
@@ -353,7 +362,7 @@ export async function importStudents(
     }
 
     if (!user) {
-      // Create new user with student_id as username and default password
+      // Create new user with student_id as username, full_name and default password
       const userId = crypto.randomUUID();
       const now = new Date().toISOString();
       const passwordHash = await bcrypt.hash(studentId, 12);
@@ -364,6 +373,7 @@ export async function importStudents(
           id: userId,
           username: studentId,
           email,
+          fullName: fullName || null,
           passwordHash,
           role: "student",
           failedLoginAttempts: 0,

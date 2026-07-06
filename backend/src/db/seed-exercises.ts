@@ -1385,6 +1385,710 @@ public class AdapterTest {
   },
 ];
 
+function rebalancePoints(seed: ExerciseSeed) {
+  const total = seed.testCasesData.length;
+  if (total === 0) return;
+
+  const base = Math.floor(100 / total);
+  let remaining = 100;
+  seed.testCasesData = seed.testCasesData.map((tc, index) => {
+    const pointValue = index === total - 1 ? remaining : base;
+    remaining -= pointValue;
+    return { ...tc, pointValue };
+  });
+}
+
+function addTestCases(title: string, cases: ExerciseSeed["testCasesData"]) {
+  const seed = exerciseSeeds.find((item) => item.title === title);
+  if (!seed) {
+    throw new Error(`Cannot find exercise seed: ${title}`);
+  }
+
+  seed.testCasesData.push(...cases);
+  rebalancePoints(seed);
+}
+
+function strengthenExerciseTestCases() {
+  addTestCases("Tuần 1 - Hello World và tham số dòng lệnh", [
+    stdoutCase("Pham Van Minh", "Hello World\nHello Pham Van Minh", 1, 0),
+    stdoutCase("  Nguyen Thi An  ", "Hello World\nHello Nguyen Thi An", 1, 0),
+  ]);
+
+  addTestCases("Tuần 1 - Robot và Engine", [
+    javaTestCase(
+      "RobotStateHiddenTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+
+public class RobotStateHiddenTest {
+    @Test
+    public void setPowerUpdatesForwardBehavior() {
+        Engine engine = new Engine("E-99", 10);
+        HouseBot bot = new HouseBot("HB-99", "Kiki", engine);
+        Assert.assertEquals("Robot Kiki moves forward with power 10", bot.forward());
+        engine.setPower(42);
+        Assert.assertEquals("Robot Kiki moves forward with power 42", bot.forward());
+    }
+
+    @Test
+    public void differentBotsKeepIndependentNamesAndEngines() {
+        HouseBot first = new HouseBot("A", "Alpha", new Engine("EA", 3));
+        HouseBot second = new HouseBot("B", "Beta", new Engine("EB", 8));
+        Assert.assertEquals("Robot Alpha turns left", first.turnLeft());
+        Assert.assertEquals("Robot Beta cleans the room", second.cleanUp());
+        Assert.assertEquals("Robot Beta moves forward with power 8", second.forward());
+    }
+}
+      `,
+      1
+    ),
+    javaTestCase(
+      "RobotApiHiddenTest.java",
+      `
+import net.bqc.oasis.junit.JavaReflection;
+import org.junit.Assert;
+import org.junit.Test;
+
+public class RobotApiHiddenTest {
+    @Test
+    public void publicApiHasRequiredReturnTypes() {
+        Assert.assertNotNull(JavaReflection.getMethod(Engine.class, "getSerialNumber", String.class, "", ""));
+        Assert.assertNotNull(JavaReflection.getMethod(Engine.class, "getPower", int.class, "", ""));
+        Assert.assertNotNull(JavaReflection.getMethod(Engine.class, "setPower", void.class, "", "", int.class));
+        Assert.assertNotNull(JavaReflection.getMethod(HouseBot.class, "forward", String.class, "", ""));
+        Assert.assertNotNull(JavaReflection.getMethod(HouseBot.class, "turnLeft", String.class, "", ""));
+        Assert.assertNotNull(JavaReflection.getMethod(HouseBot.class, "cleanUp", String.class, "", ""));
+    }
+}
+      `,
+      1
+    ),
+  ]);
+
+  addTestCases("Tuần 2 - Quản lý sinh viên", [
+    javaTestCase(
+      "StudentAccessorsHiddenTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+
+public class StudentAccessorsHiddenTest {
+    @Test
+    public void settersAndCopyConstructorAreIndependent() {
+        Student s = new Student("Le A", "24000001", "a@vnu.edu.vn");
+        s.setName("Le B");
+        s.setId("24000002");
+        s.setGroup("INT2204");
+        s.setEmail("b@vnu.edu.vn");
+        Student copy = new Student(s);
+        s.setName("Changed");
+        Assert.assertEquals("Le B - 24000002 - INT2204 - b@vnu.edu.vn", copy.getInfo());
+        Assert.assertEquals("Changed - 24000002 - INT2204 - b@vnu.edu.vn", s.getInfo());
+    }
+}
+      `,
+      1
+    ),
+    javaTestCase(
+      "StudentManagementHiddenTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+
+public class StudentManagementHiddenTest {
+    @Test
+    public void removeMissingStudentDoesNotChangeGrouping() {
+        StudentManagement sm = new StudentManagement();
+        Student a = new Student("A", "1", "a@vnu.edu.vn");
+        Student b = new Student("B", "2", "b@vnu.edu.vn");
+        b.setGroup("K67CA");
+        sm.addStudent(a);
+        sm.addStudent(b);
+        String before = sm.studentsByGroup();
+        sm.removeStudent("missing");
+        Assert.assertEquals(before, sm.studentsByGroup());
+    }
+}
+      `,
+      1
+    ),
+  ]);
+
+  addTestCases("Tuần 3 - Ước số, Fibonacci và sàng Eratosthenes", [
+    javaTestCase(
+      "Week3BoundaryHiddenTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+
+public class Week3BoundaryHiddenTest {
+    @Test
+    public void gcdHandlesSignAndOrder() {
+        Assert.assertEquals(9, Week3.gcd(9, -27));
+        Assert.assertEquals(1, Week3.gcd(17, 31));
+        Assert.assertEquals(12, Week3.gcd(-48, -180));
+    }
+
+    @Test
+    public void fibonacciLargerValues() {
+        Assert.assertEquals(832040L, Week3.fibonacci(30));
+        Assert.assertEquals(102334155L, Week3.fibonacci(40));
+    }
+}
+      `,
+      1
+    ),
+    javaTestCase(
+      "Week3SieveHiddenTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+
+public class Week3SieveHiddenTest {
+    @Test
+    public void sieveHasNoTrailingSpacesAndHandlesCompositeRange() {
+        Assert.assertEquals("", Week3.sieveEratosthenes(0));
+        Assert.assertEquals("2 3 5 7 11 13 17 19 23 29", Week3.sieveEratosthenes(30));
+        Assert.assertFalse(Week3.sieveEratosthenes(30).endsWith(" "));
+    }
+}
+      `,
+      1
+    ),
+  ]);
+
+  addTestCases("Tuần 3 - Phân số", [
+    javaTestCase(
+      "FractionAdvancedHiddenTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+
+public class FractionAdvancedHiddenTest {
+    @Test
+    public void arithmeticDoesNotMutateOperands() {
+        Fraction a = new Fraction(2, 3);
+        Fraction b = new Fraction(3, 4);
+        Assert.assertEquals("17/12", a.add(b).toString());
+        Assert.assertEquals("2/3", a.toString());
+        Assert.assertEquals("3/4", b.toString());
+    }
+
+    @Test
+    public void divisionByZeroFractionThrows() {
+        try {
+            new Fraction(1, 2).divide(new Fraction(0, 5));
+            Assert.fail("Expected ArithmeticException");
+        } catch (ArithmeticException expected) {
+            Assert.assertTrue(expected.getMessage() == null || expected.getMessage().length() > 0);
+        }
+    }
+}
+      `,
+      1
+    ),
+    javaTestCase(
+      "FractionSetterHiddenTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+
+public class FractionSetterHiddenTest {
+    @Test
+    public void settersAndEqualsUseReducedValue() {
+        Fraction f = new Fraction(1, 3);
+        f.setNumerator(6);
+        f.setDenominator(-9);
+        Assert.assertEquals("-2/3", f.reduce().toString());
+        Assert.assertEquals(new Fraction(-4, 6), f);
+    }
+}
+      `,
+      1
+    ),
+  ]);
+
+  addTestCases("Tuần 3 - Static, mảng và BMI", [
+    javaTestCase(
+      "Week4BoundaryHiddenTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+
+public class Week4BoundaryHiddenTest {
+    @Test
+    public void bmiBoundaryValuesUseRoundedOneDecimal() {
+        Assert.assertEquals("Bình thường", Week4.calculateBMI(53.465, 1.70));
+        Assert.assertEquals("Thừa cân", Week4.calculateBMI(64.8, 1.68));
+        Assert.assertEquals("Béo phì", Week4.calculateBMI(72.25, 1.70));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void nullArrayThrowsException() {
+        Week4.minArray(null);
+    }
+}
+      `,
+      1
+    ),
+    javaTestCase(
+      "Week4ArrayHiddenTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+
+public class Week4ArrayHiddenTest {
+    @Test
+    public void minArrayHandlesDuplicatesAndLargeValues() {
+        Assert.assertEquals(Integer.MIN_VALUE, Week4.minArray(new int[] {5, Integer.MAX_VALUE, Integer.MIN_VALUE, 5}));
+        Assert.assertEquals(2, Week4.max2Int(2, 2));
+    }
+}
+      `,
+      1
+    ),
+  ]);
+
+  addTestCases("Tuần 4 - Circle và Cylinder", [
+    javaTestCase(
+      "CircleCylinderConstructorsHiddenTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+
+public class CircleCylinderConstructorsHiddenTest {
+    @Test
+    public void defaultAndPartialConstructorsWork() {
+        Circle c = new Circle();
+        Assert.assertEquals(1.0, c.getRadius(), 0.0001);
+        Assert.assertEquals("red", c.getColor());
+
+        Cylinder cy = new Cylinder(3.0, 4.0);
+        Assert.assertEquals(3.0, cy.getRadius(), 0.0001);
+        Assert.assertEquals(4.0, cy.getHeight(), 0.0001);
+        Assert.assertEquals("red", cy.getColor());
+    }
+}
+      `,
+      1
+    ),
+    javaTestCase(
+      "CircleCylinderMutationHiddenTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+
+public class CircleCylinderMutationHiddenTest {
+    @Test
+    public void settersAffectComputedValues() {
+        Cylinder cy = new Cylinder();
+        cy.setRadius(2.5);
+        cy.setHeight(10.0);
+        cy.setColor("yellow");
+        Assert.assertEquals(62.5 * Math.PI, cy.getVolume(), 0.0001);
+        Assert.assertEquals(62.5 * Math.PI, cy.getArea(), 0.0001);
+        Assert.assertEquals("Cylinder[height=10.0,base=Circle[radius=2.5,color=yellow]]", cy.toString());
+    }
+}
+      `,
+      1
+    ),
+  ]);
+
+  addTestCases("Tuần 5 - Biểu thức đại số", [
+    javaTestCase(
+      "ExpressionStringHiddenTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+
+public class ExpressionStringHiddenTest {
+    @Test
+    public void composedExpressionEvaluatesCorrectly() {
+        Expression exp = new Multiplication(
+            new Addition(new Numeral(10), new Numeral(-3)),
+            new Square(new Numeral(4))
+        );
+        Assert.assertEquals(112, exp.evaluate());
+    }
+}
+      `,
+      1
+    ),
+    javaTestCase(
+      "ExpressionNestedHiddenTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+
+public class ExpressionNestedHiddenTest {
+    @Test
+    public void nestedDivisionAndSubtractionEvaluateLeftToRight() {
+        Expression exp = new Division(
+            new Subtraction(new Numeral(50), new Multiplication(new Numeral(6), new Numeral(5))),
+            new Numeral(4)
+        );
+        Assert.assertEquals(5, exp.evaluate());
+    }
+}
+      `,
+      1
+    ),
+  ]);
+
+  addTestCases("Tuần 5 - Sơ đồ hình học, Layer và Diagram", [
+    javaTestCase(
+      "DiagramMovementHiddenTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+
+public class DiagramMovementHiddenTest {
+    @Test
+    public void movingShapesToDedicatedLayersKeepsDrawableOutput() {
+        Layer mixed = new Layer();
+        mixed.addShape(new Circle(1, 1, 2));
+        mixed.addShape(new Square(2, 2, 3));
+        mixed.addShape(new Triangle(3, 3, 4));
+        Diagram diagram = new Diagram();
+        diagram.addLayer(mixed);
+        diagram.moveShapesToDedicatedLayers();
+        String output = diagram.draw();
+        Assert.assertTrue(output.contains("Circle(1,1,2)"));
+        Assert.assertTrue(output.contains("Square(2,2,3)"));
+        Assert.assertTrue(output.contains("Triangle(3,3,4)"));
+    }
+}
+      `,
+      1
+    ),
+    javaTestCase(
+      "DiagramDuplicatesHiddenTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+
+public class DiagramDuplicatesHiddenTest {
+    @Test
+    public void duplicateDefinitionUsesTypePositionAndSize() {
+        Layer layer = new Layer();
+        layer.addShape(new Circle(0, 0, 5));
+        layer.addShape(new Circle(0, 0, 6));
+        layer.addShape(new Square(0, 0, 5));
+        layer.addShape(new Circle(0, 0, 5));
+        layer.removeDuplicates();
+        Assert.assertEquals("Circle(0,0,5)\\nCircle(0,0,6)\\nSquare(0,0,5)", layer.draw().trim());
+    }
+}
+      `,
+      1
+    ),
+  ]);
+
+  addTestCases("Tuần 6 - Xử lý ngoại lệ", [
+    javaTestCase(
+      "Week8Task2NoThrowHiddenTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+
+public class Week8Task2NoThrowHiddenTest {
+    @Test
+    public void everyMethodHandlesItsExceptionInternally() {
+        String[] results = {
+            Week8_Task2.nullPointerEx(),
+            Week8_Task2.arrayIndexOutOfBoundsEx(),
+            Week8_Task2.arithmeticEx(),
+            Week8_Task2.classCastEx(),
+            Week8_Task2.fileNotFoundEx()
+        };
+        for (String result : results) {
+            Assert.assertTrue(result.startsWith("Lỗi "));
+            Assert.assertFalse(result.contains("Không có lỗi"));
+        }
+    }
+}
+      `,
+      1
+    ),
+  ]);
+
+  addTestCases("Tuần 7 - Utils đọc ghi tệp", [
+    javaTestCase(
+      "UtilsOverwriteHiddenTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+public class UtilsOverwriteHiddenTest {
+    @Test
+    public void writeOverwritesOldContentAndAppendCreatesFile() throws Exception {
+        Path dir = Files.createTempDirectory("oop-utils-hidden");
+        Path file = dir.resolve("log.txt");
+        Utils.writeContentToFile(file.toString(), "old");
+        Utils.writeContentToFile(file.toString(), "new");
+        Assert.assertEquals("new", Utils.readContentFromFile(file.toString()));
+        Path appended = dir.resolve("append.txt");
+        Utils.appendContentToFile(appended.toString(), "A");
+        Utils.appendContentToFile(appended.toString(), "B");
+        Assert.assertEquals("AB", Utils.readContentFromFile(appended.toString()));
+    }
+}
+      `,
+      1
+    ),
+    javaTestCase(
+      "UtilsRecursiveHiddenTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+public class UtilsRecursiveHiddenTest {
+    @Test
+    public void findFileSearchesRecursivelyMoreThanOneLevel() throws Exception {
+        Path root = Files.createTempDirectory("oop-utils-tree");
+        Path deep = root.resolve("a").resolve("b").resolve("c");
+        Files.createDirectories(deep);
+        Files.writeString(deep.resolve("answer.txt"), "42");
+        File found = Utils.findFileByName(root.toString(), "answer.txt");
+        Assert.assertNotNull(found);
+        Assert.assertEquals("answer.txt", found.getName());
+    }
+}
+      `,
+      1
+    ),
+  ]);
+
+  addTestCases("Tuần 9 - String, List và Map", [
+    javaTestCase(
+      "TextAnalyzerEdgeHiddenTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+import java.util.*;
+
+public class TextAnalyzerEdgeHiddenTest {
+    @Test
+    public void normalizeHandlesEmptyAndPunctuationOnlyTokens() {
+        Assert.assertEquals(Collections.emptyList(), TextAnalyzer.normalizeWords(" ,,, !!! "));
+        Assert.assertEquals(Arrays.asList("hello", "world", "hello"), TextAnalyzer.normalizeWords("...Hello; world? HELLO"));
+    }
+
+    @Test
+    public void topWordsHandlesLimitLargerThanVocabulary() {
+        Assert.assertEquals("b=2\\na=1\\nc=1", TextAnalyzer.topWords("a b b c", 10));
+    }
+}
+      `,
+      1
+    ),
+    javaTestCase(
+      "TextAnalyzerOrderHiddenTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+
+public class TextAnalyzerOrderHiddenTest {
+    @Test
+    public void tiesKeepFirstAppearanceOrder() {
+        Assert.assertEquals("x=2\\ny=2\\nz=2", TextAnalyzer.topWords("x y z y z x", 3));
+    }
+}
+      `,
+      1
+    ),
+  ]);
+
+  addTestCases("Tuần 8 - Generic sort và Person", [
+    javaTestCase(
+      "Week11HiddenSortTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+import java.util.*;
+
+public class Week11HiddenSortTest {
+    @Test
+    public void sortHandlesEmptyAndAlreadySortedLists() {
+        Assert.assertEquals(Collections.emptyList(), Week11.sortGeneric(Collections.<Integer>emptyList()));
+        Assert.assertEquals(Arrays.asList(1, 2, 3), Week11.sortGeneric(Arrays.asList(1, 2, 3)));
+    }
+
+    @Test
+    public void returnedListIsIndependent() {
+        List<Integer> input = new ArrayList<>(Arrays.asList(3, 1, 2));
+        List<Integer> sorted = Week11.sortGeneric(input);
+        sorted.set(0, 99);
+        Assert.assertEquals(Arrays.asList(3, 1, 2), input);
+    }
+}
+      `,
+      1
+    ),
+    javaTestCase(
+      "PersonComparableHiddenTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+
+public class PersonComparableHiddenTest {
+    @Test
+    public void compareToUsesNameBeforeAge() {
+        Person a20 = new Person("An", 20, "HN");
+        Person a21 = new Person("An", 21, "HN");
+        Person binh18 = new Person("Binh", 18, "HN");
+        Assert.assertTrue(a20.compareTo(a21) < 0);
+        Assert.assertTrue(binh18.compareTo(a21) > 0);
+        Assert.assertEquals("An-20-HN", a20.toString());
+    }
+}
+      `,
+      1
+    ),
+  ]);
+
+  addTestCases("Tuần 10 - Phả hệ với Composite", [
+    javaTestCase(
+      "GenealogyRelationshipHiddenTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+
+public class GenealogyRelationshipHiddenTest {
+    @Test
+    public void marriageIsBidirectionalAndChildrenAreStored() {
+        PersonNode a = new PersonNode("A", 1970, "M");
+        PersonNode b = new PersonNode("B", 1972, "F");
+        PersonNode c = new PersonNode("C", 2000, "F");
+        a.marry(b);
+        a.addChild(c);
+        Assert.assertSame(b, a.getSpouse());
+        Assert.assertSame(a, b.getSpouse());
+        Assert.assertEquals(1, a.getChildren().size());
+        Assert.assertSame(c, a.getChildren().get(0));
+    }
+}
+      `,
+      1
+    ),
+    javaTestCase(
+      "GenealogyTraversalHiddenTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+import java.util.*;
+import java.util.stream.Collectors;
+
+public class GenealogyTraversalHiddenTest {
+    @Test
+    public void latestGenerationCanContainGrandChildren() {
+        PersonNode root = new PersonNode("Root", 1940, "M");
+        PersonNode child = new PersonNode("Child", 1970, "F");
+        PersonNode grand = new PersonNode("Grand", 2000, "M");
+        root.addChild(child);
+        child.addChild(grand);
+        Assert.assertEquals(Arrays.asList("Grand"),
+            Genealogy.findLatestGeneration(root).stream().map(PersonNode::getName).collect(Collectors.toList()));
+        Assert.assertEquals(Arrays.asList("Root", "Child", "Grand"),
+            Genealogy.findUnmarried(root).stream().map(PersonNode::getName).collect(Collectors.toList()));
+    }
+}
+      `,
+      1
+    ),
+  ]);
+
+  addTestCases("Tuần 10 - Sắp xếp với Strategy", [
+    javaTestCase(
+      "SorterHiddenTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+
+public class SorterHiddenTest {
+    @Test
+    public void sortHandlesDuplicatesNegativesAndEmptyArrays() {
+        Sorter sorter = new Sorter(new BubbleSortStrategy());
+        Assert.assertArrayEquals(new int[] {-3, -3, 0, 7, 7}, sorter.sort(new int[] {7, -3, 0, 7, -3}, true));
+        sorter.setStrategy(new SelectionSortStrategy());
+        Assert.assertArrayEquals(new int[] {7, 7, 0, -3, -3}, sorter.sort(new int[] {7, -3, 0, 7, -3}, false));
+        Assert.assertArrayEquals(new int[] {}, sorter.sort(new int[] {}, true));
+    }
+}
+      `,
+      1
+    ),
+    javaTestCase(
+      "SorterStrategySwitchHiddenTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+
+public class SorterStrategySwitchHiddenTest {
+    @Test
+    public void sorterDelegatesToCurrentStrategy() {
+        Sorter sorter = new Sorter(new BubbleSortStrategy());
+        Assert.assertArrayEquals(new int[] {1, 2, 3}, sorter.sort(new int[] {3, 2, 1}, true));
+        sorter.setStrategy(new SelectionSortStrategy());
+        Assert.assertArrayEquals(new int[] {3, 2, 1}, sorter.sort(new int[] {1, 2, 3}, false));
+    }
+}
+      `,
+      1
+    ),
+  ]);
+
+  addTestCases("Tuần 10 - Adapter cho thư viện sắp xếp", [
+    javaTestCase(
+      "AdapterHiddenTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+
+public class AdapterHiddenTest {
+    @Test
+    public void adapterSortsDuplicatesAndEmptyArrays() {
+        IMath math = new MathLibAdapter(new MyMathLib());
+        Assert.assertArrayEquals(new int[] {}, Client.sortNumbers(math, new int[] {}));
+        Assert.assertArrayEquals(new int[] {-1, 0, 4, 4}, Client.sortNumbers(math, new int[] {4, -1, 4, 0}));
+    }
+}
+      `,
+      1
+    ),
+    javaTestCase(
+      "AdapterDependencyHiddenTest.java",
+      `
+import org.junit.Assert;
+import org.junit.Test;
+
+public class AdapterDependencyHiddenTest {
+    private static class ReverseMath implements IMath {
+        public int[] sort(int[] arr) {
+            return new int[] {3, 2, 1};
+        }
+    }
+
+    @Test
+    public void clientDependsOnInterfaceOnly() {
+        Assert.assertArrayEquals(new int[] {3, 2, 1}, Client.sortNumbers(new ReverseMath(), new int[] {1, 2, 3}));
+    }
+}
+      `,
+      1
+    ),
+  ]);
+}
+
+strengthenExerciseTestCases();
+
 async function replaceExerciseLibrary() {
   const oldLibraryExercises = await db
     .select({ id: exercises.id })
