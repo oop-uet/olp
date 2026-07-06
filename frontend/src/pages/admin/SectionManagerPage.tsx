@@ -69,13 +69,9 @@ export function SectionManagerPage() {
 
   const [search, setSearch] = useState('')
   const [instructorSearch, setInstructorSearch] = useState('')
-  const [sortField, setSortField] = useState<'name' | 'semester' | ''>('')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
-  const [currentPage, setCurrentPage] = useState(1)
-  const PAGE_SIZE = 10
 
   const [selectedSemester, setSelectedSemester] = useState<string>(() => {
-    return localStorage.getItem('admin_selected_semester') || 'ALL'
+    return localStorage.getItem('admin_selected_semester') || '2025-2026-HK2'
   })
   const [customSemesters, setCustomSemesters] = useState<string[]>(() => {
     try {
@@ -127,9 +123,6 @@ export function SectionManagerPage() {
 
   const filteredSections = useMemo(() => {
     let list = sections
-    if (selectedSemester !== 'ALL') {
-      list = list.filter((s) => s.semester === selectedSemester)
-    }
     if (!search.trim()) return list
     const q = search.toLowerCase()
     return list.filter(
@@ -140,43 +133,12 @@ export function SectionManagerPage() {
         (s.instructor?.fullName || '').toLowerCase().includes(q) ||
         (s.instructor?.username || '').toLowerCase().includes(q)
     )
-  }, [sections, search, selectedSemester])
-
-  const sortedSections = useMemo(() => {
-    if (!sortField) return filteredSections
-    return [...filteredSections].sort((a, b) => {
-      let valA = a[sortField] || ''
-      let valB = b[sortField] || ''
-      if (typeof valA === 'string') valA = valA.toLowerCase()
-      if (typeof valB === 'string') valB = valB.toLowerCase()
-      if (valA < valB) return sortOrder === 'asc' ? -1 : 1
-      if (valA > valB) return sortOrder === 'asc' ? 1 : -1
-      return 0
-    })
-  }, [filteredSections, sortField, sortOrder])
-
-  const paginatedSections = useMemo(() => {
-    const startIndex = (currentPage - 1) * PAGE_SIZE
-    return sortedSections.slice(startIndex, startIndex + PAGE_SIZE)
-  }, [sortedSections, currentPage])
-
-  const totalPages = Math.ceil(sortedSections.length / PAGE_SIZE)
-
-  const toggleSort = (field: 'name' | 'semester') => {
-    setCurrentPage(1)
-    if (sortField === field) {
-      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
-    } else {
-      setSortField(field)
-      setSortOrder('asc')
-    }
-  }
+  }, [sections, search])
 
   // ─── Data Fetching ───────────────────────────────────────────────────────
 
   const fetchSections = useCallback(async () => {
     setLoading(true)
-    setCurrentPage(1)
     try {
       const response = await api.get('/api/admin/sections')
       setSections(response.data)
@@ -374,20 +336,6 @@ export function SectionManagerPage() {
             <SectionIcon className="h-5 w-5" />
           </span>
           <span>QUẢN LÝ LỚP HỌC PHẦN</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowRosterImport(!showRosterImport)}
-            className="bg-[#bdc3c7] hover:bg-[#95a5a6] text-white text-[11px] font-bold px-4 py-2.5 rounded-lg transition-all active:scale-[0.97] shadow-sm cursor-pointer"
-          >
-            📥 Import Danh sách lớp
-          </button>
-          <button
-            onClick={openCreateForm}
-            className="bg-primary hover:bg-primary-700 text-white text-[11px] font-bold px-4 py-2.5 rounded-lg transition-all active:scale-[0.97] shadow-sm cursor-pointer"
-          >
-            Tạo lớp
-          </button>
         </div>
       </div>
 
@@ -672,44 +620,15 @@ export function SectionManagerPage() {
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value)
-                setCurrentPage(1)
               }}
               className="input max-w-sm"
               placeholder="Tìm theo tên lớp, học kỳ, giảng viên..."
             />
           </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Học kỳ:</span>
-            <select
-              value={selectedSemester}
-              onChange={(e) => {
-                setSelectedSemester(e.target.value)
-                localStorage.setItem('admin_selected_semester', e.target.value)
-                setCurrentPage(1)
-              }}
-              className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 min-w-[240px] cursor-pointer"
-            >
-              <option value="ALL">Tất cả học kỳ</option>
-              {semesters.map((sem) => (
-                <option key={sem} value={sem}>
-                  {getSemesterDisplayName(sem)}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={handleAddSemester}
-              className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-primary transition shadow-sm font-extrabold text-lg cursor-pointer"
-              title="Thêm học kỳ mới"
-            >
-              +
-            </button>
-          </div>
         </div>
       )}
 
-      {/* Section Table */}
+      {/* Semester Grouped Cards */}
       {loading ? (
         <PageLoader label="Đang tải danh sách lớp..." />
       ) : sections.length === 0 ? (
@@ -725,160 +644,193 @@ export function SectionManagerPage() {
             Tạo lớp đầu tiên
           </button>
         </div>
-      ) : filteredSections.length === 0 ? (
-        <div className="card flex flex-col items-center justify-center p-12 text-center">
-          <SectionIcon className="mb-3 h-10 w-10 text-gray-300" />
-          <p className="text-gray-500">Không tìm thấy lớp học phần nào khớp với từ khóa tìm kiếm.</p>
-        </div>
       ) : (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm overflow-x-auto">
-          <table className="min-w-full border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 select-none">
-                <th className="table-th text-center w-16 select-none">STT</th>
-                <th
-                  onClick={() => toggleSort('name')}
-                  className="table-th cursor-pointer hover:bg-slate-100 transition-colors select-none"
-                >
-                  Tên lớp {sortField === 'name' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
-                </th>
-                <th
-                  onClick={() => toggleSort('semester')}
-                  className="table-th cursor-pointer hover:bg-slate-100 transition-colors select-none"
-                >
-                  Học kỳ {sortField === 'semester' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
-                </th>
-                <th className="table-th select-none">Giảng viên</th>
-                <th className="table-th text-center w-56 select-none">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 bg-white">
-              {paginatedSections.map((section: Section, index: number) => (
-                <tr key={section.id} className="hover:bg-slate-50/50 transition-colors border-b border-slate-100 last:border-b-0">
-                  <td className="table-td text-center text-slate-400 font-bold">
-                    {index + 1 + (currentPage - 1) * PAGE_SIZE}
-                  </td>
-                  <td className="table-td font-semibold text-slate-800">
-                    <Link
-                      to={`/admin/sections/${section.id}`}
-                      className="text-primary hover:text-primary-700 hover:underline"
-                    >
-                      {section.name}
-                    </Link>
-                  </td>
-                  <td className="table-td">
-                    <span className="badge-blue">{getSemesterDisplayName(section.semester)}</span>
-                  </td>
-                  <td className="table-td">
-                    {section.instructors && section.instructors.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {section.instructors.map((instructor) => (
-                          <span
-                            key={instructor.id}
-                            className="inline-flex items-center gap-1 rounded-full border border-primary-100 bg-primary-50 px-2 py-0.5 text-[11px] font-medium text-primary-800"
-                          >
-                            {instructor.fullName || instructor.username}
-                            {instructor.isPrimary && (
-                              <span className="rounded-full bg-primary px-1.5 py-0.5 text-[9px] font-bold uppercase text-white scale-90">
-                                Chính
-                              </span>
-                            )}
-                          </span>
-                        ))}
-                      </div>
-                    ) : section.instructor ? (
-                      <span className="text-[12px] text-slate-700 font-medium">
-                        {section.instructor.fullName || section.instructor.username}
-                      </span>
-                    ) : instructors.length > 0 ? (
-                      <select
-                        className="rounded-lg border border-gray-300 px-2 py-1 text-xs text-gray-600 focus:border-primary focus:outline-none"
-                        defaultValue=""
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            handleAssignInstructor(section.id, e.target.value)
-                          }
-                        }}
-                      >
-                        <option value="">Phân công giảng viên...</option>
-                        {instructors.map((instructor) => (
-                          <option key={instructor.id} value={instructor.id}>
-                            {instructor.fullName || instructor.username}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="text-xs italic text-gray-400">
-                        Chưa phân công
-                      </span>
-                    )}
-                  </td>
-                  <td className="table-td text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <Link
-                        to={`/admin/sections/${section.id}`}
-                        className="bg-[#3498db] hover:bg-[#2980b9] text-white text-[11px] font-bold px-3 py-1.5 rounded transition-all active:scale-[0.97] cursor-pointer shadow-sm inline-block"
-                      >
-                        Chi tiết
-                      </Link>
-                      <button
-                        onClick={() => openEditForm(section)}
-                        className="bg-[#2ece71] hover:bg-[#27ae60] text-white text-[11px] font-bold px-3 py-1.5 rounded transition-all active:scale-[0.97] cursor-pointer shadow-sm inline-block"
-                      >
-                        Sửa
-                      </button>
-                      <button
-                        onClick={() => handleDelete(section.id)}
-                        disabled={deletingId === section.id}
-                        className="bg-[#e67e22] hover:bg-[#d35400] text-white text-[11px] font-bold px-3 py-1.5 rounded transition-all active:scale-[0.97] cursor-pointer shadow-sm disabled:opacity-50"
-                      >
-                        {deletingId === section.id ? 'Đang xóa...' : 'Xóa'}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {totalPages > 1 && (
-            <div className="flex justify-between items-center text-xs text-slate-500 p-4 border-t border-slate-100 bg-white">
-              <div>
-                Hiển thị {Math.min(sortedSections.length, (currentPage - 1) * PAGE_SIZE + 1)} đến{' '}
-                {Math.min(sortedSections.length, currentPage * PAGE_SIZE)} trong tổng số{' '}
-                {sortedSections.length} lớp học phần
-              </div>
-              <div className="flex gap-1">
-                <button
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(currentPage - 1)}
-                  className="btn btn-secondary btn-sm select-none"
-                >
-                  Trước
-                </button>
-                {[...Array(totalPages)].map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setCurrentPage(i + 1)}
-                    className={`btn btn-sm select-none ${
-                      currentPage === i + 1
-                        ? 'btn-primary'
-                        : 'btn-secondary'
-                    }`}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
-                <button
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage(currentPage + 1)}
-                  className="btn btn-secondary btn-sm select-none"
-                >
-                  Sau
-                </button>
-              </div>
+        <div className="space-y-6">
+          <div className="bg-white border border-slate-200 rounded-xl px-5 py-3 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-slate-500 uppercase tracking-wide">
+                Học kỳ đang chọn để thao tác:
+              </span>
+              <span className="badge-blue text-xs font-bold py-1 px-2.5 rounded-full">
+                {getSemesterDisplayName(
+                  selectedSemester === 'ALL'
+                    ? semesters[semesters.length - 1] || '2025-2026-HK2'
+                    : selectedSemester
+                )}
+              </span>
             </div>
-          )}
+            <button
+              onClick={handleAddSemester}
+              className="bg-primary hover:bg-primary-700 text-white text-[11px] font-bold px-4 py-2.5 rounded-lg transition-all active:scale-[0.97] shadow-sm cursor-pointer"
+            >
+              ➕ Thêm học kỳ mới
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6">
+            {[...semesters].reverse().map((sem) => {
+              const sectionsInSem = filteredSections.filter((s) => s.semester === sem)
+              const isSelected = selectedSemester === sem
+
+              return (
+                <div
+                  key={sem}
+                  onClick={() => {
+                    setSelectedSemester(sem)
+                    localStorage.setItem('admin_selected_semester', sem)
+                  }}
+                  className={`card p-0 transition-all border overflow-hidden cursor-pointer ${
+                    isSelected
+                      ? 'border-primary ring-2 ring-primary/30 shadow-md bg-slate-50/10'
+                      : 'border-slate-200 hover:border-slate-300 shadow-sm bg-white'
+                  }`}
+                >
+                  {/* Semester Header */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/50 px-5 py-3.5 select-none">
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        className={`text-sm font-black transition-colors ${
+                          isSelected ? 'text-primary font-black' : 'text-slate-700 font-bold'
+                        }`}
+                      >
+                        {getSemesterDisplayName(sem)}
+                      </span>
+                      {isSelected && (
+                        <span className="badge-blue text-[9px] font-extrabold tracking-wide uppercase select-none">
+                          Đang chọn
+                        </span>
+                      )}
+                    </div>
+
+                    {isSelected && (
+                      <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => setShowRosterImport(!showRosterImport)}
+                          className="bg-[#bdc3c7] hover:bg-[#95a5a6] text-white text-[10px] font-bold px-3 py-1.5 rounded-md transition-all active:scale-[0.97] shadow-sm cursor-pointer"
+                        >
+                          📥 Import Danh sách lớp
+                        </button>
+                        <button
+                          onClick={openCreateForm}
+                          className="bg-primary hover:bg-primary-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-md transition-all active:scale-[0.97] shadow-sm cursor-pointer"
+                        >
+                          Tạo lớp
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Semester Body */}
+                  <div className="p-5 bg-white">
+                    {sectionsInSem.length === 0 ? (
+                      <div className="text-center py-6 text-slate-400 text-xs font-semibold italic">
+                        {search.trim() !== ''
+                          ? 'Không tìm thấy lớp học phần nào khớp với từ khóa tìm kiếm.'
+                          : 'Chưa có lớp học phần nào trong học kỳ này.'}
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto" onClick={(e) => e.stopPropagation()}>
+                        <table className="min-w-full border-separate border-spacing-0 text-left">
+                          <thead>
+                            <tr className="select-none bg-slate-50/50">
+                              <th className="table-th text-center w-16 select-none border-b border-slate-200">STT</th>
+                              <th className="table-th select-none border-b border-slate-200">Tên lớp</th>
+                              <th className="table-th select-none border-b border-slate-200">Giảng viên</th>
+                              <th className="table-th text-center w-56 select-none border-b border-slate-200">Thao tác</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 bg-white">
+                            {sectionsInSem.map((section: Section, index: number) => (
+                              <tr key={section.id} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="table-td text-center text-slate-400 font-bold border-b border-slate-100">
+                                  {index + 1}
+                                </td>
+                                <td className="table-td font-semibold text-slate-800 border-b border-slate-100">
+                                  <Link
+                                    to={`/admin/sections/${section.id}`}
+                                    className="text-primary hover:text-primary-700 hover:underline"
+                                  >
+                                    {section.name}
+                                  </Link>
+                                </td>
+                                <td className="table-td border-b border-slate-100">
+                                  {section.instructors && section.instructors.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {section.instructors.map((instructor) => (
+                                        <span
+                                          key={instructor.id}
+                                          className="inline-flex items-center gap-1 rounded-full border border-primary-100 bg-primary-50 px-2 py-0.5 text-[11px] font-medium text-primary-800"
+                                        >
+                                          {instructor.fullName || instructor.username}
+                                          {instructor.isPrimary && (
+                                            <span className="rounded-full bg-primary px-1.5 py-0.5 text-[9px] font-bold uppercase text-white scale-90">
+                                              Chính
+                                            </span>
+                                          )}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : section.instructor ? (
+                                    <span className="text-[12px] text-slate-700 font-medium">
+                                      {section.instructor.fullName || section.instructor.username}
+                                    </span>
+                                  ) : instructors.length > 0 ? (
+                                    <select
+                                      className="rounded-lg border border-gray-300 px-2 py-1 text-xs text-gray-600 focus:border-primary focus:outline-none"
+                                      defaultValue=""
+                                      onChange={(e) => {
+                                        if (e.target.value) {
+                                          handleAssignInstructor(section.id, e.target.value)
+                                        }
+                                      }}
+                                    >
+                                      <option value="">Phân công giảng viên...</option>
+                                      {instructors.map((instructor) => (
+                                        <option key={instructor.id} value={instructor.id}>
+                                          {instructor.fullName || instructor.username}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    <span className="text-xs italic text-gray-400">
+                                      Chưa phân công
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="table-td text-center border-b border-slate-100">
+                                  <div className="flex items-center justify-center gap-2">
+                                    <Link
+                                      to={`/admin/sections/${section.id}`}
+                                      className="bg-primary hover:bg-primary-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all active:scale-[0.97] cursor-pointer shadow-sm inline-block"
+                                    >
+                                      Chi tiết
+                                    </Link>
+                                    <button
+                                      onClick={() => openEditForm(section)}
+                                      className="bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all active:scale-[0.97] cursor-pointer shadow-sm inline-block"
+                                    >
+                                      Sửa
+                                    </button>
+                                    <button
+                                      onClick={() => handleDelete(section.id)}
+                                      disabled={deletingId === section.id}
+                                      className="bg-rose-500 hover:bg-rose-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all active:scale-[0.97] cursor-pointer shadow-sm disabled:opacity-50 inline-block"
+                                    >
+                                      {deletingId === section.id ? 'Đang xóa...' : 'Xóa'}
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
     </div>
