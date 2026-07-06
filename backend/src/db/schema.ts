@@ -173,8 +173,15 @@ export const submissions = sqliteTable("submissions", {
     .notNull()
     .references(() => classSections.id),
   code: text("code").notNull(),
+  functionalScore: real("functional_score"),
   score: real("score"),
   manualScore: real("manual_score"),
+  styleScore: real("style_score"),
+  styleStatus: text("style_status", {
+    enum: ["passed", "failed", "unavailable", "skipped"],
+  }),
+  styleFeedback: text("style_feedback"),
+  styleReport: text("style_report"),
   feedback: text("feedback"),
   attemptNumber: integer("attempt_number").notNull().default(1),
   submittedAt: text("submitted_at").notNull(),

@@ -10,6 +10,11 @@ import {
   sectionEnrollments,
   anticheatEvents,
 } from "../db/schema.js";
+import {
+  buildStyleReport,
+  evaluateCheckstyle,
+  type CheckstyleEvaluation,
+} from "./checkstyle.service.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -42,6 +47,7 @@ export interface SubmissionError {
 }
 
 const JAVA_TEST_MARKER = "__OOP_JAVA_TEST__";
+const DEFAULT_STYLE_WEIGHT_PERCENT = 10;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -103,6 +109,58 @@ async function getWarningThreshold(database: Database): Promise<number> {
   return Number.isNaN(warningThreshold) ? 3 : warningThreshold;
 }
 
+async function getConfigNumber(
+  key: string,
+  fallback: number,
+  database: Database
+): Promise<number> {
+  const config = await database.query.systemConfig.findFirst({
+    where: eq(systemConfig.key, key),
+  });
+  const parsed = config ? Number(config.value) : fallback;
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+async function getStyleSettings(database: Database) {
+  const enabledValue = await getConfigNumber("style_check_enabled", 1, database);
+  const weightPercent = await getConfigNumber(
+    "style_check_weight_percent",
+    DEFAULT_STYLE_WEIGHT_PERCENT,
+    database
+  );
+  const penaltyPerViolation = await getConfigNumber("style_check_penalty_per_violation", 5, database);
+  const maxViolations = await getConfigNumber("style_check_max_penalized_violations", 20, database);
+
+  return {
+    enabled: enabledValue === 1,
+    weightPercent: clamp(weightPercent, 0, 50),
+    penaltyPerViolation: clamp(penaltyPerViolation, 1, 20),
+    maxViolations: Math.max(1, Math.min(100, Math.round(maxViolations))),
+  };
+}
+
+function combineScores(functionalScore: number, styleScore: number | null, styleWeightPercent: number): number {
+  if (styleScore === null || styleWeightPercent <= 0) return functionalScore;
+  const testWeightPercent = 100 - styleWeightPercent;
+  return Math.round((functionalScore * testWeightPercent + styleScore * styleWeightPercent) * 100) / 10000;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min;
+  return Math.max(min, Math.min(max, value));
+}
+
+function skippedStyleEvaluation(feedback: string): CheckstyleEvaluation {
+  return {
+    status: "skipped",
+    score: null,
+    violationCount: 0,
+    violations: [],
+    feedback,
+    toolVersion: "checkstyle",
+  };
+}
+
 async function hasExceededAntiCheatThreshold(
   studentId: string,
   exerciseId: string,
@@ -148,6 +206,8 @@ export async function createSubmission(
   input: CreateSubmissionInput,
   database: Database = defaultDb
 ): Promise<SubmissionError | Record<string, unknown>> {
+  await ensureSubmissionStyleColumns(database);
+
   const { studentId, exerciseId, sectionId, code, testResults, antiCheatNullified, exitAttempt } = input;
 
   // 1. Verify exercise assignment exists for exercise+section
@@ -247,7 +307,26 @@ export async function createSubmission(
     Boolean(antiCheatNullified) ||
     (await hasExceededAntiCheatThreshold(studentId, exerciseId, database));
   const isExitAttempt = Boolean(exitAttempt);
-  const score = isAntiCheatZero || isExitAttempt ? 0 : calculateScore(testCaseRecords, testResults);
+  const functionalScore = isAntiCheatZero || isExitAttempt ? 0 : calculateScore(testCaseRecords, testResults);
+  const styleSettings = await getStyleSettings(database);
+  const styleEvaluation =
+    isAntiCheatZero || isExitAttempt
+      ? skippedStyleEvaluation("Không chấm Checkstyle vì bài nộp đã bị ghi nhận 0 điểm.")
+      : styleSettings.enabled
+        ? await evaluateCheckstyle(code, {
+          penaltyPerViolation: styleSettings.penaltyPerViolation,
+          maxViolations: styleSettings.maxViolations,
+        })
+        : skippedStyleEvaluation("Chức năng chấm Checkstyle đang tắt trong cấu hình hệ thống.");
+
+  const score =
+    isAntiCheatZero || isExitAttempt
+      ? 0
+      : combineScores(
+        functionalScore,
+        styleEvaluation.status === "unavailable" ? null : styleEvaluation.score,
+        styleSettings.weightPercent
+      );
   const feedback = isAntiCheatZero
     ? "Điểm bị hủy do vượt quá ngưỡng cảnh báo chống gian lận."
     : isExitAttempt
@@ -267,7 +346,12 @@ export async function createSubmission(
       exerciseId,
       sectionId,
       code,
+      functionalScore,
       score,
+      styleScore: styleEvaluation.score,
+      styleStatus: styleEvaluation.status,
+      styleFeedback: styleEvaluation.feedback,
+      styleReport: buildStyleReport(styleEvaluation),
       feedback,
       attemptNumber,
       submittedAt,
@@ -306,7 +390,12 @@ export async function createSubmission(
     exerciseId,
     sectionId,
     code,
+    functionalScore,
     score,
+    styleScore: styleEvaluation.score,
+    styleStatus: styleEvaluation.status,
+    styleFeedback: styleEvaluation.feedback,
+    styleReport: buildStyleReport(styleEvaluation),
     feedback,
     attemptNumber,
     submittedAt,
@@ -334,6 +423,8 @@ export async function listSubmissions(
   filters: SubmissionFilters = {},
   database: Database = defaultDb
 ) {
+  await ensureSubmissionStyleColumns(database);
+
   const conditions = [];
 
   if (filters.exerciseId) {
@@ -395,6 +486,8 @@ export async function listSubmissions(
  * Validates: Requirements 5.1
  */
 export async function getSubmissionById(id: string, database: Database = defaultDb) {
+  await ensureSubmissionStyleColumns(database);
+
   const submission = await database.query.submissions.findFirst({
     where: eq(submissions.id, id),
     with: {
@@ -454,6 +547,8 @@ export async function gradeSubmission(
   input: { score?: number; feedback?: string },
   database: Database = defaultDb
 ) {
+  await ensureSubmissionStyleColumns(database);
+
   const existing = await database.query.submissions.findFirst({
     where: eq(submissions.id, id),
   });
@@ -484,6 +579,39 @@ export async function gradeSubmission(
   }
 
   return getSubmissionById(id, database);
+}
+
+async function ensureSubmissionStyleColumns(database: Database = defaultDb) {
+  const sqlite = (database as any).session?.client;
+  if (!sqlite) return;
+
+  const statements = [
+    "ALTER TABLE submissions ADD COLUMN functional_score REAL",
+    "ALTER TABLE submissions ADD COLUMN style_score REAL",
+    "ALTER TABLE submissions ADD COLUMN style_status TEXT",
+    "ALTER TABLE submissions ADD COLUMN style_feedback TEXT",
+    "ALTER TABLE submissions ADD COLUMN style_report TEXT",
+    "INSERT INTO system_config (key, value, valid_range, updated_at, updated_by) VALUES ('style_check_enabled', '1', '0-1', datetime('now'), NULL) ON CONFLICT(key) DO NOTHING",
+    "INSERT INTO system_config (key, value, valid_range, updated_at, updated_by) VALUES ('style_check_weight_percent', '10', '0-50', datetime('now'), NULL) ON CONFLICT(key) DO NOTHING",
+    "INSERT INTO system_config (key, value, valid_range, updated_at, updated_by) VALUES ('style_check_penalty_per_violation', '5', '1-20', datetime('now'), NULL) ON CONFLICT(key) DO NOTHING",
+    "INSERT INTO system_config (key, value, valid_range, updated_at, updated_by) VALUES ('style_check_max_penalized_violations', '20', '1-100', datetime('now'), NULL) ON CONFLICT(key) DO NOTHING",
+  ];
+
+  for (const statement of statements) {
+    try {
+      if (typeof sqlite.exec === "function") {
+        sqlite.exec(statement);
+      } else if (typeof sqlite.execute === "function") {
+        await sqlite.execute(statement);
+      }
+    } catch (error: any) {
+      const message = String(error?.message ?? error);
+      const normalized = message.toLowerCase();
+      if (!normalized.includes("duplicate column") && !normalized.includes("no such table")) {
+        console.error("ensureSubmissionStyleColumns error:", message);
+      }
+    }
+  }
 }
 
 // ─── Student Progress ────────────────────────────────────────────────────────

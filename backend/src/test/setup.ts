@@ -108,8 +108,13 @@ beforeAll(() => {
       exercise_id TEXT NOT NULL REFERENCES exercises(id),
       section_id TEXT NOT NULL REFERENCES class_sections(id),
       code TEXT NOT NULL,
+      functional_score REAL,
       score REAL,
       manual_score REAL,
+      style_score REAL,
+      style_status TEXT CHECK(style_status IN ('passed', 'failed', 'unavailable', 'skipped')),
+      style_feedback TEXT,
+      style_report TEXT,
       feedback TEXT,
       attempt_number INTEGER,
       submitted_at TEXT DEFAULT (datetime('now'))
@@ -183,7 +188,11 @@ beforeAll(() => {
       ('source_check_weekly_enabled', '0', '0-1'),
       ('source_check_similarity_threshold', '70', '40-95'),
       ('source_check_max_runtime_minutes', '20', '5-120'),
-      ('source_check_provider', 'jplag', 'enum:jplag,pmd_cpd,dolos');
+      ('source_check_provider', 'jplag', 'enum:jplag,pmd_cpd,dolos'),
+      ('style_check_enabled', '0', '0-1'),
+      ('style_check_weight_percent', '10', '0-50'),
+      ('style_check_penalty_per_violation', '5', '1-20'),
+      ('style_check_max_penalized_violations', '20', '1-100');
   `);
 });
 

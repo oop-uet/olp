@@ -7,6 +7,7 @@ import { toast } from '../../stores/toast.store'
 
 type ResultStatus = 'passed' | 'failed' | 'timeout' | 'error'
 type ReviewTab = 'source' | 'results'
+type StyleStatus = 'passed' | 'failed' | 'unavailable' | 'skipped'
 
 interface ApiTestCaseInfo {
   inputData?: string | null
@@ -46,8 +47,13 @@ interface SubmissionDetail {
   exerciseId: string
   exerciseTitle: string
   code: string
+  functionalScore: number | null
   score: number
   manualScore: number | null
+  styleScore: number | null
+  styleStatus: StyleStatus | null
+  styleFeedback: string | null
+  styleReport: StyleReport | null
   feedback: string | null
   attemptNumber: number
   submittedAt: string
@@ -61,9 +67,31 @@ type SubmissionDetailResponse = Partial<SubmissionDetail> & {
   exercise_id?: string
   attempt_number?: number
   submitted_at?: string
+  functional_score?: number | null
+  style_score?: number | null
+  style_status?: StyleStatus | null
+  style_feedback?: string | null
+  style_report?: string | null
   effectiveScore?: number | null
   results?: ApiResult[]
   testCaseResults?: ApiResult[]
+}
+
+interface StyleViolation {
+  file: string
+  line: number | null
+  column: number | null
+  severity: string
+  message: string
+}
+
+interface StyleReport {
+  provider?: string
+  status?: StyleStatus
+  score?: number | null
+  violationCount?: number
+  toolVersion?: string
+  violations?: StyleViolation[]
 }
 
 interface SubmittedSourceFile {
@@ -103,12 +131,27 @@ function normalizeSubmissionDetail(data: SubmissionDetailResponse): SubmissionDe
     exerciseId: data.exerciseId ?? data.exercise_id ?? '',
     exerciseTitle: data.exerciseTitle ?? data.exercise?.title ?? 'Bài tập',
     code: data.code ?? '',
+    functionalScore: data.functionalScore ?? data.functional_score ?? null,
     score: Number(data.effectiveScore ?? data.manualScore ?? data.score ?? 0),
     manualScore: data.manualScore ?? null,
+    styleScore: data.styleScore ?? data.style_score ?? null,
+    styleStatus: data.styleStatus ?? data.style_status ?? null,
+    styleFeedback: data.styleFeedback ?? data.style_feedback ?? null,
+    styleReport: parseStyleReport(data.styleReport ?? data.style_report ?? null),
     feedback: data.feedback ?? null,
     attemptNumber: Number(data.attemptNumber ?? data.attempt_number ?? 1),
     submittedAt: data.submittedAt ?? data.submitted_at ?? new Date().toISOString(),
     testCaseResults: rawResults.map(normalizeResult),
+  }
+}
+
+function parseStyleReport(value?: string | StyleReport | null): StyleReport | null {
+  if (!value) return null
+  if (typeof value === 'object') return value
+  try {
+    return JSON.parse(value) as StyleReport
+  } catch {
+    return null
   }
 }
 
@@ -217,12 +260,8 @@ export function SubmissionDetailPage() {
 
   const review = useMemo(() => {
     const results = submission?.testCaseResults ?? []
-    const totalPoints = results.reduce((sum, tc) => sum + tc.pointValue, 0)
-    const earnedPoints = results
-      .filter((tc) => tc.passed)
-      .reduce((sum, tc) => sum + tc.pointValue, 0)
     const passedCount = results.filter((tc) => tc.passed).length
-    return { results, totalPoints, earnedPoints, passedCount }
+    return { results, passedCount }
   }, [submission])
 
   if (loading) {
@@ -245,6 +284,8 @@ export function SubmissionDetailPage() {
     submittedFiles.find((file) => file.name === activeSubmittedFile) ?? submittedFiles[0]
   const accepted = submission.score >= 100 || (review.results.length > 0 && review.passedCount === review.results.length)
   const hasPublicResults = review.results.length > 0
+  const functionalScore = submission.functionalScore ?? submission.score
+  const styleViolationCount = submission.styleReport?.violationCount ?? submission.styleReport?.violations?.length ?? 0
 
   return (
     <div className="-m-6 min-h-[calc(100vh-8.25rem)] bg-slate-100">
@@ -302,7 +343,13 @@ export function SubmissionDetailPage() {
               <div className="flex items-center justify-between gap-3">
                 <span className="font-semibold text-slate-500">Điểm chức năng</span>
                 <span className="font-bold text-slate-900">
-                  {review.earnedPoints}/{review.totalPoints || 0}
+                  {functionalScore.toFixed(1)}/100
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-semibold text-slate-500">Điểm quy tắc</span>
+                <span className="font-bold text-slate-900">
+                  {submission.styleScore == null ? 'Chưa chấm' : `${submission.styleScore.toFixed(1)}/100`}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-3">
@@ -360,8 +407,13 @@ export function SubmissionDetailPage() {
               </h2>
             </div>
             <div className="p-4 text-sm leading-6 text-slate-600">
-              Sinh viên chỉ xem mã nguồn đã nộp và kết quả yêu cầu chức năng công khai. Unit test và
-              file test chi tiết chỉ hiển thị ở trang giảng viên/quản trị.
+              <StyleSummary
+                status={submission.styleStatus}
+                score={submission.styleScore}
+                feedback={submission.styleFeedback}
+                violations={submission.styleReport?.violations ?? []}
+                violationCount={styleViolationCount}
+              />
             </div>
           </section>
         </aside>
@@ -378,7 +430,7 @@ export function SubmissionDetailPage() {
               <span>Lỗi cấu trúc mã nguồn (SE)</span>
             </label>
             <label className="flex items-center gap-1.5 cursor-not-allowed">
-              <input type="checkbox" checked={false} disabled className="rounded text-primary focus:ring-primary h-3.5 w-3.5" />
+              <input type="checkbox" checked={submission.styleStatus === 'failed'} disabled className="rounded text-primary focus:ring-primary h-3.5 w-3.5" />
               <span>Lỗi quy tắc lập trình (PE)</span>
             </label>
             <label className="flex items-center gap-1.5 cursor-not-allowed">
@@ -467,6 +519,71 @@ function EmptyResults() {
           Bài nộp có thể chỉ được chấm bằng test ẩn hoặc bị ghi nhận 0 điểm do phiên làm bài.
         </p>
       </div>
+    </div>
+  )
+}
+
+function StyleSummary({
+  status,
+  score,
+  feedback,
+  violations,
+  violationCount,
+}: {
+  status: StyleStatus | null
+  score: number | null
+  feedback: string | null
+  violations: StyleViolation[]
+  violationCount: number
+}) {
+  const visibleViolations = violations.slice(0, 5)
+
+  if (!status || status === 'skipped') {
+    return (
+      <div className="space-y-2">
+        <p className="font-bold text-slate-800">Checkstyle chưa được chấm cho bài nộp này.</p>
+        {feedback && <p>{feedback}</p>}
+      </div>
+    )
+  }
+
+  if (status === 'unavailable') {
+    return (
+      <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-800">
+        <p className="font-bold">Checkstyle chưa sẵn sàng</p>
+        <p className="mt-1">{feedback ?? 'Backend chưa chạy được Checkstyle.'}</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <span className="font-bold text-slate-800">Google Java Style</span>
+        <span className={status === 'passed' ? 'badge-green' : 'badge-red'}>
+          {score == null ? 'N/A' : `${score.toFixed(1)}/100`}
+        </span>
+      </div>
+      <p>{feedback}</p>
+      {visibleViolations.length > 0 && (
+        <div className="space-y-2">
+          {visibleViolations.map((violation, index) => (
+            <div key={`${violation.file}-${violation.line}-${index}`} className="rounded-md bg-slate-50 p-2 text-xs">
+              <p className="font-bold text-slate-800">
+                {violation.file}
+                {violation.line ? `:${violation.line}` : ''}
+                {violation.column ? `:${violation.column}` : ''}
+              </p>
+              <p className="mt-1 text-slate-600">{violation.message}</p>
+            </div>
+          ))}
+          {violationCount > visibleViolations.length && (
+            <p className="text-xs font-semibold text-slate-500">
+              Còn {violationCount - visibleViolations.length} lỗi khác.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   )
 }

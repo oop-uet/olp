@@ -7,6 +7,7 @@ import { toast } from '../../stores/toast.store'
 import Editor from '@monaco-editor/react'
 
 // --- Types ---
+type StyleStatus = 'passed' | 'failed' | 'unavailable' | 'skipped'
 
 interface StudentInfo {
   id: string
@@ -44,14 +45,35 @@ interface SubmissionDetail {
   id: string
   exerciseId: string
   code: string
+  functionalScore: number | null
   score: number | null
   manualScore: number | null
+  styleScore: number | null
+  styleStatus: StyleStatus | null
+  styleFeedback: string | null
+  styleReport: string | null
   feedback: string | null
   effectiveScore: number | null
   attemptNumber: number
   submittedAt: string
   student?: StudentInfo | null
   results: TestCaseResult[]
+}
+
+interface StyleViolation {
+  file: string
+  line: number | null
+  column: number | null
+  severity: string
+  message: string
+}
+
+interface ParsedStyleReport {
+  status?: StyleStatus
+  score?: number | null
+  violationCount?: number
+  toolVersion?: string
+  violations?: StyleViolation[]
 }
 
 interface AntiCheatEvent {
@@ -121,6 +143,15 @@ function buildAllFilesDownload(files: SubmittedSourceFile[]) {
   return files
     .map((file) => `// ===== ${file.name} =====\n${file.content.trimEnd()}\n`)
     .join('\n')
+}
+
+function parseStyleReport(report?: string | null): ParsedStyleReport | null {
+  if (!report) return null
+  try {
+    return JSON.parse(report) as ParsedStyleReport
+  } catch {
+    return null
+  }
 }
 
 // --- Helpers ---
@@ -459,11 +490,6 @@ export function SubmissionReviewPage() {
     if (!selectedSubmission) return null
 
     const results = selectedSubmission.results ?? []
-    const totalPoints = results.reduce((sum, tc) => sum + (tc.testCase?.pointValue ?? 0), 0)
-    const earnedPoints = results
-      .filter((tc) => isPassed(tc.passed))
-      .reduce((sum, tc) => sum + (tc.testCase?.pointValue ?? 0), 0)
-
     const effectiveScore =
       selectedSubmission.effectiveScore ??
       selectedSubmission.manualScore ??
@@ -479,6 +505,10 @@ export function SubmissionReviewPage() {
     const submittedFiles = parseSubmittedFiles(selectedSubmission.code)
     const currentSubmittedFile =
       submittedFiles.find((file) => file.name === activeSubmittedFile) ?? submittedFiles[0]
+    const parsedStyleReport = parseStyleReport(selectedSubmission.styleReport)
+    const styleViolations = parsedStyleReport?.violations ?? []
+    const styleViolationCount = parsedStyleReport?.violationCount ?? styleViolations.length
+    const functionalScore = selectedSubmission.functionalScore ?? selectedSubmission.score ?? 0
 
     return (
       <div className="-m-6 min-h-[calc(100vh-8.25rem)] bg-slate-100 animate-fade-in pb-8">
@@ -515,7 +545,7 @@ export function SubmissionReviewPage() {
                     {effectiveScore.toFixed(1)}%
                   </span>
                   <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">
-                    {earnedPoints}/{totalPoints} test cases đạt
+                    Test: {functionalScore.toFixed(1)} · Style: {selectedSubmission.styleScore == null ? 'N/A' : selectedSubmission.styleScore.toFixed(1)}
                   </p>
                 </div>
                 {isManuallyGraded && (
@@ -592,6 +622,63 @@ export function SubmissionReviewPage() {
               </div>
             </div>
 
+            {/* Checkstyle result */}
+            <div className="card bg-white border border-slate-100 shadow-sm overflow-hidden">
+              <div className="panel-header py-2.5 px-4">
+                <h3 className="panel-title">Checkstyle</h3>
+              </div>
+              <div className="space-y-3 p-4 text-xs text-slate-600">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-bold text-slate-500">Điểm quy tắc</span>
+                  <span className={`font-black ${
+                    selectedSubmission.styleStatus === 'failed'
+                      ? 'text-rose-600'
+                      : selectedSubmission.styleStatus === 'passed'
+                        ? 'text-emerald-600'
+                        : 'text-slate-500'
+                  }`}>
+                    {selectedSubmission.styleScore == null ? 'N/A' : `${selectedSubmission.styleScore.toFixed(1)}/100`}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-bold text-slate-500">Trạng thái</span>
+                  <span className={
+                    selectedSubmission.styleStatus === 'failed'
+                      ? 'badge-red'
+                      : selectedSubmission.styleStatus === 'passed'
+                        ? 'badge-green'
+                        : 'badge-gray'
+                  }>
+                    {selectedSubmission.styleStatus ?? 'skipped'}
+                  </span>
+                </div>
+                {selectedSubmission.styleFeedback && (
+                  <p className="rounded-md border border-slate-200 bg-slate-50 p-2 leading-5">
+                    {selectedSubmission.styleFeedback}
+                  </p>
+                )}
+                {styleViolations.length > 0 && (
+                  <div className="max-h-56 space-y-2 overflow-y-auto">
+                    {styleViolations.slice(0, 6).map((violation, index) => (
+                      <div key={`${violation.file}-${violation.line}-${index}`} className="rounded-md border border-rose-100 bg-rose-50 p-2">
+                        <p className="font-bold text-rose-700">
+                          {violation.file}
+                          {violation.line ? `:${violation.line}` : ''}
+                          {violation.column ? `:${violation.column}` : ''}
+                        </p>
+                        <p className="mt-1 leading-5 text-rose-700">{violation.message}</p>
+                      </div>
+                    ))}
+                    {styleViolationCount > 6 && (
+                      <p className="font-semibold text-slate-500">
+                        Còn {styleViolationCount - 6} lỗi Checkstyle khác.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Submitted Source Files list */}
             <div className="card bg-white border border-slate-100 shadow-sm overflow-hidden">
               <div className="panel-header py-2.5 px-4">
@@ -664,7 +751,7 @@ export function SubmissionReviewPage() {
                 <span>Lỗi cấu trúc mã nguồn (SE)</span>
               </label>
               <label className="flex items-center gap-1.5 cursor-not-allowed">
-                <input type="checkbox" checked={false} disabled className="rounded text-primary focus:ring-primary h-3.5 w-3.5" />
+                <input type="checkbox" checked={selectedSubmission.styleStatus === 'failed'} disabled className="rounded text-primary focus:ring-primary h-3.5 w-3.5" />
                 <span>Lỗi quy tắc lập trình (PE)</span>
               </label>
               <label className="flex items-center gap-1.5 cursor-not-allowed">

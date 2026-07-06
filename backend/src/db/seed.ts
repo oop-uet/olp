@@ -176,6 +176,34 @@ async function seed() {
       updatedAt: now,
       updatedBy: null,
     },
+    {
+      key: "style_check_enabled",
+      value: "1",
+      validRange: "0-1",
+      updatedAt: now,
+      updatedBy: null,
+    },
+    {
+      key: "style_check_weight_percent",
+      value: "10",
+      validRange: "0-50",
+      updatedAt: now,
+      updatedBy: null,
+    },
+    {
+      key: "style_check_penalty_per_violation",
+      value: "5",
+      validRange: "1-20",
+      updatedAt: now,
+      updatedBy: null,
+    },
+    {
+      key: "style_check_max_penalized_violations",
+      value: "20",
+      validRange: "1-100",
+      updatedAt: now,
+      updatedBy: null,
+    },
   ];
 
   for (const config of configDefaults) {
