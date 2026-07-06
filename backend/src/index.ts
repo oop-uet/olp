@@ -8,6 +8,8 @@ import rosterRoutes from './routes/admin/roster.routes.js';
 import userRoutes from './routes/admin/user.routes.js';
 import adminExerciseRoutes from './routes/admin/exercise.routes.js';
 import adminRoutes from './routes/admin.routes.js';
+import helpRoutes from './routes/help.routes.js';
+import adminHelpRoutes from './routes/admin/help.routes.js';
 import { exerciseTestCaseRouter, testCaseRouter } from './routes/instructor/testcase.routes.js';
 import exerciseRoutes from './routes/instructor/exercise.routes.js';
 import submissionRoutes from './routes/instructor/submission.routes.js';
@@ -40,6 +42,8 @@ app.get('/api/health', (_req, res) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/help-guide', helpRoutes);
+app.use('/api/admin/help-guide', authMiddleware(), requireRole('admin'), adminHelpRoutes);
 app.use('/api/admin/sections', authMiddleware(), requireRole('admin'), sectionRoutes);
 app.use('/api/admin/sections', authMiddleware(), requireRole('admin'), importRoutes);
 app.use('/api/admin', authMiddleware(), requireRole('admin'), rosterRoutes);

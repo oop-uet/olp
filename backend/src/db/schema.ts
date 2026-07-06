@@ -279,6 +279,26 @@ export const systemConfig = sqliteTable("system_config", {
   updatedBy: text("updated_by").references(() => users.id),
 });
 
+// ─── Help / Guide Content ────────────────────────────────────────────────────
+
+export const helpSections = sqliteTable("help_sections", {
+  id: text("id").primaryKey(), // e.g. 'login', 'executor'
+  title: text("title").notNull(),
+  description: text("description"),
+  orderIndex: integer("order_index").notNull().default(0),
+});
+
+export const helpItems = sqliteTable("help_items", {
+  id: text("id").primaryKey(), // UUID/string
+  sectionId: text("section_id")
+    .notNull()
+    .references(() => helpSections.id),
+  type: text("type", { enum: ["step", "info", "faq", "checklist"] }).notNull(),
+  title: text("title"),
+  content: text("content").notNull(),
+  orderIndex: integer("order_index").notNull().default(0),
+});
+
 // ─── Relations ───────────────────────────────────────────────────────────────
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -433,6 +453,17 @@ export const systemConfigRelations = relations(systemConfig, ({ one }) => ({
   }),
 }));
 
+export const helpSectionsRelations = relations(helpSections, ({ many }) => ({
+  items: many(helpItems),
+}));
+
+export const helpItemsRelations = relations(helpItems, ({ one }) => ({
+  section: one(helpSections, {
+    fields: [helpItems.sectionId],
+    references: [helpSections.id],
+  }),
+}));
+
 // ─── TypeScript Type Exports ─────────────────────────────────────────────────
 
 export type User = InferSelectModel<typeof users>;
@@ -472,3 +503,8 @@ export type NewAnticheatEvent = InferInsertModel<typeof anticheatEvents>;
 
 export type SystemConfig = InferSelectModel<typeof systemConfig>;
 export type NewSystemConfig = InferInsertModel<typeof systemConfig>;
+
+export type HelpSection = InferSelectModel<typeof helpSections>;
+export type NewHelpSection = InferInsertModel<typeof helpSections>;
+export type HelpItem = InferSelectModel<typeof helpItems>;
+export type NewHelpItem = InferInsertModel<typeof helpItems>;

@@ -10,6 +10,7 @@ import {
   DashboardIcon,
   TeacherIcon,
   StudentsIcon,
+  InfoIcon,
 } from '../ui/Icon'
 
 interface MenuItem {
@@ -37,6 +38,7 @@ const menusByRole: Record<UserRole, MenuItem[]> = {
     { label: 'Lớp học phần', path: '/admin/sections', icon: SectionIcon },
     { label: 'Bài tập', path: '/admin/exercises', icon: ExerciseIcon },
     { label: 'Cấu hình', path: '/admin/config', icon: ConfigIcon },
+    { label: 'Biên tập Help', path: '/admin/help', icon: InfoIcon },
   ],
 }
 

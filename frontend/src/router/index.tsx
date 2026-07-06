@@ -72,6 +72,7 @@ const AdminExercisesPage = lazy(() => import('../pages/admin/AdminExercisesPage'
 const AdminExerciseFormPage = lazy(() => import('../pages/admin/AdminExerciseFormPage').then((m) => ({ default: m.AdminExerciseFormPage })))
 const StudentImportPage = lazy(() => import('../pages/admin/StudentImportPage').then((m) => ({ default: m.StudentImportPage })))
 const ConfigPage = lazy(() => import('../pages/admin/ConfigPage').then((m) => ({ default: m.ConfigPage })))
+const HelpEditorPage = lazy(() => import('../pages/admin/HelpEditorPage').then((m) => ({ default: m.HelpEditorPage })))
 
 // Instructor - classes
 const InstructorSectionsPage = lazy(() => import('../pages/instructor/InstructorSectionsPage').then((m) => ({ default: m.InstructorSectionsPage })))
@@ -167,6 +168,7 @@ export const router = createBrowserRouter(
         { path: 'exercises/new', element: withSuspense(<AdminExerciseFormPage />) },
         { path: 'exercises/:id/edit', element: withSuspense(<AdminExerciseFormPage />) },
         { path: 'config', element: withSuspense(<ConfigPage />) },
+        { path: 'help', element: withSuspense(<HelpEditorPage />) },
       ],
     },
   ],

@@ -12,6 +12,7 @@ import {
   TeacherIcon,
   StudentsIcon,
   MenuIcon,
+  InfoIcon,
 } from '../ui/Icon'
 import { LocalExecutorStatusButton } from '../student/LocalExecutorStatusButton'
 import { api } from '../../lib/api'
@@ -42,6 +43,7 @@ const menusByRole: Record<UserRole, MenuItem[]> = {
     { label: 'Lớp học phần', path: '/admin/sections', icon: SectionIcon },
     { label: 'Bài tập', path: '/admin/exercises', icon: ExerciseIcon },
     { label: 'Cấu hình', path: '/admin/config', icon: ConfigIcon },
+    { label: 'Biên tập Help', path: '/admin/help', icon: InfoIcon },
   ],
 }
 
