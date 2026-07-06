@@ -175,44 +175,44 @@ export function AdminExercisesPage() {
           <p className="text-gray-500 font-medium">Không tìm thấy bài tập nào khớp với từ khóa tìm kiếm.</p>
         </div>
       ) : (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm overflow-x-auto">
           <table className="min-w-full border-collapse">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 text-xs font-bold uppercase select-none">
-                <th className="px-4 py-3 text-center w-16 text-slate-500 font-black">STT</th>
+              <tr className="bg-slate-50 border-b border-slate-200 select-none">
+                <th className="table-th text-center w-16 select-none">STT</th>
                 <th
                   onClick={() => toggleSort('title')}
-                  className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors text-slate-500 font-black"
+                  className="table-th cursor-pointer hover:bg-slate-100 transition-colors select-none"
                 >
                   Tiêu đề {sortField === 'title' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
                 <th
                   onClick={() => toggleSort('difficulty')}
-                  className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors text-slate-500 font-black"
+                  className="table-th cursor-pointer hover:bg-slate-100 transition-colors select-none"
                 >
                   Độ khó {sortField === 'difficulty' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
-                <th className="px-4 py-3 text-left text-slate-500 font-black">Thẻ OOP</th>
-                <th className="px-4 py-3 text-left text-slate-500 font-black">Số test case</th>
-                <th className="px-4 py-3 text-center w-36 text-slate-500 font-black">Thao tác</th>
+                <th className="table-th select-none">Thẻ OOP</th>
+                <th className="table-th select-none">Số test case</th>
+                <th className="table-th text-center w-36 select-none">Thao tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
+            <tbody className="divide-y divide-slate-100 bg-white">
               {paginatedExercises.map((exercise, index) => {
                 const tags = parseOopTags(exercise.oopTags)
                 const rowNum = index + 1 + (currentPage - 1) * PAGE_SIZE
                 return (
                   <tr key={exercise.id} className="hover:bg-slate-50/50 transition-colors border-b border-slate-100 last:border-b-0">
-                    <td className="px-4 py-2.5 text-center text-slate-400 font-bold">
+                    <td className="table-td text-center text-slate-400 font-bold">
                       {rowNum}
                     </td>
-                    <td className="px-4 py-2.5 font-semibold text-slate-800">
+                    <td className="table-td font-semibold text-slate-800">
                       {exercise.title}
                     </td>
-                    <td className="px-4 py-2.5">
+                    <td className="table-td">
                       <DifficultyBadge difficulty={exercise.difficulty} />
                     </td>
-                    <td className="px-4 py-2.5">
+                    <td className="table-td">
                       {tags.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                           {tags.map((tag) => (
@@ -225,12 +225,12 @@ export function AdminExercisesPage() {
                         <span className="text-gray-400">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-2.5 text-slate-600 font-medium">
+                    <td className="table-td text-slate-600 font-medium">
                       {Array.isArray(exercise.testCases)
                         ? exercise.testCases.length
                         : '—'}
                     </td>
-                    <td className="px-4 py-2.5 text-center">
+                    <td className="table-td text-center">
                       <div className="flex items-center justify-center gap-2">
                         <Link
                           to={`/admin/exercises/${exercise.id}/edit`}

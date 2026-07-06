@@ -335,39 +335,39 @@ export function InstructorManagementPage() {
           <p className="text-gray-500 font-medium">Chưa có giảng viên nào.</p>
         </div>
       ) : (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm overflow-x-auto">
           <table className="min-w-full border-collapse">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 text-xs font-bold uppercase select-none">
-                <th className="px-4 py-3 text-center w-16 text-slate-500 font-black">STT</th>
+              <tr className="bg-slate-50 border-b border-slate-200 select-none">
+                <th className="table-th text-center w-16 select-none">STT</th>
                 <th
                   onClick={() => toggleSort('fullName')}
-                  className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors text-slate-500 font-black"
+                  className="table-th cursor-pointer hover:bg-slate-100 transition-colors select-none"
                 >
                   Họ tên {sortField === 'fullName' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
                 <th
                   onClick={() => toggleSort('username')}
-                  className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors text-slate-500 font-black"
+                  className="table-th cursor-pointer hover:bg-slate-100 transition-colors select-none"
                 >
                   Tên đăng nhập {sortField === 'username' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
                 <th
                   onClick={() => toggleSort('email')}
-                  className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors text-slate-500 font-black"
+                  className="table-th cursor-pointer hover:bg-slate-100 transition-colors select-none"
                 >
                   Email {sortField === 'email' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
-                <th className="px-4 py-3 text-center w-72 text-slate-500 font-black">Thao tác</th>
+                <th className="table-th text-center w-72 select-none">Thao tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
+            <tbody className="divide-y divide-slate-100 bg-white">
               {paginatedUsers.map((user, index) => (
                 <tr key={user.id} className="hover:bg-slate-50/50 transition-colors border-b border-slate-100 last:border-b-0">
-                  <td className="px-4 py-2.5 text-center text-slate-400 font-bold">
+                  <td className="table-td text-center text-slate-400 font-bold">
                     {index + 1 + (currentPage - 1) * PAGE_SIZE}
                   </td>
-                  <td className="px-4 py-2.5">
+                  <td className="table-td">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-slate-800">
                         {user.fullName || '—'}
@@ -377,9 +377,9 @@ export function InstructorManagementPage() {
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-2.5 text-slate-600 font-semibold">{user.username}</td>
-                  <td className="px-4 py-2.5 text-slate-600 font-medium">{user.email}</td>
-                  <td className="px-4 py-2.5 text-center">
+                  <td className="table-td text-slate-600 font-semibold">{user.username}</td>
+                  <td className="table-td text-slate-600 font-medium">{user.email}</td>
+                  <td className="table-td text-center">
                     <div className="flex items-center justify-center gap-2">
                       <button
                         onClick={() => openEditForm(user)}

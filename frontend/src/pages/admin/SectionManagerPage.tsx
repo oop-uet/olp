@@ -628,34 +628,34 @@ export function SectionManagerPage() {
           <p className="text-gray-500">Không tìm thấy lớp học phần nào khớp với từ khóa tìm kiếm.</p>
         </div>
       ) : (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm overflow-x-auto">
           <table className="min-w-full border-collapse">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 text-xs font-bold uppercase select-none">
-                <th className="px-4 py-3 text-center w-16 text-slate-500 font-black">STT</th>
+              <tr className="bg-slate-50 border-b border-slate-200 select-none">
+                <th className="table-th text-center w-16 select-none">STT</th>
                 <th
                   onClick={() => toggleSort('name')}
-                  className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors text-slate-500 font-black"
+                  className="table-th cursor-pointer hover:bg-slate-100 transition-colors select-none"
                 >
                   Tên lớp {sortField === 'name' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
                 <th
                   onClick={() => toggleSort('semester')}
-                  className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors text-slate-500 font-black"
+                  className="table-th cursor-pointer hover:bg-slate-100 transition-colors select-none"
                 >
                   Học kỳ {sortField === 'semester' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
-                <th className="px-4 py-3 text-left text-slate-500 font-black">Giảng viên</th>
-                <th className="px-4 py-3 text-center w-56 text-slate-500 font-black">Thao tác</th>
+                <th className="table-th select-none">Giảng viên</th>
+                <th className="table-th text-center w-56 select-none">Thao tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
+            <tbody className="divide-y divide-slate-100 bg-white">
               {paginatedSections.map((section: Section, index: number) => (
                 <tr key={section.id} className="hover:bg-slate-50/50 transition-colors border-b border-slate-100 last:border-b-0">
-                  <td className="px-4 py-2.5 text-center text-slate-400 font-bold">
+                  <td className="table-td text-center text-slate-400 font-bold">
                     {index + 1 + (currentPage - 1) * PAGE_SIZE}
                   </td>
-                  <td className="px-4 py-2.5 font-semibold text-slate-800">
+                  <td className="table-td font-semibold text-slate-800">
                     <Link
                       to={`/admin/sections/${section.id}`}
                       className="text-primary hover:text-primary-700 hover:underline"
@@ -663,10 +663,10 @@ export function SectionManagerPage() {
                       {section.name}
                     </Link>
                   </td>
-                  <td className="px-4 py-2.5">
+                  <td className="table-td">
                     <span className="badge-blue">{section.semester}</span>
                   </td>
-                  <td className="px-4 py-2.5">
+                  <td className="table-td">
                     {section.instructors && section.instructors.length > 0 ? (
                       <div className="flex flex-wrap gap-1.5">
                         {section.instructors.map((instructor) => (
@@ -710,7 +710,7 @@ export function SectionManagerPage() {
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-2.5 text-center">
+                  <td className="table-td text-center">
                     <div className="flex items-center justify-center gap-2">
                       <Link
                         to={`/admin/sections/${section.id}`}
