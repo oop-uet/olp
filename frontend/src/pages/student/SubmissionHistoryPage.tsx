@@ -71,18 +71,18 @@ function getStatusBadge(score: number): { label: string; className: string } {
   if (score >= 100) {
     return {
       label: 'Accepted',
-      className: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-700/10 font-bold',
+      className: 'bg-emerald-500 text-white shadow-sm',
     }
   }
   if (score === 0) {
     return {
       label: 'Compile Error',
-      className: 'bg-rose-50 text-rose-700 ring-1 ring-rose-700/10 font-bold',
+      className: 'bg-rose-500 text-white shadow-sm',
     }
   }
   return {
     label: 'Finished',
-    className: 'bg-blue-50 text-blue-700 ring-1 ring-blue-700/10 font-bold',
+    className: 'bg-blue-500 text-white shadow-sm',
   }
 }
 
@@ -278,74 +278,74 @@ export function SubmissionHistoryPage() {
               <p>Chưa có dữ liệu bài nộp nào trong lớp học này.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full border-collapse">
+            <div className="overflow-x-auto px-6 pb-8">
+              <table className="min-w-full border-separate border-spacing-0 text-left">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 text-xs font-bold uppercase select-none">
-                    <th className="px-4 py-3 text-center w-16 select-none">STT</th>
-                    <th className="px-4 py-3 text-left w-24"># ID</th>
-                    <th className="px-4 py-3 text-left">Sinh viên</th>
+                  <tr className="text-base font-bold text-slate-800">
+                    <th className="border-b-2 border-slate-300 px-4 py-5 text-center w-20 select-none">STT</th>
+                    <th className="border-b-2 border-slate-300 px-4 py-5 w-28"># ID</th>
+                    <th className="border-b-2 border-slate-300 px-4 py-5">Sinh viên</th>
                     <th
                       onClick={() => toggleSort('exerciseTitle')}
-                      className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-700"
+                      className="border-b-2 border-slate-300 px-4 py-5 cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-800"
                     >
                       Bài tập {sortField === 'exerciseTitle' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                     </th>
                     <th
                       onClick={() => toggleSort('submittedAt')}
-                      className="px-4 py-3 text-left w-52 cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-700"
+                      className="border-b-2 border-slate-300 px-4 py-5 cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-800"
                     >
                       Thời gian {sortField === 'submittedAt' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                     </th>
                     <th
                       onClick={() => toggleSort('score')}
-                      className="px-4 py-3 text-center w-20 cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-700"
+                      className="border-b-2 border-slate-300 px-4 py-5 text-center cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-800"
                     >
                       Điểm {sortField === 'score' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                     </th>
-                    <th className="px-4 py-3 text-center w-36">Kết quả</th>
+                    <th className="border-b-2 border-slate-300 px-4 py-5 w-36">Kết quả</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-xs text-slate-700 bg-white">
+                <tbody>
                   {paginatedSubmissions.map((submission: Submission, index: number) => {
                     const statusInfo = getStatusBadge(submission.score)
                     return (
-                      <tr key={submission.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-4 py-3 text-center text-slate-500 font-bold">
+                      <tr key={submission.id} className="text-base text-slate-700 hover:bg-slate-50">
+                        <td className="border-b border-slate-200 px-4 py-4 text-center text-slate-400 font-bold">
                           {index + 1 + (currentPage - 1) * pageSize}
                         </td>
-                        <td className="px-4 py-3 font-semibold">
+                        <td className="border-b border-slate-200 px-4 py-4">
                           <Link
                             to={`/student/submissions/${submission.id}`}
-                            className="text-primary hover:underline"
+                            className="font-semibold text-sky-500 hover:underline"
                           >
                             {submission.id.slice(0, 8)}
                           </Link>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="border-b border-slate-200 px-4 py-4">
                           <Link
                             to={`/student/classes/${selectedSectionId}/students/${submission.student.id}/profile`}
-                            className="font-semibold text-primary hover:underline"
+                            className="font-bold text-sky-500 hover:underline"
                           >
                             {submission.student.fullName || submission.student.username}
                           </Link>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="border-b border-slate-200 px-4 py-4">
                           <Link
                             to={`/student/exercises/${submission.exerciseId}`}
-                            className="font-semibold text-primary hover:underline"
+                            className="font-medium text-sky-500 hover:underline"
                           >
                             {submission.exercise.title}
                           </Link>
                         </td>
-                        <td className="px-4 py-3 text-slate-500 font-medium">
+                        <td className="whitespace-nowrap border-b border-slate-200 px-4 py-4 text-slate-600">
                           {formatTimestamp(submission.submittedAt)}
                         </td>
-                        <td className="px-4 py-3 text-center font-bold text-slate-900">
+                        <td className="border-b border-slate-200 px-4 py-4 text-center font-bold text-slate-700">
                           {submission.score.toFixed(0)}
                         </td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={`badge ${statusInfo.className}`}>
+                        <td className="border-b border-slate-200 px-4 py-4">
+                          <span className={`inline-flex rounded px-2 py-1 text-xs font-bold ${statusInfo.className}`}>
                             {statusInfo.label}
                           </span>
                         </td>

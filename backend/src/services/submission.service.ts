@@ -461,6 +461,7 @@ export async function getSubmissionById(id: string, database: Database = default
           id: true,
           username: true,
           email: true,
+          fullName: true,
         },
       },
       exercise: {

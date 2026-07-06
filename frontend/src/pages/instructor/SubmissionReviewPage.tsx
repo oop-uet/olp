@@ -23,6 +23,7 @@ interface SubmissionListItem {
   manualScore: number | null
   submittedAt: string
   student?: StudentInfo | null
+  exercise?: { id: string; title: string } | null
 }
 
 interface TestCaseInfo {
@@ -58,6 +59,7 @@ interface SubmissionDetail {
   submittedAt: string
   student?: StudentInfo | null
   results: TestCaseResult[]
+  exercise?: { id: string; title: string } | null
 }
 
 interface StyleViolation {
@@ -507,10 +509,9 @@ export function SubmissionReviewPage() {
       selectedSubmission.score ??
       0
     const isManuallyGraded = selectedSubmission.manualScore != null
-    const exerciseTitle = exerciseTitleById.get(selectedSubmission.exerciseId) || 'Bài thực hành'
+    const exerciseTitle = selectedSubmission.exercise?.title || exerciseTitleById.get(selectedSubmission.exerciseId) || 'Bài thực hành'
     const studentName = selectedSubmission.student?.fullName || selectedSubmission.student?.username || 'Sinh viên'
     const studentUsername = selectedSubmission.student?.username || ''
-    const studentEmail = selectedSubmission.student?.email || ''
     const passedCount = results.filter((tc) => isPassed(tc.passed)).length
 
     const submittedFiles = parseSubmittedFiles(selectedSubmission.code)
@@ -541,7 +542,6 @@ export function SubmissionReviewPage() {
                 </h1>
                 <p className="text-xs font-semibold text-slate-500 mt-0.5">
                   Sinh viên: <span className="text-slate-800 font-bold">{studentName} ({studentUsername})</span>
-                  {studentEmail ? ` · ${studentEmail}` : ''}
                 </p>
                 <p className="text-[10px] font-bold text-slate-400 mt-0.5 uppercase tracking-wide">
                   Lần nộp #{selectedSubmission.attemptNumber} · {formatTimestamp(selectedSubmission.submittedAt)}
@@ -1008,7 +1008,7 @@ export function SubmissionReviewPage() {
                             onClick={() => handleSelectSubmission(sub.id)}
                             className="font-medium text-sky-500 hover:underline"
                           >
-                            {exerciseTitleById.get(sub.exerciseId) || 'Bài thực hành'}
+                            {sub.exercise?.title || exerciseTitleById.get(sub.exerciseId) || 'Bài thực hành'}
                           </button>
                         </td>
                         <td className="whitespace-nowrap border-b border-slate-200 px-4 py-4 text-slate-600">
