@@ -227,6 +227,8 @@ async function seed() {
           exerciseId: ex.id,
           sectionId: sectionId,
           isAssessment,
+          isVisible: 0,
+          allowSubmission: 1,
           deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 days
           week,
           assignedAt: now,

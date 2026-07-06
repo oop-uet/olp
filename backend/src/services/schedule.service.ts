@@ -251,6 +251,8 @@ export async function assignExerciseToWeek(
       sectionId,
       deadline: weekDeadline,
       isAssessment: 0,
+      isVisible: 0,
+      allowSubmission: 1,
       week,
       assignedAt: new Date().toISOString(),
     });

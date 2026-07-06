@@ -635,6 +635,8 @@ export async function assignToSection(
       sectionId: input.section_id,
       deadline: input.deadline || null,
       isAssessment: input.is_assessment ? 1 : 0,
+      isVisible: 0,
+      allowSubmission: 1,
       assignedAt: now,
     })
     .returning();

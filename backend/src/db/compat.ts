@@ -32,4 +32,34 @@ export async function ensureDatabaseCompatibility(database: Database = defaultDb
     database,
     "ALTER TABLE test_cases ADD COLUMN time_limit_seconds INTEGER"
   );
+
+  await executeRaw(
+    database,
+    `UPDATE exercise_assignments
+     SET is_visible = 0
+     WHERE is_visible = 1
+       AND NOT EXISTS (
+         SELECT 1
+         FROM submissions
+         WHERE submissions.exercise_id = exercise_assignments.exercise_id
+           AND submissions.section_id = exercise_assignments.section_id
+       )
+       AND NOT EXISTS (
+         SELECT 1
+         FROM system_config
+         WHERE key = 'compat_default_assignments_hidden_20260706'
+           AND value = '1'
+       )`
+  );
+
+  await executeRaw(
+    database,
+    `INSERT INTO system_config (key, value, valid_range, updated_at, updated_by)
+     SELECT 'compat_default_assignments_hidden_20260706', '1', '0-1', datetime('now'), NULL
+     WHERE NOT EXISTS (
+       SELECT 1
+       FROM system_config
+       WHERE key = 'compat_default_assignments_hidden_20260706'
+     )`
+  );
 }

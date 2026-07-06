@@ -2209,7 +2209,7 @@ async function seedExercises() {
           sectionId: section.id,
           deadline: null,
           isAssessment: isDefaultAssessment(exercise.title),
-          isVisible: 1,
+          isVisible: 0,
           allowSubmission: 1,
           maxSubmissions: null,
           week: weekFromTitle(exercise.title),
@@ -2220,7 +2220,7 @@ async function seedExercises() {
           set: {
             deadline: null,
             isAssessment: isDefaultAssessment(exercise.title),
-            isVisible: 1,
+            isVisible: 0,
             allowSubmission: 1,
             maxSubmissions: null,
             week: weekFromTitle(exercise.title),

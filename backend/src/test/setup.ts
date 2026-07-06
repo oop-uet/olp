@@ -84,7 +84,7 @@ beforeAll(() => {
       section_id TEXT NOT NULL REFERENCES class_sections(id),
       deadline TEXT,
       is_assessment INTEGER DEFAULT 0,
-      is_visible INTEGER DEFAULT 1,
+      is_visible INTEGER DEFAULT 0,
       allow_submission INTEGER DEFAULT 1,
       max_submissions INTEGER,
       week INTEGER,
