@@ -8,7 +8,6 @@ import {
   exerciseAssignments,
   systemConfig,
   sectionEnrollments,
-  anticheatEvents,
 } from "../db/schema.js";
 import {
   buildStyleReport,
@@ -97,18 +96,6 @@ export function calculateScore(
   return Math.round(score * 100) / 100;
 }
 
-async function getWarningThreshold(database: Database): Promise<number> {
-  const warningThresholdConfig = await database.query.systemConfig.findFirst({
-    where: eq(systemConfig.key, "warning_threshold"),
-  });
-
-  const warningThreshold = warningThresholdConfig
-    ? parseInt(warningThresholdConfig.value, 10)
-    : 3;
-
-  return Number.isNaN(warningThreshold) ? 3 : warningThreshold;
-}
-
 async function getConfigNumber(
   key: string,
   fallback: number,
@@ -159,26 +146,6 @@ function skippedStyleEvaluation(feedback: string): CheckstyleEvaluation {
     feedback,
     toolVersion: "checkstyle",
   };
-}
-
-async function hasExceededAntiCheatThreshold(
-  studentId: string,
-  exerciseId: string,
-  database: Database
-): Promise<boolean> {
-  const warningThreshold = await getWarningThreshold(database);
-  const rows = await database
-    .select({ count: count() })
-    .from(anticheatEvents)
-    .where(
-      and(
-        eq(anticheatEvents.studentId, studentId),
-        eq(anticheatEvents.exerciseId, exerciseId)
-      )
-    );
-
-  const warningCount = rows[0]?.count ?? 0;
-  return warningCount >= warningThreshold;
 }
 
 // ─── Database type ───────────────────────────────────────────────────────────
@@ -303,9 +270,7 @@ export async function createSubmission(
     pointValue: tc.pointValue,
   }));
 
-  const isAntiCheatZero =
-    Boolean(antiCheatNullified) ||
-    (await hasExceededAntiCheatThreshold(studentId, exerciseId, database));
+  const isAntiCheatZero = Boolean(antiCheatNullified);
   const isExitAttempt = Boolean(exitAttempt);
   const functionalScore = isAntiCheatZero || isExitAttempt ? 0 : calculateScore(testCaseRecords, testResults);
   const styleSettings = await getStyleSettings(database);

@@ -330,7 +330,7 @@ describe("createSubmission", () => {
     expect((result as any).score).toBe(100);
   });
 
-  it("should nullify assessment score when anti-cheat warning threshold is reached", async () => {
+  it("should not nullify a new submission from historical anti-cheat events", async () => {
     const { studentId, exerciseId, sectionId, testCaseId1, testCaseId2, testCaseId3 } =
       seedSubmissionTestData();
     const db = getDb();
@@ -364,8 +364,8 @@ describe("createSubmission", () => {
     );
 
     expect(isSubmissionError(result)).toBe(false);
-    expect((result as any).score).toBe(0);
-    expect((result as any).feedback).toContain("vượt quá ngưỡng cảnh báo");
+    expect((result as any).score).toBe(100);
+    expect((result as any).feedback).toBeNull();
   });
 
   it("should nullify assessment score when client reports anti-cheat lock", async () => {
