@@ -181,8 +181,6 @@ const exerciseSeeds: ExerciseSeed[] = [
     description: [
       "# Tuần 1. Cài đặt môi trường Java",
       "",
-      "Bài này tương ứng với slide `1.1-Gioi thieu ve Java.pdf` và phần Tuần 1 trong `Thực hành OOP.pdf`.",
-      "",
       "## Yêu cầu",
       "- Tạo lớp `Main`.",
       "- Khi chạy không có input, chương trình in đúng `Hello World`.",
@@ -217,8 +215,6 @@ const exerciseSeeds: ExerciseSeed[] = [
     title: "Tuần 1 - Robot và Engine",
     description: [
       "# Tuần 1. Khái niệm lập trình hướng đối tượng",
-      "",
-      "Bài này bổ sung cho module `Java Introduction + Object Oriented Programming Concept` trong `timeline.md`, dựa trên ví dụ robot/engine trong slide `2.0_OOP_Intro.pdf`.",
       "",
       "## Yêu cầu",
       "- Cài đặt lớp `Engine` có thuộc tính `private String serialNumber`, `private int power`.",
@@ -321,8 +317,6 @@ public class RobotTest {
     description: [
       "# Tuần 2. Setter/Getter, Constructor",
       "",
-      "Bài này được rà soát theo đúng nội dung bài `Quản lý sinh viên` trong `Thực hành OOP.pdf` và bộ test reflection `exercises/testcase/StudentManagement/MyTest.java`.",
-      "",
       "## Lớp `Student`",
       "- Có 4 thuộc tính `private String`: `name`, `id`, `group`, `email`.",
       "- Constructor mặc định tạo sinh viên `Student - 000 - K62CB - uet@vnu.edu.vn`.",
@@ -415,8 +409,6 @@ public class RobotTest {
     description: [
       "# Tuần 3. Kiểu dữ liệu nguyên thủy và phương thức tĩnh",
       "",
-      "Tương ứng slide `3.1_HieuThem_Java-1.pdf` và Tuần 3 trong tài liệu thực hành.",
-      "",
       "Cài đặt lớp `Week3` với các phương thức `public static`:",
       "- `int gcd(int a, int b)`: trả về ước số chung lớn nhất của hai số nguyên. Kết quả luôn không âm.",
       "- `long fibonacci(int n)`: trả về số Fibonacci thứ `n`, với `fibonacci(0) = 0`, `fibonacci(1) = 1`.",
@@ -489,8 +481,6 @@ public class Week3Test {
     title: "Tuần 3 - Phân số",
     description: [
       "# Tuần 3. Lớp `Fraction` và so sánh đối tượng",
-      "",
-      "Dựa trên phần Phân số trong `Thực hành OOP.pdf` và nội dung slide về class/object, primitive type, `equals`.",
       "",
       "Cài đặt lớp `Fraction`:",
       "- Thuộc tính `private int numerator`, `private int denominator`.",
@@ -586,8 +576,6 @@ public class FractionTest {
     description: [
       "# Tuần 3. Static, mảng, JUnit",
       "",
-      "Tương ứng slide `3.2_HieuThem_Java-2.pdf`; bài được xếp vào module 3 theo timeline 10 tuần.",
-      "",
       "Cài đặt lớp `Week4` với các phương thức `public static`:",
       "- `int max2Int(int a, int b)` trả về số lớn hơn.",
       "- `int minArray(int[] arr)` trả về giá trị nhỏ nhất trong mảng. Nếu mảng rỗng hoặc `null`, ném `IllegalArgumentException`.",
@@ -647,8 +635,6 @@ public class Week4Test {
     title: "Tuần 4 - Circle và Cylinder",
     description: [
       "# Tuần 4. Kế thừa, constructor, overriding",
-      "",
-      "Tương ứng slide `4-OOP_ThuaKe.pdf` và bài Circle/Cylinder trong tài liệu thực hành.",
       "",
       "Cài đặt hai lớp:",
       "",
@@ -750,8 +736,6 @@ public class CircleCylinderTest {
     description: [
       "# Tuần 5. Đa hình, abstract, exception",
       "",
-      "Bám theo slide `5-OOP_Dahinh.pdf`, `6 - Exceptions.pdf` và bài biểu thức trong tài liệu thực hành; bài được xếp vào module 5 theo timeline 10 tuần.",
-      "",
       "Cài đặt mô hình biểu thức:",
       "- `abstract class Expression` có `abstract int evaluate()`.",
       "- `Numeral extends Expression` lưu một số nguyên.",
@@ -847,8 +831,6 @@ public class ExpressionTest {
     description: [
       "# Tuần 5. Đa hình, interface, quản lý danh sách đối tượng",
       "",
-      "Tương ứng slide `5-OOP_Dahinh.pdf` và bài Diagram/Layer trong tài liệu thực hành.",
-      "",
       "Cài đặt:",
       "- `interface Drawable` có `String draw()`.",
       "- `abstract class Shape implements Drawable` có tọa độ `x`, `y`, phương thức `boolean samePosition(Shape other)`.",
@@ -943,8 +925,6 @@ public class DiagramTest {
     description: [
       "# Tuần 6. try-catch, throw, custom exception",
       "",
-      "Tương ứng slide `6 - Exceptions.pdf` và bảng bài tập ngoại lệ trong tài liệu thực hành.",
-      "",
       "Cài đặt lớp `Week8_Task2` gồm 5 phương thức `public static String`:",
       "- `nullPointerEx()` bắt `NullPointerException` và trả về `Lỗi NullPointerException`.",
       "- `arrayIndexOutOfBoundsEx()` bắt `ArrayIndexOutOfBoundsException`.",
@@ -996,8 +976,6 @@ public class Week8Task2Test {
     title: "Tuần 7 - Utils đọc ghi tệp",
     description: [
       "# Tuần 7. I/O Streams và lớp `File`",
-      "",
-      "Tương ứng slide `7 - IOStreams.pdf` và bài `Utils` trong tài liệu thực hành.",
       "",
       "Cài đặt lớp `Utils` với các phương thức `public static`:",
       "- `String readContentFromFile(String path)` đọc toàn bộ nội dung file text UTF-8.",
@@ -1064,8 +1042,6 @@ public class UtilsTest {
     description: [
       "# Tuần 9. Data structures: String, List, ArrayList, HashMap",
       "",
-      "Tương ứng slide `9_Data structures.pdf`; bài được xếp vào module 9 theo timeline 10 tuần.",
-      "",
       "Cài đặt lớp `TextAnalyzer`:",
       "- `List<String> normalizeWords(String text)`: tách từ theo khoảng trắng, bỏ dấu câu ở đầu/cuối, chuyển về chữ thường, bỏ token rỗng.",
       "- `Map<String, Integer> wordFrequency(String text)`: đếm số lần xuất hiện của từng từ, giữ thứ tự từ xuất hiện đầu tiên.",
@@ -1129,8 +1105,6 @@ public class TextAnalyzerTest {
     title: "Tuần 8 - Generic sort và Person",
     description: [
       "# Tuần 8. Lập trình tổng quát",
-      "",
-      "Tương ứng slide `8 - Generic.pdf` và bài Generic trong tài liệu thực hành.",
       "",
       "Cài đặt:",
       "- Lớp `Week11` có phương thức `public static <T extends Comparable<T>> List<T> sortGeneric(List<T> arr)`.",
@@ -1202,8 +1176,6 @@ public class Week11Test {
     title: "Tuần 10 - Phả hệ với Composite",
     description: [
       "# Tuần 10. Design Pattern: Composite",
-      "",
-      "Tương ứng slide `10.1-Design Patterns 1.pdf` và bài phả hệ trong tài liệu thực hành.",
       "",
       "Cài đặt mô hình phả hệ:",
       "- `PersonNode` lưu `name`, `birthYear`, `gender`, `spouse`, danh sách con.",
@@ -1288,8 +1260,6 @@ public class GenealogyTest {
     description: [
       "# Tuần 10. Design Pattern: Strategy",
       "",
-      "Tương ứng slide `10.1-Design Patterns 1.pdf` và câu Strategy trong tài liệu thực hành.",
-      "",
       "Cài đặt:",
       "- `interface SortStrategy` có `int[] sort(int[] data, boolean ascending)`.",
       "- `BubbleSortStrategy` và `SelectionSortStrategy` cài đặt thuật toán tương ứng.",
@@ -1354,8 +1324,6 @@ public class SorterTest {
     title: "Tuần 10 - Adapter cho thư viện sắp xếp",
     description: [
       "# Tuần 10. Design Pattern: Adapter",
-      "",
-      "Tương ứng slide `10.2-Design Patterns 2 (2023).pdf`: dùng Adapter khi framework yêu cầu một interface nhưng thư viện sẵn có lại có API khác.",
       "",
       "Cài đặt:",
       "- `interface IMath` có `int[] sort(int[] arr)`.",
