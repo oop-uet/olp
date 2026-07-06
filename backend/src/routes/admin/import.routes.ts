@@ -40,11 +40,12 @@ router.post("/:id/import-students", async (req: Request, res: Response) => {
     const sectionId = req.params.id;
     let buffer: Buffer;
     let filename: string | undefined;
+    let overwrite = false;
 
     // Determine how the file was sent
     if (req.is("application/json") || (req.body && req.body.data)) {
       // JSON body with base64-encoded file
-      const { data, filename: fname } = req.body;
+      const { data, filename: fname, overwrite: ow } = req.body;
       if (!data || typeof data !== "string") {
         res.status(400).json({
           error: {
@@ -56,6 +57,7 @@ router.post("/:id/import-students", async (req: Request, res: Response) => {
       }
       buffer = Buffer.from(data, "base64");
       filename = fname;
+      overwrite = Boolean(ow);
     } else if (Buffer.isBuffer(req.body)) {
       // Raw binary body
       buffer = req.body;
@@ -114,7 +116,7 @@ router.post("/:id/import-students", async (req: Request, res: Response) => {
     }
 
     // Perform import
-    const report = await importStudents(sectionId, rows);
+    const report = await importStudents(sectionId, rows, overwrite);
 
     // Check if section was not found
     if (report.imported === 0 && report.skipped.length === 1 && report.skipped[0].reason === "Section not found") {

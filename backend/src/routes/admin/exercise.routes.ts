@@ -37,6 +37,7 @@ const updateExerciseSchema = z.object({
   oop_tags: z.array(z.string().min(1)).min(1).max(5).optional(),
   starter_code: z.string().optional(),
   is_library: z.boolean().optional(),
+  test_cases: z.array(testCaseSchema).min(1, "At least one test case is required").optional(),
 });
 
 /**

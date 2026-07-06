@@ -81,6 +81,9 @@ export function InstructorSectionDetailPage() {
   const [removingStudentId, setRemovingStudentId] = useState<string | null>(null)
   const [resettingPasswordId, setResettingPasswordId] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
+  const [showImportConfirmModal, setShowImportConfirmModal] = useState(false)
+  const [importOverwrite, setImportOverwrite] = useState(false)
+  const [pendingImportFile, setPendingImportFile] = useState<File | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -219,11 +222,26 @@ export function InstructorSectionDetailPage() {
     fileInputRef.current?.click()
   }
 
-  async function handleExcelImport(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleExcelImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
 
+    setPendingImportFile(file)
+    setImportOverwrite(false)
+    setShowImportConfirmModal(true)
+
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  async function executeExcelImport() {
+    if (!pendingImportFile) return
+
     setImporting(true)
+    setShowImportConfirmModal(false)
+
+    const file = pendingImportFile
+    setPendingImportFile(null)
+
     const reader = new FileReader()
     reader.onload = async (event) => {
       const base64Content = event.target?.result?.toString().split(',')[1]
@@ -237,6 +255,7 @@ export function InstructorSectionDetailPage() {
         const response = await api.post(`/api/instructor/sections/${id}/import-students`, {
           data: base64Content,
           filename: file.name,
+          overwrite: importOverwrite,
         })
         const report = response.data
         toast.success(`Đã nhập dữ liệu! Thành công: ${report.imported}, Bỏ qua: ${report.skipped.length}`)
@@ -245,7 +264,6 @@ export function InstructorSectionDetailPage() {
         toast.error('Lỗi khi tải lên tệp import.')
       } finally {
         setImporting(false)
-        if (fileInputRef.current) fileInputRef.current.value = ''
       }
     }
     reader.readAsDataURL(file)
@@ -724,6 +742,66 @@ export function InstructorSectionDetailPage() {
               ) : (
                 <p className="py-6 text-center text-sm text-gray-500">Không có dữ liệu tiến độ.</p>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── IMPORT CONFIRM MODAL ────────────────────────────────────────── */}
+      {showImportConfirmModal && pendingImportFile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-lg border border-slate-100 w-full max-w-md overflow-hidden animate-fade-in">
+            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-5 py-3.5 border-l-4 border-primary">
+              <h3 className="font-bold text-xs uppercase tracking-wide text-slate-700">Tùy Chọn Nhập Dữ Liệu</h3>
+              <button onClick={() => setShowImportConfirmModal(false)} className="text-slate-400 hover:text-slate-600 font-bold text-sm">✕</button>
+            </div>
+            <div className="p-5 space-y-4 text-xs text-slate-600 font-medium">
+              <p className="text-[13px] text-slate-800 font-bold">
+                Tệp đã chọn: <span className="text-[#22a6b3]">{pendingImportFile.name}</span>
+              </p>
+              
+              <div className="space-y-3 pt-2">
+                <label className="flex items-start gap-2.5 cursor-pointer p-2.5 rounded-lg border border-slate-100 hover:bg-slate-50 transition-colors">
+                  <input
+                    type="radio"
+                    name="importMode"
+                    checked={!importOverwrite}
+                    onChange={() => setImportOverwrite(false)}
+                    className="mt-0.5"
+                  />
+                  <div>
+                    <span className="font-bold text-slate-700 block">Chỉ thêm mới sinh viên</span>
+                    <span className="text-[11px] text-slate-400">Giữ nguyên danh sách sinh viên hiện tại trong lớp, chỉ bổ sung những sinh viên mới từ tệp Excel.</span>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-2.5 cursor-pointer p-2.5 rounded-lg border border-red-100/50 hover:bg-red-50/20 transition-colors">
+                  <input
+                    type="radio"
+                    name="importMode"
+                    checked={importOverwrite}
+                    onChange={() => setImportOverwrite(true)}
+                    className="mt-0.5"
+                  />
+                  <div>
+                    <span className="font-bold text-red-600 block">Ghi đè toàn bộ danh sách lớp</span>
+                    <span className="text-[11px] text-slate-400">Đồng bộ danh sách lớp khớp hoàn toàn với tệp Excel: sinh viên mới sẽ được thêm vào, sinh viên hiện có không nằm trong tệp Excel sẽ bị XÓA khỏi lớp học này.</span>
+                  </div>
+                </label>
+              </div>
+
+              {importOverwrite && (
+                <div className="bg-red-50 border border-red-100 text-red-700 px-3.5 py-2.5 rounded-lg text-[11px] font-bold leading-normal">
+                  ⚠️ Cảnh báo: Việc ghi đè sẽ hủy ghi danh bất kỳ sinh viên nào hiện tại KHÔNG có tên trong tệp Excel của bạn!
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button type="button" onClick={() => setShowImportConfirmModal(false)} className="btn-secondary btn-sm">Hủy</button>
+                <button type="button" onClick={executeExcelImport} className="bg-primary hover:bg-primary-700 text-white btn-sm font-bold rounded">
+                  Xác nhận Import
+                </button>
+              </div>
             </div>
           </div>
         </div>

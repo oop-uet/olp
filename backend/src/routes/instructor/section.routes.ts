@@ -292,7 +292,7 @@ router.post("/:id/import-students", async (req: Request, res: Response) => {
     }
 
     let buffer: Buffer;
-    const { data, filename } = req.body;
+    const { data, filename, overwrite } = req.body;
     if (data && typeof data === "string") {
       buffer = Buffer.from(data, "base64");
     } else {
@@ -306,7 +306,7 @@ router.post("/:id/import-students", async (req: Request, res: Response) => {
       return;
     }
 
-    const report = await importStudents(req.params.id, rows);
+    const report = await importStudents(req.params.id, rows, Boolean(overwrite));
     res.status(200).json(report);
   } catch (error) {
     res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred during import." } });

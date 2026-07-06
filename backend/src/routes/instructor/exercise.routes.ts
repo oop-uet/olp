@@ -73,6 +73,7 @@ export const updateExerciseSchema = z.object({
     .optional(),
   starter_code: z.string().optional(),
   is_library: z.boolean().optional(),
+  test_cases: z.array(testCaseSchema).min(1, "At least one test case is required").optional(),
 });
 
 export const assignExerciseSchema = z.object({

@@ -128,8 +128,12 @@ export function validateStudentImportRow(row: ImportRow): string | null {
 export async function importStudents(
   sectionId: string,
   rows: ImportRow[],
-  database = defaultDb
+  overwriteOrDatabase: boolean | typeof defaultDb = false,
+  databaseInput: typeof defaultDb = defaultDb
 ): Promise<ImportReport> {
+  const overwrite = typeof overwriteOrDatabase === "boolean" ? overwriteOrDatabase : false;
+  const database: typeof defaultDb = typeof overwriteOrDatabase !== "boolean" && overwriteOrDatabase ? (overwriteOrDatabase as typeof defaultDb) : databaseInput;
+
   // Verify section exists
   const section = await database.query.classSections.findFirst({
     where: eq(classSections.id, sectionId),
@@ -148,6 +152,32 @@ export async function importStudents(
       .map((e) => e.studentExternalId)
       .filter((id): id is string => id !== null)
   );
+
+  const importedStudentIds = new Set(
+    rows
+      .map((r) => r.student_id?.toString().trim())
+      .filter((id): id is string => id !== undefined && id !== "")
+  );
+
+  if (overwrite) {
+    const studentsToUnenroll = existingEnrollments.filter(
+      (e) => e.studentExternalId && !importedStudentIds.has(e.studentExternalId)
+    );
+    for (const e of studentsToUnenroll) {
+      await database.delete(sectionEnrollments).where(
+        and(
+          eq(sectionEnrollments.sectionId, sectionId),
+          eq(sectionEnrollments.studentId, e.studentId)
+        )
+      );
+    }
+    for (const e of studentsToUnenroll) {
+      if (e.studentExternalId) {
+        enrolledExternalIds.delete(e.studentExternalId);
+      }
+    }
+  }
+
   const allEnrollments = await database.query.sectionEnrollments.findMany({
     with: {
       section: true,
@@ -187,11 +217,16 @@ export async function importStudents(
 
     // Check for duplicates already enrolled in target section
     if (enrolledExternalIds.has(studentId)) {
-      report.skipped.push({
-        row: rowNumber,
-        reason: `Student ID '${studentId}' is already enrolled in this section`,
-      });
-      continue;
+      if (overwrite) {
+        report.imported++;
+        continue;
+      } else {
+        report.skipped.push({
+          row: rowNumber,
+          reason: `Student ID '${studentId}' is already enrolled in this section`,
+        });
+        continue;
+      }
     }
 
     // Check for in-batch duplicates

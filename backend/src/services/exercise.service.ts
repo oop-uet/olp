@@ -38,6 +38,7 @@ export interface UpdateExerciseInput {
   oop_tags?: string[];
   starter_code?: string;
   is_library?: boolean;
+  test_cases?: TestCaseInput[];
 }
 
 export interface AssignExerciseInput {
@@ -427,6 +428,17 @@ export async function updateExercise(
     }
   }
 
+  if (input.test_cases !== undefined) {
+    if (input.test_cases.length < 1 || input.test_cases.length > 50) {
+      return {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Must provide between 1 and 50 test cases.",
+        },
+      };
+    }
+  }
+
   const updateData: Record<string, unknown> = {};
   if (input.title !== undefined) updateData.title = input.title;
   if (input.description !== undefined) updateData.description = input.description;
@@ -436,7 +448,7 @@ export async function updateExercise(
   if (input.is_library !== undefined) updateData.isLibrary = input.is_library ? 1 : 0;
   updateData.updatedAt = new Date().toISOString();
 
-  if (Object.keys(updateData).length === 1) {
+  if (Object.keys(updateData).length === 1 && input.test_cases === undefined) {
     // Only updatedAt was set, nothing to actually update
     return existing;
   }
@@ -447,7 +459,36 @@ export async function updateExercise(
     .where(eq(exercises.id, id))
     .returning();
 
-  return updated;
+  if (input.test_cases !== undefined) {
+    const now = new Date().toISOString();
+    await database.delete(testCases).where(eq(testCases.exerciseId, id));
+    await database.insert(testCases).values(
+      input.test_cases.map((tc) => ({
+        id: crypto.randomUUID(),
+        exerciseId: id,
+        inputData: tc.input_data,
+        expectedOutput: tc.expected_output,
+        isVisible: tc.is_visible ? 1 : 0,
+        pointValue: tc.point_value ?? 1,
+        timeLimitSeconds: tc.time_limit_seconds ?? null,
+        createdAt: now,
+      }))
+    );
+  }
+
+  return {
+    ...updated,
+    testCases:
+      input.test_cases === undefined
+        ? undefined
+        : input.test_cases.map((tc) => ({
+          inputData: tc.input_data,
+          expectedOutput: tc.expected_output,
+          isVisible: tc.is_visible ? 1 : 0,
+          pointValue: tc.point_value ?? 1,
+          timeLimitSeconds: tc.time_limit_seconds ?? null,
+        })),
+  };
 }
 
 /**

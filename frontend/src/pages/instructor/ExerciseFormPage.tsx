@@ -133,8 +133,11 @@ export function ExerciseFormPage() {
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [starterCode, setStarterCode] = useState('')
   const [testCases, setTestCases] = useState<TestCaseForm[]>([
-    { input_data: '', expected_output: '', is_visible: true, point_value: 10 },
+    EMPTY_TEST_CASE,
   ])
+  const [templateText, setTemplateText] = useState('')
+  const [templatePanelOpen, setTemplatePanelOpen] = useState(false)
+  const [templateError, setTemplateError] = useState<string | null>(null)
 
   const [errors, setErrors] = useState<FormErrors>({})
   const [loading, setLoading] = useState(false)
@@ -168,6 +171,7 @@ export function ExerciseFormPage() {
             expected_output: tc.expected_output || '',
             is_visible: tc.is_visible ?? true,
             point_value: tc.point_value || 10,
+            time_limit_seconds: tc.time_limit_seconds,
           }))
         )
       }
@@ -203,9 +207,11 @@ export function ExerciseFormPage() {
       newErrors.tags = 'Tối đa 5 thẻ'
     }
 
-    const validTestCases = testCases.filter((tc) => tc.expected_output.trim() !== '')
+    const validTestCases = testCases.filter(
+      (tc) => tc.input_data.trim() !== '' && tc.expected_output.trim() !== ''
+    )
     if (validTestCases.length < 1) {
-      newErrors.testCases = 'Cần ít nhất 1 bộ test có kết quả mong đợi'
+      newErrors.testCases = 'Cần ít nhất 1 bộ test có đầu vào và kết quả mong đợi'
     }
 
     setErrors(newErrors)
@@ -226,7 +232,7 @@ export function ExerciseFormPage() {
     if (testCases.length >= 50) return
     setTestCases((prev) => [
       ...prev,
-      { input_data: '', expected_output: '', is_visible: true, point_value: 10 },
+      EMPTY_TEST_CASE,
     ])
   }
 
@@ -235,8 +241,164 @@ export function ExerciseFormPage() {
     setTestCases((prev) => prev.filter((_, i) => i !== index))
   }
 
-  function updateTestCase(index: number, field: keyof TestCaseForm, value: string | boolean | number) {
+  function updateTestCase(index: number, field: keyof TestCaseForm, value: string | boolean | number | undefined) {
     setTestCases((prev) => prev.map((tc, i) => (i === index ? { ...tc, [field]: value } : tc)))
+  }
+
+  function buildTemplateFromForm(): ExerciseTemplateFile {
+    return {
+      format: TEMPLATE_FORMAT,
+      version: 1,
+      title: title.trim() || 'Tên bài tập',
+      description: description.trim() || 'Mô tả yêu cầu bài tập.',
+      difficulty: difficulty || 'easy',
+      oop_tags: selectedTags.length > 0 ? selectedTags : ['classes and objects'],
+      starter_code: starterCode,
+      test_cases: testCases.map((tc) => ({
+        input_data: tc.input_data,
+        expected_output: tc.expected_output,
+        is_visible: tc.is_visible,
+        point_value: tc.point_value,
+        ...(tc.time_limit_seconds ? { time_limit_seconds: tc.time_limit_seconds } : {}),
+      })),
+    }
+  }
+
+  function downloadJson(fileName: string, data: unknown) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = fileName
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  function handleDownloadBlankTemplate() {
+    downloadJson('uet-oasis-exercise-template.json', SAMPLE_TEMPLATE)
+  }
+
+  function handleExportCurrentTemplate() {
+    downloadJson(`${slugify(title || 'exercise')}-template.json`, buildTemplateFromForm())
+  }
+
+  function normalizeTemplate(raw: ExerciseTemplateFile): Required<Pick<ExerciseTemplateFile, 'title' | 'description' | 'difficulty' | 'oop_tags'>> & {
+    starter_code: string
+    test_cases: TestCaseForm[]
+  } {
+    const exercise = raw.exercise ?? {}
+    const normalizedTitle = raw.title ?? exercise.title ?? ''
+    const normalizedDescription = raw.description ?? exercise.description ?? ''
+    const normalizedDifficulty = raw.difficulty ?? exercise.difficulty
+    const normalizedTags = raw.oop_tags ?? exercise.oop_tags ?? []
+    const normalizedStarterCode = raw.starter_code ?? exercise.starter_code ?? ''
+    const normalizedTestCases = Array.isArray(raw.test_cases) ? raw.test_cases : []
+
+    if (!normalizedTitle.trim()) throw new Error('Template thiếu title.')
+    if (!normalizedDescription.trim()) throw new Error('Template thiếu description.')
+    if (!normalizedDifficulty || !DIFFICULTY_OPTIONS.includes(normalizedDifficulty)) {
+      throw new Error('difficulty phải là easy, medium hoặc hard.')
+    }
+    if (!Array.isArray(normalizedTags) || normalizedTags.length < 1 || normalizedTags.length > 5) {
+      throw new Error('oop_tags cần từ 1 đến 5 thẻ.')
+    }
+    if (normalizedTestCases.length < 1) throw new Error('Template cần ít nhất 1 test case.')
+    if (normalizedTestCases.length > 50) throw new Error('Tối đa 50 test case.')
+
+    const mappedTestCases = normalizedTestCases.map((tc, index) => {
+      const pointValue = Number(tc.point_value ?? 10)
+      const timeLimit = tc.time_limit_seconds == null ? undefined : Number(tc.time_limit_seconds)
+      const inputData = String(tc.input_data ?? '').trim()
+      const expectedOutput = String(tc.expected_output ?? '')
+
+      if (!inputData) throw new Error(`Test case #${index + 1} thiếu input_data.`)
+      if (!expectedOutput.trim()) throw new Error(`Test case #${index + 1} thiếu expected_output.`)
+      if (!Number.isInteger(pointValue) || pointValue < 1 || pointValue > 100) {
+        throw new Error(`point_value của test case #${index + 1} phải từ 1 đến 100.`)
+      }
+      if (timeLimit !== undefined && (!Number.isInteger(timeLimit) || timeLimit < 1)) {
+        throw new Error(`time_limit_seconds của test case #${index + 1} phải là số nguyên dương.`)
+      }
+
+      return {
+        input_data: inputData,
+        expected_output: expectedOutput,
+        is_visible: Boolean(tc.is_visible ?? true),
+        point_value: pointValue,
+        ...(timeLimit ? { time_limit_seconds: timeLimit } : {}),
+      }
+    })
+
+    return {
+      title: normalizedTitle.trim(),
+      description: normalizedDescription.trim(),
+      difficulty: normalizedDifficulty,
+      oop_tags: normalizedTags.map((tag) => String(tag).trim()).filter(Boolean).slice(0, 5),
+      starter_code: normalizedStarterCode,
+      test_cases: mappedTestCases,
+    }
+  }
+
+  function applyTemplate(raw: unknown) {
+    try {
+      const normalized = normalizeTemplate(raw as ExerciseTemplateFile)
+      setTitle(normalized.title)
+      setDescription(normalized.description)
+      setDifficulty(normalized.difficulty)
+      setSelectedTags(normalized.oop_tags)
+      setStarterCode(normalized.starter_code)
+      setTestCases(normalized.test_cases)
+      setTemplateError(null)
+      setErrors({})
+      toast.success('Đã nhập template vào form.')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Template không hợp lệ.'
+      setTemplateError(message)
+      toast.error(message)
+    }
+  }
+
+  function handleApplyTemplateText() {
+    try {
+      applyTemplate(JSON.parse(templateText))
+    } catch {
+      setTemplateError('Nội dung không phải JSON hợp lệ.')
+      toast.error('Nội dung không phải JSON hợp lệ.')
+    }
+  }
+
+  async function handleImportTemplateFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    try {
+      const content = await file.text()
+      setTemplateText(content)
+      applyTemplate(JSON.parse(content))
+      setTemplatePanelOpen(true)
+    } catch {
+      setTemplateError('Không đọc được file template JSON.')
+      toast.error('Không đọc được file template JSON.')
+    }
+  }
+
+  function handleFillSampleTemplate() {
+    setTemplateText(JSON.stringify(SAMPLE_TEMPLATE, null, 2))
+    setTemplatePanelOpen(true)
+    setTemplateError(null)
+  }
+
+  function slugify(value: string) {
+    return value
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 80) || 'exercise'
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -252,7 +414,7 @@ export function ExerciseFormPage() {
         difficulty,
         oop_tags: selectedTags,
         starter_code: starterCode,
-        test_cases: testCases.filter((tc) => tc.expected_output.trim() !== ''),
+        test_cases: testCases.filter((tc) => tc.input_data.trim() !== '' && tc.expected_output.trim() !== ''),
       }
 
       if (isEditing && id) {
@@ -292,6 +454,69 @@ export function ExerciseFormPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="card space-y-6 p-6" noValidate>
+        <section className="rounded-lg border border-slate-200 bg-slate-50">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
+            <div>
+              <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">Template ra đề</h2>
+              <p className="mt-1 text-xs font-medium text-slate-500">
+                JSON template dùng để tải mẫu, xuất bài hiện tại hoặc nhập nội dung do AI tạo.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={handleDownloadBlankTemplate} className="btn-secondary btn-sm">
+                Tải mẫu JSON
+              </button>
+              <button type="button" onClick={handleExportCurrentTemplate} className="btn-secondary btn-sm">
+                Xuất bài hiện tại
+              </button>
+              <label className="btn-secondary btn-sm cursor-pointer">
+                Nhập file JSON
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  onChange={handleImportTemplateFile}
+                  className="hidden"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => setTemplatePanelOpen((value) => !value)}
+                className="btn-ghost btn-sm"
+              >
+                {templatePanelOpen ? 'Ẩn JSON' : 'Dán JSON'}
+              </button>
+            </div>
+          </div>
+
+          {templatePanelOpen && (
+            <div className="space-y-3 p-4">
+              <textarea
+                value={templateText}
+                onChange={(e) => {
+                  setTemplateText(e.target.value)
+                  setTemplateError(null)
+                }}
+                rows={14}
+                className="input font-mono text-xs"
+                placeholder="Dán JSON template ở đây..."
+              />
+              {templateError && (
+                <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+                  {templateError}
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={handleApplyTemplateText} className="btn-primary btn-sm">
+                  Áp dụng JSON vào form
+                </button>
+                <button type="button" onClick={handleFillSampleTemplate} className="btn-ghost btn-sm">
+                  Điền mẫu tham khảo
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+
         {/* Title */}
         <div>
           <label htmlFor="title" className="label">
@@ -468,6 +693,23 @@ export function ExerciseFormPage() {
                         updateTestCase(index, 'point_value', parseInt(e.target.value) || 1)
                       }
                       className="input w-16 text-xs"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-gray-600">Giây:</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={tc.time_limit_seconds ?? ''}
+                      onChange={(e) =>
+                        updateTestCase(
+                          index,
+                          'time_limit_seconds',
+                          e.target.value ? parseInt(e.target.value, 10) || undefined : undefined
+                        )
+                      }
+                      className="input w-20 text-xs"
+                      placeholder="Mặc định"
                     />
                   </div>
                   <label className="flex items-center gap-1.5 text-xs text-gray-600">
