@@ -151,12 +151,22 @@ async function resolveJavaCommand(): Promise<string | null> {
     if (await hasCommand(javaHomeCommand, ["-version"])) return javaHomeCommand;
   }
 
-  const candidates = process.platform === "win32" ? ["java"] : COMMON_JAVA_COMMANDS;
+  const candidates = process.platform === "win32"
+    ? ["java", ...localJavaCandidates()]
+    : [...localJavaCandidates(), ...COMMON_JAVA_COMMANDS];
   for (const candidate of candidates) {
     if (await hasCommand(candidate, ["-version"])) return candidate;
   }
 
   return null;
+}
+
+function localJavaCandidates(): string[] {
+  const executable = process.platform === "win32" ? "java.exe" : "java";
+  return [
+    path.resolve(process.cwd(), ".java", "bin", executable),
+    path.resolve(process.cwd(), "backend", ".java", "bin", executable),
+  ];
 }
 
 async function runCheckstyle(javaCommand: string, jarPath: string, reportPath: string, filePaths: string[]) {

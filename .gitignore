@@ -47,6 +47,7 @@ local-executor/target/
 # Temporary files
 tmp/
 temp/
+backend/.java/
 
 # Secrets / credentials (never commit)
 credentials.txt
