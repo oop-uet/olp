@@ -9,6 +9,7 @@ import {
   sectionEnrollments,
   sectionInstructors,
   submissions,
+  submissionResults,
 } from "../db/schema.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -461,6 +462,19 @@ export async function updateExercise(
 
   if (input.test_cases !== undefined) {
     const now = new Date().toISOString();
+    
+    // Find all existing test cases for this exercise
+    const existingTestCases = await database.query.testCases.findMany({
+      where: eq(testCases.exerciseId, id),
+    });
+    const tcIds = existingTestCases.map((tc) => tc.id);
+    if (tcIds.length > 0) {
+      // Delete associated submission results first
+      await database
+        .delete(submissionResults)
+        .where(inArray(submissionResults.testCaseId, tcIds));
+    }
+
     await database.delete(testCases).where(eq(testCases.exerciseId, id));
     await database.insert(testCases).values(
       input.test_cases.map((tc) => ({
@@ -523,7 +537,21 @@ export async function deleteExercise(
     };
   }
 
-  // Delete associated test cases first
+  // Delete associated submission results first
+  const existingTestCases = await database.query.testCases.findMany({
+    where: eq(testCases.exerciseId, id),
+  });
+  const tcIds = existingTestCases.map((tc) => tc.id);
+  if (tcIds.length > 0) {
+    await database
+      .delete(submissionResults)
+      .where(inArray(submissionResults.testCaseId, tcIds));
+  }
+
+  // Delete associated submissions
+  await database.delete(submissions).where(eq(submissions.exerciseId, id));
+
+  // Delete associated test cases
   await database.delete(testCases).where(eq(testCases.exerciseId, id));
   // Delete associated assignments
   await database.delete(exerciseAssignments).where(eq(exerciseAssignments.exerciseId, id));

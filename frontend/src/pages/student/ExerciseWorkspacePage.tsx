@@ -51,6 +51,9 @@ interface ExerciseDetail {
   deadline: string | null
   isAssessment: boolean
   warningThreshold: number
+  attemptCount: number
+  maxSubmissions: number
+  allowSubmission: boolean
   oopTags: string[]
   testCases: TestCase[]
 }
@@ -331,6 +334,9 @@ export function ExerciseWorkspacePage() {
         deadline: data.deadline ?? null,
         isAssessment: Boolean(data.isAssessment),
         warningThreshold: data.warningThreshold ?? 3,
+        attemptCount: Number(data.attemptCount ?? 0),
+        maxSubmissions: Number(data.maxSubmissions ?? 10),
+        allowSubmission: data.allowSubmission !== false,
         oopTags: data.oopTags ?? [],
         testCases: (data.testCases ?? []).map((tc: ApiTestCase) => {
           const metadata = parseJavaTestMetadata(tc.inputData)
@@ -447,6 +453,9 @@ export function ExerciseWorkspacePage() {
         anti_cheat_nullified: antiCheatNullified,
       })
       const score = response.data.score
+      setExercise((current) =>
+        current ? { ...current, attemptCount: current.attemptCount + 1 } : current
+      )
       clearWorkspaceDraft(exercise.id, userId)
       toast.success(`Nộp bài thành công! Điểm: ${score.toFixed(1)}%`)
       navigate('/student/exercises', { replace: true })
@@ -536,6 +545,20 @@ export function ExerciseWorkspacePage() {
     )
   }
 
+  const reachedSubmissionLimit = exercise.maxSubmissions <= 0 || exercise.attemptCount >= exercise.maxSubmissions
+  const submitDisabled =
+    submitting ||
+    filesForExecution(files).length === 0 ||
+    !exercise.allowSubmission ||
+    reachedSubmissionLimit
+  const submitTitle = !exercise.allowSubmission
+    ? 'Bài tập này hiện chưa cho phép nộp bài.'
+    : reachedSubmissionLimit
+      ? exercise.maxSubmissions <= 0
+        ? 'Bài tập này hiện không nhận lượt nộp.'
+        : `Bạn đã dùng hết ${exercise.maxSubmissions} lượt nộp.`
+      : `Lượt nộp tiếp theo: ${exercise.attemptCount + 1}/${exercise.maxSubmissions}`
+
   const workspace = (
     <div className="-m-6 flex min-h-[calc(100vh-8.25rem)] flex-col bg-slate-100">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-5 py-3 shadow-sm">
@@ -570,6 +593,16 @@ export function ExerciseWorkspacePage() {
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          <div
+            className={`hidden h-10 items-center rounded-md border px-3 text-sm font-bold md:flex ${
+              reachedSubmissionLimit
+                ? 'border-red-200 bg-red-50 text-red-700'
+                : 'border-slate-200 bg-slate-50 text-slate-700'
+            }`}
+            title={submitTitle}
+          >
+            Lượt làm bài: {exercise.attemptCount}/{exercise.maxSubmissions}
+          </div>
           <button
             onClick={handleRun}
             disabled={running || filesForExecution(files).length === 0}
@@ -580,7 +613,8 @@ export function ExerciseWorkspacePage() {
           </button>
           <button
             onClick={handleSubmit}
-            disabled={submitting || filesForExecution(files).length === 0}
+            disabled={submitDisabled}
+            title={submitTitle}
             className="btn-primary h-10 px-4 text-sm"
           >
             {submitting ? <Spinner /> : <span aria-hidden="true">↑</span>}
