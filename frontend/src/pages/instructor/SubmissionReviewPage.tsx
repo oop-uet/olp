@@ -756,24 +756,30 @@ export function SubmissionReviewPage() {
             </div>
             
             {/* Checkboxes Row */}
-            <div className="border-b border-slate-100 bg-slate-50/50 px-5 py-3 flex flex-wrap gap-4 text-xs font-semibold text-slate-500">
-              <label className="flex items-center gap-1.5 cursor-not-allowed">
-                <input type="checkbox" checked={selectedSubmission.score === 0 && results.some(r => r.status === 'error')} disabled className="rounded text-primary focus:ring-primary h-3.5 w-3.5" />
-                <span>Lỗi cấu trúc mã nguồn (SE)</span>
-              </label>
-              <label className="flex items-center gap-1.5 cursor-not-allowed">
-                <input type="checkbox" checked={selectedSubmission.styleStatus === 'failed'} disabled className="rounded text-primary focus:ring-primary h-3.5 w-3.5" />
-                <span>Lỗi quy tắc lập trình (PE)</span>
-              </label>
-              <label className="flex items-center gap-1.5 cursor-not-allowed">
-                <input type="checkbox" checked={results.length > 0 && results.every(r => r.status === 'error')} disabled className="rounded text-primary focus:ring-primary h-3.5 w-3.5" />
-                <span>Lỗi biên dịch (CE)</span>
-              </label>
+            <div className="border-b border-slate-100 bg-slate-50/50 px-5 py-3.5 flex flex-wrap items-center gap-3 text-xs select-none">
+              <span className="font-bold text-slate-500 mr-1">Trạng thái đánh giá:</span>
+              {selectedSubmission.score === 0 && results.some(r => r.status === 'error') ? (
+                <span className="badge-red py-1 px-2.5 rounded-full">Lỗi cấu trúc (SE)</span>
+              ) : (
+                <span className="badge-green py-1 px-2.5 rounded-full">Cấu trúc đạt (SE)</span>
+              )}
+              {selectedSubmission.styleStatus === 'failed' ? (
+                <span className="badge-red py-1 px-2.5 rounded-full">Lỗi quy tắc (PE)</span>
+              ) : selectedSubmission.styleStatus === 'passed' ? (
+                <span className="badge-green py-1 px-2.5 rounded-full">Quy tắc đạt (PE)</span>
+              ) : (
+                <span className="badge-gray py-1 px-2.5 rounded-full">Không xét quy tắc (PE)</span>
+              )}
+              {results.length > 0 && results.every(r => r.status === 'error') ? (
+                <span className="badge-red py-1 px-2.5 rounded-full">Lỗi biên dịch (CE)</span>
+              ) : (
+                <span className="badge-green py-1 px-2.5 rounded-full">Biên dịch đạt (CE)</span>
+              )}
             </div>
 
-            <div className="border-b border-slate-200 bg-white">
-              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5">
-                <div className="flex flex-wrap gap-1">
+            <div className="border-b border-slate-200 bg-white px-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex gap-6">
                   {[
                     ['source', 'Mã nguồn'],
                     ['results', `Yêu cầu chức năng (${passedCount}/${results.length})`],
@@ -782,17 +788,17 @@ export function SubmissionReviewPage() {
                       key={tab}
                       type="button"
                       onClick={() => setActiveTab(tab as 'source' | 'results')}
-                      className={`h-9 rounded-md px-3 text-sm font-bold transition ${
+                      className={`border-b-2 py-3 text-sm font-bold transition-all cursor-pointer ${
                         activeTab === tab
-                          ? 'bg-primary-50 text-primary-800 ring-1 ring-primary-200'
-                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                          ? 'border-primary text-primary'
+                          : 'border-transparent text-slate-500 hover:text-slate-700'
                       }`}
                     >
                       {label}
                     </button>
                   ))}
                 </div>
-                <span className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-400 py-3">
                   {currentSubmittedFile.name}
                 </span>
               </div>
