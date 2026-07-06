@@ -62,6 +62,7 @@ const SubmissionReviewPage = lazy(() => import('../pages/instructor/SubmissionRe
 const LeaderboardPage = lazy(() => import('../pages/instructor/LeaderboardPage').then((m) => ({ default: m.LeaderboardPage })))
 const PlagiarismPage = lazy(() => import('../pages/instructor/PlagiarismPage').then((m) => ({ default: m.PlagiarismPage })))
 const ProjectAssignmentPage = lazy(() => import('../pages/instructor/ProjectAssignmentPage').then((m) => ({ default: m.ProjectAssignmentPage })))
+const InstructorManageClassRedirect = lazy(() => import('../pages/instructor/InstructorManageClassRedirect').then((m) => ({ default: m.InstructorManageClassRedirect })))
 
 // Admin
 const AdminDashboardPage = lazy(() => import('../pages/admin/DashboardPage').then((m) => ({ default: m.DashboardPage })))
@@ -138,6 +139,7 @@ export const router = createBrowserRouter(
         { path: 'classes', element: withSuspense(<InstructorSectionsPage />) },
         { path: 'classes/:id', element: withSuspense(<InstructorCourseDetailPage />) },
         { path: 'classes/:id/students', element: withSuspense(<InstructorSectionDetailPage />) },
+        { path: 'manage-class', element: withSuspense(<InstructorManageClassRedirect />) },
         { path: 'classes/:id/students/:studentId/profile', element: withSuspense(<InstructorStudentProfilePage />) },
         { path: 'classes/:id/schedule', element: withSuspense(<SectionSchedulePage />) },
         { path: 'classes/:sectionId/projects/:exerciseId', element: withSuspense(<ProjectAssignmentPage />) },
