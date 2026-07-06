@@ -1,4 +1,4 @@
-import { useState, useEffect, FormEvent } from 'react'
+import { useState, useEffect, FormEvent, ChangeEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AxiosError } from 'axios'
 import { api } from '../../lib/api'
@@ -23,6 +23,7 @@ interface TestCaseForm {
   expectedOutput: string
   isVisible: boolean
   pointValue: number
+  timeLimitSeconds?: number
 }
 
 interface FormErrors {
@@ -57,6 +58,78 @@ function emptyTestCase(): TestCaseForm {
   return { inputData: '', expectedOutput: '', isVisible: true, pointValue: 10 }
 }
 
+const TEMPLATE_FORMAT = 'uet-oasis-oop-exercise-template'
+
+interface ExerciseTemplateFile {
+  format?: string
+  version?: number
+  title?: string
+  description?: string
+  difficulty?: Difficulty
+  oop_tags?: string[]
+  starter_code?: string
+  is_library?: boolean
+  test_cases?: Array<{
+    input_data?: string
+    expected_output?: string
+    is_visible?: boolean
+    point_value?: number
+    time_limit_seconds?: number
+  }>
+}
+
+const SAMPLE_TEMPLATE: ExerciseTemplateFile & { authoring_notes: string[] } = {
+  format: TEMPLATE_FORMAT,
+  version: 1,
+  title: 'Student Management',
+  description:
+    'Viết lớp Student và StudentManagement. Mô tả rõ các lớp, thuộc tính, constructor, getter/setter và các hành vi cần kiểm tra.',
+  difficulty: 'medium',
+  oop_tags: ['classes and objects', 'encapsulation'],
+  is_library: true,
+  starter_code: JSON.stringify(
+    {
+      format: 'oop-java-files',
+      version: 1,
+      files: [
+        {
+          name: 'Student.java',
+          content: 'public class Student {\n    // TODO: declare fields, constructor and methods\n}\n',
+        },
+        {
+          name: 'StudentManagement.java',
+          content: 'public class StudentManagement {\n    // TODO: manage students\n}\n',
+        },
+      ],
+    },
+    null,
+    2
+  ),
+  test_cases: [
+    {
+      input_data: '__OOP_JAVA_TEST__\nMyTest.java',
+      expected_output:
+        'import org.junit.Test;\nimport static org.junit.Assert.*;\n\npublic class MyTest {\n    @Test\n    public void testStudentConstructor() {\n        Student s = new Student("Nguyen Van A", "24000001", 3.5);\n        assertEquals("Nguyen Van A", s.getName());\n        assertEquals("24000001", s.getStudentId());\n        assertEquals(3.5, s.getGpa(), 0.001);\n    }\n}\n',
+      is_visible: true,
+      point_value: 50,
+      time_limit_seconds: 3,
+    },
+    {
+      input_data: '__OOP_JAVA_TEST__\nHiddenTest.java',
+      expected_output:
+        'import org.junit.Test;\nimport static org.junit.Assert.*;\n\npublic class HiddenTest {\n    @Test\n    public void testValidation() {\n        assertThrows(IllegalArgumentException.class, () -> new Student("A", "1", -1.0));\n    }\n}\n',
+      is_visible: false,
+      point_value: 50,
+      time_limit_seconds: 3,
+    },
+  ],
+  authoring_notes: [
+    'Có thể export file này rồi gửi cho AI sinh đề/test case theo đúng schema.',
+    'Với JUnit, input_data dùng dạng __OOP_JAVA_TEST__ + tên file test; expected_output là toàn bộ nội dung file .java.',
+    'is_visible=false là test ẩn; point_value nên cộng lại thành 100.',
+  ],
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function AdminExerciseFormPage() {
@@ -71,6 +144,9 @@ export function AdminExerciseFormPage() {
   const [starterCode, setStarterCode] = useState('')
   const [isLibrary, setIsLibrary] = useState(false)
   const [testCases, setTestCases] = useState<TestCaseForm[]>([emptyTestCase()])
+  const [templateText, setTemplateText] = useState('')
+  const [templateOpen, setTemplateOpen] = useState(false)
+  const [templateError, setTemplateError] = useState<string | null>(null)
 
   const [errors, setErrors] = useState<FormErrors>({})
   const [loading, setLoading] = useState(false)
@@ -103,6 +179,7 @@ export function AdminExerciseFormPage() {
             isVisible:
               tc.isVisible === 1 || tc.isVisible === true || tc.is_visible === true,
             pointValue: (tc.pointValue ?? tc.point_value ?? 10) as number,
+            timeLimitSeconds: (tc.timeLimitSeconds ?? tc.time_limit_seconds) as number | undefined,
           }))
         )
       }
@@ -139,13 +216,11 @@ export function AdminExerciseFormPage() {
       newErrors.tags = 'Tối đa 5 thẻ OOP'
     }
 
-    if (!isEditing) {
-      const validTestCases = testCases.filter(
-        (tc) => tc.inputData.trim() !== '' && tc.expectedOutput.trim() !== ''
-      )
-      if (validTestCases.length < 1) {
-        newErrors.testCases = 'Cần ít nhất 1 bộ test có đầu vào và kết quả mong đợi'
-      }
+    const validTestCases = testCases.filter(
+      (tc) => tc.inputData.trim() !== '' && tc.expectedOutput.trim() !== ''
+    )
+    if (validTestCases.length < 1) {
+      newErrors.testCases = 'Cần ít nhất 1 bộ test có đầu vào và kết quả mong đợi'
     }
 
     setErrors(newErrors)
@@ -165,9 +240,152 @@ export function AdminExerciseFormPage() {
   function updateTestCase(
     index: number,
     field: keyof TestCaseForm,
-    value: string | boolean | number
+    value: string | boolean | number | undefined
   ) {
     setTestCases((prev) => prev.map((tc, i) => (i === index ? { ...tc, [field]: value } : tc)))
+  }
+
+  function buildTemplateFromForm(): ExerciseTemplateFile {
+    return {
+      format: TEMPLATE_FORMAT,
+      version: 1,
+      title: title.trim() || 'Tên bài tập',
+      description: description.trim() || 'Mô tả yêu cầu bài tập.',
+      difficulty,
+      oop_tags: splitTags(tagsInput).length > 0 ? splitTags(tagsInput) : ['classes and objects'],
+      starter_code: starterCode,
+      is_library: isLibrary,
+      test_cases: testCases.map((tc) => ({
+        input_data: tc.inputData,
+        expected_output: tc.expectedOutput,
+        is_visible: tc.isVisible,
+        point_value: tc.pointValue,
+        ...(tc.timeLimitSeconds ? { time_limit_seconds: tc.timeLimitSeconds } : {}),
+      })),
+    }
+  }
+
+  function slugify(value: string) {
+    return (
+      value
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 80) || 'exercise'
+    )
+  }
+
+  function downloadJson(fileName: string, data: unknown) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], {
+      type: 'application/json;charset=utf-8',
+    })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = fileName
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  function normalizeTemplate(raw: ExerciseTemplateFile) {
+    const normalizedTitle = String(raw.title ?? '').trim()
+    const normalizedDescription = String(raw.description ?? '').trim()
+    const normalizedDifficulty = raw.difficulty ?? 'easy'
+    const normalizedTags = Array.isArray(raw.oop_tags) ? raw.oop_tags : []
+    const normalizedTestCases = Array.isArray(raw.test_cases) ? raw.test_cases : []
+
+    if (!normalizedTitle) throw new Error('Template thiếu title.')
+    if (!normalizedDescription) throw new Error('Template thiếu description.')
+    if (!DIFFICULTY_OPTIONS.includes(normalizedDifficulty)) {
+      throw new Error('difficulty phải là easy, medium hoặc hard.')
+    }
+    if (normalizedTags.length < 1 || normalizedTags.length > 5) {
+      throw new Error('oop_tags cần từ 1 đến 5 thẻ.')
+    }
+    if (normalizedTestCases.length < 1 || normalizedTestCases.length > 50) {
+      throw new Error('Template cần từ 1 đến 50 test case.')
+    }
+
+    return {
+      title: normalizedTitle,
+      description: normalizedDescription,
+      difficulty: normalizedDifficulty,
+      tags: normalizedTags.map((tag) => String(tag).trim()).filter(Boolean).slice(0, 5),
+      starterCode: String(raw.starter_code ?? ''),
+      isLibrary: Boolean(raw.is_library ?? true),
+      testCases: normalizedTestCases.map((tc, index) => {
+        const inputData = String(tc.input_data ?? '').trim()
+        const expectedOutput = String(tc.expected_output ?? '')
+        const pointValue = Number(tc.point_value ?? 10)
+        const timeLimit = tc.time_limit_seconds == null ? undefined : Number(tc.time_limit_seconds)
+
+        if (!inputData) throw new Error(`Test case #${index + 1} thiếu input_data.`)
+        if (!expectedOutput.trim()) throw new Error(`Test case #${index + 1} thiếu expected_output.`)
+        if (!Number.isInteger(pointValue) || pointValue < 1 || pointValue > 100) {
+          throw new Error(`point_value của test case #${index + 1} phải từ 1 đến 100.`)
+        }
+        if (timeLimit !== undefined && (!Number.isInteger(timeLimit) || timeLimit < 1)) {
+          throw new Error(`time_limit_seconds của test case #${index + 1} phải là số nguyên dương.`)
+        }
+
+        return {
+          inputData,
+          expectedOutput,
+          isVisible: Boolean(tc.is_visible ?? true),
+          pointValue,
+          ...(timeLimit ? { timeLimitSeconds: timeLimit } : {}),
+        }
+      }),
+    }
+  }
+
+  function applyTemplate(raw: unknown) {
+    try {
+      const normalized = normalizeTemplate(raw as ExerciseTemplateFile)
+      setTitle(normalized.title)
+      setDescription(normalized.description)
+      setDifficulty(normalized.difficulty)
+      setTagsInput(normalized.tags.join(', '))
+      setStarterCode(normalized.starterCode)
+      setIsLibrary(normalized.isLibrary)
+      setTestCases(normalized.testCases)
+      setErrors({})
+      setTemplateError(null)
+      toast.success('Đã nhập template vào form.')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Template không hợp lệ.'
+      setTemplateError(message)
+      toast.error(message)
+    }
+  }
+
+  function handleApplyTemplateText() {
+    try {
+      applyTemplate(JSON.parse(templateText))
+    } catch {
+      setTemplateError('Nội dung không phải JSON hợp lệ.')
+      toast.error('Nội dung không phải JSON hợp lệ.')
+    }
+  }
+
+  async function handleImportTemplateFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    try {
+      const content = await file.text()
+      setTemplateText(content)
+      setTemplateOpen(true)
+      applyTemplate(JSON.parse(content))
+    } catch {
+      setTemplateError('Không đọc được file template JSON.')
+      toast.error('Không đọc được file template JSON.')
+    }
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -187,6 +405,15 @@ export function AdminExerciseFormPage() {
           oop_tags: tags,
           starter_code: starterCode,
           is_library: isLibrary,
+          test_cases: testCases
+            .filter((tc) => tc.inputData.trim() !== '' && tc.expectedOutput.trim() !== '')
+            .map((tc) => ({
+              input_data: tc.inputData,
+              expected_output: tc.expectedOutput,
+              is_visible: tc.isVisible,
+              point_value: tc.pointValue,
+              time_limit_seconds: tc.timeLimitSeconds,
+            })),
         })
         toast.success('Đã cập nhật bài tập.')
       } else {
@@ -204,6 +431,7 @@ export function AdminExerciseFormPage() {
               expected_output: tc.expectedOutput,
               is_visible: tc.isVisible,
               point_value: tc.pointValue,
+              time_limit_seconds: tc.timeLimitSeconds,
             })),
         })
         toast.success('Đã tạo bài tập.')
@@ -239,6 +467,87 @@ export function AdminExerciseFormPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="card space-y-6 p-6" noValidate>
+        <section className="rounded-lg border border-slate-200 bg-slate-50">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
+            <div>
+              <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">
+                Template ra đề
+              </h2>
+              <p className="mt-1 text-xs font-medium text-slate-500">
+                Dùng JSON để tự điền form, export bài hiện tại hoặc gửi cho AI sinh đề và test case.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => downloadJson('uet-oasis-exercise-template.json', SAMPLE_TEMPLATE)}
+                className="btn-secondary btn-sm"
+              >
+                Tải mẫu JSON
+              </button>
+              <button
+                type="button"
+                onClick={() => downloadJson(`${slugify(title || 'exercise')}-template.json`, buildTemplateFromForm())}
+                className="btn-secondary btn-sm"
+              >
+                Xuất bài hiện tại
+              </button>
+              <label className="btn-secondary btn-sm cursor-pointer">
+                Nhập file JSON
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  onChange={handleImportTemplateFile}
+                  className="hidden"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => setTemplateOpen((value) => !value)}
+                className="btn-ghost btn-sm"
+              >
+                {templateOpen ? 'Ẩn JSON' : 'Dán JSON'}
+              </button>
+            </div>
+          </div>
+
+          {templateOpen && (
+            <div className="space-y-3 p-4">
+              <textarea
+                value={templateText}
+                onChange={(event) => {
+                  setTemplateText(event.target.value)
+                  setTemplateError(null)
+                }}
+                rows={14}
+                className="input font-mono text-xs"
+                placeholder="Dán JSON template ở đây..."
+              />
+              {templateError && (
+                <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+                  {templateError}
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={handleApplyTemplateText} className="btn-primary btn-sm">
+                  Áp dụng JSON vào form
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTemplateText(JSON.stringify(SAMPLE_TEMPLATE, null, 2))
+                    setTemplateOpen(true)
+                    setTemplateError(null)
+                  }}
+                  className="btn-ghost btn-sm"
+                >
+                  Điền mẫu tham khảo
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+
         {/* Title */}
         <div>
           <label htmlFor="title" className="label">
@@ -346,28 +655,20 @@ export function AdminExerciseFormPage() {
         <div>
           <div className="mb-3 flex items-center justify-between">
             <label className="label mb-0">
-              Bộ test {!isEditing && <span className="text-danger-500">*</span>}
+              Bộ test <span className="text-danger-500">*</span>
               <span className="ml-1 font-normal text-gray-400">
-                {isEditing ? '(không cập nhật khi sửa)' : '(cần ít nhất 1)'}
+                (cần ít nhất 1, có thể nhập bằng template)
               </span>
             </label>
-            {!isEditing && (
-              <button
-                type="button"
-                onClick={addTestCase}
-                disabled={testCases.length >= 50}
-                className="btn-ghost btn-sm"
-              >
-                + Thêm test case
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={addTestCase}
+              disabled={testCases.length >= 50}
+              className="btn-ghost btn-sm"
+            >
+              + Thêm test case
+            </button>
           </div>
-
-          {isEditing && (
-            <p className="mb-2 text-xs text-gray-400">
-              Các bộ test không thể chỉnh sửa ở đây và sẽ không bị thay đổi khi lưu.
-            </p>
-          )}
 
           {errors.testCases && <p className="mb-2 text-xs text-danger-600">{errors.testCases}</p>}
 
@@ -376,7 +677,7 @@ export function AdminExerciseFormPage() {
               <div key={index} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <span className="text-xs font-medium text-gray-500">Bộ test #{index + 1}</span>
-                  {!isEditing && testCases.length > 1 && (
+                  {testCases.length > 1 && (
                     <button
                       type="button"
                       onClick={() => removeTestCase(index)}
@@ -394,8 +695,7 @@ export function AdminExerciseFormPage() {
                       value={tc.inputData}
                       onChange={(e) => updateTestCase(index, 'inputData', e.target.value)}
                       rows={3}
-                      disabled={isEditing}
-                      className="input font-mono text-xs disabled:bg-gray-100 disabled:text-gray-500"
+                      className="input font-mono text-xs"
                       placeholder="Dữ liệu đầu vào..."
                     />
                   </div>
@@ -407,8 +707,7 @@ export function AdminExerciseFormPage() {
                       value={tc.expectedOutput}
                       onChange={(e) => updateTestCase(index, 'expectedOutput', e.target.value)}
                       rows={3}
-                      disabled={isEditing}
-                      className="input font-mono text-xs disabled:bg-gray-100 disabled:text-gray-500"
+                      className="input font-mono text-xs"
                       placeholder="Kết quả mong đợi..."
                     />
                   </div>
@@ -422,18 +721,33 @@ export function AdminExerciseFormPage() {
                       min={1}
                       max={100}
                       value={tc.pointValue}
-                      disabled={isEditing}
                       onChange={(e) =>
                         updateTestCase(index, 'pointValue', parseInt(e.target.value) || 1)
                       }
-                      className="input w-16 text-xs disabled:bg-gray-100 disabled:text-gray-500"
+                      className="input w-16 text-xs"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-gray-600">Giây:</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={tc.timeLimitSeconds ?? ''}
+                      onChange={(e) =>
+                        updateTestCase(
+                          index,
+                          'timeLimitSeconds',
+                          e.target.value ? parseInt(e.target.value) || undefined : undefined
+                        )
+                      }
+                      className="input w-20 text-xs"
+                      placeholder="3"
                     />
                   </div>
                   <label className="flex items-center gap-1.5 text-xs text-gray-600">
                     <input
                       type="checkbox"
                       checked={tc.isVisible}
-                      disabled={isEditing}
                       onChange={(e) => updateTestCase(index, 'isVisible', e.target.checked)}
                       className="rounded border-gray-300 text-primary focus:ring-primary"
                     />

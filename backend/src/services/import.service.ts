@@ -44,6 +44,34 @@ export function isValidEmail(email: string): boolean {
 // ─── File Parsing ────────────────────────────────────────────────────────────
 
 /**
+ * Helper to normalize row columns in key-insensitive and space-insensitive manner,
+ * and automatically derive missing student emails.
+ */
+function normalizeRow(r: any): ImportRow {
+  let student_id = "";
+  let full_name = "";
+  let email = "";
+
+  for (const key of Object.keys(r)) {
+    const k = key.toLowerCase().trim();
+    const val = String(r[key]).trim();
+    if (k === "mã sv" || k === "mssv" || k === "student_id" || k === "mã sinh viên" || k === "username") {
+      student_id = val;
+    } else if (k === "họ và tên" || k === "họ tên" || k === "full_name" || k === "sinh viên" || k === "name") {
+      full_name = val;
+    } else if (k === "email" || k === "e-mail") {
+      email = val;
+    }
+  }
+
+  if (!email && student_id) {
+    email = `${student_id}@vnu.edu.vn`;
+  }
+
+  return { student_id, full_name, email };
+}
+
+/**
  * Parse a CSV buffer into an array of row objects.
  */
 export function parseCSV(buffer: Buffer): ImportRow[] {
@@ -53,19 +81,83 @@ export function parseCSV(buffer: Buffer): ImportRow[] {
     trim: true,
     bom: true,
   });
-  return records as ImportRow[];
+  return (records as any[]).map((r) => normalizeRow(r));
 }
 
 /**
- * Parse an Excel (.xlsx) buffer into an array of row objects.
+ * Parse an Excel (.xlsx or .xls) buffer into an array of row objects.
+ * Handles headers and ignores generic metadata cells at the top of sheets automatically.
  */
 export function parseExcel(buffer: Buffer): ImportRow[] {
   const workbook = XLSX.read(buffer, { type: "buffer" });
   const firstSheetName = workbook.SheetNames[0];
   if (!firstSheetName) return [];
   const sheet = workbook.Sheets[firstSheetName];
-  const rows = XLSX.utils.sheet_to_json<ImportRow>(sheet, { defval: "" });
-  return rows;
+
+  // Load raw sheet rows (array of arrays) first to find the actual table header
+  const rawRows = XLSX.utils.sheet_to_json<any>(sheet, { header: 1 });
+
+  let headerRowIndex = -1;
+  for (let i = 0; i < rawRows.length; i++) {
+    const row = rawRows[i];
+    if (Array.isArray(row)) {
+      const hasStudentIdCol = row.some((val: any) => {
+        const s = String(val).toLowerCase().trim();
+        return s === "mã sv" || s === "mssv" || s === "student_id" || s === "mã sinh viên";
+      });
+      const hasNameCol = row.some((val: any) => {
+        const s = String(val).toLowerCase().trim();
+        return s === "họ và tên" || s === "họ tên" || s === "full_name" || s === "sinh viên";
+      });
+      if (hasStudentIdCol && hasNameCol) {
+        headerRowIndex = i;
+        break;
+      }
+    }
+  }
+
+  // Fallback to standard sheet_to_json if header row is not found
+  if (headerRowIndex === -1) {
+    const rows = XLSX.utils.sheet_to_json<any>(sheet, { defval: "" });
+    return rows.map((r) => normalizeRow(r));
+  }
+
+  const headerRow = rawRows[headerRowIndex];
+  const studentIdIdx = headerRow.findIndex((val: any) => {
+    const s = String(val).toLowerCase().trim();
+    return s === "mã sv" || s === "mssv" || s === "student_id" || s === "mã sinh viên";
+  });
+  const fullNameIdx = headerRow.findIndex((val: any) => {
+    const s = String(val).toLowerCase().trim();
+    return s === "họ và tên" || s === "họ tên" || s === "full_name" || s === "sinh viên";
+  });
+  const emailIdx = headerRow.findIndex((val: any) => {
+    const s = String(val).toLowerCase().trim();
+    return s === "email" || s === "e-mail";
+  });
+
+  const result: ImportRow[] = [];
+  for (let i = headerRowIndex + 1; i < rawRows.length; i++) {
+    const row = rawRows[i];
+    if (Array.isArray(row) && row.length > 0) {
+      const studentId = String(row[studentIdIdx] ?? "").trim();
+      const fullName = String(row[fullNameIdx] ?? "").trim();
+
+      if (!studentId && !fullName) continue;
+
+      let email = emailIdx !== -1 ? String(row[emailIdx] ?? "").trim() : "";
+      if (!email && studentId) {
+        email = `${studentId}@vnu.edu.vn`;
+      }
+
+      result.push({
+        student_id: studentId,
+        full_name: fullName,
+        email: email,
+      });
+    }
+  }
+  return result;
 }
 
 /**
