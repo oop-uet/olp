@@ -288,6 +288,7 @@ export function ExerciseWorkspacePage() {
   const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null)
   const [activePanel, setActivePanel] = useState<'description' | 'testcases'>('description')
   const zeroSubmissionSentRef = useRef(false)
+  const exitAttemptSentRef = useRef(false)
   const {
     status: executorStatus,
     connectionError: executorError,
@@ -482,6 +483,34 @@ export function ExerciseWorkspacePage() {
       })
     } catch {
       toast.error('Phiên làm bài đã bị khóa. Không thể tự động ghi nhận bài nộp 0 điểm.')
+    }
+  }, [exercise, files])
+
+  const handleExitAttempt = useCallback(async () => {
+    if (!exercise || exitAttemptSentRef.current || zeroSubmissionSentRef.current) return
+
+    exitAttemptSentRef.current = true
+
+    try {
+      const sourceFiles = filesForExecution(files)
+      await api.post('/api/submissions', {
+        exercise_id: exercise.id,
+        section_id: exercise.sectionId,
+        code:
+          sourceFiles.length > 0
+            ? serializeSubmissionFiles(sourceFiles)
+            : '// Phiên làm bài được rời khỏi khi đang ở chế độ toàn màn hình.',
+        test_results: exercise.testCases.map((tc) => ({
+          test_case_id: tc.id,
+          actual_output: '',
+          execution_time_ms: 0,
+          status: 'failed',
+        })),
+        exit_attempt: true,
+      })
+      toast.success('Đã ghi nhận thêm 1 lượt làm bài khi rời phiên toàn màn hình.')
+    } catch {
+      toast.error('Không thể tự động ghi nhận lượt làm bài khi rời phiên.')
     }
   }, [exercise, files])
 
@@ -684,6 +713,7 @@ export function ExerciseWorkspacePage() {
       exerciseId={exercise.id}
       warningThreshold={exercise.warningThreshold}
       onNullified={handleAntiCheatNullified}
+      onExitAttempt={handleExitAttempt}
     >
       {workspace}
     </AntiCheatMonitor>

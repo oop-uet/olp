@@ -27,6 +27,7 @@ export interface CreateSubmissionInput {
   code: string;
   testResults: TestResultInput[];
   antiCheatNullified?: boolean;
+  exitAttempt?: boolean;
 }
 
 export interface SubmissionFilters {
@@ -147,7 +148,7 @@ export async function createSubmission(
   input: CreateSubmissionInput,
   database: Database = defaultDb
 ): Promise<SubmissionError | Record<string, unknown>> {
-  const { studentId, exerciseId, sectionId, code, testResults, antiCheatNullified } = input;
+  const { studentId, exerciseId, sectionId, code, testResults, antiCheatNullified, exitAttempt } = input;
 
   // 1. Verify exercise assignment exists for exercise+section
   const assignment = await database.query.exerciseAssignments.findFirst({
@@ -245,7 +246,13 @@ export async function createSubmission(
   const isAntiCheatZero =
     Boolean(antiCheatNullified) ||
     (await hasExceededAntiCheatThreshold(studentId, exerciseId, database));
-  const score = isAntiCheatZero ? 0 : calculateScore(testCaseRecords, testResults);
+  const isExitAttempt = Boolean(exitAttempt);
+  const score = isAntiCheatZero || isExitAttempt ? 0 : calculateScore(testCaseRecords, testResults);
+  const feedback = isAntiCheatZero
+    ? "Điểm bị hủy do vượt quá ngưỡng cảnh báo chống gian lận."
+    : isExitAttempt
+      ? "Bài làm tự động ghi nhận 0 điểm do sinh viên rời phiên làm bài toàn màn hình."
+      : null;
 
   // 5. Store submission with score
   const attemptNumber = currentCount + 1;
@@ -261,9 +268,7 @@ export async function createSubmission(
       sectionId,
       code,
       score,
-      feedback: isAntiCheatZero
-        ? "Điểm bị hủy do vượt quá ngưỡng cảnh báo chống gian lận."
-        : null,
+      feedback,
       attemptNumber,
       submittedAt,
     });
@@ -302,9 +307,7 @@ export async function createSubmission(
     sectionId,
     code,
     score,
-    feedback: isAntiCheatZero
-      ? "Điểm bị hủy do vượt quá ngưỡng cảnh báo chống gian lận."
-      : null,
+    feedback,
     attemptNumber,
     submittedAt,
     results: resultRecords.map((r) => ({

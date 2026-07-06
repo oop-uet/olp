@@ -13,6 +13,8 @@ interface AntiCheatMonitorProps {
   warningThreshold?: number
   /** Callback when score is nullified */
   onNullified?: () => void
+  /** Callback before leaving an active fullscreen workspace */
+  onExitAttempt?: () => void | Promise<void>
   /** Children to render when assessment is accessible */
   children: React.ReactNode
 }
@@ -34,6 +36,7 @@ export function AntiCheatMonitor({
   submissionId,
   warningThreshold = 3,
   onNullified,
+  onExitAttempt,
   children,
 }: AntiCheatMonitorProps) {
   const navigate = useNavigate()
@@ -56,6 +59,7 @@ export function AntiCheatMonitor({
   const lastExitWarningAtRef = useRef(0)
   const monitoringStartedAtRef = useRef(0)
   const devtoolsDetectionStreakRef = useRef(0)
+  const hasArmedBackGuardRef = useRef(false)
 
   const exitFullscreenIfNeeded = useCallback(() => {
     if (document.fullscreenElement) {
@@ -139,6 +143,15 @@ export function AntiCheatMonitor({
       showNotification('Không được mở menu sao chép trong vùng đề bài hoặc test case.')
     }
 
+    const leaveWorkspace = async (targetRoute = '/student/exercises') => {
+      try {
+        await onExitAttempt?.()
+      } finally {
+        exitFullscreenIfNeeded()
+        navigate(targetRoute)
+      }
+    }
+
     const handleSecureExitClick = (event: MouseEvent) => {
       const target = event.target as Element | null
       const link = target?.closest('[data-anti-cheat-exit="true"]') as HTMLAnchorElement | null
@@ -158,9 +171,31 @@ export function AntiCheatMonitor({
       }
 
       setTimeout(() => {
-        exitFullscreenIfNeeded()
-        navigate(targetRoute)
+        void leaveWorkspace(targetRoute)
       }, 180)
+    }
+
+    const handleBrowserBack = () => {
+      if (!isActive || isNullified) return
+
+      window.history.pushState({ oopAntiCheatGuard: true }, '', window.location.href)
+      const now = Date.now()
+      if (now - lastExitWarningAtRef.current > 1000) {
+        lastExitWarningAtRef.current = now
+        recordWarning('navigation_back')
+        showNotification('Rời khỏi màn hình làm bài được tính là một cảnh báo.')
+      }
+
+      if (warningCount + 1 >= threshold) {
+        return
+      }
+
+      void leaveWorkspace('/student/exercises')
+    }
+
+    if (!hasArmedBackGuardRef.current) {
+      hasArmedBackGuardRef.current = true
+      window.history.pushState({ oopAntiCheatGuard: true }, '', window.location.href)
     }
 
     document.addEventListener('fullscreenchange', handleFullscreenChange)
@@ -170,6 +205,7 @@ export function AntiCheatMonitor({
     document.addEventListener('contextmenu', handleProtectedContextMenu)
     document.addEventListener('click', handleSecureExitClick, true)
     window.addEventListener('blur', handleWindowBlur)
+    window.addEventListener('popstate', handleBrowserBack)
 
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange)
@@ -179,8 +215,9 @@ export function AntiCheatMonitor({
       document.removeEventListener('contextmenu', handleProtectedContextMenu)
       document.removeEventListener('click', handleSecureExitClick, true)
       window.removeEventListener('blur', handleWindowBlur)
+      window.removeEventListener('popstate', handleBrowserBack)
     }
-  }, [exitFullscreenIfNeeded, isActive, isNullified, navigate, recordWarning, showNotification, threshold, warningCount])
+  }, [exitFullscreenIfNeeded, isActive, isNullified, navigate, onExitAttempt, recordWarning, showNotification, threshold, warningCount])
 
   // Browser APIs cannot truly forbid DevTools. Viewport gap detection is only
   // a heuristic, so keep it conservative to avoid punishing normal fullscreen
