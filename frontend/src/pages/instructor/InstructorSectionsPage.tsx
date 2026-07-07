@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader, Spinner } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
+import { formatSectionDisplayName, formatSemesterDisplayName, parseSemesterId } from '../../utils/semester'
 
 interface InstructorInfo {
   id: string
@@ -90,7 +91,13 @@ export function InstructorSectionsPage() {
     sectionsBySemester[s.semester].push(s)
   }
 
-  const sortedSemesters = Object.keys(sectionsBySemester).sort((a, b) => b.localeCompare(a))
+  const sortedSemesters = Object.keys(sectionsBySemester).sort((a, b) => {
+    const parsedA = parseSemesterId(a)
+    const parsedB = parseSemesterId(b)
+    if (!parsedA || !parsedB) return b.localeCompare(a)
+    if (parsedA.startYear !== parsedB.startYear) return parsedB.startYear - parsedA.startYear
+    return parsedB.hk - parsedA.hk
+  })
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -113,7 +120,7 @@ export function InstructorSectionsPage() {
                 
                 {/* Semester Header: Teal style */}
                 <div className="bg-[#00adb5] text-white px-5 py-3 font-bold text-sm tracking-wide select-none">
-                  {semester}
+                  {formatSemesterDisplayName(semester, true)}
                 </div>
 
                 {/* Class sections list */}
@@ -124,7 +131,7 @@ export function InstructorSectionsPage() {
                       to={`/instructor/classes/${section.id}`}
                       className="block w-full text-left bg-[#42a5f5] hover:bg-[#1e88e5] text-white font-bold py-3.5 px-6 rounded-lg shadow-sm transition-all duration-150 active:scale-[0.99] select-none text-sm leading-relaxed"
                     >
-                      {section.name} - {section.name} - Lập trình hướng đối tượng
+                      {formatSectionDisplayName(section.name)} - Lập trình hướng đối tượng
                     </Link>
                   ))}
                 </div>
@@ -158,7 +165,7 @@ export function InstructorSectionsPage() {
                           : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                       }`}
                     >
-                      {sec.name}
+                      {formatSectionDisplayName(sec.name)}
                     </button>
                   ))}
                 </div>

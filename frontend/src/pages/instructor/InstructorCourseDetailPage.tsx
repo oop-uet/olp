@@ -4,6 +4,7 @@ import { AxiosError } from 'axios'
 import { api } from '../../lib/api'
 import { PageLoader, Spinner } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
+import { formatSectionDisplayName } from '../../utils/semester'
 
 interface InstructorInfo {
   id: string
@@ -241,7 +242,7 @@ export function InstructorCourseDetailPage() {
             
             <div className="p-4">
               <div className="bg-[#0284c7] text-white px-3 py-1.5 rounded text-xs font-bold text-center uppercase mb-3 shadow-sm select-none">
-                {section.name}
+                {formatSectionDisplayName(section.name)}
               </div>
 
               {loadingLeaderboard ? (

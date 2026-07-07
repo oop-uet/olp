@@ -3,6 +3,7 @@ import { api } from '../../lib/api'
 import { PageLoader, LeaderboardIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { Link } from 'react-router-dom'
+import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
 
 // --- Types ---
 
@@ -199,7 +200,7 @@ export function LeaderboardPage() {
           <option value="">-- Chọn lớp học --</option>
           {sections.map((sec) => (
             <option key={sec.id} value={sec.id}>
-              {sec.name} ({sec.semester})
+              {formatSectionDisplayName(sec.name)} ({formatSemesterDisplayName(sec.semester)})
             </option>
           ))}
         </select>

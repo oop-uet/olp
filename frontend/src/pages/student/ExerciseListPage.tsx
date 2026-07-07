@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader, ExerciseIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
+import { formatSectionDisplayName } from '../../utils/semester'
 
 interface Exercise {
   id: string
@@ -232,7 +233,7 @@ export function ExerciseListPage() {
                         {exercise.oopTags && exercise.oopTags.length > 0 && (
                           <div className="mt-1 flex flex-wrap gap-1">
                             {exercise.oopTags.map((tag) => (
-                              <span key={tag} className="badge-gray">
+                              <span key={tag} className="tag">
                                 {tag}
                               </span>
                             ))}
@@ -244,7 +245,7 @@ export function ExerciseListPage() {
                           {difficultyConfig[exercise.difficulty].label}
                         </span>
                       </td>
-                      <td className="table-td text-gray-700">{exercise.sectionName}</td>
+                      <td className="table-td text-gray-700">{formatSectionDisplayName(exercise.sectionName)}</td>
                       <td className="table-td text-gray-700">{formatDeadline(exercise.deadline)}</td>
                       <td className="table-td">
                         <span className={statusConfig[exercise.status].className}>

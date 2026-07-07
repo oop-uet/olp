@@ -972,7 +972,7 @@ function DescriptionPanel({ exercise }: { exercise: ExerciseDetail }) {
       {exercise.oopTags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {exercise.oopTags.map((tag) => (
-            <span key={tag} className="bg-primary-50 text-primary text-[10px] font-extrabold px-2 py-0.5 rounded-full ring-1 ring-primary/10">
+            <span key={tag} className="tag">
               {tag}
             </span>
           ))}

@@ -4,6 +4,7 @@ import { AxiosError } from 'axios'
 import { api } from '../../lib/api'
 import { PageLoader, Spinner } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
+import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
 
 interface InstructorInfo {
   id: string
@@ -358,8 +359,8 @@ export function InstructorSectionDetailPage() {
       {/* Page Header Bar */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 p-6 text-white shadow-md border-b-4 border-secondary flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div className="text-shadow-md">
-          <h1 className="text-2xl font-black font-sans uppercase tracking-wide">{section.name}</h1>
-          <p className="text-xs text-white/90 mt-1.5 font-bold">Học kỳ: {section.semester} | Quản lý thành viên lớp học phần</p>
+          <h1 className="text-2xl font-black font-sans uppercase tracking-wide">{formatSectionDisplayName(section.name)}</h1>
+          <p className="text-xs text-white/90 mt-1.5 font-bold">Học kỳ: {formatSemesterDisplayName(section.semester)} | Quản lý thành viên lớp học phần</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link
@@ -401,7 +402,7 @@ export function InstructorSectionDetailPage() {
           <h2 className="panel-title uppercase">
             <span>☰</span>
             Danh Sách Sinh Viên ({students.length})
-            <span className="badge-blue ml-2 font-bold normal-case">{section.name}</span>
+            <span className="badge-blue ml-2 font-bold normal-case">{formatSectionDisplayName(section.name)}</span>
           </h2>
           <div className="flex flex-wrap items-center gap-1.5 mt-2 sm:mt-0">
             <button
@@ -511,7 +512,7 @@ export function InstructorSectionDetailPage() {
                             {student.fullName || student.username}
                           </button>
                         </td>
-                        <td className="px-4 py-2.5 text-slate-500 font-medium">{section.name}</td>
+                        <td className="px-4 py-2.5 text-slate-500 font-medium">{formatSectionDisplayName(section.name)}</td>
                         <td className="px-4 py-2.5 text-center">
                           <div className="flex items-center justify-center gap-2">
                             {/* Sửa button (green) */}

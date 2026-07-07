@@ -3,6 +3,12 @@ import { Link } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader, Spinner, SectionIcon, CheckCircleIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
+import {
+  formatSectionDisplayName,
+  formatSemesterDisplayName,
+  normalizePreviewSectionName,
+  parseSemesterId,
+} from '../../utils/semester'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -33,50 +39,9 @@ interface SectionFormData {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-function getSemesterDisplayName(semId: string): string {
-  const match = semId.match(/^(\d{4})-(\d{4})-HK(\d)$/);
-  if (!match) return semId;
-  const hkNum = parseInt(match[3]);
-  const hk = hkNum === 1 ? "I" : hkNum === 2 ? "II" : hkNum === 3 ? "III" : match[3];
-  return `Học kỳ ${hk} năm học ${match[1]}-${match[2]}`;
-}
-
 function parseSemester(sem: string) {
-  const m1 = sem.match(/^(\d{4})-(\d{4})-HK(\d)$/);
-  if (m1) {
-    return { startYear: parseInt(m1[1]), hk: parseInt(m1[3]) };
-  }
-  const m2 = sem.match(/Học kỳ (I|II|III) (?:\w+ )?(\d{4})-(\d{4})/i);
-  if (m2) {
-    const hkVal = m2[1].toUpperCase();
-    const hk = hkVal === 'I' ? 1 : hkVal === 'II' ? 2 : 3;
-    return { startYear: parseInt(m2[2]), hk };
-  }
-  const m3 = sem.match(/Học kỳ (I|II|III) (\d{4})/i);
-  if (m3) {
-    const hkVal = m3[1].toUpperCase();
-    const hk = hkVal === 'I' ? 1 : hkVal === 'II' ? 2 : 3;
-    return { startYear: parseInt(m3[2]), hk };
-  }
-  return null;
-}
-
-function getSemesterCompactPrefix(sem: string): string {
-  const parsed = parseSemester(sem)
-  if (!parsed) return ''
-  const hk = parsed.hk === 1 ? 'I' : parsed.hk === 2 ? 'II' : parsed.hk === 3 ? 'III' : `${parsed.hk}`
-  return `${hk}${String(parsed.startYear).slice(2)}${String(parsed.startYear + 1).slice(2)}`
-}
-
-function stripSemesterCompactPrefix(name: string): string {
-  return name.trim().replace(/^(?:I|II|III)\d{4}\s+/i, '').trim()
-}
-
-function getPreviewSectionName(name: string, semester: string): string {
-  const prefix = getSemesterCompactPrefix(semester)
-  const baseName = stripSemesterCompactPrefix(name)
-  if (!prefix || !baseName) return name.trim()
-  return `${prefix} ${baseName}`
+  const parsed = parseSemesterId(sem)
+  return parsed ? { startYear: parsed.startYear, hk: parsed.hk } : null
 }
 
 function getSectionInstructorText(section: Section) {
@@ -157,11 +122,11 @@ export function SectionManagerPage() {
     }
     setSelectedSemester(nextVal)
     localStorage.setItem('admin_selected_semester', nextVal)
-    toast.success(`Đã thêm học kỳ ${getSemesterDisplayName(nextVal)}`)
+    toast.success(`Đã thêm học kỳ ${formatSemesterDisplayName(nextVal)}`)
   }
 
   const handleDeleteSemester = (semId: string) => {
-    if (!window.confirm(`Bạn có chắc muốn xóa học kỳ ${getSemesterDisplayName(semId)}?`)) return
+    if (!window.confirm(`Bạn có chắc muốn xóa học kỳ ${formatSemesterDisplayName(semId)}?`)) return
     const newCustom = customSemesters.filter((s) => s !== semId)
     setCustomSemesters(newCustom)
     localStorage.setItem('admin_semesters', JSON.stringify(newCustom))
@@ -172,7 +137,7 @@ export function SectionManagerPage() {
       setSelectedSemester(nextSelect)
       localStorage.setItem('admin_selected_semester', nextSelect)
     }
-    toast.success(`Đã xóa học kỳ ${getSemesterDisplayName(semId)}`)
+    toast.success(`Đã xóa học kỳ ${formatSemesterDisplayName(semId)}`)
   }
 
   const filteredSections = useMemo(() => {
@@ -412,7 +377,7 @@ export function SectionManagerPage() {
           <p className="mb-4 text-xs text-gray-500">
             Tải lên file danh sách lớp (định dạng UET-VNU). Lớp sẽ được tạo thuộc học kỳ{' '}
             <strong className="text-primary-700">
-              {getSemesterDisplayName(
+              {formatSemesterDisplayName(
                 rosterImportSemester ||
                   (selectedSemester === 'ALL'
                     ? semesters[semesters.length - 1] || '2025-2026-HK2'
@@ -451,7 +416,11 @@ export function SectionManagerPage() {
                 <CheckCircleIcon className="h-5 w-5" /> Nhập thành công!
               </p>
               <ul className="mt-2 space-y-1 text-xs text-success-700">
-                <li>Lớp: <strong>{rosterResult.section.name}</strong> ({rosterResult.section.semester})</li>
+                <li>
+                  Lớp:{' '}
+                  <strong>{formatSectionDisplayName(rosterResult.section.name)}</strong> (
+                  {formatSemesterDisplayName(rosterResult.section.semester)})
+                </li>
                 <li>Đã nhập: <strong>{rosterResult.imported}</strong> / {rosterResult.total} sinh viên</li>
                 {rosterResult.instructor && (
                   <li className="flex flex-wrap items-center gap-2">
@@ -510,7 +479,7 @@ export function SectionManagerPage() {
                   <p className="mt-1.5 text-[11px] font-semibold text-slate-500">
                     Tên sẽ lưu:{' '}
                     <span className="text-primary-700">
-                      {getPreviewSectionName(formData.name, formData.semester)}
+                      {normalizePreviewSectionName(formData.name, formData.semester)}
                     </span>
                   </p>
                 )}
@@ -731,7 +700,7 @@ export function SectionManagerPage() {
                 Học kỳ đang chọn để thao tác:
               </span>
               <span className="badge-blue text-xs font-bold py-1 px-2.5 rounded-full">
-                {getSemesterDisplayName(
+                {formatSemesterDisplayName(
                   selectedSemester === 'ALL'
                     ? semesters[semesters.length - 1] || '2025-2026-HK2'
                     : selectedSemester
@@ -768,7 +737,7 @@ export function SectionManagerPage() {
                   <div className="panel-header select-none">
                     <div className="flex items-center gap-3">
                       <h2 className="panel-title text-sm font-extrabold flex items-center gap-1.5 normal-case">
-                        🏫 {getSemesterDisplayName(sem)}
+                        🏫 {formatSemesterDisplayName(sem, true)}
                       </h2>
                       {isSelected && (
                         <span className="badge bg-white/20 text-white border border-white/25 text-[9px] font-extrabold tracking-wide uppercase select-none">
@@ -838,7 +807,7 @@ export function SectionManagerPage() {
                                   to={`/admin/sections/${section.id}`}
                                   className="font-bold text-slate-800 hover:text-primary hover:underline text-sm block"
                                 >
-                                  {section.name}
+                                  {formatSectionDisplayName(section.name)}
                                 </Link>
                                 <div className="flex flex-wrap items-center gap-1.5 mt-1">
                                   {section.instructors && section.instructors.length > 0 ? (

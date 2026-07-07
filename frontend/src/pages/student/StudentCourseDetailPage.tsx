@@ -4,6 +4,7 @@ import { cachedGet } from '../../lib/api'
 import { PageLoader, ExerciseIcon, LeaderboardIcon, CalendarIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { useAuthStore } from '../../stores/auth.store'
+import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
 
 interface Exercise {
   id: string
@@ -167,9 +168,9 @@ export function StudentCourseDetailPage() {
         <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-white/5 translate-x-12 -translate-y-12 blur-lg"></div>
         <div className="relative z-10 space-y-2">
           <span className="inline-block rounded-full bg-secondary-500/20 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-secondary-300 ring-1 ring-secondary-500/30">
-            {section.semester}
+            {formatSemesterDisplayName(section.semester, true)}
           </span>
-          <h1 className="text-2xl font-black tracking-tight">{section.name}</h1>
+          <h1 className="text-2xl font-black tracking-tight">{formatSectionDisplayName(section.name)}</h1>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-primary-200">
             <span className="font-semibold">Giảng viên: Nguyễn Văn Tuyên</span>
             <span>•</span>
@@ -270,7 +271,7 @@ function ExerciseWeekCard({ title, exercises }: { title: string; exercises: Exer
                 {exercise.oopTags?.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {exercise.oopTags.slice(0, 3).map((tag) => (
-                      <span key={tag} className="bg-slate-100 text-slate-500 px-1.5 py-0.2 rounded text-[9px] font-bold">
+                      <span key={tag} className="tag">
                         {tag}
                       </span>
                     ))}
@@ -329,7 +330,7 @@ function LeaderboardPanel({
 
       <div className="p-5">
         <div className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
-          {section.name}
+          {formatSectionDisplayName(section.name)}
         </div>
 
         <div className="mt-4 divide-y divide-slate-200 border-t border-slate-200">

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader, Spinner } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
+import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
 
 interface SectionOption {
   id: string
@@ -197,7 +198,7 @@ export function InstructorStatisticPage() {
             >
               {sections.map((section) => (
                 <option key={section.id} value={section.id}>
-                  {section.name} ({section.semester})
+                  {formatSectionDisplayName(section.name)} ({formatSemesterDisplayName(section.semester)})
                 </option>
               ))}
             </select>

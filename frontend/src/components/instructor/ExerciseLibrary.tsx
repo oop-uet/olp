@@ -137,7 +137,7 @@ export function ExerciseLibrary() {
 
                 <div className="mb-3 flex flex-wrap gap-1">
                   {exercise.oop_tags.map((tag) => (
-                    <span key={tag} className="badge-blue">
+                    <span key={tag} className="tag">
                       {tag}
                     </span>
                   ))}

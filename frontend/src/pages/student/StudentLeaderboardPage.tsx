@@ -4,6 +4,7 @@ import { cachedGet } from '../../lib/api'
 import { PageLoader, LeaderboardIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { useAuthStore } from '../../stores/auth.store'
+import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
 
 // --- Types ---
 
@@ -177,7 +178,7 @@ export function StudentLeaderboardPage() {
             >
               {sections.map((section) => (
                 <option key={section.id} value={section.id}>
-                  {section.name} ({section.semester})
+                  {formatSectionDisplayName(section.name)} ({formatSemesterDisplayName(section.semester)})
                 </option>
               ))}
             </select>

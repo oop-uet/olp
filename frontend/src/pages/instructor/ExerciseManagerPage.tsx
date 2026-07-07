@@ -245,7 +245,7 @@ export function ExerciseManagerPage() {
                             <td className="px-5 py-3.5">
                               <div className="flex flex-wrap gap-1">
                                 {parseOopTags(exercise.oop_tags ?? (exercise as unknown as Record<string, unknown>).oopTags).map((tag) => (
-                                  <span key={tag} className="badge-blue">
+                                  <span key={tag} className="tag">
                                     {tag}
                                   </span>
                                 ))}

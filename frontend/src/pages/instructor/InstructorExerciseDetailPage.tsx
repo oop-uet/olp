@@ -222,9 +222,9 @@ export function InstructorExerciseDetailPage() {
               </div>
             </div>
             {tags.length > 0 && (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {tags.map((tag) => (
-                  <span key={tag} className="badge-blue">
+                  <span key={tag} className="tag">
                     {tag}
                   </span>
                 ))}
