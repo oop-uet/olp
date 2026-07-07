@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { db as defaultDb } from "../db/index.js";
 import { users, sectionEnrollments, classSections, sectionInstructors } from "../db/schema.js";
 import { normalizeSectionNameForSemester } from "../utils/semester.js";
+import { assignDefaultExercisesByTitleToSection } from "./default-assignment.service.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -277,6 +278,8 @@ export async function importClassRoster(
       .onConflictDoNothing();
   }
 
+  await assignDefaultExercisesSafely(sectionId, database);
+
   // 2. Import students
   const report: RosterImportReport = {
     section: { id: sectionId, name: sectionName, semester: metadata.semester },
@@ -350,4 +353,12 @@ export async function importClassRoster(
   }
 
   return report;
+}
+
+async function assignDefaultExercisesSafely(sectionId: string, database: typeof defaultDb) {
+  try {
+    await assignDefaultExercisesByTitleToSection(sectionId, database);
+  } catch (error) {
+    console.warn(`[roster-import] Failed to auto-assign default exercises for section ${sectionId}`, error);
+  }
 }

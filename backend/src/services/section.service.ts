@@ -13,6 +13,7 @@ import {
   anticheatEvents,
 } from "../db/schema.js";
 import { normalizeSectionNameForSemester } from "../utils/semester.js";
+import { assignDefaultExercisesByTitleToSection } from "./default-assignment.service.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -89,6 +90,7 @@ export async function createSection(
     .returning();
 
   await replaceSectionInstructors(id, instructorIds, database);
+  await assignDefaultExercisesSafely(id, database);
   return attachInstructorList(section, database);
 }
 
@@ -455,6 +457,14 @@ function normalizeInstructorIds(instructorIds?: string[], primaryInstructorId?: 
     ...(Array.isArray(instructorIds) ? instructorIds : []),
   ];
   return [...new Set(ids.filter((id) => typeof id === "string" && id.trim()).map((id) => id.trim()))];
+}
+
+async function assignDefaultExercisesSafely(sectionId: string, database: Database) {
+  try {
+    await assignDefaultExercisesByTitleToSection(sectionId, database);
+  } catch (error) {
+    console.warn(`[sections] Failed to auto-assign default exercises for section ${sectionId}`, error);
+  }
 }
 
 async function validateInstructorIds(instructorIds: string[], database: Database = defaultDb) {
