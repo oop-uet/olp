@@ -193,7 +193,7 @@ export function AdminExercisesPage() {
                   Độ khó {sortField === 'difficulty' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
                 <th className="table-th select-none">Thẻ OOP</th>
-                <th className="table-th select-none">Số test case</th>
+                <th className="table-th text-center select-none">Số test case</th>
                 <th className="table-th text-center w-36 select-none">Thao tác</th>
               </tr>
             </thead>
@@ -214,9 +214,9 @@ export function AdminExercisesPage() {
                     </td>
                     <td className="table-td">
                       {tags.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-1.5">
                           {tags.map((tag) => (
-                            <span key={tag} className="badge-gray">
+                            <span key={tag} className="tag">
                               {tag}
                             </span>
                           ))}
@@ -225,7 +225,7 @@ export function AdminExercisesPage() {
                         <span className="text-gray-400">—</span>
                       )}
                     </td>
-                    <td className="table-td text-slate-600 font-medium">
+                    <td className="table-td text-center text-slate-600 font-medium">
                       {Array.isArray(exercise.testCases)
                         ? exercise.testCases.length
                         : '—'}
