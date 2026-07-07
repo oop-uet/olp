@@ -12,6 +12,13 @@ const bundledJavaDir = path.join(backendRoot, ".java");
 const bundledJava = path.join(bundledJavaDir, "bin", process.platform === "win32" ? "java.exe" : "java");
 const requireJava = process.env.CHECKSTYLE_REQUIRE_JAVA === "1";
 
+const CHECKSTYLE_VERSION = process.env.CHECKSTYLE_VERSION ?? "10.26.1";
+const CHECKSTYLE_URL =
+  process.env.CHECKSTYLE_DOWNLOAD_URL ??
+  `https://github.com/checkstyle/checkstyle/releases/download/checkstyle-${CHECKSTYLE_VERSION}/checkstyle-${CHECKSTYLE_VERSION}-all.jar`;
+const checkstyleCacheDir = path.join(backendRoot, ".cache");
+const checkstyleJarPath = path.join(checkstyleCacheDir, `checkstyle-${CHECKSTYLE_VERSION}-all.jar`);
+
 function hasJava(command) {
   const result = spawnSync(command, ["-version"], { stdio: "ignore" });
   return result.status === 0;
@@ -58,6 +65,21 @@ function downloadFile(url, targetPath, redirectCount = 0) {
   });
 }
 
+async function ensureCheckstyleJar() {
+  if (await fileExists(checkstyleJarPath)) {
+    console.log("[checkstyle] Checkstyle JAR is already available.");
+    return;
+  }
+  try {
+    console.log(`[checkstyle] Downloading Checkstyle JAR ${CHECKSTYLE_VERSION}...`);
+    await fs.mkdir(checkstyleCacheDir, { recursive: true });
+    await downloadFile(CHECKSTYLE_URL, checkstyleJarPath);
+    console.log("[checkstyle] Checkstyle JAR prepared.");
+  } catch (error) {
+    console.warn(`[checkstyle] Failed to download Checkstyle JAR: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 async function findJavaHome(rootDir) {
   const entries = await fs.readdir(rootDir, { withFileTypes: true });
   for (const entry of entries) {
@@ -97,6 +119,8 @@ async function installBundledJava() {
 }
 
 async function main() {
+  await ensureCheckstyleJar();
+
   if (process.env.CHECKSTYLE_SKIP_JRE_DOWNLOAD === "1") return;
 
   if (process.env.CHECKSTYLE_JAVA_BIN && hasJava(process.env.CHECKSTYLE_JAVA_BIN)) {

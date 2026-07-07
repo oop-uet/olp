@@ -5,15 +5,17 @@ import fs from "node:fs/promises";
 import https from "node:https";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const CHECKSTYLE_VERSION = process.env.CHECKSTYLE_VERSION ?? "10.26.1";
 const CHECKSTYLE_URL =
   process.env.CHECKSTYLE_DOWNLOAD_URL ??
   `https://github.com/checkstyle/checkstyle/releases/download/checkstyle-${CHECKSTYLE_VERSION}/checkstyle-${CHECKSTYLE_VERSION}-all.jar`;
-const DEFAULT_CACHE_DIR = path.join(os.homedir(), ".cache", "oop-uet");
+const DEFAULT_CACHE_DIR = path.resolve(__dirname, "..", "..", ".cache");
 const DEFAULT_JAR_PATH = path.join(DEFAULT_CACHE_DIR, `checkstyle-${CHECKSTYLE_VERSION}-all.jar`);
 const CHECKSTYLE_TIMEOUT_MS = Number(process.env.CHECKSTYLE_TIMEOUT_MS ?? 15_000);
 const JRE_DOWNLOAD_TIMEOUT_MS = Number(process.env.CHECKSTYLE_JRE_DOWNLOAD_TIMEOUT_MS ?? 180_000);
