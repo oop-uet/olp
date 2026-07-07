@@ -55,6 +55,13 @@ interface CheckstyleOptions {
   maxViolations?: number;
 }
 
+export function isValidCheckstyleReport(xml: string): boolean {
+  if (!xml || xml.trim().length === 0) return false;
+  if (!xml.includes("<checkstyle") || !xml.includes("</checkstyle>")) return false;
+  if (xml.includes("<exception>")) return false;
+  return true;
+}
+
 export async function evaluateCheckstyle(
   code: string,
   options: CheckstyleOptions = {}
@@ -83,6 +90,20 @@ export async function evaluateCheckstyle(
 
     await runCheckstyle(javaCommand, jarPath, reportPath, filePaths);
     const report = await fs.readFile(reportPath, "utf8").catch(() => "");
+    
+    console.log(`[checkstyle] Report content size: ${report.length} bytes`);
+    if (report.length > 0) {
+      console.log(`[checkstyle] Report preview: ${report.substring(0, 300)}`);
+    }
+
+    if (!isValidCheckstyleReport(report)) {
+      throw new Error(
+        report.includes("<exception>")
+          ? "Checkstyle gặp lỗi exception nội bộ."
+          : "Báo cáo Checkstyle rỗng hoặc không hợp lệ."
+      );
+    }
+
     const violations = parseCheckstyleXml(report, workingDir);
     const penalty = clampNumber(options.penaltyPerViolation ?? 5, 1, 100);
     const maxViolations = Math.max(1, options.maxViolations ?? 20);
@@ -101,6 +122,7 @@ export async function evaluateCheckstyle(
       toolVersion: `checkstyle-${CHECKSTYLE_VERSION}`,
     };
   } catch (error) {
+    console.error("[checkstyle] Evaluation failed:", error);
     return unavailable(
       error instanceof Error ? `Không chạy được Checkstyle: ${error.message}` : "Không chạy được Checkstyle."
     );
@@ -244,15 +266,24 @@ async function runCheckstyle(javaCommand: string, jarPath: string, reportPath: s
     ...filePaths,
   ];
 
+  console.log(`[checkstyle] Running: ${javaCommand} ${args.join(" ")}`);
+
   try {
-    await execFileAsync(javaCommand, args, {
+    const { stdout, stderr } = await execFileAsync(javaCommand, args, {
       timeout: CHECKSTYLE_TIMEOUT_MS,
       maxBuffer: 10 * 1024 * 1024,
     });
+    console.log(`[checkstyle] Executed successfully (exit code 0). stderr length: ${stderr.length}`);
   } catch (error: any) {
+    console.warn(`[checkstyle] Execution caught non-zero or error. Msg: ${error.message}, stderr: ${error.stderr || ""}`);
     // Checkstyle exits non-zero when it finds violations. That is still a valid report.
-    if (await fileExists(reportPath)) return;
-    throw new Error(error?.stderr || error?.message || "Checkstyle exited without a report.");
+    if (await fileExists(reportPath)) {
+      const content = await fs.readFile(reportPath, "utf8").catch(() => "");
+      if (isValidCheckstyleReport(content)) {
+        return;
+      }
+    }
+    throw new Error(error?.stderr || error?.message || "Checkstyle exited without a valid report.");
   }
 }
 
