@@ -765,19 +765,13 @@ export function SectionManagerPage() {
                   }`}
                 >
                   {/* Semester Header */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/50 px-5 py-3 select-none">
+                  <div className="panel-header select-none">
                     <div className="flex items-center gap-3">
-                      <span
-                        className={`rounded-lg px-3 py-1.5 text-xs font-black transition-colors ${
-                          isSelected
-                            ? 'bg-primary text-white shadow-sm'
-                            : 'bg-slate-100 text-slate-700 hover:bg-primary-50 hover:text-primary'
-                        }`}
-                      >
-                        {getSemesterDisplayName(sem).toUpperCase()}
-                      </span>
+                      <h2 className="panel-title text-sm font-extrabold flex items-center gap-1.5 normal-case">
+                        🏫 {getSemesterDisplayName(sem)}
+                      </h2>
                       {isSelected && (
-                        <span className="badge-blue text-[9px] font-extrabold tracking-wide uppercase select-none">
+                        <span className="badge bg-white/20 text-white border border-white/25 text-[9px] font-extrabold tracking-wide uppercase select-none">
                           Đang chọn
                         </span>
                       )}
@@ -788,7 +782,7 @@ export function SectionManagerPage() {
                             e.stopPropagation()
                             handleDeleteSemester(sem)
                           }}
-                          className="inline-flex items-center justify-center rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 px-2.5 py-1.5 text-[10px] font-bold transition-all border border-rose-200/55 cursor-pointer"
+                          className="inline-flex items-center justify-center rounded bg-rose-600/80 hover:bg-rose-600 text-white px-2 py-1 text-[10px] font-bold transition-all border border-rose-500 cursor-pointer ml-1"
                           title="Xóa học kỳ này"
                         >
                           🗑️ Xóa học kỳ
@@ -806,13 +800,13 @@ export function SectionManagerPage() {
                             }
                             openRosterImport(sem)
                           }}
-                          className="bg-[#bdc3c7] hover:bg-[#95a5a6] text-white text-[10px] font-bold px-3 py-1.5 rounded-md transition-all active:scale-[0.97] shadow-sm cursor-pointer"
+                          className="bg-primary hover:bg-primary-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all active:scale-[0.97] shadow-sm cursor-pointer border border-primary-500/20"
                         >
                           📥 Import Danh sách lớp
                         </button>
                         <button
                           onClick={() => openCreateForm(sem)}
-                          className="bg-primary hover:bg-primary-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-md transition-all active:scale-[0.97] shadow-sm cursor-pointer"
+                          className="bg-primary hover:bg-primary-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all active:scale-[0.97] shadow-sm cursor-pointer border border-primary-500/20"
                         >
                           Tạo lớp
                         </button>
