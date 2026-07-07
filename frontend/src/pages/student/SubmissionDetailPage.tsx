@@ -367,7 +367,7 @@ export function SubmissionDetailPage() {
                 Chi tiết bài nộp
               </h2>
             </div>
-            <div className="space-y-3 p-4 text-sm">
+            <div className="space-y-3 p-4 text-sm text-slate-700">
               <div className="flex items-center justify-between gap-3">
                 <span className="font-semibold text-slate-500">Trạng thái</span>
                 <span className={submissionStatus.className}>{submissionStatus.label}</span>
@@ -380,9 +380,22 @@ export function SubmissionDetailPage() {
               </div>
               <div className="flex items-center justify-between gap-3">
                 <span className="font-semibold text-slate-500">Điểm quy tắc</span>
-                <span className="font-bold text-slate-900">
-                  {submission.styleScore == null ? 'Chưa chấm' : `${submission.styleScore.toFixed(1)}/100`}
-                </span>
+                <div className="flex items-center gap-1.5 font-bold">
+                  <span className="text-slate-900">
+                    {submission.styleScore == null ? 'Chưa chấm' : `${submission.styleScore.toFixed(1)}/100`}
+                  </span>
+                  {submission.styleStatus && (
+                    <span className={
+                      submission.styleStatus === 'failed'
+                        ? 'badge-red text-[9px] px-1.5 py-0.5'
+                        : submission.styleStatus === 'passed'
+                          ? 'badge-green text-[9px] px-1.5 py-0.5'
+                          : 'badge-gray text-[9px] px-1.5 py-0.5'
+                    }>
+                      {submission.styleStatus.toUpperCase()}
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <span className="font-semibold text-slate-500">Test public đạt</span>
@@ -399,6 +412,37 @@ export function SubmissionDetailPage() {
               {submission.feedback && (
                 <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs font-medium text-amber-800">
                   {submission.feedback}
+                </div>
+              )}
+
+              {/* Checkstyle details */}
+              {(submission.styleFeedback || (submission.styleReport?.violations && submission.styleReport.violations.length > 0)) && (
+                <div className="pt-3 border-t border-slate-100 space-y-2">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Chi tiết Quy tắc Checkstyle</p>
+                  {submission.styleFeedback && (
+                    <p className="rounded-md border border-slate-200 bg-slate-50 p-2.5 leading-5 text-xs text-slate-600">
+                      {submission.styleFeedback}
+                    </p>
+                  )}
+                  {submission.styleReport?.violations && submission.styleReport.violations.length > 0 && (
+                    <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
+                      {submission.styleReport.violations.slice(0, 5).map((violation, index) => (
+                        <div key={`${violation.file}-${violation.line}-${index}`} className="rounded-md bg-slate-50 p-2 text-xs">
+                          <p className="font-bold text-slate-700">
+                            {violation.file}
+                            {violation.line ? `:${violation.line}` : ''}
+                            {violation.column ? `:${violation.column}` : ''}
+                          </p>
+                          <p className="mt-1 leading-5 text-slate-600">{violation.message}</p>
+                        </div>
+                      ))}
+                      {styleViolationCount > 5 && (
+                        <p className="font-semibold text-slate-500 text-xs">
+                          Còn {styleViolationCount - 5} lỗi Checkstyle khác.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -429,23 +473,6 @@ export function SubmissionDetailPage() {
                   <span className="text-[10px] text-slate-400">{file.content.split('\n').length} dòng</span>
                 </button>
               ))}
-            </div>
-          </section>
-
-          <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-            <div className="bg-gradient-to-r from-teal-600 to-cyan-500 px-4 py-3">
-              <h2 className="text-sm font-bold uppercase tracking-wide text-white">
-                Quy tắc lập trình
-              </h2>
-            </div>
-            <div className="p-4 text-sm leading-6 text-slate-600">
-              <StyleSummary
-                status={submission.styleStatus}
-                score={submission.styleScore}
-                feedback={submission.styleFeedback}
-                violations={submission.styleReport?.violations ?? []}
-                violationCount={styleViolationCount}
-              />
             </div>
           </section>
         </aside>
@@ -567,70 +594,6 @@ function EmptyResults() {
   )
 }
 
-function StyleSummary({
-  status,
-  score,
-  feedback,
-  violations,
-  violationCount,
-}: {
-  status: StyleStatus | null
-  score: number | null
-  feedback: string | null
-  violations: StyleViolation[]
-  violationCount: number
-}) {
-  const visibleViolations = violations.slice(0, 5)
-
-  if (!status || status === 'skipped') {
-    return (
-      <div className="space-y-2">
-        <p className="font-bold text-slate-800">Checkstyle chưa được chấm cho bài nộp này.</p>
-        {feedback && <p>{feedback}</p>}
-      </div>
-    )
-  }
-
-  if (status === 'unavailable') {
-    return (
-      <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-800">
-        <p className="font-bold">Checkstyle chưa sẵn sàng</p>
-        <p className="mt-1">{feedback ?? 'Backend chưa chạy được Checkstyle.'}</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <span className="font-bold text-slate-800">Google Java Style</span>
-        <span className={status === 'passed' ? 'badge-green' : 'badge-red'}>
-          {score == null ? 'N/A' : `${score.toFixed(1)}/100`}
-        </span>
-      </div>
-      <p>{feedback}</p>
-      {visibleViolations.length > 0 && (
-        <div className="space-y-2">
-          {visibleViolations.map((violation, index) => (
-            <div key={`${violation.file}-${violation.line}-${index}`} className="rounded-md bg-slate-50 p-2 text-xs">
-              <p className="font-bold text-slate-800">
-                {violation.file}
-                {violation.line ? `:${violation.line}` : ''}
-                {violation.column ? `:${violation.column}` : ''}
-              </p>
-              <p className="mt-1 text-slate-600">{violation.message}</p>
-            </div>
-          ))}
-          {violationCount > visibleViolations.length && (
-            <p className="text-xs font-semibold text-slate-500">
-              Còn {violationCount - visibleViolations.length} lỗi khác.
-            </p>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
 
 function FunctionalResultCard({
   result,

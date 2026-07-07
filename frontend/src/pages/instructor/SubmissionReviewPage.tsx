@@ -565,6 +565,25 @@ export function SubmissionReviewPage() {
                   <span className="font-bold text-slate-500">Điểm chức năng</span>
                   <span className="font-black text-slate-900">{functionalScore.toFixed(1)}/100</span>
                 </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-bold text-slate-500">Điểm quy tắc</span>
+                  <div className="flex items-center gap-1.5 font-black">
+                    <span className="text-slate-900">
+                      {selectedSubmission.styleScore == null ? 'Chưa chấm' : `${selectedSubmission.styleScore.toFixed(1)}/100`}
+                    </span>
+                    {selectedSubmission.styleStatus && (
+                      <span className={
+                        selectedSubmission.styleStatus === 'failed'
+                          ? 'badge-red text-[9px] px-1.5 py-0.5'
+                          : selectedSubmission.styleStatus === 'passed'
+                            ? 'badge-green text-[9px] px-1.5 py-0.5'
+                            : 'badge-gray text-[9px] px-1.5 py-0.5'
+                      }>
+                        {selectedSubmission.styleStatus.toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-right">
                   <p className={`text-3xl font-black ${getScoreColor(effectiveScore)}`}>
                     {effectiveScore.toFixed(1)}%
@@ -576,60 +595,34 @@ export function SubmissionReviewPage() {
                     {selectedSubmission.feedback}
                   </p>
                 )}
-              </div>
-            </div>
 
-            {/* Checkstyle result */}
-            <div className="card bg-white border border-slate-100 shadow-sm overflow-hidden">
-              <div className="panel-header py-2.5 px-4">
-                <h3 className="panel-title">Quy tắc lập trình</h3>
-              </div>
-              <div className="space-y-3 p-4 text-xs text-slate-600">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-bold text-slate-500">Điểm quy tắc</span>
-                  <span className={`font-black ${
-                    selectedSubmission.styleStatus === 'failed'
-                      ? 'text-rose-600'
-                      : selectedSubmission.styleStatus === 'passed'
-                        ? 'text-emerald-600'
-                        : 'text-slate-500'
-                  }`}>
-                    {selectedSubmission.styleScore == null ? 'N/A' : `${selectedSubmission.styleScore.toFixed(1)}/100`}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-bold text-slate-500">Trạng thái</span>
-                  <span className={
-                    selectedSubmission.styleStatus === 'failed'
-                      ? 'badge-red'
-                      : selectedSubmission.styleStatus === 'passed'
-                        ? 'badge-green'
-                        : 'badge-gray'
-                  }>
-                    {selectedSubmission.styleStatus ?? 'skipped'}
-                  </span>
-                </div>
-                {selectedSubmission.styleFeedback && (
-                  <p className="rounded-md border border-slate-200 bg-slate-50 p-2 leading-5">
-                    {selectedSubmission.styleFeedback}
-                  </p>
-                )}
-                {styleViolations.length > 0 && (
-                  <div className="max-h-56 space-y-2 overflow-y-auto">
-                    {styleViolations.slice(0, 6).map((violation, index) => (
-                      <div key={`${violation.file}-${violation.line}-${index}`} className="rounded-md border border-rose-100 bg-rose-50 p-2">
-                        <p className="font-bold text-rose-700">
-                          {violation.file}
-                          {violation.line ? `:${violation.line}` : ''}
-                          {violation.column ? `:${violation.column}` : ''}
-                        </p>
-                        <p className="mt-1 leading-5 text-rose-700">{violation.message}</p>
-                      </div>
-                    ))}
-                    {styleViolationCount > 6 && (
-                      <p className="font-semibold text-slate-500">
-                        Còn {styleViolationCount - 6} lỗi Checkstyle khác.
+                {/* Checkstyle details */}
+                {(selectedSubmission.styleFeedback || styleViolations.length > 0) && (
+                  <div className="pt-3 border-t border-slate-100 space-y-2">
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Chi tiết Quy tắc Lập trình</p>
+                    {selectedSubmission.styleFeedback && (
+                      <p className="rounded-md border border-slate-200 bg-slate-50 p-2.5 leading-5 text-xs text-slate-600">
+                        {selectedSubmission.styleFeedback}
                       </p>
+                    )}
+                    {styleViolations.length > 0 && (
+                      <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
+                        {styleViolations.slice(0, 6).map((violation, index) => (
+                          <div key={`${violation.file}-${violation.line}-${index}`} className="rounded-md border border-rose-100 bg-rose-50 p-2 text-xs">
+                            <p className="font-bold text-rose-700">
+                              {violation.file}
+                              {violation.line ? `:${violation.line}` : ''}
+                              {violation.column ? `:${violation.column}` : ''}
+                            </p>
+                            <p className="mt-1 leading-5 text-rose-700">{violation.message}</p>
+                          </div>
+                        ))}
+                        {styleViolationCount > 6 && (
+                          <p className="font-semibold text-slate-500 text-xs">
+                            Còn {styleViolationCount - 6} lỗi Checkstyle khác.
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
