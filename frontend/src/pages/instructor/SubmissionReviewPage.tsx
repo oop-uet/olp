@@ -768,21 +768,26 @@ export function SubmissionReviewPage() {
                     <table className="min-w-full border-collapse">
                       <thead>
                         <tr className="bg-slate-50 border-b border-slate-200 text-left">
-                          <th className="table-th w-16 text-center select-none">STT</th>
-                          <th className="table-th select-none">Hành vi vi phạm</th>
-                          <th className="table-th w-28 text-center select-none">Số lần</th>
-                          <th className="table-th w-44 text-right select-none">Thời điểm ghi nhận</th>
+                          <th className="table-th w-16 text-center select-none whitespace-nowrap">STT</th>
+                          <th className="table-th select-none whitespace-nowrap">Hành vi vi phạm</th>
+                          <th className="table-th w-28 text-center select-none whitespace-nowrap">Số lần</th>
+                          <th className="table-th w-52 text-right select-none whitespace-nowrap">Thời điểm ghi nhận</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 bg-white">
-                        {antiCheatLog.map((event, idx) => (
-                          <tr key={event.id} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="table-td text-center text-slate-400 font-bold">{idx + 1}</td>
-                            <td className="table-td text-rose-600 font-bold">{getEventTypeLabel(event.eventType)}</td>
-                            <td className="table-td text-center font-bold text-slate-700">{event.warningCountAtEvent}</td>
-                            <td className="table-td text-right text-slate-500 font-semibold">{new Date(event.occurredAt).toLocaleTimeString('vi-VN')}</td>
-                          </tr>
-                        ))}
+                        {antiCheatLog.map((event, idx) => {
+                          const dateObj = new Date(event.occurredAt)
+                          const timeStr = dateObj.toLocaleTimeString('vi-VN')
+                          const dateStr = dateObj.toLocaleDateString('vi-VN')
+                          return (
+                            <tr key={event.id} className="hover:bg-slate-50/50 transition-colors">
+                              <td className="table-td text-center text-slate-400 font-bold whitespace-nowrap">{idx + 1}</td>
+                              <td className="table-td text-rose-600 font-bold whitespace-nowrap">{getEventTypeLabel(event.eventType)}</td>
+                              <td className="table-td text-center font-bold text-slate-700 whitespace-nowrap">{event.warningCountAtEvent}</td>
+                              <td className="table-td text-right text-slate-500 font-semibold whitespace-nowrap">{timeStr} {dateStr}</td>
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>
