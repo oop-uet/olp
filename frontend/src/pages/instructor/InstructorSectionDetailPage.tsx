@@ -70,7 +70,6 @@ export function InstructorSectionDetailPage() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [newStudentId, setNewStudentId] = useState('')
   const [newFullName, setNewFullName] = useState('')
-  const [newEmail, setNewEmail] = useState('')
   const [addLoading, setAddLoading] = useState(false)
 
   const [showEditModal, setShowEditModal] = useState(false)
@@ -123,19 +122,20 @@ export function InstructorSectionDetailPage() {
 
   async function handleAddStudent(e: React.FormEvent) {
     e.preventDefault()
-    if (!newStudentId || !newFullName || !newEmail) return
+    const studentId = newStudentId.trim()
+    const fullName = newFullName.trim()
+    if (!studentId || !fullName) return
     setAddLoading(true)
     try {
       await api.post(`/api/instructor/sections/${id}/students`, {
-        studentId: newStudentId,
-        fullName: newFullName,
-        email: newEmail,
+        studentId,
+        fullName,
+        email: `${studentId}@vnu.edu.vn`,
       })
       toast.success('Đã ghi danh sinh viên mới.')
       setShowAddModal(false)
       setNewStudentId('')
       setNewFullName('')
-      setNewEmail('')
       await fetchDetail()
     } catch (err) {
       const msg = (err as AxiosError<{ error?: { message?: string } }>)?.response?.data?.error?.message || 'Không thể thêm sinh viên.'
@@ -624,18 +624,11 @@ export function InstructorSectionDetailPage() {
                   className="input"
                 />
               </div>
-              <div>
-                <label className="label text-slate-600" htmlFor="new-email">Email</label>
-                <input
-                  id="new-email"
-                  type="email"
-                  required
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value.trim())}
-                  placeholder="Ví dụ: mssv@vnu.edu.vn"
-                  className="input"
-                />
-              </div>
+              {newStudentId.trim() && (
+                <p className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-xs font-semibold text-slate-600">
+                  Email sẽ được tạo tự động: <span className="text-primary">{newStudentId.trim()}@vnu.edu.vn</span>
+                </p>
+              )}
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setShowAddModal(false)} className="btn-secondary btn-sm">Hủy</button>
                 <button type="submit" disabled={addLoading} className="btn-primary btn-sm">
