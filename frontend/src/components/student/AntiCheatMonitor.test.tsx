@@ -179,6 +179,35 @@ describe('AntiCheatMonitor', () => {
     vi.useRealTimers()
   })
 
+  it('records an exit attempt for regular internal navbar links', async () => {
+    vi.useFakeTimers()
+    const onExitAttempt = vi.fn().mockResolvedValue(undefined)
+
+    await act(async () => {
+      renderWithRouter(
+        <AntiCheatMonitor
+          isAssessment={true}
+          exerciseId="ex-1"
+          warningThreshold={3}
+          onExitAttempt={onExitAttempt}
+        >
+          <a href="/olp/student/leaderboard">Bảng xếp hạng</a>
+        </AntiCheatMonitor>
+      )
+    })
+
+    fireEvent.click(screen.getByText('Bảng xếp hạng'))
+
+    await act(async () => {
+      vi.advanceTimersByTime(200)
+    })
+
+    expect(onExitAttempt).toHaveBeenCalledTimes(1)
+    expect(mockNavigate).toHaveBeenCalledWith('/student/leaderboard')
+
+    vi.useRealTimers()
+  })
+
   it('shows notification and increments warning on fullscreenchange event', async () => {
     await act(async () => {
       renderWithRouter(
@@ -291,8 +320,14 @@ describe('AntiCheatMonitor', () => {
       document.dispatchEvent(new Event('fullscreenchange'))
     })
 
+    Object.defineProperty(document, 'visibilityState', {
+      value: 'hidden',
+      writable: true,
+      configurable: true,
+    })
+
     await act(async () => {
-      window.dispatchEvent(new Event('blur'))
+      document.dispatchEvent(new Event('visibilitychange'))
     })
 
     expect(screen.getByText('Phiên làm bài đã khóa')).toBeInTheDocument()

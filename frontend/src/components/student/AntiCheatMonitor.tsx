@@ -53,6 +53,7 @@ export function AntiCheatMonitor({
 
   const [notification, setNotification] = useState<string | null>(null)
   const [isInitializing, setIsInitializing] = useState(true)
+  const [fullscreenRecoveryNeeded, setFullscreenRecoveryNeeded] = useState(false)
   const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hasCalledNullifiedRef = useRef(false)
   const lastDevtoolsWarningAtRef = useRef(0)
@@ -60,9 +61,11 @@ export function AntiCheatMonitor({
   const monitoringStartedAtRef = useRef(0)
   const devtoolsDetectionStreakRef = useRef(0)
   const hasArmedBackGuardRef = useRef(false)
+  const suppressNextFullscreenExitRef = useRef(false)
 
   const exitFullscreenIfNeeded = useCallback(() => {
     if (document.fullscreenElement) {
+      suppressNextFullscreenExitRef.current = true
       void document.exitFullscreen().catch(() => undefined)
     }
   }, [])
@@ -77,6 +80,17 @@ export function AntiCheatMonitor({
       setNotification(null)
     }, duration)
   }, [])
+
+  const restoreFullscreen = useCallback(async () => {
+    const granted = await activate()
+    if (granted) {
+      monitoringStartedAtRef.current = Date.now()
+      setFullscreenRecoveryNeeded(false)
+      showNotification('Đã trở lại chế độ toàn màn hình.')
+    } else {
+      showNotification('Trình duyệt chưa cho phép mở toàn màn hình. Hãy bấm nút thử lại.', 6000)
+    }
+  }, [activate, showNotification])
 
   // Request fullscreen on mount for every coding exercise.
   useEffect(() => {
@@ -108,8 +122,15 @@ export function AntiCheatMonitor({
     const handleFullscreenChange = () => {
       if (isInsideStartupGracePeriod()) return
       if (!document.fullscreenElement) {
+        if (suppressNextFullscreenExitRef.current) {
+          suppressNextFullscreenExitRef.current = false
+          return
+        }
         recordWarning('fullscreen_exit')
+        setFullscreenRecoveryNeeded(true)
         showNotification('Bạn đã thoát khỏi chế độ toàn màn hình.')
+      } else {
+        setFullscreenRecoveryNeeded(false)
       }
     }
 
@@ -123,6 +144,7 @@ export function AntiCheatMonitor({
 
     const handleWindowBlur = () => {
       if (isInsideStartupGracePeriod() || document.visibilityState === 'hidden') return
+      if (!document.fullscreenElement) return
       recordWarning('window_blur')
       showNotification('Cửa sổ làm bài không còn được focus.')
     }
@@ -152,10 +174,59 @@ export function AntiCheatMonitor({
       }
     }
 
+    const routeFromLink = (link: HTMLAnchorElement): string | null => {
+      const explicitRoute = link.dataset.antiCheatTo
+      if (explicitRoute) return explicitRoute
+
+      if (link.target && link.target !== '_self') return null
+      if (link.hasAttribute('download')) return null
+
+      const href = link.getAttribute('href')
+      if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:')) {
+        return null
+      }
+
+      const url = new URL(link.href, window.location.href)
+      if (url.origin !== window.location.origin) return null
+
+      const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
+      const fallbackBasePath = '/olp'
+      const stripBasePath = (pathname: string) => {
+        for (const prefix of [basePath, fallbackBasePath]) {
+          if (prefix && prefix !== '/' && pathname.startsWith(prefix)) {
+            return pathname.slice(prefix.length) || '/'
+          }
+        }
+        return pathname
+      }
+
+      const routePath = stripBasePath(url.pathname)
+      const currentPath = stripBasePath(window.location.pathname)
+
+      const targetRoute = `${routePath}${url.search}${url.hash}`
+      const currentRoute = `${currentPath}${window.location.search}${window.location.hash}`
+      if (targetRoute === currentRoute) return null
+
+      return targetRoute
+    }
+
     const handleSecureExitClick = (event: MouseEvent) => {
       const target = event.target as Element | null
-      const link = target?.closest('[data-anti-cheat-exit="true"]') as HTMLAnchorElement | null
+      const link = target?.closest('a[href]') as HTMLAnchorElement | null
       if (!link) return
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return
+      }
+
+      const targetRoute = routeFromLink(link)
+      if (!targetRoute) return
 
       event.preventDefault()
       const now = Date.now()
@@ -165,7 +236,6 @@ export function AntiCheatMonitor({
         showNotification('Rời khỏi màn hình làm bài được tính là một cảnh báo.')
       }
 
-      const targetRoute = link.dataset.antiCheatTo || '/student/exercises'
       if (warningCount + 1 >= threshold) {
         return
       }
@@ -382,8 +452,38 @@ export function AntiCheatMonitor({
         </div>
       )}
 
+      {fullscreenRecoveryNeeded && (
+        <div
+          className="absolute inset-0 z-40 flex items-center justify-center bg-slate-950/55 p-6"
+          role="alert"
+          aria-live="assertive"
+        >
+          <div className="w-full max-w-lg rounded-lg border border-amber-200 bg-white p-6 text-center shadow-xl">
+            <p className="text-xs font-bold uppercase tracking-wide text-amber-700">
+              Đã thoát toàn màn hình
+            </p>
+            <h2 className="mt-2 text-xl font-black text-slate-900">
+              Bấm nút bên dưới để tiếp tục làm bài
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              Phím ESC đã thoát khỏi chế độ toàn màn hình. F11 chỉ đổi chế độ cửa sổ
+              của trình duyệt, không cấp lại quyền fullscreen cho hệ thống.
+            </p>
+            <button
+              type="button"
+              onClick={restoreFullscreen}
+              className="btn-primary mt-5 h-10 px-5 text-sm"
+            >
+              Trở lại toàn màn hình
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Exercise workspace */}
-      {children}
+      <div className={fullscreenRecoveryNeeded ? 'pointer-events-none select-none blur-[1px]' : undefined}>
+        {children}
+      </div>
     </div>
   )
 }
