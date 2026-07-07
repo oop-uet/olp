@@ -4,7 +4,7 @@ import { cachedGet } from '../../lib/api'
 import { PageLoader, ExerciseIcon, LeaderboardIcon, CalendarIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { useAuthStore } from '../../stores/auth.store'
-import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
+import { formatSectionDisplayName, formatSemesterDisplayName, normalizePreviewSectionName } from '../../utils/semester'
 
 interface Exercise {
   id: string
@@ -330,7 +330,7 @@ function LeaderboardPanel({
 
       <div className="p-5">
         <div className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
-          {formatSectionDisplayName(section.name)}
+          {normalizePreviewSectionName(section.name, section.semester)}
         </div>
 
         <div className="mt-4 divide-y divide-slate-200 border-t border-slate-200">

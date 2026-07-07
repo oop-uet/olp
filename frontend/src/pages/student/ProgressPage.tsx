@@ -9,7 +9,7 @@ import {
   SubmissionIcon,
 } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
-import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
+import { normalizePreviewSectionName } from '../../utils/semester'
 
 interface ProgressData {
   completedExercises: number
@@ -115,7 +115,7 @@ export function ProgressPage() {
             Lớp học phần
           </p>
           <p className="mt-1 text-sm font-semibold text-gray-800">
-            {formatSectionDisplayName(currentSection.name)} ({formatSemesterDisplayName(currentSection.semester)})
+            {normalizePreviewSectionName(currentSection.name, currentSection.semester)}
           </p>
         </div>
       </div>

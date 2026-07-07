@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader, SubmissionIcon, Spinner } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
-import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
+import { normalizePreviewSectionName } from '../../utils/semester'
 
 interface StudentInfo {
   id: string
@@ -238,7 +238,7 @@ export function SubmissionHistoryPage() {
           >
             {sections.map((sec) => (
               <option key={sec.id} value={sec.id}>
-                {formatSectionDisplayName(sec.name)} ({formatSemesterDisplayName(sec.semester)})
+                {normalizePreviewSectionName(sec.name, sec.semester)}
               </option>
             ))}
           </select>
@@ -427,13 +427,10 @@ export function SubmissionHistoryPage() {
           {/* Sidebar Content */}
           <div className="px-6 py-5">
             {selectedSection && (
-              <div className="mb-4 border-b border-slate-200 pb-4 space-y-2">
+              <div className="mb-4 border-b border-slate-200 pb-4">
                 <div className="inline-flex rounded bg-sky-500 px-3 py-1 text-xs font-bold text-white uppercase">
-                  {formatSectionDisplayName(selectedSection.name)}
+                  {normalizePreviewSectionName(selectedSection.name, selectedSection.semester)}
                 </div>
-                <p className="text-xs font-semibold text-slate-500">
-                  {formatSemesterDisplayName(selectedSection.semester, true)}
-                </p>
               </div>
             )}
 

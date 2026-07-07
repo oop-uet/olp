@@ -3,7 +3,7 @@ import { AxiosError } from 'axios'
 import { api } from '../../lib/api'
 import { toast } from '../../stores/toast.store'
 import { PageLoader, Spinner, SubmissionIcon, XCircleIcon } from '../../components/ui'
-import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
+import { normalizePreviewSectionName } from '../../utils/semester'
 
 // --- Types ---
 
@@ -292,7 +292,7 @@ export function PlagiarismPage() {
               <option value="">Tất cả các lớp</option>
               {sections.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {formatSectionDisplayName(s.name)} ({formatSemesterDisplayName(s.semester)})
+                  {normalizePreviewSectionName(s.name, s.semester)}
                 </option>
               ))}
             </select>
