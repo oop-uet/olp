@@ -293,8 +293,8 @@ export async function createSubmission(
       violationCount: styleReport.violationCount,
       violations: styleReport.violations,
       feedback: styleReport.status === "passed"
-        ? "Không phát hiện lỗi Checkstyle theo Google Java Style (chấm bởi client)."
-        : `Phát hiện ${styleReport.violationCount} lỗi Checkstyle (chấm bởi client). Điểm quy tắc lập trình: ${styleReport.score}/100.`,
+        ? "Không phát hiện lỗi Checkstyle theo Google Java Style."
+        : `Phát hiện ${styleReport.violationCount} lỗi Checkstyle. Điểm quy tắc lập trình: ${styleReport.score}/100.`,
       toolVersion: styleReport.toolVersion || "checkstyle-client",
     };
   }
