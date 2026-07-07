@@ -459,11 +459,6 @@ export function ExerciseWorkspacePage() {
       clearWorkspaceDraft(exercise.id, userId)
       toast.success(`Nộp bài thành công! Điểm: ${score.toFixed(1)}%`)
       navigate('/student/exercises', { replace: true })
-      window.setTimeout(() => {
-        if (document.fullscreenElement && typeof document.exitFullscreen === 'function') {
-          void document.exitFullscreen().catch(() => undefined)
-        }
-      }, 0)
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
       const message =

@@ -2,6 +2,7 @@ import { render, screen, act, waitFor, fireEvent } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { api } from '../../lib/api'
 import { AntiCheatMonitor } from './AntiCheatMonitor'
 
 const mockNavigate = vi.fn()
@@ -254,6 +255,40 @@ describe('AntiCheatMonitor', () => {
     })
 
     expect(screen.getByText('Cảnh báo: 0/3')).toBeInTheDocument()
+  })
+
+  it('does not record a fullscreen warning during legitimate unmount cleanup', async () => {
+    Object.defineProperty(document, 'exitFullscreen', {
+      value: vi.fn().mockImplementation(() => {
+        Object.defineProperty(document, 'fullscreenElement', {
+          value: null,
+          writable: true,
+          configurable: true,
+        })
+        document.dispatchEvent(new Event('fullscreenchange'))
+        return Promise.resolve()
+      }),
+      writable: true,
+      configurable: true,
+    })
+
+    let unmount!: () => void
+    await act(async () => {
+      const rendered = renderWithRouter(
+        <AntiCheatMonitor isAssessment={true} exerciseId="ex-1" warningThreshold={1}>
+          <div data-testid="workspace">Workspace</div>
+        </AntiCheatMonitor>
+      )
+      unmount = rendered.unmount
+    })
+    vi.mocked(api.post).mockClear()
+    nowMs = 3000
+
+    await act(async () => {
+      unmount()
+    })
+
+    expect(api.post).not.toHaveBeenCalled()
   })
 
   it('shows notification on visibilitychange event', async () => {

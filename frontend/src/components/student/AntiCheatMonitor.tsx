@@ -108,6 +108,7 @@ export function AntiCheatMonitor({
     init()
 
     return () => {
+      suppressNextFullscreenExitRef.current = true
       deactivate()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
