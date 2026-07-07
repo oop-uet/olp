@@ -248,7 +248,7 @@ export function SubmissionReviewPage() {
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [detailError, setDetailError] = useState<string | null>(null)
   const [activeSubmittedFile, setActiveSubmittedFile] = useState('Main.java')
-  const [activeTab, setActiveTab] = useState<'source' | 'results'>('source')
+  const [activeTab, setActiveTab] = useState<'source' | 'results' | 'anti-cheat'>('source')
 
 
   const [sortField, setSortField] = useState<'submittedAt' | 'score' | 'exerciseTitle' | ''>('')
@@ -665,41 +665,7 @@ export function SubmissionReviewPage() {
                 ))}
               </div>
             </div>
-
-            {/* Anti-cheat logs */}
-            <div className="card bg-white border border-slate-100 shadow-sm overflow-hidden">
-              <div className="panel-header py-2.5 px-4">
-                <h3 className="panel-title">Vi phạm Fullscreen</h3>
-              </div>
-              <div className="p-4">
-                {antiCheatLog.length === 0 ? (
-                  <p className="text-center py-4 text-xs text-slate-400 italic">Không ghi nhận sự kiện vi phạm nào.</p>
-                ) : (
-                  <div className="max-h-52 overflow-y-auto border border-slate-100 rounded-lg text-xs">
-                    <table className="min-w-full divide-y divide-slate-100 text-left">
-                      <thead className="bg-slate-50 text-slate-500 font-bold">
-                        <tr>
-                          <th className="px-3 py-1.5">Hành vi</th>
-                          <th className="px-3 py-1.5 text-center w-12">Lần</th>
-                          <th className="px-3 py-1.5 text-right w-24">Thời điểm</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-50 text-slate-700 font-medium">
-                        {antiCheatLog.map((event) => (
-                          <tr key={event.id}>
-                            <td className="px-3 py-1.5 text-rose-600 font-bold">{getEventTypeLabel(event.eventType)}</td>
-                            <td className="px-3 py-1.5 text-center font-bold">{event.warningCountAtEvent}</td>
-                            <td className="px-3 py-1.5 text-right text-slate-400">{new Date(event.occurredAt).toLocaleTimeString('vi-VN')}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
-
-          </aside>
+           </aside>
 
           {/* Right Main Column (Code Editor & Test Case Viewer Tabs) */}
           <main className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col h-[680px]">
@@ -735,18 +701,24 @@ export function SubmissionReviewPage() {
                   {[
                     ['source', 'Mã nguồn'],
                     ['results', `Yêu cầu chức năng (${passedCount}/${results.length})`],
+                    ['anti-cheat', 'Vi phạm Fullscreen'],
                   ].map(([tab, label]) => (
                     <button
                       key={tab}
                       type="button"
-                      onClick={() => setActiveTab(tab as 'source' | 'results')}
-                      className={`border-b-2 py-3 text-sm font-bold transition-all cursor-pointer ${
+                      onClick={() => setActiveTab(tab as 'source' | 'results' | 'anti-cheat')}
+                      className={`border-b-2 py-3 text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                         activeTab === tab
                           ? 'border-primary text-primary'
                           : 'border-transparent text-slate-500 hover:text-slate-700'
                       }`}
                     >
-                      {label}
+                      <span>{label}</span>
+                      {tab === 'anti-cheat' && antiCheatLog.length > 0 && (
+                        <span className="rounded-full bg-rose-500 px-1.5 py-0.5 text-[9px] font-bold text-white leading-none">
+                          {antiCheatLog.length}
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -791,6 +763,41 @@ export function SubmissionReviewPage() {
                         index={index}
                       />
                     ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'anti-cheat' && (
+              <div className="flex-1 bg-slate-50 p-5 overflow-y-auto">
+                {antiCheatLog.length === 0 ? (
+                  <div className="flex min-h-[320px] flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white p-8 text-center shadow-sm">
+                    <span className="text-3xl mb-2">🛡️</span>
+                    <p className="text-sm font-bold text-slate-600">Không ghi nhận sự kiện vi phạm nào</p>
+                    <p className="text-xs text-slate-400 mt-1">Sinh viên đã hoàn thành bài nộp trong môi trường fullscreen đầy đủ.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                    <table className="min-w-full border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200 text-left">
+                          <th className="table-th w-16 text-center select-none">STT</th>
+                          <th className="table-th select-none">Hành vi vi phạm</th>
+                          <th className="table-th w-28 text-center select-none">Số lần</th>
+                          <th className="table-th w-44 text-right select-none">Thời điểm ghi nhận</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 bg-white">
+                        {antiCheatLog.map((event, idx) => (
+                          <tr key={event.id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="table-td text-center text-slate-400 font-bold">{idx + 1}</td>
+                            <td className="table-td text-rose-600 font-bold">{getEventTypeLabel(event.eventType)}</td>
+                            <td className="table-td text-center font-bold text-slate-700">{event.warningCountAtEvent}</td>
+                            <td className="table-td text-right text-slate-500 font-semibold">{new Date(event.occurredAt).toLocaleTimeString('vi-VN')}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
