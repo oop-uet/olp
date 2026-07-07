@@ -48,6 +48,8 @@ local-executor/target/
 tmp/
 temp/
 backend/.java/
+.cache/
+backend/.cache/
 
 # Secrets / credentials (never commit)
 credentials.txt
