@@ -269,7 +269,7 @@ async function runCheckstyle(javaCommand: string, jarPath: string, reportPath: s
   console.log(`[checkstyle] Running: ${javaCommand} ${args.join(" ")}`);
 
   try {
-    const { stdout, stderr } = await execFileAsync(javaCommand, args, {
+    const { stderr } = await execFileAsync(javaCommand, args, {
       timeout: CHECKSTYLE_TIMEOUT_MS,
       maxBuffer: 10 * 1024 * 1024,
     });
