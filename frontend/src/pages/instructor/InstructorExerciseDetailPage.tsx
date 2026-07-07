@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader, ExerciseIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
+import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
 
 type Tab = 'description' | 'testcases' | 'history' | 'stats'
 
@@ -418,9 +419,9 @@ export function InstructorExerciseDetailPage() {
                     <tr key={row.sectionId} className="hover:bg-slate-50">
                       <td className="table-td">
                         <Link to={`/instructor/classes/${row.sectionId}`} className="font-bold text-sky-600 hover:underline">
-                          {row.sectionName}
+                          {formatSectionDisplayName(row.sectionName)}
                         </Link>
-                        <span className="ml-2 text-xs text-slate-400">{row.semester}</span>
+                        <span className="ml-2 text-xs text-slate-400">{formatSemesterDisplayName(row.semester)}</span>
                       </td>
                       <td className="table-td text-right">{row.studentCount}</td>
                       <td className="table-td text-right">{row.submittedStudentCount}</td>

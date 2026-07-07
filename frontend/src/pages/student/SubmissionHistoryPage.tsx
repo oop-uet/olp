@@ -429,7 +429,7 @@ export function SubmissionHistoryPage() {
             {selectedSection && (
               <div className="mb-4 border-b border-slate-200 pb-4 space-y-2">
                 <div className="inline-flex rounded bg-sky-500 px-3 py-1 text-xs font-bold text-white uppercase">
-                  {selectedSection.name}
+                  {formatSectionDisplayName(selectedSection.name)}
                 </div>
                 <p className="text-xs font-semibold text-slate-500">
                   {formatSemesterDisplayName(selectedSection.semester, true)}
