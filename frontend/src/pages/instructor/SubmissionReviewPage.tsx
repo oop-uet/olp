@@ -565,12 +565,6 @@ export function SubmissionReviewPage() {
                   <span className="font-bold text-slate-500">Điểm chức năng</span>
                   <span className="font-black text-slate-900">{functionalScore.toFixed(1)}/100</span>
                 </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-bold text-slate-500">Điểm quy tắc</span>
-                  <span className="font-black text-slate-900">
-                    {selectedSubmission.styleScore == null ? 'Chưa chấm' : `${selectedSubmission.styleScore.toFixed(1)}/100`}
-                  </span>
-                </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-right">
                   <p className={`text-3xl font-black ${getScoreColor(effectiveScore)}`}>
                     {effectiveScore.toFixed(1)}%
