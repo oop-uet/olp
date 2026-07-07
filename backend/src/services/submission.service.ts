@@ -32,6 +32,7 @@ export interface CreateSubmissionInput {
   testResults: TestResultInput[];
   antiCheatNullified?: boolean;
   exitAttempt?: boolean;
+  styleReport?: CheckstyleEvaluation;
 }
 
 export interface SubmissionFilters {
@@ -175,7 +176,7 @@ export async function createSubmission(
 ): Promise<SubmissionError | Record<string, unknown>> {
   await ensureSubmissionStyleColumns(database);
 
-  const { studentId, exerciseId, sectionId, code, testResults, antiCheatNullified, exitAttempt } = input;
+  const { studentId, exerciseId, sectionId, code, testResults, antiCheatNullified, exitAttempt, styleReport } = input;
 
   // 1. Verify exercise assignment exists for exercise+section
   const assignment = await database.query.exerciseAssignments.findFirst({
@@ -274,7 +275,7 @@ export async function createSubmission(
   const isExitAttempt = Boolean(exitAttempt);
   const functionalScore = isAntiCheatZero || isExitAttempt ? 0 : calculateScore(testCaseRecords, testResults);
   const styleSettings = await getStyleSettings(database);
-  const styleEvaluation =
+  let styleEvaluation =
     isAntiCheatZero || isExitAttempt
       ? skippedStyleEvaluation("Không chấm Checkstyle vì bài nộp đã bị ghi nhận 0 điểm.")
       : styleSettings.enabled
@@ -283,6 +284,20 @@ export async function createSubmission(
           maxViolations: styleSettings.maxViolations,
         })
         : skippedStyleEvaluation("Chức năng chấm Checkstyle đang tắt trong cấu hình hệ thống.");
+
+  // Fallback to client-side style check report if server check failed/unavailable and client provided one
+  if (styleEvaluation.status === "unavailable" && styleReport && styleReport.status !== "unavailable") {
+    styleEvaluation = {
+      status: styleReport.status,
+      score: styleReport.score,
+      violationCount: styleReport.violationCount,
+      violations: styleReport.violations,
+      feedback: styleReport.status === "passed"
+        ? "Không phát hiện lỗi Checkstyle theo Google Java Style (chấm bởi client)."
+        : `Phát hiện ${styleReport.violationCount} lỗi Checkstyle (chấm bởi client). Điểm quy tắc lập trình: ${styleReport.score}/100.`,
+      toolVersion: styleReport.toolVersion || "checkstyle-client",
+    };
+  }
 
   const score =
     isAntiCheatZero || isExitAttempt

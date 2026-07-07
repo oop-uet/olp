@@ -137,7 +137,7 @@ public class CodeCompiler {
         return "Main";
     }
 
-    private String sanitizeJavaFileName(String name) {
+    static String sanitizeJavaFileName(String name) {
         String trimmed = name == null ? "" : name.trim();
         if (!trimmed.matches("[A-Za-z_$][\\w$]*\\.java")) {
             throw new IllegalArgumentException("Invalid Java file name: " + name);

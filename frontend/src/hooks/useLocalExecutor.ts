@@ -29,10 +29,26 @@ export interface CompilationError {
   message: string
 }
 
+export interface StyleResult {
+  provider: string
+  status: 'passed' | 'failed' | 'unavailable'
+  score: number
+  violationCount: number
+  violations: Array<{
+    file: string
+    line: number
+    column: number
+    severity: string
+    message: string
+    source: string
+  }>
+}
+
 export interface ExecutionResult {
   compiled: boolean
   testResults?: TestResult[]
   errors?: CompilationError[]
+  styleResult?: StyleResult
 }
 
 export interface ConnectionError {
@@ -272,6 +288,7 @@ export function useLocalExecutor() {
                 compiled: data.compiled,
                 testResults: data.testResults,
                 errors: data.errors,
+                styleResult: data.styleResult,
               }
               pendingRequestRef.current.resolve(result)
               pendingRequestRef.current = null
@@ -331,6 +348,7 @@ export function useLocalExecutor() {
                 compiled: data.compiled,
                 testResults: data.testResults,
                 errors: data.errors,
+                styleResult: data.styleResult,
               } as ExecutionResult
             })
             .then(resolve)

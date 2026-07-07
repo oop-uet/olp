@@ -155,6 +155,11 @@ public class TestCaseEvaluator {
         JsonArray testResults = new JsonArray();
 
         Path workDir = compilationResult.getWorkDir();
+
+        // Evaluate code style (Checkstyle) programmatically
+        JsonObject styleResult = StyleChecker.checkStyle(workDir, files);
+        result.add("styleResult", styleResult);
+
         String className = requestedMainClass != null && !requestedMainClass.isBlank()
                 ? requestedMainClass
                 : findMainClass(files);

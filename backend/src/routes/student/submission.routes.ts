@@ -16,6 +16,23 @@ const testResultSchema = z.object({
   status: z.enum(["passed", "failed", "timeout", "error"]),
 });
 
+const checkstyleViolationSchema = z.object({
+  file: z.string(),
+  line: z.number().nullable(),
+  column: z.number().nullable(),
+  severity: z.string(),
+  message: z.string(),
+  source: z.string(),
+});
+
+const styleReportSchema = z.object({
+  provider: z.string(),
+  status: z.enum(["passed", "failed", "unavailable", "skipped"]),
+  score: z.number().nullable(),
+  violationCount: z.number(),
+  violations: z.array(checkstyleViolationSchema),
+});
+
 export const createSubmissionSchema = z.object({
   exercise_id: z.string().min(1, "Exercise ID is required"),
   section_id: z.string().min(1, "Section ID is required"),
@@ -25,6 +42,7 @@ export const createSubmissionSchema = z.object({
     .min(1, "At least one test result is required"),
   anti_cheat_nullified: z.boolean().optional(),
   exit_attempt: z.boolean().optional(),
+  style_report: styleReportSchema.optional(),
 });
 
 // ─── Router ──────────────────────────────────────────────────────────────────
@@ -42,7 +60,7 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       const { userId } = req.user!;
-      const { exercise_id, section_id, code, test_results, anti_cheat_nullified, exit_attempt } = req.body;
+      const { exercise_id, section_id, code, test_results, anti_cheat_nullified, exit_attempt, style_report } = req.body;
 
       const result = await createSubmission({
         studentId: userId,
@@ -52,6 +70,7 @@ router.post(
         testResults: test_results,
         antiCheatNullified: anti_cheat_nullified,
         exitAttempt: exit_attempt,
+        styleReport: style_report,
       });
 
       if (isSubmissionError(result)) {

@@ -66,10 +66,26 @@ interface TestResult {
   executionTimeMs?: number
 }
 
+interface StyleResult {
+  provider: string
+  status: 'passed' | 'failed' | 'unavailable'
+  score: number
+  violationCount: number
+  violations: Array<{
+    file: string
+    line: number
+    column: number
+    severity: string
+    message: string
+    source: string
+  }>
+}
+
 interface ExecutionResult {
   compiled: boolean
   errors?: Array<{ line: number; message: string }>
   testResults?: TestResult[]
+  styleResult?: StyleResult
 }
 
 interface SourceFile {
@@ -451,6 +467,13 @@ export function ExerciseWorkspacePage() {
           status: r.status,
         })),
         anti_cheat_nullified: antiCheatNullified,
+        style_report: executionResult.styleResult ? {
+          provider: executionResult.styleResult.provider,
+          status: executionResult.styleResult.status,
+          score: executionResult.styleResult.score,
+          violationCount: executionResult.styleResult.violationCount,
+          violations: executionResult.styleResult.violations,
+        } : undefined,
       })
       const score = response.data.score
       setExercise((current) =>
@@ -1188,15 +1211,28 @@ function OutputPanel({
     )
   }
 
+  const hasStyle = !!executionResult.styleResult;
+
   return (
-    <div className="h-44 overflow-hidden rounded-xl border border-slate-800 bg-slate-950 flex flex-col shadow-inner">
-      <div className="flex items-center gap-1.5 border-b border-slate-800 px-4 py-2 bg-slate-900/40">
-        <span className="w-2 h-2 rounded-full bg-rose-500/80"></span>
-        <span className="w-2 h-2 rounded-full bg-amber-500/80"></span>
-        <span className="w-2 h-2 rounded-full bg-emerald-500/80"></span>
-        <span className="text-[9px] font-black text-slate-500 ml-2 uppercase tracking-wider">Console Output</span>
+    <div className={`${hasStyle ? 'h-64' : 'h-44'} overflow-hidden rounded-xl border border-slate-800 bg-slate-950 flex flex-col shadow-inner transition-all duration-300`}>
+      <div className="flex items-center justify-between border-b border-slate-800 px-4 py-2 bg-slate-900/40">
+        <div className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-rose-500/80"></span>
+          <span className="w-2 h-2 rounded-full bg-amber-500/80"></span>
+          <span className="w-2 h-2 rounded-full bg-emerald-500/80"></span>
+          <span className="text-[9px] font-black text-slate-500 ml-2 uppercase tracking-wider">Console Output</span>
+        </div>
+        {hasStyle && (
+          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${
+            executionResult.styleResult?.status === 'passed'
+              ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-800/30'
+              : 'bg-rose-950/40 text-rose-400 border border-rose-800/30'
+          }`}>
+            Style: {executionResult.styleResult?.score}%
+          </span>
+        )}
       </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-2">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {!executionResult.compiled && executionResult.errors && (
           <div className="space-y-1.5">
             <p className="text-xs font-bold text-rose-400">✗ Lỗi biên dịch (Compilation Error):</p>
@@ -1245,6 +1281,34 @@ function OutputPanel({
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {executionResult.compiled && executionResult.styleResult && (
+          <div className="space-y-2 border-t border-slate-850 pt-3">
+            <p className="text-xs font-bold text-sky-400 flex items-center gap-1">
+              <span>✏️ Quy tắc lập trình (Google Java Style):</span>
+              {executionResult.styleResult.status === 'passed' ? (
+                <span className="text-emerald-400 font-normal">(Không phát hiện lỗi)</span>
+              ) : (
+                <span className="text-rose-400 font-normal">(Phát hiện {executionResult.styleResult.violationCount} lỗi)</span>
+              )}
+            </p>
+            {executionResult.styleResult.violations.length > 0 ? (
+              <div className="space-y-1.5 font-mono text-[10px] max-h-24 overflow-y-auto pr-1">
+                {executionResult.styleResult.violations.map((violation, i) => (
+                  <div key={i} className="bg-slate-900/35 border border-slate-800/40 p-2 rounded-lg leading-relaxed text-slate-300">
+                    <span className="text-sky-300 font-bold">{violation.file}:{violation.line}:{violation.column}</span>
+                    <span className="mx-1.5 text-slate-500">|</span>
+                    <span>{violation.message}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] text-slate-500 italic">
+                Tuyệt vời! Code của bạn hoàn toàn tuân thủ các quy tắc lập trình.
+              </p>
+            )}
           </div>
         )}
       </div>
