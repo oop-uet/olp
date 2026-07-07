@@ -511,9 +511,9 @@ export function SectionSchedulePage() {
                       <DifficultyBadge difficulty={ex.difficulty} />
                     </div>
                     {ex.oopTags && ex.oopTags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 pl-8">
+                      <div className="flex flex-wrap gap-1.5 pl-8">
                         {ex.oopTags.map((tag) => (
-                          <span key={tag} className="bg-slate-100 text-slate-500 px-1.5 py-0.2 rounded text-[9px] font-bold">
+                          <span key={tag} className="tag">
                             {tag}
                           </span>
                         ))}
