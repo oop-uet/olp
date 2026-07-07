@@ -430,6 +430,7 @@ export function ExerciseWorkspacePage() {
           status: r.status,
           executionTimeMs: r.executionTimeMs,
         })),
+        styleResult: result.styleResult,
       })
     } catch (err) {
       const message =
