@@ -5,6 +5,7 @@ import { api } from '../../lib/api'
 import { PageLoader, Spinner, CheckCircleIcon, XCircleIcon, SubmissionIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import Editor from '@monaco-editor/react'
+import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
 
 // --- Types ---
 type StyleStatus = 'passed' | 'failed' | 'unavailable' | 'skipped'
@@ -1057,14 +1058,14 @@ export function SubmissionReviewPage() {
               <option value="">Chọn lớp</option>
               {sections.map((sec) => (
                 <option key={sec.id} value={sec.id}>
-                  {sec.name}
+                  {formatSectionDisplayName(sec.name)}
                 </option>
               ))}
             </select>
 
             {selectedSection && (
               <p className="mb-4 border-b border-slate-200 pb-4 text-sm font-semibold text-slate-500">
-                {selectedSection.semester}
+                {formatSemesterDisplayName(selectedSection.semester, true)}
               </p>
             )}
 

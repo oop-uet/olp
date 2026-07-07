@@ -225,11 +225,11 @@ export function LeaderboardPage() {
 
       {selectedSectionId && !loading && entries.length > 0 && (
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center gap-2 bg-gradient-to-r from-teal-600 to-cyan-500 px-5 py-3 text-white">
-            <LeaderboardIcon className="h-4 w-4" />
-            <h3 className="text-sm font-bold uppercase tracking-wide">
-              {currentSection?.name ?? 'Bảng xếp hạng'}
-            </h3>
+          <div className="panel-header select-none">
+            <h2 className="panel-title text-sm font-extrabold flex items-center gap-1.5 normal-case">
+              <LeaderboardIcon className="h-4 w-4" />
+              {currentSection?.name ? formatSectionDisplayName(currentSection.name) : 'Bảng xếp hạng'}
+            </h2>
           </div>
 
           <div className="space-y-4 p-5">
@@ -266,41 +266,41 @@ export function LeaderboardPage() {
               </div>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-100 border border-slate-200">
+            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+              <table className="min-w-full border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-left">
-                    <th className="w-20 px-4 py-3 text-xs font-bold text-slate-700">
-                      <button type="button" onClick={() => handleSort('rank')} className="flex w-full items-center justify-center">
+                    <th className="table-th w-20 text-center select-none">
+                      <button type="button" onClick={() => handleSort('rank')} className="flex w-full items-center justify-center font-black">
                         #
                         {sortIndicator('rank')}
                       </button>
                     </th>
-                    <th className="px-6 py-3 text-xs font-bold text-slate-700">
-                      <button type="button" onClick={() => handleSort('studentName')} className="flex items-center gap-1">
+                    <th className="table-th select-none">
+                      <button type="button" onClick={() => handleSort('studentName')} className="flex items-center gap-1 font-black">
                         Sinh viên
                         {sortIndicator('studentName')}
                       </button>
                     </th>
-                    <th className="w-60 px-6 py-3 text-xs font-bold text-slate-700">
-                      <button type="button" onClick={() => handleSort('sectionName')} className="flex items-center gap-1">
+                    <th className="table-th w-60 select-none">
+                      <button type="button" onClick={() => handleSort('sectionName')} className="flex items-center gap-1 font-black">
                         Lớp học phần
                         {sortIndicator('sectionName')}
                       </button>
                     </th>
-                    <th className="w-64 px-6 py-3 text-xs font-bold text-slate-700">
-                      <button type="button" onClick={() => handleSort('totalScore')} className="flex w-full items-center justify-center">
+                    <th className="table-th w-64 text-center select-none">
+                      <button type="button" onClick={() => handleSort('totalScore')} className="flex w-full items-center justify-center font-black">
                         Điểm SV/Tổng điểm
                         {sortIndicator('totalScore')}
                       </button>
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 bg-white text-xs text-slate-700">
+                <tbody className="divide-y divide-slate-100 bg-white">
                   {paginatedEntries.map((entry) => (
-                    <tr key={entry.studentId} className="transition-colors hover:bg-slate-50/70">
-                      <td className="px-4 py-3.5 text-center font-bold text-slate-800">{entry.rank}</td>
-                      <td className="px-6 py-3.5 font-semibold">
+                    <tr key={entry.studentId} className="transition-colors hover:bg-slate-50/50">
+                      <td className="table-td text-center font-bold text-slate-800">{entry.rank}</td>
+                      <td className="table-td font-semibold text-slate-800">
                         <Link
                           to={`/instructor/classes/${selectedSectionId}/students/${entry.studentUserId || entry.studentId}/profile`}
                           className="cursor-pointer text-primary hover:underline"
@@ -308,10 +308,10 @@ export function LeaderboardPage() {
                           {entry.studentName}
                         </Link>
                       </td>
-                      <td className="px-6 py-3.5 font-medium text-slate-600">
-                        {currentSection?.name ?? ''}
+                      <td className="table-td text-slate-600 font-medium">
+                        {currentSection?.name ? formatSectionDisplayName(currentSection.name) : ''}
                       </td>
-                      <td className="px-6 py-3.5 text-center font-black text-slate-800">
+                      <td className="table-td text-center font-black text-slate-800">
                         {formatScore(entry.totalScore)}/{formatScore(maxPossibleScore || 100)}
                       </td>
                     </tr>

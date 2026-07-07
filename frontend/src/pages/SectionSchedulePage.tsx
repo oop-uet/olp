@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import { PageLoader, ExerciseIcon } from '../components/ui'
 import { toast } from '../stores/toast.store'
 import { useAuthStore } from '../stores/auth.store'
+import { formatSectionDisplayName, formatSemesterDisplayName } from '../utils/semester'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -49,14 +50,6 @@ interface ScheduleData {
 const DEFAULT_TOTAL_WEEKS = 10
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function getSemesterDisplayName(semId: string): string {
-  const match = semId.match(/^(\d{4})-(\d{4})-HK(\d)$/);
-  if (!match) return semId;
-  const hkNum = parseInt(match[3]);
-  const hk = hkNum === 1 ? "I" : hkNum === 2 ? "II" : hkNum === 3 ? "III" : match[3];
-  return `Học kỳ ${hk} năm học ${match[1]}-${match[2]}`;
-}
 
 const DIFFICULTY_BADGE: Record<Difficulty, { className: string; label: string }> = {
   easy: { className: 'badge-green', label: 'Dễ' },
@@ -308,12 +301,12 @@ export function SectionSchedulePage() {
           <div className="flex flex-wrap items-center gap-2.5">
             <span className="uppercase text-slate-800 text-[17px] font-bold">Phân bài theo tuần</span>
             <span className="badge-blue text-xs font-bold py-0.5 px-2.5 rounded-full">
-              {getSemesterDisplayName(section.semester)}
+              {formatSemesterDisplayName(section.semester, true)}
             </span>
           </div>
         </div>
         <p className="text-xs font-semibold text-slate-500">
-          Lớp: <span className="text-primary font-bold">{section.name}</span>
+          Lớp: <span className="text-primary font-bold">{formatSectionDisplayName(section.name)}</span>
         </p>
       </div>
 

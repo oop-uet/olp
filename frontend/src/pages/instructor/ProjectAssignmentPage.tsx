@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader, Spinner } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
+import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
 
 type TabKey = 'description' | 'groups' | 'stats' | 'history' | 'grading'
 
@@ -223,7 +224,7 @@ export function ProjectAssignmentPage() {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `${data.section.name}-${data.exercise.title}-groups.csv`
+    link.download = `${formatSectionDisplayName(data.section.name)}-${data.exercise.title}-groups.csv`
     link.click()
     URL.revokeObjectURL(url)
   }
@@ -245,7 +246,9 @@ export function ProjectAssignmentPage() {
         </Link>
         <div>
           <h1 className="text-4xl font-bold text-slate-900">{data.exercise.title}</h1>
-          <p className="mt-2 text-sm text-slate-500">{data.section.name} · {data.section.semester}</p>
+          <p className="mt-2 text-sm text-slate-500">
+            {formatSectionDisplayName(data.section.name)} · {formatSemesterDisplayName(data.section.semester)}
+          </p>
         </div>
       </div>
 

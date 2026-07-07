@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader, Spinner, SectionIcon, StudentsIcon, ExerciseIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
+import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -326,8 +327,8 @@ export function SectionDetailPage() {
           </span>
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-semibold text-gray-800">{section.name}</h1>
-              <span className="badge-blue">{section.semester}</span>
+              <h1 className="text-2xl font-semibold text-gray-800">{formatSectionDisplayName(section.name)}</h1>
+              <span className="badge-blue">{formatSemesterDisplayName(section.semester, true)}</span>
             </div>
             <p className="text-sm text-gray-500">
               Giảng viên:{' '}

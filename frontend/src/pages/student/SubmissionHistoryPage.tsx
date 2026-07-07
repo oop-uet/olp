@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader, SubmissionIcon, Spinner } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
+import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
 
 interface StudentInfo {
   id: string
@@ -237,7 +238,7 @@ export function SubmissionHistoryPage() {
           >
             {sections.map((sec) => (
               <option key={sec.id} value={sec.id}>
-                {sec.name} ({sec.semester})
+                {formatSectionDisplayName(sec.name)} ({formatSemesterDisplayName(sec.semester)})
               </option>
             ))}
           </select>
@@ -431,7 +432,7 @@ export function SubmissionHistoryPage() {
                   {selectedSection.name}
                 </div>
                 <p className="text-xs font-semibold text-slate-500">
-                  {selectedSection.semester}
+                  {formatSemesterDisplayName(selectedSection.semester, true)}
                 </p>
               </div>
             )}

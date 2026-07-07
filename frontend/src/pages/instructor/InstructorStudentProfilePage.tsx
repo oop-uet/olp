@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
+import { formatSectionDisplayName } from '../../utils/semester'
 
 interface StudentInfo {
   userId: string
@@ -195,7 +196,7 @@ export function InstructorStudentProfilePage() {
                 <div>
                   <h1 className="text-xl font-black">{student.fullName}</h1>
                   <p className="mt-1 text-sm font-bold text-primary-100">MSV: {student.studentId}</p>
-                  <p className="text-sm font-semibold text-primary-100">Lớp: {section.name}</p>
+                  <p className="text-sm font-semibold text-primary-100">Lớp: {formatSectionDisplayName(section.name)}</p>
                 </div>
               </div>
             </div>

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader, Spinner, StudentsIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
+import { formatSectionDisplayName } from '../../utils/semester'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -400,7 +401,7 @@ export function StudentManagementPage() {
                             to={`/admin/sections/${section.id}`}
                             className="badge-blue hover:opacity-80 font-bold text-[10px]"
                           >
-                            {section.name}
+                            {formatSectionDisplayName(section.name)}
                           </Link>
                         ))}
                       </div>

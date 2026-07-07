@@ -198,11 +198,11 @@ export function StudentLeaderboardPage() {
 
       {!loadingBoard && entries.length > 0 && (
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center gap-2 bg-gradient-to-r from-teal-600 to-cyan-500 px-5 py-3 text-white">
-            <LeaderboardIcon className="h-4 w-4" />
-            <h3 className="text-sm font-bold uppercase tracking-wide">
-              {currentSection.name}
-            </h3>
+          <div className="panel-header select-none">
+            <h2 className="panel-title text-sm font-extrabold flex items-center gap-1.5 normal-case">
+              <LeaderboardIcon className="h-4 w-4" />
+              {formatSectionDisplayName(currentSection.name)}
+            </h2>
           </div>
 
           <div className="space-y-4 p-5">
@@ -295,7 +295,7 @@ export function StudentLeaderboardPage() {
                           )}
                         </td>
                         <td className="table-td text-slate-600 font-medium">
-                          {currentSection.name}
+                          {formatSectionDisplayName(currentSection.name)}
                         </td>
                         <td className="table-td text-center font-bold text-slate-800">
                           {formatScore(entry.totalScore)}/{formatScore(maxPossibleScore || 100)}
