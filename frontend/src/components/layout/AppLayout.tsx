@@ -12,7 +12,7 @@ export function AppLayout() {
       <TopNav />
       <Breadcrumb />
       <main className="flex-1">
-        <div className="mx-auto max-w-7xl px-4 py-6 lg:px-6">
+        <div className="mx-auto max-w-none px-4 py-6 lg:px-8">
           <Outlet />
         </div>
       </main>

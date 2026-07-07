@@ -527,7 +527,7 @@ export function SubmissionReviewPage() {
         
         {/* Full-width white header banner */}
         <div className="border-b border-slate-200 bg-white px-5 py-4 shadow-sm mb-6">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
+          <div className="mx-auto flex max-w-none flex-wrap items-center justify-between gap-3 px-2 lg:px-4">
             <div className="flex min-w-0 items-center gap-3">
               <button
                 onClick={handleBackToList}
@@ -581,7 +581,7 @@ export function SubmissionReviewPage() {
         </div>
 
         {/* Main Content Grid aligned to max-w-7xl */}
-        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 p-4 xl:grid-cols-[340px_minmax(0,1fr)]">
+        <div className="mx-auto grid max-w-none grid-cols-1 gap-4 p-4 xl:grid-cols-[340px_minmax(0,1fr)]">
           
           {/* Left Panel Column (340px) */}
           <aside className="space-y-4">

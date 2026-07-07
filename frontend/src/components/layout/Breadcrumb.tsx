@@ -47,7 +47,7 @@ export function Breadcrumb() {
 
   return (
     <nav aria-label="Breadcrumb" className="border-b border-gray-200 bg-white">
-      <div className="mx-auto flex max-w-7xl items-center gap-1 px-4 py-2 text-sm text-gray-500 lg:px-6">
+      <div className="mx-auto flex max-w-none items-center gap-1 px-4 py-2 text-sm text-gray-500 lg:px-8">
         <Link to="/" className="font-medium text-gray-600 hover:text-primary">
           Trang chủ
         </Link>
