@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { AxiosError } from 'axios'
 import { api } from '../../lib/api'
 import { PageLoader, Spinner, CheckCircleIcon, XCircleIcon, SubmissionIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
@@ -251,11 +250,6 @@ export function SubmissionReviewPage() {
   const [activeSubmittedFile, setActiveSubmittedFile] = useState('Main.java')
   const [activeTab, setActiveTab] = useState<'source' | 'results'>('source')
 
-  // Grading state
-  const [gradeScore, setGradeScore] = useState('')
-  const [gradeFeedback, setGradeFeedback] = useState('')
-  const [savingGrade, setSavingGrade] = useState(false)
-
 
   const [sortField, setSortField] = useState<'submittedAt' | 'score' | 'exerciseTitle' | ''>('')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
@@ -275,8 +269,8 @@ export function SubmissionReviewPage() {
         valA = exerciseTitleById.get(a.exerciseId) || ''
         valB = exerciseTitleById.get(b.exerciseId) || ''
       } else if (sortField === 'score') {
-        valA = a.manualScore ?? a.score ?? 0
-        valB = b.manualScore ?? b.score ?? 0
+        valA = a.score ?? 0
+        valB = b.score ?? 0
       } else if (sortField === 'submittedAt') {
         valA = a.submittedAt || ''
         valB = b.submittedAt || ''
@@ -399,9 +393,6 @@ export function SubmissionReviewPage() {
 
   function applyDetail(detail: SubmissionDetail) {
     setSelectedSubmission(detail)
-    const prefill = detail.manualScore ?? detail.score
-    setGradeScore(prefill != null ? String(prefill) : '')
-    setGradeFeedback(detail.feedback ?? '')
     
     const files = parseSubmittedFiles(detail.code)
     setActiveSubmittedFile(files[0]?.name ?? 'Main.java')
@@ -424,38 +415,6 @@ export function SubmissionReviewPage() {
       toast.error('Không thể tải chi tiết bài nộp.')
     } finally {
       setLoadingDetail(false)
-    }
-  }
-
-  async function handleSaveGrade() {
-    if (!selectedSubmission) return
-
-    const trimmed = gradeScore.trim()
-    let scoreValue: number | undefined
-    if (trimmed !== '') {
-      scoreValue = Number(trimmed)
-      if (Number.isNaN(scoreValue) || scoreValue < 0 || scoreValue > 100) {
-        toast.error('Điểm phải là số từ 0 đến 100.')
-        return
-      }
-    }
-
-    setSavingGrade(true)
-    try {
-      const payload: { score?: number; feedback?: string } = {}
-      if (scoreValue !== undefined) payload.score = scoreValue
-      payload.feedback = gradeFeedback
-
-      const response = await api.patch(`/api/submissions/${selectedSubmission.id}/grade`, payload)
-      applyDetail(response.data)
-      toast.success('Đã lưu điểm và nhận xét.')
-    } catch (error) {
-      const message =
-        (error as AxiosError<{ error?: { message?: string } }>)?.response?.data?.error?.message ||
-        'Không thể lưu điểm. Vui lòng thử lại.'
-      toast.error(message)
-    } finally {
-      setSavingGrade(false)
     }
   }
 
@@ -506,10 +465,8 @@ export function SubmissionReviewPage() {
     const results = selectedSubmission.results ?? []
     const effectiveScore =
       selectedSubmission.effectiveScore ??
-      selectedSubmission.manualScore ??
       selectedSubmission.score ??
       0
-    const isManuallyGraded = selectedSubmission.manualScore != null
     const exerciseTitle = selectedSubmission.exercise?.title || exerciseTitleById.get(selectedSubmission.exerciseId) || 'Bài thực hành'
     const studentName = selectedSubmission.student?.fullName || selectedSubmission.student?.username || 'Sinh viên'
     const studentUsername = selectedSubmission.student?.username || ''
@@ -560,9 +517,6 @@ export function SubmissionReviewPage() {
                     Test: {functionalScore.toFixed(1)} · Style: {selectedSubmission.styleScore == null ? 'N/A' : selectedSubmission.styleScore.toFixed(1)}
                   </p>
                 </div>
-                {isManuallyGraded && (
-                  <span className="badge-blue text-[9px] font-bold">Chấm tay</span>
-                )}
               </div>
               
               <button
@@ -586,58 +540,55 @@ export function SubmissionReviewPage() {
           
           {/* Left Panel Column (340px) */}
           <aside className="space-y-4">
-            
-            {/* Manual Grading */}
+
+            {/* Submission summary */}
             <div className="card bg-white border border-slate-100 shadow-sm overflow-hidden">
               <div className="panel-header py-2.5 px-4">
-                <h3 className="panel-title">Chấm điểm thủ công</h3>
+                <h3 className="panel-title">Chi tiết bài nộp</h3>
               </div>
-              <div className="p-4 space-y-4">
-                <div>
-                  <label htmlFor="grade-score" className="label text-slate-500">
-                    Nhập điểm thay thế (0-100)
-                  </label>
-                  <input
-                    id="grade-score"
-                    type="number"
-                    min={0}
-                    max={100}
-                    step="0.1"
-                    value={gradeScore}
-                    onChange={(e) => setGradeScore(e.target.value)}
-                    className="input py-2 px-3 text-xs"
-                    placeholder="Điểm số..."
-                  />
+              <div className="space-y-3 p-4 text-sm text-slate-700">
+                <div className="border-b border-slate-100 pb-3">
+                  <p className="text-lg font-black text-slate-900">
+                    #{selectedSubmission.id.slice(0, 8)}: <span className="text-sky-500">{exerciseTitle}</span>
+                  </p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">
+                    Sinh viên: <span className="text-sky-500">{studentName}</span>
+                  </p>
                 </div>
-                <div>
-                  <label htmlFor="grade-feedback" className="label text-slate-500">
-                    Nhận xét / Feedback
-                  </label>
-                  <textarea
-                    id="grade-feedback"
-                    rows={4}
-                    value={gradeFeedback}
-                    onChange={(e) => setGradeFeedback(e.target.value)}
-                    className="input py-2 px-3 text-xs"
-                    placeholder="Nhận xét của giảng viên..."
-                  />
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-bold text-slate-500">Trạng thái</span>
+                  <span className={getSubmissionResult(effectiveScore).className + ' inline-flex rounded px-2 py-1 text-xs font-bold'}>
+                    {getSubmissionResult(effectiveScore).label}
+                  </span>
                 </div>
-                <div className="flex justify-end pt-1">
-                  <button
-                    onClick={handleSaveGrade}
-                    disabled={savingGrade}
-                    className="btn-primary px-3 py-1.5 text-xs font-bold w-full"
-                  >
-                    {savingGrade ? <Spinner /> : 'Cập nhật điểm'}
-                  </button>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-bold text-slate-500">Điểm chức năng</span>
+                  <span className="font-black text-slate-900">{functionalScore.toFixed(1)}/100</span>
                 </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-bold text-slate-500">Điểm quy tắc</span>
+                  <span className="font-black text-slate-900">
+                    {selectedSubmission.styleScore == null ? 'Chưa chấm' : `${selectedSubmission.styleScore.toFixed(1)}/100`}
+                  </span>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-right">
+                  <p className={`text-3xl font-black ${getScoreColor(effectiveScore)}`}>
+                    {effectiveScore.toFixed(1)}%
+                  </p>
+                  <p className="text-xs font-bold text-slate-500">Điểm tổng</p>
+                </div>
+                {selectedSubmission.feedback && (
+                  <p className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs font-semibold leading-5 text-slate-600">
+                    {selectedSubmission.feedback}
+                  </p>
+                )}
               </div>
             </div>
 
             {/* Checkstyle result */}
             <div className="card bg-white border border-slate-100 shadow-sm overflow-hidden">
               <div className="panel-header py-2.5 px-4">
-                <h3 className="panel-title">Checkstyle</h3>
+                <h3 className="panel-title">Quy tắc lập trình</h3>
               </div>
               <div className="space-y-3 p-4 text-xs text-slate-600">
                 <div className="flex items-center justify-between gap-3">
@@ -983,7 +934,7 @@ export function SubmissionReviewPage() {
                 </thead>
                 <tbody>
                   {pageItems.map((sub: SubmissionListItem, index: number) => {
-                    const effective = sub.manualScore ?? sub.score ?? 0
+                    const effective = sub.score ?? 0
                     const result = getSubmissionResult(effective)
                     const studentName = sub.student?.fullName || sub.student?.username || 'Sinh viên'
                     const exerciseTitle = sub.exercise?.title || exerciseTitleById.get(sub.exerciseId) || 'Bài thực hành'
