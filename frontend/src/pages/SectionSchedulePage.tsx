@@ -103,6 +103,17 @@ function fillCascadingDeadlineInputs(inputs: Record<number, string>, weekCount: 
 
 const DRAG_MIME = 'text/plain'
 
+function extractWeekFromTitle(title: string): number | null {
+  const normalized = title
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+  const match = normalized.match(/\btuan\s*(\d{1,2})\b/)
+  if (!match) return null
+  const week = Number(match[1])
+  return Number.isInteger(week) && week > 0 ? week : null
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function SectionSchedulePage() {
@@ -119,6 +130,7 @@ export function SectionSchedulePage() {
   const [dropWeek, setDropWeek] = useState<number | 'pool' | null>(null)
   const [visibleWeekCount, setVisibleWeekCount] = useState(DEFAULT_TOTAL_WEEKS)
   const [selectedWeek, setSelectedWeek] = useState(1)
+  const [autoAssigning, setAutoAssigning] = useState(false)
 
   const fetchSchedule = useCallback(async () => {
     if (!id) return
@@ -194,6 +206,63 @@ export function SectionSchedulePage() {
     } finally {
       setSavingWeek(null)
     }
+  }
+
+  async function autoAssignExercisesByTitle() {
+    if (!id || !data || autoAssigning) return
+
+    const candidates = [
+      ...data.pool.map((exercise) => ({
+        exerciseId: exercise.id,
+        title: exercise.title,
+      })),
+      ...data.unscheduled.map((exercise) => ({
+        exerciseId: exercise.exerciseId,
+        title: exercise.title,
+      })),
+    ]
+    const assignments = candidates
+      .map((exercise) => ({
+        ...exercise,
+        week: extractWeekFromTitle(exercise.title),
+      }))
+      .filter((exercise): exercise is { exerciseId: string; title: string; week: number } => exercise.week !== null)
+
+    if (assignments.length === 0) {
+      toast.error('Không tìm thấy bài tập nào có tên chứa "Tuần N" để gán tự động.')
+      return
+    }
+
+    const maxMatchedWeek = Math.max(...assignments.map((exercise) => exercise.week))
+    if (maxMatchedWeek > visibleWeekCount && data) {
+      setVisibleWeekCount(maxMatchedWeek)
+      localStorage.setItem(getWeekCountKey(data.section.id), String(maxMatchedWeek))
+      setDeadlineInputs((prev) => fillCascadingDeadlineInputs(prev, maxMatchedWeek))
+    }
+
+    setAutoAssigning(true)
+    let successCount = 0
+    let failedCount = 0
+    for (const assignment of assignments) {
+      try {
+        await api.post(`${base}/sections/${id}/schedule/assign`, {
+          exercise_id: assignment.exerciseId,
+          week: assignment.week,
+        })
+        successCount += 1
+      } catch {
+        failedCount += 1
+      }
+    }
+
+    if (successCount > 0) {
+      toast.success(`Đã tự động gán ${successCount} bài tập theo tên tuần.`)
+    }
+    if (failedCount > 0) {
+      toast.error(`${failedCount} bài tập chưa gán được. Vui lòng thử lại hoặc gán thủ công.`)
+    }
+    setAutoAssigning(false)
+    await fetchSchedule()
   }
 
   function addWeek() {
@@ -320,6 +389,14 @@ export function SectionSchedulePage() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="badge-blue">Tuần đang chọn: {selectedWeek}</span>
+              <button
+                type="button"
+                onClick={autoAssignExercisesByTitle}
+                disabled={autoAssigning}
+                className="btn-secondary btn-sm"
+              >
+                {autoAssigning ? 'Đang gán...' : 'Gán tự động'}
+              </button>
               <button onClick={addWeek} className="btn-primary btn-sm">
                 Thêm tuần
               </button>
