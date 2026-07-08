@@ -31,8 +31,7 @@ function matchesFile(violationFile: string, fileName: string) {
 
 function markerMessage(violation: StyleViewerViolation) {
   const title = violation.ruleLabel ?? violation.ruleId ?? 'Checkstyle'
-  const source = violation.source ? `\n${violation.source}` : ''
-  return `${title}: ${violation.message}${source}`
+  return `${title}: ${violation.message}`
 }
 
 function clampLine(line: number | null, lineCount: number) {
