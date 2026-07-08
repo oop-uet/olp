@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, Link } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader, Spinner, CheckCircleIcon, XCircleIcon, SubmissionIcon } from '../../components/ui'
 import { StyleAnnotatedCodeViewer } from '../../components/submission/StyleAnnotatedCodeViewer'
@@ -1086,9 +1086,13 @@ export function SubmissionReviewPage() {
                         index + 1
                       )}
                     </span>
-                    <span className="min-w-0 truncate text-base font-medium text-sky-500" title={item.studentName}>
+                    <Link
+                      to={`/instructor/classes/${selectedSectionId}/students/${item.studentId}/profile`}
+                      className="min-w-0 truncate text-base font-medium text-sky-500 hover:underline"
+                      title={item.studentName}
+                    >
                       {item.studentName}
-                    </span>
+                    </Link>
                     <span className="text-base font-bold text-sky-500">{formatNumberScore(item.totalScore)}</span>
                   </li>
                 ))}

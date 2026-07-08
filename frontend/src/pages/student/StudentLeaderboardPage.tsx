@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, Link } from 'react-router-dom'
 import { cachedGet } from '../../lib/api'
 import { PageLoader, LeaderboardIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
@@ -330,9 +330,12 @@ export function StudentLeaderboardPage() {
                           )}
                         </td>
                         <td className="table-td font-semibold text-slate-800">
-                          <span className={mine ? 'text-primary' : 'text-slate-800'}>
+                          <Link
+                            to={`/student/classes/${selectedSectionId}/students/${entry.studentUserId || entry.studentId}/profile`}
+                            className={`${mine ? 'text-primary' : 'text-sky-600'} hover:underline`}
+                          >
                             {entry.studentName}
-                          </span>
+                          </Link>
                           {mine && (
                             <span className="ml-2 rounded-full bg-secondary px-1.5 py-0.5 text-[9px] font-extrabold text-white">
                               Bạn
