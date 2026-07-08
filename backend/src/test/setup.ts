@@ -73,6 +73,8 @@ beforeAll(() => {
       starter_code TEXT,
       is_library INTEGER DEFAULT 0,
       oop_tags TEXT,
+      style_check_enabled INTEGER NOT NULL DEFAULT 1,
+      style_policy TEXT,
       created_by TEXT REFERENCES users(id),
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))

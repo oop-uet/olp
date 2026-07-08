@@ -16,6 +16,20 @@ const DIFFICULTY_LABELS: Record<Difficulty, string> = {
   hard: 'Khó',
 }
 
+const DEFAULT_STYLE_DISABLED_RULES = ['javadoc', 'line_length']
+
+const STYLE_RULE_OPTIONS = [
+  { id: 'indentation', label: 'Thụt lề', help: 'Kiểm tra level thụt lề chung.' },
+  { id: 'indentation.method_def_modifier', label: 'Thụt lề khai báo phương thức', help: 'Ví dụ: method def modifier expected level.' },
+  { id: 'indentation.method_def_child', label: 'Thụt lề nội dung phương thức', help: 'Ví dụ: method def child expected level.' },
+  { id: 'whitespace', label: 'Khoảng trắng', help: 'Khoảng trắng trước/sau toán tử, dấu ngoặc, dấu phẩy.' },
+  { id: 'imports', label: 'Import', help: 'Thứ tự import, import thừa hoặc wildcard.' },
+  { id: 'braces', label: 'Dấu ngoặc và khối lệnh', help: 'Quy tắc dùng braces cho if/for/while và block.' },
+  { id: 'naming', label: 'Đặt tên', help: 'Tên lớp, biến, phương thức theo convention Java.' },
+  { id: 'javadoc', label: 'Javadoc', help: 'Yêu cầu comment Javadoc cho lớp/phương thức.' },
+  { id: 'line_length', label: 'Độ dài dòng', help: 'Giới hạn độ dài dòng theo Google Java Style.' },
+] as const
+
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 interface TestCaseForm {
@@ -32,6 +46,15 @@ interface FormErrors {
   difficulty?: string
   tags?: string
   testCases?: string
+}
+
+interface StylePolicyForm {
+  enabled?: boolean
+  profile?: string
+  disabledRules?: string[]
+  weightPercent?: number
+  penaltyPerViolation?: number
+  maxViolations?: number
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -58,6 +81,42 @@ function emptyTestCase(): TestCaseForm {
   return { inputData: '', expectedOutput: '', isVisible: true, pointValue: 10 }
 }
 
+function parseStylePolicy(value: unknown): StylePolicyForm {
+  if (!value) {
+    return {
+      enabled: true,
+      profile: 'uet-oop-basic',
+      disabledRules: DEFAULT_STYLE_DISABLED_RULES,
+      weightPercent: 10,
+      penaltyPerViolation: 5,
+      maxViolations: 20,
+    }
+  }
+
+  const raw = typeof value === 'string'
+    ? (() => {
+        try {
+          return JSON.parse(value)
+        } catch {
+          return {}
+        }
+      })()
+    : value
+  const policy = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
+  return {
+    enabled: policy.enabled === undefined ? true : Boolean(policy.enabled),
+    profile: typeof policy.profile === 'string' ? policy.profile : 'uet-oop-basic',
+    disabledRules: Array.isArray(policy.disabledRules)
+      ? policy.disabledRules.map(String)
+      : Array.isArray(policy.disabled_rules)
+        ? policy.disabled_rules.map(String)
+        : DEFAULT_STYLE_DISABLED_RULES,
+    weightPercent: Number(policy.weightPercent ?? policy.weight_percent ?? 10),
+    penaltyPerViolation: Number(policy.penaltyPerViolation ?? policy.penalty_per_violation ?? 5),
+    maxViolations: Number(policy.maxViolations ?? policy.max_penalized_violations ?? 20),
+  }
+}
+
 const TEMPLATE_FORMAT = 'uet-oasis-oop-exercise-template'
 
 interface ExerciseTemplateFile {
@@ -69,6 +128,8 @@ interface ExerciseTemplateFile {
   oop_tags?: string[]
   starter_code?: string
   is_library?: boolean
+  style_check_enabled?: boolean
+  style_policy?: StylePolicyForm
   test_cases?: Array<{
     input_data?: string
     expected_output?: string
@@ -87,6 +148,15 @@ const SAMPLE_TEMPLATE: ExerciseTemplateFile & { authoring_notes: string[] } = {
   difficulty: 'medium',
   oop_tags: ['classes and objects', 'encapsulation'],
   is_library: true,
+  style_check_enabled: true,
+  style_policy: {
+    enabled: true,
+    profile: 'uet-oop-basic',
+    disabledRules: DEFAULT_STYLE_DISABLED_RULES,
+    weightPercent: 10,
+    penaltyPerViolation: 5,
+    maxViolations: 20,
+  },
   starter_code: JSON.stringify(
     {
       format: 'oop-java-files',
@@ -143,6 +213,11 @@ export function AdminExerciseFormPage() {
   const [tagsInput, setTagsInput] = useState('')
   const [starterCode, setStarterCode] = useState('')
   const [isLibrary, setIsLibrary] = useState(false)
+  const [styleCheckEnabled, setStyleCheckEnabled] = useState(true)
+  const [styleDisabledRules, setStyleDisabledRules] = useState<string[]>(DEFAULT_STYLE_DISABLED_RULES)
+  const [styleWeightPercent, setStyleWeightPercent] = useState(10)
+  const [stylePenaltyPerViolation, setStylePenaltyPerViolation] = useState(5)
+  const [styleMaxViolations, setStyleMaxViolations] = useState(20)
   const [testCases, setTestCases] = useState<TestCaseForm[]>([emptyTestCase()])
   const [templateText, setTemplateText] = useState('')
   const [templateOpen, setTemplateOpen] = useState(false)
@@ -169,6 +244,18 @@ export function AdminExerciseFormPage() {
       setTagsInput(parseOopTags(ex.oopTags ?? ex.oop_tags).join(', '))
       setStarterCode(ex.starterCode ?? ex.starter_code ?? '')
       setIsLibrary(ex.isLibrary === 1 || ex.isLibrary === true || ex.is_library === true)
+      const loadedStylePolicy = parseStylePolicy(ex.stylePolicy ?? ex.style_policy)
+      setStyleCheckEnabled(
+        ex.styleCheckEnabled === 0 || ex.style_check_enabled === false
+          ? false
+          : loadedStylePolicy.enabled !== false
+      )
+      setStyleDisabledRules(loadedStylePolicy.disabledRules ?? DEFAULT_STYLE_DISABLED_RULES)
+      setStyleWeightPercent(Number.isFinite(loadedStylePolicy.weightPercent) ? loadedStylePolicy.weightPercent ?? 10 : 10)
+      setStylePenaltyPerViolation(
+        Number.isFinite(loadedStylePolicy.penaltyPerViolation) ? loadedStylePolicy.penaltyPerViolation ?? 5 : 5
+      )
+      setStyleMaxViolations(Number.isFinite(loadedStylePolicy.maxViolations) ? loadedStylePolicy.maxViolations ?? 20 : 20)
 
       const loaded = Array.isArray(ex.testCases) ? ex.testCases : []
       if (loaded.length > 0) {
@@ -243,6 +330,29 @@ export function AdminExerciseFormPage() {
     setTestCases((prev) => prev.map((tc, i) => (i === index ? { ...tc, [field]: value } : tc)))
   }
 
+  function buildStylePolicy(): StylePolicyForm {
+    return {
+      enabled: styleCheckEnabled,
+      profile: 'uet-oop-basic',
+      disabledRules: styleDisabledRules,
+      weightPercent: styleWeightPercent,
+      penaltyPerViolation: stylePenaltyPerViolation,
+      maxViolations: styleMaxViolations,
+    }
+  }
+
+  function toggleStyleRule(ruleId: string, enabled: boolean) {
+    setStyleDisabledRules((prev) => {
+      const next = new Set(prev)
+      if (enabled) {
+        next.delete(ruleId)
+      } else {
+        next.add(ruleId)
+      }
+      return [...next]
+    })
+  }
+
   function buildTemplateFromForm(): ExerciseTemplateFile {
     return {
       format: TEMPLATE_FORMAT,
@@ -253,6 +363,8 @@ export function AdminExerciseFormPage() {
       oop_tags: splitTags(tagsInput).length > 0 ? splitTags(tagsInput) : ['classes and objects'],
       starter_code: starterCode,
       is_library: isLibrary,
+      style_check_enabled: styleCheckEnabled,
+      style_policy: buildStylePolicy(),
       test_cases: testCases.map((tc) => ({
         input_data: tc.inputData,
         expected_output: tc.expectedOutput,
@@ -295,6 +407,7 @@ export function AdminExerciseFormPage() {
     const normalizedDifficulty = raw.difficulty ?? 'easy'
     const normalizedTags = Array.isArray(raw.oop_tags) ? raw.oop_tags : []
     const normalizedTestCases = Array.isArray(raw.test_cases) ? raw.test_cases : []
+    const normalizedStylePolicy = parseStylePolicy(raw.style_policy)
 
     if (!normalizedTitle) throw new Error('Template thiếu title.')
     if (!normalizedDescription) throw new Error('Template thiếu description.')
@@ -315,6 +428,10 @@ export function AdminExerciseFormPage() {
       tags: normalizedTags.map((tag) => String(tag).trim()).filter(Boolean).slice(0, 5),
       starterCode: String(raw.starter_code ?? ''),
       isLibrary: Boolean(raw.is_library ?? true),
+      styleCheckEnabled: raw.style_check_enabled === undefined
+        ? normalizedStylePolicy.enabled !== false
+        : Boolean(raw.style_check_enabled),
+      stylePolicy: normalizedStylePolicy,
       testCases: normalizedTestCases.map((tc, index) => {
         const inputData = String(tc.input_data ?? '')
         const expectedOutput = String(tc.expected_output ?? '')
@@ -349,6 +466,15 @@ export function AdminExerciseFormPage() {
       setTagsInput(normalized.tags.join(', '))
       setStarterCode(normalized.starterCode)
       setIsLibrary(normalized.isLibrary)
+      setStyleCheckEnabled(normalized.styleCheckEnabled)
+      setStyleDisabledRules(normalized.stylePolicy.disabledRules ?? DEFAULT_STYLE_DISABLED_RULES)
+      setStyleWeightPercent(Number.isFinite(normalized.stylePolicy.weightPercent) ? normalized.stylePolicy.weightPercent ?? 10 : 10)
+      setStylePenaltyPerViolation(
+        Number.isFinite(normalized.stylePolicy.penaltyPerViolation)
+          ? normalized.stylePolicy.penaltyPerViolation ?? 5
+          : 5
+      )
+      setStyleMaxViolations(Number.isFinite(normalized.stylePolicy.maxViolations) ? normalized.stylePolicy.maxViolations ?? 20 : 20)
       setTestCases(normalized.testCases)
       setErrors({})
       setTemplateError(null)
@@ -393,6 +519,7 @@ export function AdminExerciseFormPage() {
     setSubmitting(true)
     try {
       const tags = splitTags(tagsInput)
+      const stylePolicy = buildStylePolicy()
 
       if (isEditing && id) {
         await api.put(`/api/admin/exercises/${id}`, {
@@ -402,6 +529,8 @@ export function AdminExerciseFormPage() {
           oop_tags: tags,
           starter_code: starterCode,
           is_library: isLibrary,
+          style_check_enabled: styleCheckEnabled,
+          style_policy: stylePolicy,
           test_cases: testCases
             .filter((tc) => tc.expectedOutput.trim() !== '')
             .map((tc) => ({
@@ -421,6 +550,8 @@ export function AdminExerciseFormPage() {
           oop_tags: tags,
           starter_code: starterCode || undefined,
           is_library: isLibrary,
+          style_check_enabled: styleCheckEnabled,
+          style_policy: stylePolicy,
           test_cases: testCases
             .filter((tc) => tc.expectedOutput.trim() !== '')
             .map((tc) => ({
@@ -650,6 +781,101 @@ export function AdminExerciseFormPage() {
           />
           Thêm vào thư viện bài tập
         </label>
+
+        {/* Style Policy */}
+        <section className="rounded-lg border border-slate-200 bg-slate-50">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
+            <div>
+              <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">
+                Quy tắc lập trình
+              </h2>
+              <p className="mt-1 text-xs font-medium text-slate-500">
+                Chọn các nhóm lỗi Checkstyle được tính vào điểm quy tắc lập trình của bài này.
+              </p>
+            </div>
+            <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-700">
+              <input
+                type="checkbox"
+                checked={styleCheckEnabled}
+                onChange={(event) => setStyleCheckEnabled(event.target.checked)}
+                className="rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              Chấm Checkstyle
+            </label>
+          </div>
+
+          <div className={`space-y-4 p-4 ${styleCheckEnabled ? '' : 'opacity-60'}`}>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                  Trọng số (%)
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  max={50}
+                  value={styleWeightPercent}
+                  disabled={!styleCheckEnabled}
+                  onChange={(event) => setStyleWeightPercent(Math.max(0, Math.min(50, Number(event.target.value) || 0)))}
+                  className="input text-sm"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                  Trừ mỗi lỗi
+                </span>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={stylePenaltyPerViolation}
+                  disabled={!styleCheckEnabled}
+                  onChange={(event) => setStylePenaltyPerViolation(Math.max(1, Math.min(100, Number(event.target.value) || 1)))}
+                  className="input text-sm"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                  Số lỗi tối đa
+                </span>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={styleMaxViolations}
+                  disabled={!styleCheckEnabled}
+                  onChange={(event) => setStyleMaxViolations(Math.max(1, Math.min(100, Number(event.target.value) || 1)))}
+                  className="input text-sm"
+                />
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+              {STYLE_RULE_OPTIONS.map((rule) => {
+                const checked = !styleDisabledRules.includes(rule.id)
+                return (
+                  <label
+                    key={rule.id}
+                    className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5"
+                    title={rule.help}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={!styleCheckEnabled}
+                      onChange={(event) => toggleStyleRule(rule.id, event.target.checked)}
+                      className="mt-0.5 rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <span>
+                      <span className="block text-sm font-bold text-slate-700">{rule.label}</span>
+                      <span className="block text-xs font-medium text-slate-500">{rule.help}</span>
+                    </span>
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+        </section>
 
         {/* Test Cases */}
         <div>

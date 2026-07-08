@@ -91,6 +91,8 @@ export const exercises = sqliteTable("exercises", {
   starterCode: text("starter_code"),
   isLibrary: integer("is_library").notNull().default(0),
   oopTags: text("oop_tags").notNull(), // JSON array stored as text
+  styleCheckEnabled: integer("style_check_enabled").notNull().default(1),
+  stylePolicy: text("style_policy"), // JSON object stored as text
   createdBy: text("created_by").references(() => users.id),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),

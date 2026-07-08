@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader, Spinner, CheckCircleIcon, XCircleIcon, SubmissionIcon } from '../../components/ui'
+import { StyleAnnotatedCodeViewer } from '../../components/submission/StyleAnnotatedCodeViewer'
 import { toast } from '../../stores/toast.store'
-import Editor from '@monaco-editor/react'
 import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
 
 // --- Types ---
@@ -68,6 +68,10 @@ interface StyleViolation {
   column: number | null
   severity: string
   message: string
+  source?: string
+  ruleId?: string
+  ruleLabel?: string
+  category?: string
 }
 
 interface ParsedStyleReport {
@@ -717,20 +721,11 @@ export function SubmissionReviewPage() {
 
             {activeTab === 'source' && (
               <div className="flex-1">
-                <Editor
-                  height="100%"
-                  language="java"
-                  value={currentSubmittedFile.content}
-                  theme="vs-dark"
-                  options={{
-                    readOnly: true,
-                    minimap: { enabled: false },
-                    scrollBeyondLastLine: false,
-                    fontSize: 13,
-                    lineNumbers: 'on',
-                    wordWrap: 'on',
-                    fontFamily: 'JetBrains Mono',
-                  }}
+                <StyleAnnotatedCodeViewer
+                  fileName={currentSubmittedFile.name}
+                  code={currentSubmittedFile.content}
+                  violations={styleViolations}
+                  fontSize={13}
                 />
               </div>
             )}

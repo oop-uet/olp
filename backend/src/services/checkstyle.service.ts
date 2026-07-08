@@ -41,6 +41,9 @@ export interface CheckstyleViolation {
   severity: string;
   message: string;
   source: string;
+  ruleId?: string;
+  ruleLabel?: string;
+  category?: string;
 }
 
 export interface CheckstyleEvaluation {
@@ -52,10 +55,99 @@ export interface CheckstyleEvaluation {
   toolVersion: string;
 }
 
-interface CheckstyleOptions {
+export interface StyleRulePolicy {
+  enabled?: boolean;
+  profile?: string;
+  disabledRules?: string[];
+  enabledRules?: string[];
+  weightPercent?: number;
   penaltyPerViolation?: number;
   maxViolations?: number;
 }
+
+interface CheckstyleOptions {
+  penaltyPerViolation?: number;
+  maxViolations?: number;
+  policy?: StyleRulePolicy;
+}
+
+interface StyleRuleDefinition {
+  id: string;
+  label: string;
+  category: string;
+  sourceIncludes?: string[];
+  sourceEndsWith?: string[];
+  messageIncludes?: string[];
+}
+
+export const DEFAULT_STYLE_DISABLED_RULES = ["javadoc", "line_length"];
+
+export const STYLE_RULE_DEFINITIONS: StyleRuleDefinition[] = [
+  {
+    id: "indentation.method_def_modifier",
+    label: "Thụt lề modifier của phương thức",
+    category: "indentation",
+    sourceEndsWith: ["IndentationCheck"],
+    messageIncludes: ["'method def modifier'"],
+  },
+  {
+    id: "indentation.method_def_child",
+    label: "Thụt lề nội dung phương thức",
+    category: "indentation",
+    sourceEndsWith: ["IndentationCheck"],
+    messageIncludes: ["'method def' child"],
+  },
+  {
+    id: "indentation",
+    label: "Thụt lề",
+    category: "indentation",
+    sourceEndsWith: ["IndentationCheck"],
+  },
+  {
+    id: "javadoc.missing",
+    label: "Thiếu Javadoc",
+    category: "javadoc",
+    messageIncludes: ["Missing a Javadoc comment"],
+  },
+  {
+    id: "javadoc",
+    label: "Javadoc",
+    category: "javadoc",
+    sourceIncludes: [".javadoc."],
+  },
+  {
+    id: "line_length",
+    label: "Độ dài dòng",
+    category: "formatting",
+    sourceEndsWith: ["LineLengthCheck"],
+  },
+  {
+    id: "naming",
+    label: "Đặt tên",
+    category: "naming",
+    sourceIncludes: ["naming"],
+    sourceEndsWith: ["NameCheck"],
+  },
+  {
+    id: "imports",
+    label: "Import",
+    category: "imports",
+    sourceIncludes: [".imports."],
+  },
+  {
+    id: "whitespace",
+    label: "Khoảng trắng",
+    category: "formatting",
+    sourceIncludes: [".whitespace."],
+  },
+  {
+    id: "braces",
+    label: "Dấu ngoặc và khối lệnh",
+    category: "blocks",
+    sourceIncludes: [".blocks."],
+    sourceEndsWith: ["NeedBracesCheck"],
+  },
+];
 
 export function isValidCheckstyleReport(xml: string): boolean {
   if (!xml || xml.trim().length === 0) return false;
@@ -106,7 +198,9 @@ export async function evaluateCheckstyle(
       );
     }
 
-    const violations = parseCheckstyleXml(report, workingDir);
+    const allViolations = parseCheckstyleXml(report, workingDir);
+    const policy = normalizeStylePolicy(options.policy);
+    const violations = applyStylePolicyToViolations(allViolations, policy);
     const penalty = clampNumber(options.penaltyPerViolation ?? 5, 1, 100);
     const maxViolations = Math.max(1, options.maxViolations ?? 20);
     const countedViolations = Math.min(violations.length, maxViolations);
@@ -131,6 +225,138 @@ export async function evaluateCheckstyle(
   } finally {
     await fs.rm(workingDir, { recursive: true, force: true }).catch(() => undefined);
   }
+}
+
+export function normalizeStylePolicy(value?: unknown): StyleRulePolicy {
+  if (!value || typeof value !== "object") {
+    return {
+      enabled: true,
+      profile: "uet-oop-basic",
+      disabledRules: DEFAULT_STYLE_DISABLED_RULES,
+    };
+  }
+
+  const raw = value as Record<string, unknown>;
+  const disabledRules = normalizeRuleList(raw.disabledRules ?? raw.disabled_rules);
+  const enabledRules = normalizeRuleList(raw.enabledRules ?? raw.enabled_rules);
+  const policy: StyleRulePolicy = {
+    enabled: raw.enabled === undefined ? true : Boolean(raw.enabled),
+    profile: typeof raw.profile === "string" ? raw.profile : "uet-oop-basic",
+    disabledRules: disabledRules.length > 0 ? disabledRules : [],
+  };
+
+  if (enabledRules.length > 0) policy.enabledRules = enabledRules;
+  const weightPercent = Number(raw.weightPercent ?? raw.weight_percent);
+  if (Number.isFinite(weightPercent)) policy.weightPercent = clampNumber(weightPercent, 0, 50);
+  const penaltyPerViolation = Number(raw.penaltyPerViolation ?? raw.penalty_per_violation);
+  if (Number.isFinite(penaltyPerViolation)) policy.penaltyPerViolation = clampNumber(penaltyPerViolation, 1, 100);
+  const maxViolations = Number(raw.maxViolations ?? raw.max_penalized_violations);
+  if (Number.isFinite(maxViolations)) policy.maxViolations = clampNumber(Math.round(maxViolations), 1, 100);
+
+  return policy;
+}
+
+export function applyStylePolicyToEvaluation(
+  evaluation: CheckstyleEvaluation,
+  policyInput?: unknown,
+  options: Pick<CheckstyleOptions, "penaltyPerViolation" | "maxViolations"> = {}
+): CheckstyleEvaluation {
+  if (evaluation.status === "unavailable" || evaluation.status === "skipped") return evaluation;
+
+  const policy = normalizeStylePolicy(policyInput);
+  if (policy.enabled === false) {
+    return {
+      ...evaluation,
+      status: "skipped",
+      score: null,
+      violationCount: 0,
+      violations: [],
+      feedback: "Bài tập này không chấm quy tắc lập trình.",
+    };
+  }
+
+  const violations = applyStylePolicyToViolations(evaluation.violations ?? [], policy);
+  const penalty = clampNumber(options.penaltyPerViolation ?? policy.penaltyPerViolation ?? 5, 1, 100);
+  const maxViolations = Math.max(1, options.maxViolations ?? policy.maxViolations ?? 20);
+  const countedViolations = Math.min(violations.length, maxViolations);
+  const score = Math.max(0, Math.round((100 - countedViolations * penalty) * 100) / 100);
+
+  return {
+    ...evaluation,
+    status: violations.length === 0 ? "passed" : "failed",
+    score,
+    violationCount: violations.length,
+    violations,
+    feedback:
+      violations.length === 0
+        ? "Không phát hiện lỗi Checkstyle theo cấu hình quy tắc của bài tập."
+        : `Phát hiện ${violations.length} lỗi Checkstyle theo cấu hình bài tập. Điểm quy tắc lập trình: ${score}/100.`,
+  };
+}
+
+export function applyStylePolicyToViolations(
+  violations: CheckstyleViolation[],
+  policyInput?: unknown
+): CheckstyleViolation[] {
+  const policy = normalizeStylePolicy(policyInput);
+  const disabled = new Set(policy.disabledRules ?? []);
+  const enabled = new Set(policy.enabledRules ?? []);
+
+  return violations
+    .map(enrichViolation)
+    .filter((violation) => {
+      const ids = violationRuleIds(violation);
+      if (enabled.size > 0 && !ids.some((id) => enabled.has(id))) return false;
+      return !ids.some((id) => disabled.has(id));
+    });
+}
+
+function normalizeRuleList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const knownIds = new Set(STYLE_RULE_DEFINITIONS.map((rule) => rule.id));
+  return value
+    .map((item) => String(item).trim())
+    .filter((item) => knownIds.has(item));
+}
+
+function enrichViolation(violation: CheckstyleViolation): CheckstyleViolation {
+  const match = matchingRuleDefinitions(violation)[0];
+  if (!match) return violation;
+  return {
+    ...violation,
+    ruleId: match.id,
+    ruleLabel: match.label,
+    category: match.category,
+  };
+}
+
+function violationRuleIds(violation: CheckstyleViolation): string[] {
+  const matches = matchingRuleDefinitions(violation);
+  const ids = new Set<string>();
+  for (const match of matches) {
+    ids.add(match.id);
+    if (match.category) ids.add(match.category);
+  }
+  if (violation.ruleId) ids.add(violation.ruleId);
+  if (violation.category) ids.add(violation.category);
+  return [...ids];
+}
+
+function matchingRuleDefinitions(violation: CheckstyleViolation): StyleRuleDefinition[] {
+  return STYLE_RULE_DEFINITIONS.filter((rule) => matchesRule(violation, rule));
+}
+
+function matchesRule(violation: CheckstyleViolation, rule: StyleRuleDefinition): boolean {
+  const source = violation.source ?? "";
+  const message = violation.message ?? "";
+  const sourceMatch =
+    !rule.sourceIncludes && !rule.sourceEndsWith
+      ? true
+      : Boolean(rule.sourceIncludes?.some((fragment) => source.includes(fragment))) ||
+        Boolean(rule.sourceEndsWith?.some((suffix) => source.endsWith(suffix)));
+  const messageMatch =
+    !rule.messageIncludes || rule.messageIncludes.some((fragment) => message.includes(fragment));
+  return sourceMatch && messageMatch;
 }
 
 export function extractJavaFiles(code: string): JavaSourceFile[] {

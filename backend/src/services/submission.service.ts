@@ -6,14 +6,17 @@ import {
   submissionResults,
   testCases,
   exerciseAssignments,
+  exercises,
   systemConfig,
   sectionEnrollments,
 } from "../db/schema.js";
 import {
+  applyStylePolicyToEvaluation,
   buildStyleReport,
   evaluateCheckstyle,
   type CheckstyleEvaluation,
 } from "./checkstyle.service.js";
+import { parseExerciseStylePolicy } from "./exercise.service.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -275,19 +278,39 @@ export async function createSubmission(
   const isExitAttempt = Boolean(exitAttempt);
   const functionalScore = isAntiCheatZero || isExitAttempt ? 0 : calculateScore(testCaseRecords, testResults);
   const styleSettings = await getStyleSettings(database);
+  const exerciseRecord = await database.query.exercises.findFirst({
+    where: eq(exercises.id, exerciseId),
+    columns: {
+      id: true,
+      styleCheckEnabled: true,
+      stylePolicy: true,
+    },
+  });
+  const exerciseStylePolicy = parseExerciseStylePolicy(exerciseRecord);
+  const effectiveStyleSettings = {
+    enabled: styleSettings.enabled && exerciseStylePolicy.enabled !== false,
+    weightPercent: exerciseStylePolicy.weightPercent ?? styleSettings.weightPercent,
+    penaltyPerViolation: exerciseStylePolicy.penaltyPerViolation ?? styleSettings.penaltyPerViolation,
+    maxViolations: exerciseStylePolicy.maxViolations ?? styleSettings.maxViolations,
+  };
   let styleEvaluation =
     isAntiCheatZero || isExitAttempt
       ? skippedStyleEvaluation("Không chấm Checkstyle vì bài nộp đã bị ghi nhận 0 điểm.")
-      : styleSettings.enabled
+      : effectiveStyleSettings.enabled
         ? await evaluateCheckstyle(code, {
-          penaltyPerViolation: styleSettings.penaltyPerViolation,
-          maxViolations: styleSettings.maxViolations,
+          penaltyPerViolation: effectiveStyleSettings.penaltyPerViolation,
+          maxViolations: effectiveStyleSettings.maxViolations,
+          policy: exerciseStylePolicy,
         })
-        : skippedStyleEvaluation("Chức năng chấm Checkstyle đang tắt trong cấu hình hệ thống.");
+        : skippedStyleEvaluation(
+          styleSettings.enabled
+            ? "Bài tập này không chấm quy tắc lập trình."
+            : "Chức năng chấm Checkstyle đang tắt trong cấu hình hệ thống."
+        );
 
   // Fallback to client-side style check report if server check failed/unavailable and client provided one
-  if (styleEvaluation.status === "unavailable" && styleReport && styleReport.status !== "unavailable") {
-    styleEvaluation = {
+  if (effectiveStyleSettings.enabled && styleEvaluation.status === "unavailable" && styleReport && styleReport.status !== "unavailable") {
+    styleEvaluation = applyStylePolicyToEvaluation({
       status: styleReport.status,
       score: styleReport.score,
       violationCount: styleReport.violationCount,
@@ -296,7 +319,10 @@ export async function createSubmission(
         ? "Không phát hiện lỗi Checkstyle theo Google Java Style."
         : `Phát hiện ${styleReport.violationCount} lỗi Checkstyle. Điểm quy tắc lập trình: ${styleReport.score}/100.`,
       toolVersion: styleReport.toolVersion || "checkstyle-client",
-    };
+    }, exerciseStylePolicy, {
+      penaltyPerViolation: effectiveStyleSettings.penaltyPerViolation,
+      maxViolations: effectiveStyleSettings.maxViolations,
+    });
   }
 
   const score =
@@ -305,7 +331,7 @@ export async function createSubmission(
       : combineScores(
         functionalScore,
         styleEvaluation.status === "unavailable" ? null : styleEvaluation.score,
-        styleSettings.weightPercent
+        effectiveStyleSettings.weightPercent
       );
   const feedback = isAntiCheatZero
     ? "Điểm bị hủy do vượt quá ngưỡng cảnh báo chống gian lận."
@@ -525,10 +551,21 @@ async function recheckUnavailableStyle(submission: any, database: Database) {
 
   const styleSettings = await getStyleSettings(database);
   if (!styleSettings.enabled) return null;
+  const exerciseRecord = await database.query.exercises.findFirst({
+    where: eq(exercises.id, submission.exerciseId),
+    columns: {
+      id: true,
+      styleCheckEnabled: true,
+      stylePolicy: true,
+    },
+  });
+  const exerciseStylePolicy = parseExerciseStylePolicy(exerciseRecord);
+  if (exerciseStylePolicy.enabled === false) return null;
 
   const styleEvaluation = await evaluateCheckstyle(submission.code, {
-    penaltyPerViolation: styleSettings.penaltyPerViolation,
-    maxViolations: styleSettings.maxViolations,
+    penaltyPerViolation: exerciseStylePolicy.penaltyPerViolation ?? styleSettings.penaltyPerViolation,
+    maxViolations: exerciseStylePolicy.maxViolations ?? styleSettings.maxViolations,
+    policy: exerciseStylePolicy,
   });
   const functionalScore = Number.isFinite(Number(submission.functionalScore))
     ? Number(submission.functionalScore)
@@ -536,7 +573,7 @@ async function recheckUnavailableStyle(submission: any, database: Database) {
   const score = combineScores(
     functionalScore,
     styleEvaluation.status === "unavailable" ? null : styleEvaluation.score,
-    styleSettings.weightPercent
+    exerciseStylePolicy.weightPercent ?? styleSettings.weightPercent
   );
   const styleReport = buildStyleReport(styleEvaluation);
 
@@ -616,6 +653,8 @@ async function ensureSubmissionStyleColumns(database: Database = defaultDb) {
     "ALTER TABLE submissions ADD COLUMN style_status TEXT",
     "ALTER TABLE submissions ADD COLUMN style_feedback TEXT",
     "ALTER TABLE submissions ADD COLUMN style_report TEXT",
+    "ALTER TABLE exercises ADD COLUMN style_check_enabled INTEGER NOT NULL DEFAULT 1",
+    "ALTER TABLE exercises ADD COLUMN style_policy TEXT",
     "INSERT INTO system_config (key, value, valid_range, updated_at, updated_by) VALUES ('style_check_enabled', '1', '0-1', datetime('now'), NULL) ON CONFLICT(key) DO NOTHING",
     "INSERT INTO system_config (key, value, valid_range, updated_at, updated_by) VALUES ('style_check_weight_percent', '10', '0-50', datetime('now'), NULL) ON CONFLICT(key) DO NOTHING",
     "INSERT INTO system_config (key, value, valid_range, updated_at, updated_by) VALUES ('style_check_penalty_per_violation', '5', '1-20', datetime('now'), NULL) ON CONFLICT(key) DO NOTHING",

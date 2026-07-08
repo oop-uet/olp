@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import Editor from '@monaco-editor/react'
 import { api } from '../../lib/api'
 import { PageLoader, CheckCircleIcon, XCircleIcon } from '../../components/ui'
+import { StyleAnnotatedCodeViewer } from '../../components/submission/StyleAnnotatedCodeViewer'
 import { toast } from '../../stores/toast.store'
 
 type ResultStatus = 'passed' | 'failed' | 'timeout' | 'error'
@@ -83,6 +83,10 @@ interface StyleViolation {
   column: number | null
   severity: string
   message: string
+  source?: string
+  ruleId?: string
+  ruleLabel?: string
+  category?: string
 }
 
 interface StyleReport {
@@ -253,6 +257,17 @@ function buildAllFilesDownload(files: SubmittedSourceFile[]) {
     .join('\n')
 }
 
+function basename(path: string) {
+  return path.replace(/\\/g, '/').split('/').pop() ?? path
+}
+
+function resolveSubmittedFileName(files: SubmittedSourceFile[], violationFile: string) {
+  return (
+    files.find((file) => file.name === violationFile || basename(file.name) === basename(violationFile))
+      ?.name ?? files[0]?.name ?? 'Main.java'
+  )
+}
+
 export function SubmissionDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [submission, setSubmission] = useState<SubmissionDetail | null>(null)
@@ -260,6 +275,7 @@ export function SubmissionDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [activeSubmittedFile, setActiveSubmittedFile] = useState('Main.java')
   const [activeTab, setActiveTab] = useState<ReviewTab>('source')
+  const [focusStyleLine, setFocusStyleLine] = useState<number | null>(null)
 
   useEffect(() => {
     if (id) fetchSubmission(id)
@@ -319,7 +335,6 @@ export function SubmissionDetailPage() {
     submittedFiles.find((file) => file.name === activeSubmittedFile) ?? submittedFiles[0]
   const hasPublicResults = review.results.length > 0
   const functionalScore = submission.functionalScore ?? submission.score
-  const styleViolationCount = submission.styleReport?.violationCount ?? submission.styleReport?.violations?.length ?? 0
   const submissionStatus = getSubmissionStatus(submission)
   const nullified = isSubmissionNullified(submission)
 
@@ -426,21 +441,30 @@ export function SubmissionDetailPage() {
                   )}
                   {submission.styleReport?.violations && submission.styleReport.violations.length > 0 && (
                     <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
-                      {submission.styleReport.violations.slice(0, 5).map((violation, index) => (
-                        <div key={`${violation.file}-${violation.line}-${index}`} className="rounded-md bg-slate-50 p-2 text-xs">
+                      {submission.styleReport.violations.map((violation, index) => (
+                        <button
+                          key={`${violation.file}-${violation.line}-${index}`}
+                          type="button"
+                          onClick={() => {
+                            setActiveSubmittedFile(resolveSubmittedFileName(submittedFiles, violation.file))
+                            setActiveTab('source')
+                            setFocusStyleLine(violation.line ?? null)
+                          }}
+                          className="block w-full rounded-md bg-slate-50 p-2 text-left text-xs transition hover:bg-amber-50"
+                        >
                           <p className="font-bold text-slate-700">
                             {violation.file}
                             {violation.line ? `:${violation.line}` : ''}
                             {violation.column ? `:${violation.column}` : ''}
                           </p>
+                          {(violation.ruleLabel || violation.ruleId) && (
+                            <p className="mt-1 font-bold text-amber-700">
+                              {violation.ruleLabel ?? violation.ruleId}
+                            </p>
+                          )}
                           <p className="mt-1 leading-5 text-slate-600">{violation.message}</p>
-                        </div>
+                        </button>
                       ))}
-                      {styleViolationCount > 5 && (
-                        <p className="font-semibold text-slate-500 text-xs">
-                          Còn {styleViolationCount - 5} lỗi Checkstyle khác.
-                        </p>
-                      )}
                     </div>
                   )}
                 </div>
@@ -533,21 +557,11 @@ export function SubmissionDetailPage() {
 
           {activeTab === 'source' && (
             <div className="flex-1 bg-slate-950">
-              <Editor
-                height="100%"
-                language="java"
-                value={currentSubmittedFile?.content ?? ''}
-                theme="vs-dark"
-                options={{
-                  readOnly: true,
-                  minimap: { enabled: false },
-                  scrollBeyondLastLine: false,
-                  fontSize: 14,
-                  lineHeight: 23,
-                  lineNumbers: 'on',
-                  wordWrap: 'on',
-                  automaticLayout: true,
-                }}
+              <StyleAnnotatedCodeViewer
+                fileName={currentSubmittedFile.name}
+                code={currentSubmittedFile?.content ?? ''}
+                violations={submission.styleReport?.violations ?? []}
+                focusLine={focusStyleLine}
               />
             </div>
           )}

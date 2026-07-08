@@ -20,6 +20,21 @@ const testCaseSchema = z.object({
   time_limit_seconds: z.number().int().min(1).optional(),
 });
 
+const stylePolicySchema = z.object({
+  enabled: z.boolean().optional(),
+  profile: z.string().optional(),
+  disabledRules: z.array(z.string()).optional(),
+  disabled_rules: z.array(z.string()).optional(),
+  enabledRules: z.array(z.string()).optional(),
+  enabled_rules: z.array(z.string()).optional(),
+  weightPercent: z.number().min(0).max(50).optional(),
+  weight_percent: z.number().min(0).max(50).optional(),
+  penaltyPerViolation: z.number().min(1).max(100).optional(),
+  penalty_per_violation: z.number().min(1).max(100).optional(),
+  maxViolations: z.number().int().min(1).max(100).optional(),
+  max_penalized_violations: z.number().int().min(1).max(100).optional(),
+}).passthrough();
+
 const createExerciseSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().min(1).max(5000),
@@ -27,6 +42,8 @@ const createExerciseSchema = z.object({
   oop_tags: z.array(z.string().min(1)).min(1).max(5),
   starter_code: z.string().optional(),
   is_library: z.boolean().optional().default(false),
+  style_check_enabled: z.boolean().optional().default(true),
+  style_policy: stylePolicySchema.optional(),
   test_cases: z.array(testCaseSchema).min(1, "At least one test case is required"),
 });
 
@@ -37,6 +54,8 @@ const updateExerciseSchema = z.object({
   oop_tags: z.array(z.string().min(1)).min(1).max(5).optional(),
   starter_code: z.string().optional(),
   is_library: z.boolean().optional(),
+  style_check_enabled: z.boolean().optional(),
+  style_policy: stylePolicySchema.optional(),
   test_cases: z.array(testCaseSchema).min(1, "At least one test case is required").optional(),
 });
 

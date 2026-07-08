@@ -11,6 +11,11 @@ import {
   submissions,
   submissionResults,
 } from "../db/schema.js";
+import {
+  DEFAULT_STYLE_DISABLED_RULES,
+  normalizeStylePolicy,
+  type StyleRulePolicy,
+} from "./checkstyle.service.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -29,6 +34,8 @@ export interface CreateExerciseInput {
   oop_tags: string[];
   starter_code?: string;
   is_library?: boolean;
+  style_check_enabled?: boolean;
+  style_policy?: StyleRulePolicy;
   test_cases: TestCaseInput[];
 }
 
@@ -39,6 +46,8 @@ export interface UpdateExerciseInput {
   oop_tags?: string[];
   starter_code?: string;
   is_library?: boolean;
+  style_check_enabled?: boolean;
+  style_policy?: StyleRulePolicy;
   test_cases?: TestCaseInput[];
 }
 
@@ -54,6 +63,56 @@ export interface ExerciseError {
 
 type Database = typeof defaultDb;
 
+function defaultExerciseStylePolicy(): StyleRulePolicy {
+  return {
+    enabled: true,
+    profile: "uet-oop-basic",
+    disabledRules: DEFAULT_STYLE_DISABLED_RULES,
+    weightPercent: 10,
+    penaltyPerViolation: 5,
+    maxViolations: 20,
+  };
+}
+
+export function serializeExerciseStylePolicy(input?: unknown): string {
+  return JSON.stringify(normalizeStylePolicy(input ?? defaultExerciseStylePolicy()));
+}
+
+export function parseExerciseStylePolicy(exercise: { styleCheckEnabled?: number | boolean | null; stylePolicy?: string | null } | null | undefined): StyleRulePolicy {
+  const rawPolicy = (() => {
+    if (!exercise?.stylePolicy) return defaultExerciseStylePolicy();
+    try {
+      return JSON.parse(exercise.stylePolicy);
+    } catch {
+      return defaultExerciseStylePolicy();
+    }
+  })();
+  return {
+    ...normalizeStylePolicy(rawPolicy),
+    enabled: exercise?.styleCheckEnabled === 0 || exercise?.styleCheckEnabled === false ? false : rawPolicy.enabled ?? true,
+  };
+}
+
+async function ensureExerciseStyleColumns(database = defaultDb) {
+  const sqlite = (database as any).session?.client;
+  if (!sqlite) return;
+
+  for (const statement of [
+    "ALTER TABLE exercises ADD COLUMN style_check_enabled INTEGER NOT NULL DEFAULT 1",
+    "ALTER TABLE exercises ADD COLUMN style_policy TEXT",
+  ]) {
+    try {
+      if (typeof sqlite.exec === "function") {
+        sqlite.exec(statement);
+      } else if (typeof sqlite.execute === "function") {
+        await sqlite.execute(statement);
+      }
+    } catch {
+      // Column already exists.
+    }
+  }
+}
+
 // ─── Service ─────────────────────────────────────────────────────────────────
 
 /**
@@ -65,6 +124,8 @@ export async function listExercises(
   role: string,
   database = defaultDb
 ) {
+  await ensureExerciseStyleColumns(database);
+
   if (role === "admin") {
     return database.query.exercises.findMany({
       with: { testCases: true },
@@ -82,6 +143,8 @@ export async function listExercises(
  * Get a single exercise by ID.
  */
 export async function getExerciseById(id: string, database = defaultDb) {
+  await ensureExerciseStyleColumns(database);
+
   const exercise = await database.query.exercises.findFirst({
     where: eq(exercises.id, id),
     with: { testCases: true },
@@ -112,6 +175,8 @@ export async function getInstructorExerciseOverview(
   role: string,
   database: Database = defaultDb
 ) {
+  await ensureExerciseStyleColumns(database);
+
   const exercise = await database.query.exercises.findFirst({
     where: eq(exercises.id, id),
     with: { testCases: true },
@@ -282,6 +347,8 @@ export async function createExercise(
   createdBy: string,
   database = defaultDb
 ) {
+  await ensureExerciseStyleColumns(database);
+
   // Validate title length
   if (input.title.length > 200) {
     return {
@@ -336,6 +403,8 @@ export async function createExercise(
       starterCode: input.starter_code || null,
       isLibrary: input.is_library ? 1 : 0,
       oopTags: JSON.stringify(input.oop_tags),
+      styleCheckEnabled: input.style_check_enabled === false ? 0 : 1,
+      stylePolicy: serializeExerciseStylePolicy(input.style_policy),
       createdBy,
       createdAt: now,
       updatedAt: now,
@@ -373,6 +442,8 @@ export async function updateExercise(
   role: string,
   database = defaultDb
 ) {
+  await ensureExerciseStyleColumns(database);
+
   // Verify exercise exists
   const existing = await database.query.exercises.findFirst({
     where: eq(exercises.id, id),
@@ -447,6 +518,8 @@ export async function updateExercise(
   if (input.oop_tags !== undefined) updateData.oopTags = JSON.stringify(input.oop_tags);
   if (input.starter_code !== undefined) updateData.starterCode = input.starter_code;
   if (input.is_library !== undefined) updateData.isLibrary = input.is_library ? 1 : 0;
+  if (input.style_check_enabled !== undefined) updateData.styleCheckEnabled = input.style_check_enabled ? 1 : 0;
+  if (input.style_policy !== undefined) updateData.stylePolicy = serializeExerciseStylePolicy(input.style_policy);
   updateData.updatedAt = new Date().toISOString();
 
   if (Object.keys(updateData).length === 1 && input.test_cases === undefined) {
@@ -514,6 +587,8 @@ export async function deleteExercise(
   role: string,
   database = defaultDb
 ) {
+  await ensureExerciseStyleColumns(database);
+
   const existing = await database.query.exercises.findFirst({
     where: eq(exercises.id, id),
   });
@@ -565,6 +640,8 @@ export async function deleteExercise(
  * Browse the exercise library (exercises marked as isLibrary = 1).
  */
 export async function browseLibrary(database = defaultDb) {
+  await ensureExerciseStyleColumns(database);
+
   return database.query.exercises.findMany({
     where: eq(exercises.isLibrary, 1),
     with: { testCases: true },
@@ -579,6 +656,8 @@ export async function assignToSection(
   input: AssignExerciseInput,
   database = defaultDb
 ) {
+  await ensureExerciseStyleColumns(database);
+
   // Verify exercise exists
   const exercise = await database.query.exercises.findFirst({
     where: eq(exercises.id, exerciseId),
