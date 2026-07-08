@@ -114,22 +114,6 @@ export function DashboardPage() {
           )
         })}
       </div>
-
-      {/* Quick Links */}
-      <div className="card p-5">
-        <h2 className="mb-4 text-sm font-semibold text-gray-700">Truy cập nhanh</h2>
-        <div className="flex flex-wrap gap-3">
-          <Link to="/admin/instructors" className="btn-secondary">
-            <TeacherIcon className="h-5 w-5" /> Quản lý giảng viên
-          </Link>
-          <Link to="/admin/students" className="btn-secondary">
-            <StudentsIcon className="h-5 w-5" /> Quản lý sinh viên
-          </Link>
-          <Link to="/admin/sections" className="btn-secondary">
-            <SectionIcon className="h-5 w-5" /> Quản lý lớp học phần
-          </Link>
-        </div>
-      </div>
     </div>
   )
 }
