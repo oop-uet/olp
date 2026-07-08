@@ -194,7 +194,7 @@ export function AdminExercisesPage() {
                 </th>
                 <th className="table-th select-none">Thẻ OOP</th>
                 <th className="table-th text-center select-none">Số test case</th>
-                <th className="table-th text-center w-36 select-none">Thao tác</th>
+                <th className="table-th text-center w-16 select-none"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
@@ -236,21 +236,21 @@ export function AdminExercisesPage() {
                         : '—'}
                     </td>
                     <td className="table-td text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <Link
-                          to={`/admin/exercises/${exercise.id}/edit`}
-                          className="bg-[#2ece71] hover:bg-[#27ae60] text-white text-[11px] font-bold px-3 py-1.5 rounded transition-all active:scale-[0.97] cursor-pointer shadow-sm inline-block"
-                        >
-                          Sửa
-                        </Link>
-                        <button
-                          onClick={() => handleDelete(exercise)}
-                          disabled={deletingId === exercise.id}
-                          className="bg-[#e67e22] hover:bg-[#d35400] text-white text-[11px] font-bold px-3 py-1.5 rounded transition-all active:scale-[0.97] cursor-pointer shadow-sm disabled:opacity-50"
-                        >
-                          {deletingId === exercise.id ? 'Đang xóa...' : 'Xóa'}
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(exercise)}
+                        disabled={deletingId === exercise.id}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded-lg transition-all active:scale-[0.95] cursor-pointer disabled:opacity-50 inline-flex items-center justify-center"
+                        title="Xóa bài tập"
+                      >
+                        {deletingId === exercise.id ? (
+                          <span className="text-[10px] font-bold">...</span>
+                        ) : (
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        )}
+                      </button>
                     </td>
                   </tr>
                 )
