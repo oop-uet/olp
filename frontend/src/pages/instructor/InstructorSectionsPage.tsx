@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader, Spinner } from '../../components/ui'
@@ -37,6 +37,20 @@ export function InstructorSectionsPage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false)
   const [maxPossibleScore, setMaxPossibleScore] = useState<number>(0)
+
+  // Custom Dropdown State
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   useEffect(() => {
     fetchSections()
@@ -153,21 +167,40 @@ export function InstructorSectionsPage() {
               
               <div className="p-4 space-y-4">
                 
-                {/* Section selection tabs */}
-                <div className="flex flex-wrap gap-1.5 border-b border-slate-100 pb-3">
-                  {sections.map((sec) => (
-                    <button
-                      key={sec.id}
-                      onClick={() => setActiveSectionId(sec.id)}
-                      className={`px-3 py-1.5 text-xs font-bold rounded transition-all duration-150 cursor-pointer ${
-                        activeSectionId === sec.id
-                          ? 'bg-[#29b6f6] text-white shadow-sm'
-                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                      }`}
-                    >
-                      {formatSectionDisplayName(sec.name)}
-                    </button>
-                  ))}
+                {/* Section selection dropdown */}
+                <div className="relative mb-3" ref={dropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setDropdownOpen(!dropdownOpen)}
+                    className="flex w-full items-center justify-between rounded bg-[#0284c7] px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#0270a8] transition-all cursor-pointer select-none"
+                  >
+                    <span>{sections.find((s) => s.id === activeSectionId)?.name ? formatSectionDisplayName(sections.find((s) => s.id === activeSectionId)!.name) : 'Chọn lớp'}</span>
+                    <svg className={`h-4 w-4 transition-transform duration-150 ${dropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {dropdownOpen && (
+                    <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto rounded border border-slate-200 bg-white shadow-lg">
+                      {sections.map((sec) => (
+                        <button
+                          key={sec.id}
+                          type="button"
+                          onClick={() => {
+                            setActiveSectionId(sec.id)
+                            setDropdownOpen(false)
+                          }}
+                          className={`flex w-full items-center px-4 py-2.5 text-left text-xs font-semibold border-b border-slate-50 last:border-b-0 transition-colors cursor-pointer ${
+                            activeSectionId === sec.id
+                              ? 'bg-sky-50 text-sky-600 font-bold'
+                              : 'text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          {formatSectionDisplayName(sec.name)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Leaderboard records */}

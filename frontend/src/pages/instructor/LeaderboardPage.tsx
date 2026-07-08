@@ -41,6 +41,20 @@ export function LeaderboardPage() {
   const [selectedSectionId, setSelectedSectionId] = useState<string>('')
   const [maxPossibleScore, setMaxPossibleScore] = useState<number>(0)
   const [loading, setLoading] = useState(false)
+
+  // Custom Dropdown State
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [pageSize, setPageSize] = useState(30)
@@ -188,22 +202,59 @@ export function LeaderboardPage() {
       </div>
 
       <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <label htmlFor="section-filter" className="text-xs font-bold uppercase tracking-wider text-slate-600">
+        <label className="text-xs font-bold uppercase tracking-wider text-slate-600">
           Lớp học phần:
         </label>
-        <select
-          id="section-filter"
-          value={selectedSectionId}
-          onChange={(e) => handleSectionChange(e.target.value)}
-          className="input max-w-xs px-3 py-1.5 text-xs font-semibold"
-        >
-          <option value="">-- Chọn lớp học --</option>
-          {sections.map((sec) => (
-            <option key={sec.id} value={sec.id}>
-              {normalizePreviewSectionName(sec.name, sec.semester)}
-            </option>
-          ))}
-        </select>
+        
+        {/* Custom Section selection dropdown */}
+        <div className="relative w-72" ref={dropdownRef}>
+          <button
+            type="button"
+            onClick={() => setDropdownOpen(!dropdownOpen)}
+            className="flex w-full items-center justify-between rounded bg-[#0284c7] px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#0270a8] transition-all cursor-pointer select-none"
+          >
+            <span>{sections.find((s) => s.id === selectedSectionId)?.name ? normalizePreviewSectionName(sections.find((s) => s.id === selectedSectionId)!.name, sections.find((s) => s.id === selectedSectionId)!.semester) : 'Chọn lớp'}</span>
+            <svg className={`h-4 w-4 transition-transform duration-150 ${dropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {dropdownOpen && (
+            <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto rounded border border-slate-200 bg-white shadow-lg">
+              <button
+                type="button"
+                onClick={() => {
+                  handleSectionChange('')
+                  setDropdownOpen(false)
+                }}
+                className={`flex w-full items-center px-4 py-2.5 text-left text-xs font-semibold border-b border-slate-50 last:border-b-0 transition-colors cursor-pointer ${
+                  selectedSectionId === ''
+                    ? 'bg-sky-50 text-sky-600 font-bold'
+                    : 'text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                Chọn lớp
+              </button>
+              {sections.map((sec) => (
+                <button
+                  key={sec.id}
+                  type="button"
+                  onClick={() => {
+                    handleSectionChange(sec.id)
+                    setDropdownOpen(false)
+                  }}
+                  className={`flex w-full items-center px-4 py-2.5 text-left text-xs font-semibold border-b border-slate-50 last:border-b-0 transition-colors cursor-pointer ${
+                    selectedSectionId === sec.id
+                      ? 'bg-sky-50 text-sky-600 font-bold'
+                      : 'text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  {normalizePreviewSectionName(sec.name, sec.semester)}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* No section selected */}

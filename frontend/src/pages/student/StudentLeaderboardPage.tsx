@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { cachedGet } from '../../lib/api'
 import { PageLoader, LeaderboardIcon } from '../../components/ui'
@@ -41,6 +41,21 @@ export function StudentLeaderboardPage() {
   const [maxPossibleScore, setMaxPossibleScore] = useState<number>(0)
   const [loadingSections, setLoadingSections] = useState(true)
   const [loadingBoard, setLoadingBoard] = useState(false)
+
+  // Custom Dropdown State
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
   const [searchQuery, setSearchQuery] = useState('')
   const [pageSize, setPageSize] = useState(30)
   const [currentPage, setCurrentPage] = useState(1)
@@ -165,23 +180,45 @@ export function StudentLeaderboardPage() {
 
         {sections.length > 1 && (
           <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
-            <label htmlFor="section-select">Lớp học phần:</label>
-            <select
-              id="section-select"
-              value={currentSection.id}
-              onChange={(event) => {
-                setSelectedSectionId(event.target.value)
-                fetchLeaderboard(event.target.value)
-                setCurrentPage(1)
-              }}
-              className="h-9 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-800 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10"
-            >
-              {sections.map((section) => (
-                <option key={section.id} value={section.id}>
-                  {normalizePreviewSectionName(section.name, section.semester)}
-                </option>
-              ))}
-            </select>
+            <label>Lớp học phần:</label>
+            
+            {/* Custom Dropdown select */}
+            <div className="relative w-64" ref={dropdownRef}>
+              <button
+                type="button"
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                className="flex w-full items-center justify-between rounded bg-[#0284c7] px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#0270a8] transition-all cursor-pointer select-none"
+              >
+                <span>{currentSection?.name ? normalizePreviewSectionName(currentSection.name, currentSection.semester) : 'Chọn lớp'}</span>
+                <svg className={`h-4 w-4 transition-transform duration-150 ${dropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {dropdownOpen && (
+                <div className="absolute right-0 left-0 z-50 mt-1 max-h-60 overflow-y-auto rounded border border-slate-200 bg-white shadow-lg">
+                  {sections.map((section) => (
+                    <button
+                      key={section.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedSectionId(section.id)
+                        fetchLeaderboard(section.id)
+                        setCurrentPage(1)
+                        setDropdownOpen(false)
+                      }}
+                      className={`flex w-full items-center px-4 py-2.5 text-left text-xs font-semibold border-b border-slate-50 last:border-b-0 transition-colors cursor-pointer ${
+                        currentSection.id === section.id
+                          ? 'bg-sky-50 text-sky-600 font-bold'
+                          : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {normalizePreviewSectionName(section.name, section.semester)}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
