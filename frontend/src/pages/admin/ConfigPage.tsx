@@ -1,4 +1,4 @@
-import { useEffect, useState, FormEvent } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
 import { PageLoader, Spinner, ConfigIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
@@ -173,35 +173,7 @@ export function ConfigPage() {
     })
   }
 
-  async function handleSubmit(key: string, e: FormEvent) {
-    e.preventDefault()
-
-    const value = formValues[key] ?? ''
-    const error = validateField(key, value)
-
-    if (error) {
-      setErrors((prev) => ({ ...prev, [key]: error }))
-      return
-    }
-
-    setSaving(key)
-    try {
-      await api.put('/api/admin/config', { key, value: value.trim() })
-      toast.success(
-        `Đã cập nhật ${CONFIG_PARAMS[key]?.label || key} thành công.`
-      )
-      // Refresh config to show latest values
-      await fetchConfig()
-    } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
-      const message =
-        axiosErr?.response?.data?.error?.message ||
-        'Không thể cập nhật cấu hình.'
-      toast.error(message)
-    } finally {
-      setSaving(null)
-    }
-  }
+  // Removed single handleSubmit in favor of batch handleSaveAll
 
   if (loading) {
     return <PageLoader label="Đang tải cấu hình..." />
@@ -230,6 +202,59 @@ export function ConfigPage() {
     })
     .filter((p) => configs.some((c) => c.key === p.key))
 
+  async function handleSaveAll() {
+    const nextErrors: Record<string, string> = {}
+    let hasError = false
+
+    for (const param of params) {
+      const val = formValues[param.key] ?? ''
+      const error = validateField(param.key, val)
+      if (error) {
+        nextErrors[param.key] = error
+        hasError = true
+      }
+    }
+
+    if (hasError) {
+      setErrors(nextErrors)
+      toast.error('Vui lòng sửa các lỗi cấu hình trước khi lưu.')
+      return
+    }
+
+    setSaving('all')
+    try {
+      const changedParams = params.filter((p) => {
+        const originalEntry = configs.find((c) => c.key === p.key)
+        return originalEntry ? originalEntry.value !== formValues[p.key] : false
+      })
+
+      if (changedParams.length === 0) {
+        toast.info('Không có thay đổi nào cần lưu.')
+        return
+      }
+
+      await Promise.all(
+        changedParams.map((p) =>
+          api.put('/api/admin/config', {
+            key: p.key,
+            value: (formValues[p.key] ?? '').trim(),
+          })
+        )
+      )
+
+      toast.success('Đã lưu cấu hình hệ thống thành công.')
+      await fetchConfig()
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
+      const message =
+        axiosErr?.response?.data?.error?.message ||
+        'Không thể cập nhật cấu hình.'
+      toast.error(message)
+    } finally {
+      setSaving(null)
+    }
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Page header */}
@@ -240,16 +265,30 @@ export function ConfigPage() {
           </span>
           <span>CẤU HÌNH HỆ THỐNG</span>
         </div>
+        {params.length > 0 && (
+          <button
+            type="button"
+            onClick={handleSaveAll}
+            disabled={saving === 'all'}
+            className="bg-primary hover:bg-primary-700 text-white text-[11px] font-bold px-4 py-2.5 rounded-lg transition-all active:scale-[0.97] shadow-sm cursor-pointer inline-flex items-center gap-1.5"
+          >
+            {saving === 'all' ? (
+              <>
+                <Spinner /> Đang lưu...
+              </>
+            ) : (
+              'Lưu cấu hình'
+            )}
+          </button>
+        )}
       </div>
 
       {/* Config forms */}
       <div className="space-y-4">
         {params.map((param) => (
-          <form
+          <div
             key={param.key}
-            onSubmit={(e) => handleSubmit(param.key, e)}
             className="card p-5"
-            noValidate
           >
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div className="flex-1">
@@ -314,22 +353,8 @@ export function ConfigPage() {
                   <p className="mt-1.5 text-xs text-danger-600">{errors[param.key]}</p>
                 )}
               </div>
-
-              <button
-                type="submit"
-                disabled={saving === param.key}
-                className="btn-primary shrink-0"
-              >
-                {saving === param.key ? (
-                  <>
-                    <Spinner /> Đang lưu...
-                  </>
-                ) : (
-                  'Cập nhật'
-                )}
-              </button>
             </div>
-          </form>
+          </div>
         ))}
       </div>
 

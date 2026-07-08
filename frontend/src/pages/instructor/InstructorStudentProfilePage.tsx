@@ -286,7 +286,7 @@ export function InstructorStudentProfilePage() {
                             </td>
                             <td className="px-3 py-3 font-bold">
                               <Link
-                                to={isStudentView ? `/student/submissions/${submission.id}` : `/instructor/submissions?submission_id=${submission.id}`}
+                                to={isStudentView ? `/student/submissions/${submission.id}` : `/instructor/submissions/${submission.id}`}
                                 className="text-primary hover:text-primary-800 hover:underline transition-colors"
                               >
                                 {submission.id.slice(0, 8)}

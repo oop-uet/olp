@@ -4,6 +4,7 @@ import { api } from '../../lib/api'
 import { PageLoader, CheckCircleIcon, XCircleIcon } from '../../components/ui'
 import { StyleAnnotatedCodeViewer } from '../../components/submission/StyleAnnotatedCodeViewer'
 import { toast } from '../../stores/toast.store'
+import { useAuthStore } from '../../stores/auth.store'
 
 type ResultStatus = 'passed' | 'failed' | 'timeout' | 'error'
 type ReviewTab = 'source' | 'results'
@@ -46,6 +47,9 @@ interface SubmissionDetail {
   id: string
   exerciseId: string
   exerciseTitle: string
+  studentName: string | null
+  studentUsername: string | null
+  studentEmail: string | null
   code: string
   functionalScore: number | null
   score: number
@@ -63,6 +67,11 @@ interface SubmissionDetail {
 type SubmissionDetailResponse = Partial<SubmissionDetail> & {
   exercise?: {
     title?: string
+  }
+  student?: {
+    fullName?: string | null
+    username?: string | null
+    email?: string | null
   }
   exercise_id?: string
   attempt_number?: number
@@ -134,6 +143,9 @@ function normalizeSubmissionDetail(data: SubmissionDetailResponse): SubmissionDe
     id: data.id ?? '',
     exerciseId: data.exerciseId ?? data.exercise_id ?? '',
     exerciseTitle: data.exerciseTitle ?? data.exercise?.title ?? 'Bài tập',
+    studentName: data.studentName ?? data.student?.fullName ?? null,
+    studentUsername: data.studentUsername ?? data.student?.username ?? null,
+    studentEmail: data.studentEmail ?? data.student?.email ?? null,
     code: data.code ?? '',
     functionalScore: data.functionalScore ?? data.functional_score ?? null,
     score: Number(data.effectiveScore ?? data.manualScore ?? data.score ?? 0),
@@ -270,6 +282,7 @@ function resolveSubmittedFileName(files: SubmittedSourceFile[], violationFile: s
 
 export function SubmissionDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const userRole = useAuthStore((state) => state.user?.role)
   const [submission, setSubmission] = useState<SubmissionDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -319,11 +332,14 @@ export function SubmissionDetailPage() {
     return <PageLoader label="Đang tải bài nộp..." />
   }
 
+  const submissionsPath = userRole === 'instructor' ? '/instructor/submissions' : '/student/submissions'
+  const isInstructorView = userRole === 'instructor'
+
   if (error || !submission) {
     return (
       <div className="card flex flex-col items-center justify-center gap-4 p-12 text-center">
         <p className="text-gray-700">{error ?? 'Không tìm thấy bài nộp.'}</p>
-        <Link to="/student/submissions" className="btn-primary">
+        <Link to={submissionsPath} className="btn-primary">
           Quay lại danh sách bài nộp
         </Link>
       </div>
@@ -344,7 +360,7 @@ export function SubmissionDetailPage() {
         <div className="mx-auto flex max-w-none flex-wrap items-center justify-between gap-3 px-2 lg:px-4">
           <div className="flex min-w-0 items-center gap-3">
             <Link
-              to="/student/submissions"
+              to={submissionsPath}
               className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition hover:border-primary-300 hover:bg-primary-50 hover:text-primary"
               aria-label="Quay lại danh sách bài nộp"
             >
@@ -355,6 +371,9 @@ export function SubmissionDetailPage() {
                 #{submission.id.slice(0, 8)}: {submission.exerciseTitle}
               </h1>
               <p className="text-xs font-medium text-slate-500">
+                {isInstructorView && (submission.studentName || submission.studentUsername)
+                  ? `${submission.studentName ?? submission.studentUsername} · `
+                  : ''}
                 Lần nộp #{submission.attemptNumber} · {formatTimestamp(submission.submittedAt)}
               </p>
             </div>
@@ -383,6 +402,19 @@ export function SubmissionDetailPage() {
               </h2>
             </div>
             <div className="space-y-3 p-4 text-sm text-slate-700">
+              {isInstructorView && (
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Sinh viên</p>
+                  <p className="mt-1 font-bold text-slate-900">
+                    {submission.studentName ?? submission.studentUsername ?? 'Không rõ'}
+                  </p>
+                  {(submission.studentUsername || submission.studentEmail) && (
+                    <p className="mt-0.5 text-xs font-medium text-slate-500">
+                      {[submission.studentUsername, submission.studentEmail].filter(Boolean).join(' · ')}
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="flex items-center justify-between gap-3">
                 <span className="font-semibold text-slate-500">Trạng thái</span>
                 <span className={submissionStatus.className}>{submissionStatus.label}</span>
@@ -413,7 +445,9 @@ export function SubmissionDetailPage() {
                 </div>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <span className="font-semibold text-slate-500">Test public đạt</span>
+                <span className="font-semibold text-slate-500">
+                  {isInstructorView ? 'Test đạt' : 'Test public đạt'}
+                </span>
                 <span className="font-bold text-slate-900">
                   {review.passedCount}/{review.results.length}
                 </span>

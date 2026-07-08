@@ -146,6 +146,7 @@ export const router = createBrowserRouter(
         { path: 'course/:id', element: withSuspense(<InstructorCourseDetailPage />) },
         { path: 'statistic', element: withSuspense(<InstructorStatisticPage />) },
         { path: 'submissions', element: withSuspense(<SubmissionReviewPage />) },
+        { path: 'submissions/:id', element: withSuspense(<SubmissionDetailPage />) },
         { path: 'leaderboard', element: withSuspense(<LeaderboardPage />) },
         { path: 'plagiarism', element: withSuspense(<PlagiarismPage />) },
       ],
