@@ -1,9 +1,9 @@
 import { Router, Request, Response } from "express";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, or, inArray } from "drizzle-orm";
 import crypto from "node:crypto";
 import bcrypt from "bcrypt";
 import { db } from "../../db/index.js";
-import { classSections, sectionEnrollments, users, exerciseAssignments, exercises, submissions } from "../../db/schema.js";
+import { classSections, sectionEnrollments, users, exerciseAssignments, exercises, submissions, sectionInstructors } from "../../db/schema.js";
 import { getSectionDetail, unassignExercise, isSectionError, listSectionsForInstructor, userCanAccessSection } from "../../services/section.service.js";
 import { getStudentProgress } from "../../services/submission.service.js";
 import { registerScheduleRoutes } from "../schedule.helper.js";
@@ -110,13 +110,98 @@ router.delete("/:id/students/:studentId", async (req: Request, res: Response) =>
 });
 
 /**
+ * GET /api/instructor/sections/:id/students/lookup/:studentId
+ * Preview an existing student account/enrollment before manually enrolling.
+ */
+router.get("/:id/students/lookup/:studentId", async (req: Request, res: Response) => {
+  try {
+    const { userId, role } = req.user!;
+    const sectionId = req.params.id;
+    const studentId = req.params.studentId.trim();
+    if (!studentId) {
+      res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "MSSV là bắt buộc." } });
+      return;
+    }
+
+    if (!(await userCanAccessSection(sectionId, userId, role, db))) {
+      res.status(403).json({ error: { code: "FORBIDDEN", message: "Bạn không phụ trách lớp này." } });
+      return;
+    }
+
+    const studentUser = await db.query.users.findFirst({
+      where: or(eq(users.username, studentId), eq(users.email, `${studentId.toLowerCase()}@vnu.edu.vn`)),
+      columns: {
+        id: true,
+        username: true,
+        email: true,
+        fullName: true,
+      },
+    });
+
+    const enrollmentRows = await db
+      .select({
+        enrollmentId: sectionEnrollments.id,
+        sectionId: sectionEnrollments.sectionId,
+        sectionName: classSections.name,
+        semester: classSections.semester,
+        instructorId: classSections.instructorId,
+      })
+      .from(sectionEnrollments)
+      .innerJoin(classSections, eq(sectionEnrollments.sectionId, classSections.id))
+      .where(eq(sectionEnrollments.studentExternalId, studentId));
+
+    const sectionIds = enrollmentRows.map((row) => row.sectionId);
+    const instructorRows =
+      sectionIds.length > 0
+        ? await db
+            .select({
+              sectionId: sectionInstructors.sectionId,
+              instructorId: users.id,
+              fullName: users.fullName,
+              username: users.username,
+            })
+            .from(sectionInstructors)
+            .innerJoin(users, eq(sectionInstructors.instructorId, users.id))
+            .where(inArray(sectionInstructors.sectionId, sectionIds))
+        : [];
+
+    res.status(200).json({
+      exists: Boolean(studentUser || enrollmentRows.length > 0),
+      student: studentUser
+        ? {
+            id: studentUser.id,
+            username: studentUser.username,
+            email: studentUser.email,
+            fullName: studentUser.fullName,
+          }
+        : null,
+      enrollments: enrollmentRows.map((enrollment) => ({
+        enrollmentId: enrollment.enrollmentId,
+        sectionId: enrollment.sectionId,
+        sectionName: enrollment.sectionName,
+        semester: enrollment.semester,
+        isCurrentSection: enrollment.sectionId === sectionId,
+        instructors: instructorRows
+          .filter((row) => row.sectionId === enrollment.sectionId)
+          .map((row) => ({
+            id: row.instructorId,
+            name: row.fullName || row.username,
+          })),
+      })),
+    });
+  } catch {
+    res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } });
+  }
+});
+
+/**
  * POST /api/instructor/sections/:id/students
  * Manually enroll a student into a section the instructor owns.
  */
 router.post("/:id/students", async (req: Request, res: Response) => {
   try {
     const { userId, role } = req.user!;
-    const { studentId, fullName, email } = req.body;
+    const { studentId, fullName, email, transferExisting } = req.body;
 
     if (!studentId || !fullName || !email) {
       res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "MSSV, Họ tên và Email là bắt buộc." } });
@@ -132,18 +217,6 @@ router.post("/:id/students", async (req: Request, res: Response) => {
     }
     if (!(await userCanAccessSection(req.params.id, userId, role, db))) {
       res.status(403).json({ error: { code: "FORBIDDEN", message: "Bạn không phụ trách lớp này." } });
-      return;
-    }
-
-    // Check if enrollment already exists
-    const existingEnrollment = await db.query.sectionEnrollments.findFirst({
-      where: and(
-        eq(sectionEnrollments.sectionId, req.params.id),
-        eq(sectionEnrollments.studentExternalId, studentId)
-      ),
-    });
-    if (existingEnrollment) {
-      res.status(409).json({ error: { code: "DUPLICATE", message: "Sinh viên đã được ghi danh vào lớp này." } });
       return;
     }
 
@@ -173,6 +246,37 @@ router.post("/:id/students", async (req: Request, res: Response) => {
         .returning();
 
       studentUser = newUser;
+    }
+
+    const existingEnrollments = await db
+      .select({
+        id: sectionEnrollments.id,
+        sectionId: sectionEnrollments.sectionId,
+        sectionName: classSections.name,
+      })
+      .from(sectionEnrollments)
+      .innerJoin(classSections, eq(sectionEnrollments.sectionId, classSections.id))
+      .where(or(eq(sectionEnrollments.studentExternalId, studentId), eq(sectionEnrollments.studentId, studentUser.id)));
+
+    const currentEnrollment = existingEnrollments.find((enrollment) => enrollment.sectionId === req.params.id);
+    if (currentEnrollment) {
+      res.status(409).json({ error: { code: "DUPLICATE", message: "Sinh viên đã được ghi danh vào lớp này." } });
+      return;
+    }
+
+    const otherEnrollments = existingEnrollments.filter((enrollment) => enrollment.sectionId !== req.params.id);
+    if (otherEnrollments.length > 0 && transferExisting !== true) {
+      res.status(409).json({
+        error: {
+          code: "STUDENT_ALREADY_ENROLLED",
+          message: `Sinh viên đang thuộc lớp học phần ${otherEnrollments.map((enrollment) => enrollment.sectionName).join(", ")}. Vui lòng xác nhận chuyển lớp trước khi thêm.`,
+        },
+      });
+      return;
+    }
+
+    for (const enrollment of otherEnrollments) {
+      await db.delete(sectionEnrollments).where(eq(sectionEnrollments.id, enrollment.id));
     }
 
     // Create enrollment

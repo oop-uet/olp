@@ -54,6 +54,26 @@ interface StudentProgress {
   rank: number | null
 }
 
+interface StudentLookupEnrollment {
+  enrollmentId: string
+  sectionId: string
+  sectionName: string
+  semester: string
+  isCurrentSection: boolean
+  instructors: Array<{ id: string; name: string }>
+}
+
+interface StudentLookupResult {
+  exists: boolean
+  student: {
+    id: string
+    username: string
+    email: string
+    fullName: string | null
+  } | null
+  enrollments: StudentLookupEnrollment[]
+}
+
 export function InstructorSectionDetailPage() {
   const { id } = useParams<{ id: string }>()
 
@@ -71,6 +91,9 @@ export function InstructorSectionDetailPage() {
   const [newStudentId, setNewStudentId] = useState('')
   const [newFullName, setNewFullName] = useState('')
   const [addLoading, setAddLoading] = useState(false)
+  const [studentLookup, setStudentLookup] = useState<StudentLookupResult | null>(null)
+  const [lookupLoading, setLookupLoading] = useState(false)
+  const lookupSeqRef = useRef(0)
 
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingStudent, setEditingStudent] = useState<SectionStudent | null>(null)
@@ -97,6 +120,45 @@ export function InstructorSectionDetailPage() {
       fetchDetail()
     }
   }, [id])
+
+  useEffect(() => {
+    if (!showAddModal) {
+      setStudentLookup(null)
+      setLookupLoading(false)
+      return
+    }
+
+    const studentId = newStudentId.trim()
+    if (studentId.length < 4) {
+      setStudentLookup(null)
+      setLookupLoading(false)
+      return
+    }
+
+    const seq = ++lookupSeqRef.current
+    setLookupLoading(true)
+    const timer = setTimeout(async () => {
+      try {
+        const response = await api.get(`/api/instructor/sections/${id}/students/lookup/${encodeURIComponent(studentId)}`)
+        if (lookupSeqRef.current !== seq) return
+        const result: StudentLookupResult = response.data
+        setStudentLookup(result)
+        if (result.student?.fullName) {
+          setNewFullName((current) => current.trim() ? current : result.student?.fullName ?? current)
+        }
+      } catch {
+        if (lookupSeqRef.current === seq) {
+          setStudentLookup(null)
+        }
+      } finally {
+        if (lookupSeqRef.current === seq) {
+          setLookupLoading(false)
+        }
+      }
+    }, 350)
+
+    return () => clearTimeout(timer)
+  }, [id, newStudentId, showAddModal])
 
   async function fetchDetail() {
     setLoading(true)
@@ -125,17 +187,20 @@ export function InstructorSectionDetailPage() {
     const studentId = newStudentId.trim()
     const fullName = newFullName.trim()
     if (!studentId || !fullName) return
+    const shouldTransferStudent = studentLookup?.enrollments.some((enrollment) => !enrollment.isCurrentSection) ?? false
     setAddLoading(true)
     try {
       await api.post(`/api/instructor/sections/${id}/students`, {
         studentId,
         fullName,
         email: `${studentId}@vnu.edu.vn`,
+        transferExisting: shouldTransferStudent,
       })
-      toast.success('Đã ghi danh sinh viên mới.')
+      toast.success(shouldTransferStudent ? 'Đã chuyển lớp và ghi danh sinh viên.' : 'Đã ghi danh sinh viên mới.')
       setShowAddModal(false)
       setNewStudentId('')
       setNewFullName('')
+      setStudentLookup(null)
       await fetchDetail()
     } catch (err) {
       const msg = (err as AxiosError<{ error?: { message?: string } }>)?.response?.data?.error?.message || 'Không thể thêm sinh viên.'
@@ -352,6 +417,9 @@ export function InstructorSectionDetailPage() {
   if (!detail || !section) {
     return null
   }
+
+  const lookupHasCurrentSection = studentLookup?.enrollments.some((enrollment) => enrollment.isCurrentSection) ?? false
+  const lookupHasOtherSection = studentLookup?.enrollments.some((enrollment) => !enrollment.isCurrentSection) ?? false
 
   return (
     <div className="space-y-6">
@@ -629,10 +697,44 @@ export function InstructorSectionDetailPage() {
                   Email sẽ được tạo tự động: <span className="text-primary">{newStudentId.trim()}@vnu.edu.vn</span>
                 </p>
               )}
+              {lookupLoading && (
+                <div className="flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500">
+                  <Spinner /> Đang kiểm tra sinh viên trong CSDL...
+                </div>
+              )}
+              {!lookupLoading && studentLookup?.student && (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                  <p className="font-bold text-slate-700">Đã tìm thấy tài khoản sinh viên.</p>
+                  <p className="mt-1">
+                    {studentLookup.student.fullName || studentLookup.student.username} · {studentLookup.student.email}
+                  </p>
+                </div>
+              )}
+              {!lookupLoading && studentLookup?.enrollments && studentLookup.enrollments.length > 0 && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600">
+                  {studentLookup.enrollments.some((enrollment) => enrollment.isCurrentSection) ? (
+                    <p>Sinh viên này đã được ghi danh trong lớp học phần hiện tại.</p>
+                  ) : (
+                    <p>Sinh viên này đang được ghi danh ở lớp học phần khác. Hãy cân nhắc trước khi chuyển lớp.</p>
+                  )}
+                  <ul className="mt-2 space-y-1.5">
+                    {studentLookup.enrollments.map((enrollment) => {
+                      const instructorNames = enrollment.instructors.map((instructor) => instructor.name).join(', ')
+                      return (
+                        <li key={enrollment.enrollmentId}>
+                          <span className="font-bold">{formatSectionDisplayName(enrollment.sectionName)}</span>
+                          <span> · {formatSemesterDisplayName(enrollment.semester)}</span>
+                          {instructorNames && <span> · GV: {instructorNames}</span>}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              )}
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setShowAddModal(false)} className="btn-secondary btn-sm">Hủy</button>
-                <button type="submit" disabled={addLoading} className="btn-primary btn-sm">
-                  {addLoading ? <Spinner /> : 'Thêm ghi danh'}
+                <button type="submit" disabled={addLoading || lookupHasCurrentSection} className="btn-primary btn-sm">
+                  {addLoading ? <Spinner /> : lookupHasOtherSection ? 'Chuyển lớp' : 'Thêm ghi danh'}
                 </button>
               </div>
             </form>
