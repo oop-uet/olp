@@ -207,7 +207,12 @@ export function AdminExercisesPage() {
                       {rowNum}
                     </td>
                     <td className="table-td font-semibold text-slate-800">
-                      {exercise.title}
+                      <Link
+                        to={`/admin/exercises/${exercise.id}/edit`}
+                        className="text-sky-600 hover:underline"
+                      >
+                        {exercise.title}
+                      </Link>
                     </td>
                     <td className="table-td">
                       <DifficultyBadge difficulty={exercise.difficulty} />
