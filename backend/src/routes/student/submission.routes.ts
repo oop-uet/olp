@@ -84,6 +84,19 @@ router.post(
         return;
       }
 
+      if (req.query.minimal === "1") {
+        res.status(201).json({
+          id: result.id,
+          score: result.score,
+          functionalScore: result.functionalScore,
+          styleScore: result.styleScore,
+          styleStatus: result.styleStatus,
+          attemptNumber: result.attemptNumber,
+          submittedAt: result.submittedAt,
+        });
+        return;
+      }
+
       res.status(201).json(result);
     } catch (error) {
       res.status(500).json({

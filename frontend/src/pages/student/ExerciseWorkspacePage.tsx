@@ -462,27 +462,31 @@ export function ExerciseWorkspacePage() {
     setSubmitting(true)
 
     try {
-      const response = await api.post('/api/submissions', {
-        exercise_id: exercise.id,
-        section_id: exercise.sectionId,
-        code: serializeSubmissionFiles(sourceFiles),
-        test_results: executionResult.testResults.map((r) => ({
-          test_case_id: r.testCaseId,
-          actual_output: r.actualOutput ?? '',
-          execution_time_ms: r.executionTimeMs ?? 0,
-          status: r.status,
-        })),
-        anti_cheat_nullified: antiCheatNullified,
-        style_report: executionResult.styleResult ? {
-          provider: executionResult.styleResult.provider,
-          status: executionResult.styleResult.status,
-          score: executionResult.styleResult.score,
-          violationCount: executionResult.styleResult.violationCount,
-          violations: executionResult.styleResult.violations,
-          feedback: executionResult.styleResult.feedback ?? null,
-          toolVersion: executionResult.styleResult.toolVersion,
-        } : undefined,
-      })
+      const response = await api.post(
+        '/api/submissions?minimal=1',
+        {
+          exercise_id: exercise.id,
+          section_id: exercise.sectionId,
+          code: serializeSubmissionFiles(sourceFiles),
+          test_results: executionResult.testResults.map((r) => ({
+            test_case_id: r.testCaseId,
+            actual_output: r.actualOutput ?? '',
+            execution_time_ms: r.executionTimeMs ?? 0,
+            status: r.status,
+          })),
+          anti_cheat_nullified: antiCheatNullified,
+          style_report: executionResult.styleResult ? {
+            provider: executionResult.styleResult.provider,
+            status: executionResult.styleResult.status,
+            score: executionResult.styleResult.score,
+            violationCount: executionResult.styleResult.violationCount,
+            violations: executionResult.styleResult.violations,
+            feedback: executionResult.styleResult.feedback ?? null,
+            toolVersion: executionResult.styleResult.toolVersion,
+          } : undefined,
+        },
+        { timeout: 30000 }
+      )
       const score = response.data.score
       setExercise((current) =>
         current ? { ...current, attemptCount: current.attemptCount + 1 } : current
@@ -631,7 +635,7 @@ export function ExerciseWorkspacePage() {
           </div>
           <button
             onClick={handleRun}
-            disabled={running || filesForExecution(files).length === 0}
+            disabled={running || submitting || filesForExecution(files).length === 0}
             className="btn-success h-10 px-4 text-sm"
           >
             {running ? <Spinner /> : <span aria-hidden="true">▶</span>}
