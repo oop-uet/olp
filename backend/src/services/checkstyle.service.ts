@@ -7,6 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import zlib from "node:zlib";
 
 const execFileAsync = promisify(execFile);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -182,7 +183,8 @@ export async function evaluateCheckstyle(
     const filePaths = await writeJavaFiles(workingDir, files);
     const reportPath = path.join(workingDir, "checkstyle-report.xml");
 
-    await runCheckstyle(javaCommand, jarPath, reportPath, filePaths);
+    const configPath = await writeUetCheckstyleConfig(jarPath, workingDir);
+    await runCheckstyle(javaCommand, jarPath, configPath, reportPath, filePaths);
     const report = await fs.readFile(reportPath, "utf8").catch(() => "");
     
     console.log(`[checkstyle] Report content size: ${report.length} bytes`);
@@ -481,12 +483,18 @@ async function findJavaHome(rootDir: string): Promise<string | null> {
   return null;
 }
 
-async function runCheckstyle(javaCommand: string, jarPath: string, reportPath: string, filePaths: string[]) {
+async function runCheckstyle(
+  javaCommand: string,
+  jarPath: string,
+  configPath: string,
+  reportPath: string,
+  filePaths: string[]
+) {
   const args = [
     "-jar",
     jarPath,
     "-c",
-    "/google_checks.xml",
+    configPath,
     "-f",
     "xml",
     "-o",
@@ -513,6 +521,78 @@ async function runCheckstyle(javaCommand: string, jarPath: string, reportPath: s
     }
     throw new Error(error?.stderr || error?.message || "Checkstyle exited without a valid report.");
   }
+}
+
+async function writeUetCheckstyleConfig(jarPath: string, workingDir: string): Promise<string> {
+  const googleChecks = await readZipTextEntry(jarPath, "google_checks.xml");
+  const uetChecks = googleChecks
+    .replace(/<property name="basicOffset" value="2"\/>/, '<property name="basicOffset" value="4"/>')
+    .replace(/<property name="braceAdjustment" value="2"\/>/, '<property name="braceAdjustment" value="4"/>')
+    .replace(/<property name="caseIndent" value="2"\/>/, '<property name="caseIndent" value="4"/>')
+    .replace(/<property name="arrayInitIndent" value="2"\/>/, '<property name="arrayInitIndent" value="4"/>');
+  const configPath = path.join(workingDir, "uet_google_checks_4space.xml");
+  await fs.writeFile(configPath, uetChecks, "utf8");
+  return configPath;
+}
+
+async function readZipTextEntry(zipPath: string, entryName: string): Promise<string> {
+  const zip = await fs.readFile(zipPath);
+  const entry = extractZipEntry(zip, entryName);
+  if (!entry) throw new Error(`Không tìm thấy ${entryName} trong Checkstyle JAR.`);
+  return entry.toString("utf8");
+}
+
+function extractZipEntry(zip: Buffer, entryName: string): Buffer | null {
+  const eocdOffset = findEndOfCentralDirectory(zip);
+  if (eocdOffset < 0) return null;
+
+  const centralDirectorySize = zip.readUInt32LE(eocdOffset + 12);
+  const centralDirectoryOffset = zip.readUInt32LE(eocdOffset + 16);
+  const centralDirectoryEnd = centralDirectoryOffset + centralDirectorySize;
+  let offset = centralDirectoryOffset;
+
+  while (offset < centralDirectoryEnd && zip.readUInt32LE(offset) === 0x02014b50) {
+    const compressionMethod = zip.readUInt16LE(offset + 10);
+    const compressedSize = zip.readUInt32LE(offset + 20);
+    const fileNameLength = zip.readUInt16LE(offset + 28);
+    const extraLength = zip.readUInt16LE(offset + 30);
+    const commentLength = zip.readUInt16LE(offset + 32);
+    const localHeaderOffset = zip.readUInt32LE(offset + 42);
+    const name = zip.toString("utf8", offset + 46, offset + 46 + fileNameLength);
+
+    if (name === entryName) {
+      return extractZipLocalEntry(zip, localHeaderOffset, compressedSize, compressionMethod);
+    }
+
+    offset += 46 + fileNameLength + extraLength + commentLength;
+  }
+
+  return null;
+}
+
+function findEndOfCentralDirectory(zip: Buffer): number {
+  const minOffset = Math.max(0, zip.length - 65_557);
+  for (let offset = zip.length - 22; offset >= minOffset; offset -= 1) {
+    if (zip.readUInt32LE(offset) === 0x06054b50) return offset;
+  }
+  return -1;
+}
+
+function extractZipLocalEntry(
+  zip: Buffer,
+  localHeaderOffset: number,
+  compressedSize: number,
+  compressionMethod: number
+): Buffer | null {
+  if (zip.readUInt32LE(localHeaderOffset) !== 0x04034b50) return null;
+  const fileNameLength = zip.readUInt16LE(localHeaderOffset + 26);
+  const extraLength = zip.readUInt16LE(localHeaderOffset + 28);
+  const dataOffset = localHeaderOffset + 30 + fileNameLength + extraLength;
+  const compressed = zip.subarray(dataOffset, dataOffset + compressedSize);
+
+  if (compressionMethod === 0) return Buffer.from(compressed);
+  if (compressionMethod === 8) return zlib.inflateRawSync(compressed);
+  throw new Error(`Checkstyle JAR dùng ZIP compression method chưa hỗ trợ: ${compressionMethod}.`);
 }
 
 async function writeJavaFiles(rootDir: string, files: JavaSourceFile[]): Promise<string[]> {
