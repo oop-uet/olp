@@ -190,20 +190,7 @@ export function TopNav() {
                     </button>
                   )}
 
-                  {user.role === 'admin' && (
-                    <button
-                      onClick={() => {
-                        setUserMenuOpen(false)
-                        navigate('/admin/help')
-                      }}
-                      className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors font-medium"
-                    >
-                      <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                      Biên tập Help
-                    </button>
-                  )}
+
 
                   <button
                     onClick={() => {
