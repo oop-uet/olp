@@ -7,6 +7,7 @@ import { toast } from '../../stores/toast.store'
 import { AntiCheatMonitor } from '../../components/student/AntiCheatMonitor'
 import { useLocalExecutor } from '../../hooks/useLocalExecutor'
 import { useAuthStore } from '../../stores/auth.store'
+import { ExerciseMarkdownContent } from '../../components/exercise/ExerciseDescriptionEditor'
 
 interface TestCase {
   id: string
@@ -1030,68 +1031,11 @@ function DescriptionPanel({ exercise }: { exercise: ExerciseDetail }) {
           YÊU CẦU BÀI TẬP
         </h2>
         <div className="border border-slate-100 rounded-xl p-4 bg-slate-50/30">
-          <FormattedDescription text={exercise.description} />
+          <ExerciseMarkdownContent value={exercise.description} />
         </div>
       </div>
     </div>
   )
-}
-
-function FormattedDescription({ text }: { text: string }) {
-  return (
-    <div className="space-y-3 text-sm leading-6 text-slate-700">
-      {text.split('\n').map((rawLine, index) => {
-        const line = rawLine.trim()
-        if (!line) return <div key={index} className="h-1" />
-
-        if (line.startsWith('# ')) {
-          return (
-            <h2 key={index} className="text-lg font-bold leading-7 text-slate-900">
-              {line.slice(2)}
-            </h2>
-          )
-        }
-
-        if (line.startsWith('## ')) {
-          return (
-            <h3
-              key={index}
-              className="border-l-4 border-primary pl-3 text-sm font-bold uppercase tracking-wide text-slate-800"
-            >
-              {line.slice(3)}
-            </h3>
-          )
-        }
-
-        if (line.startsWith('- ')) {
-          return (
-            <div key={index} className="flex gap-2">
-              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-              <p>{renderInlineCode(line.slice(2))}</p>
-            </div>
-          )
-        }
-
-        return <p key={index}>{renderInlineCode(line)}</p>
-      })}
-    </div>
-  )
-}
-
-function renderInlineCode(text: string) {
-  return text.split(/(`[^`]+`)/g).map((part, index) => {
-    if (part.startsWith('`') && part.endsWith('`')) {
-      return (
-        <code
-          key={index}
-          className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs font-semibold text-slate-900"
-        >
-          {part.slice(1, -1)}
-        </code>
-      )
-    }
-    return <span key={index}>{part}</span>
-  })
 }
 
 function TestCasesPanel({

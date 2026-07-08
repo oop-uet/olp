@@ -11,6 +11,7 @@ import { validate } from "../../middleware/validate.js";
 import { db } from "../../db/index.js";
 import { eq } from "drizzle-orm";
 import { sectionEnrollments } from "../../db/schema.js";
+import { listSectionsForInstructor, userCanAccessSection } from "../../services/section.service.js";
 
 // ─── Router ──────────────────────────────────────────────────────────────────
 
@@ -69,6 +70,31 @@ router.get("/", async (req: Request, res: Response) => {
         filters.sectionId = section_id;
       } else {
         filters.sectionIds = enrolledSectionIds;
+      }
+    }
+
+    if (req.user?.role === "instructor") {
+      const sections = await listSectionsForInstructor(req.user.userId, req.user.role);
+      const accessibleSectionIds = sections.map((section: any) => section.id);
+
+      if (accessibleSectionIds.length === 0) {
+        res.status(200).json([]);
+        return;
+      }
+
+      if (typeof section_id === "string" && section_id) {
+        if (!accessibleSectionIds.includes(section_id)) {
+          res.status(403).json({
+            error: {
+              code: "INSUFFICIENT_PERMISSIONS",
+              message: "Bạn chỉ có thể xem bài nộp trong lớp học phần mình phụ trách.",
+            },
+          });
+          return;
+        }
+        filters.sectionId = section_id;
+      } else {
+        filters.sectionIds = accessibleSectionIds;
       }
     }
 
@@ -137,6 +163,24 @@ router.get("/:id", async (req: Request, res: Response) => {
       }
     }
 
+    if (req.user?.role === "instructor") {
+      const canAccess = await userCanAccessSection(
+        (result as any).sectionId,
+        req.user.userId,
+        req.user.role
+      );
+
+      if (!canAccess) {
+        res.status(403).json({
+          error: {
+            code: "INSUFFICIENT_PERMISSIONS",
+            message: "Bạn chỉ có thể xem bài nộp trong lớp học phần mình phụ trách.",
+          },
+        });
+        return;
+      }
+    }
+
     res.status(200).json(result);
   } catch (error) {
     res.status(500).json({
@@ -164,6 +208,31 @@ router.patch(
   validate(gradeSchema),
   async (req: Request, res: Response) => {
     try {
+      if (req.user?.role === "instructor") {
+        const existing = await getSubmissionById(req.params.id);
+
+        if (isSubmissionError(existing)) {
+          res.status(404).json({ error: existing.error });
+          return;
+        }
+
+        const canAccess = await userCanAccessSection(
+          (existing as any).sectionId,
+          req.user.userId,
+          req.user.role
+        );
+
+        if (!canAccess) {
+          res.status(403).json({
+            error: {
+              code: "INSUFFICIENT_PERMISSIONS",
+              message: "Bạn chỉ có thể chấm bài nộp trong lớp học phần mình phụ trách.",
+            },
+          });
+          return;
+        }
+      }
+
       const result = await gradeSubmission(req.params.id, req.body);
 
       if (isSubmissionError(result)) {

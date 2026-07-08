@@ -28,14 +28,15 @@ interface StatCard {
   label: string
   icon: (props: { className?: string }) => JSX.Element
   accent: string
+  path?: string
 }
 
 const STAT_CARDS: StatCard[] = [
-  { key: 'students', label: 'Sinh viên', icon: StudentsIcon, accent: 'bg-primary-50 text-primary' },
-  { key: 'instructors', label: 'Giảng viên', icon: TeacherIcon, accent: 'bg-success-100 text-success-600' },
-  { key: 'sections', label: 'Lớp học phần', icon: SectionIcon, accent: 'bg-warning-100 text-warning-600' },
-  { key: 'exercises', label: 'Bài tập', icon: ExerciseIcon, accent: 'bg-primary-50 text-primary' },
-  { key: 'libraryExercises', label: 'Bài tập thư viện', icon: DashboardIcon, accent: 'bg-success-100 text-success-600' },
+  { key: 'students', label: 'Sinh viên', icon: StudentsIcon, accent: 'bg-primary-50 text-primary', path: '/admin/students' },
+  { key: 'instructors', label: 'Giảng viên', icon: TeacherIcon, accent: 'bg-success-100 text-success-600', path: '/admin/instructors' },
+  { key: 'sections', label: 'Lớp học phần', icon: SectionIcon, accent: 'bg-warning-100 text-warning-600', path: '/admin/sections' },
+  { key: 'exercises', label: 'Bài tập', icon: ExerciseIcon, accent: 'bg-primary-50 text-primary', path: '/admin/exercises' },
+  { key: 'libraryExercises', label: 'Bài tập thư viện', icon: DashboardIcon, accent: 'bg-success-100 text-success-600', path: '/admin/exercises' },
   { key: 'submissions', label: 'Lượt nộp bài', icon: SubmissionIcon, accent: 'bg-warning-100 text-warning-600' },
 ]
 
@@ -79,19 +80,39 @@ export function DashboardPage() {
 
       {/* Stat Cards Grid */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {STAT_CARDS.map(({ key, label, icon: Icon, accent }) => (
-          <div key={key} className="card card-hover flex items-center gap-4 p-5">
-            <span className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg ${accent}`}>
-              <Icon className="h-6 w-6" />
-            </span>
-            <div>
-              <p className="text-3xl font-semibold text-gray-900">
-                {stats ? stats[key] : 0}
-              </p>
-              <p className="text-sm text-gray-500">{label}</p>
+        {STAT_CARDS.map(({ key, label, icon: Icon, accent, path }) => {
+          const cardContent = (
+            <>
+              <span className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg ${accent}`}>
+                <Icon className="h-6 w-6" />
+              </span>
+              <div>
+                <p className="text-3xl font-semibold text-gray-900">
+                  {stats ? stats[key] : 0}
+                </p>
+                <p className="text-sm text-gray-500">{label}</p>
+              </div>
+            </>
+          )
+
+          if (path) {
+            return (
+              <Link
+                key={key}
+                to={path}
+                className="card card-hover flex items-center gap-4 p-5 hover:bg-slate-50 transition-all active:scale-[0.98] cursor-pointer"
+              >
+                {cardContent}
+              </Link>
+            )
+          }
+
+          return (
+            <div key={key} className="card flex items-center gap-4 p-5 select-none">
+              {cardContent}
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* Quick Links */}

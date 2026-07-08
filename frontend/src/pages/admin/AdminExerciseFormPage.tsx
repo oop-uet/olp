@@ -4,6 +4,7 @@ import { AxiosError } from 'axios'
 import { api } from '../../lib/api'
 import { PageLoader } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
+import { ExerciseDescriptionEditor } from '../../components/exercise/ExerciseDescriptionEditor'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -704,14 +705,11 @@ export function AdminExerciseFormPage() {
           <label htmlFor="description" className="label">
             Mô tả <span className="text-danger-500">*</span>
           </label>
-          <textarea
-            id="description"
+          <ExerciseDescriptionEditor
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={setDescription}
+            error={errors.description}
             maxLength={5000}
-            rows={6}
-            className={`input ${errors.description ? 'input-error' : ''}`}
-            placeholder="Mô tả yêu cầu của bài tập..."
           />
           <div className="mt-1 flex justify-between">
             {errors.description && <p className="text-xs text-danger-600">{errors.description}</p>}

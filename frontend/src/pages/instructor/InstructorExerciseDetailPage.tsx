@@ -4,6 +4,7 @@ import { api } from '../../lib/api'
 import { PageLoader, ExerciseIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
+import { ExerciseMarkdownContent } from '../../components/exercise/ExerciseDescriptionEditor'
 
 type Tab = 'description' | 'testcases' | 'history' | 'stats'
 
@@ -261,7 +262,7 @@ export function InstructorExerciseDetailPage() {
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
           <SectionHeader title="Đề bài" />
           <div className="grid gap-5 p-5 xl:grid-cols-[minmax(0,1fr)_380px]">
-            <MarkdownContent value={exercise.description} />
+            <ExerciseMarkdownContent value={exercise.description} />
             <aside className="space-y-3">
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Mã nguồn mẫu</p>
@@ -458,92 +459,6 @@ function SectionHeader({ title, action }: { title: string; action?: ReactNode })
       {action}
     </div>
   )
-}
-
-function MarkdownContent({ value }: { value: string }) {
-  const blocks: ReactNode[] = []
-  const bulletItems: ReactNode[] = []
-
-  function flushBullets() {
-    if (bulletItems.length === 0) return
-    blocks.push(
-      <ul key={`ul-${blocks.length}`} className="space-y-2 pl-5 text-sm leading-7 text-slate-700">
-        {bulletItems.splice(0).map((item, index) => (
-          <li key={index} className="list-disc">
-            {item}
-          </li>
-        ))}
-      </ul>
-    )
-  }
-
-  value.split(/\r?\n/).forEach((rawLine, index) => {
-    const line = rawLine.trim()
-    if (!line) {
-      flushBullets()
-      return
-    }
-
-    if (line.startsWith('### ')) {
-      flushBullets()
-      blocks.push(
-        <h4 key={index} className="pt-2 text-sm font-bold uppercase tracking-wider text-slate-600">
-          {renderInlineMarkdown(line.slice(4))}
-        </h4>
-      )
-      return
-    }
-
-    if (line.startsWith('## ')) {
-      flushBullets()
-      blocks.push(
-        <h3 key={index} className="pt-3 text-base font-bold text-slate-900">
-          {renderInlineMarkdown(line.slice(3))}
-        </h3>
-      )
-      return
-    }
-
-    if (line.startsWith('# ')) {
-      flushBullets()
-      blocks.push(
-        <h2 key={index} className="text-lg font-bold text-slate-900">
-          {renderInlineMarkdown(line.slice(2))}
-        </h2>
-      )
-      return
-    }
-
-    if (/^[-*]\s+/.test(line)) {
-      bulletItems.push(renderInlineMarkdown(line.replace(/^[-*]\s+/, '')))
-      return
-    }
-
-    flushBullets()
-    blocks.push(
-      <p key={index} className="text-sm leading-7 text-slate-700">
-        {renderInlineMarkdown(line)}
-      </p>
-    )
-  })
-
-  flushBullets()
-
-  return <div className="space-y-4">{blocks}</div>
-}
-
-function renderInlineMarkdown(text: string): ReactNode[] {
-  const parts = text.split(/(`[^`]+`)/g)
-  return parts.map((part, index) => {
-    if (part.startsWith('`') && part.endsWith('`')) {
-      return (
-        <code key={index} className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[12px] font-semibold text-primary">
-          {part.slice(1, -1)}
-        </code>
-      )
-    }
-    return <span key={index}>{part}</span>
-  })
 }
 
 function TabButton({
