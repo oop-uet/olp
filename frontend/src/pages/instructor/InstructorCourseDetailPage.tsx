@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AxiosError } from 'axios'
 import { api } from '../../lib/api'
@@ -49,6 +49,12 @@ interface LeaderboardEntry {
   totalScore: number
 }
 
+type AssignmentSettingsPatch = {
+  isVisible?: boolean
+  allowSubmission?: boolean
+  maxSubmissions?: number | null
+}
+
 const TOTAL_WEEKS = 10
 const SUBMISSION_LIMIT_OPTIONS = [0, 3, 5, 8, 10, 20, 50, 100]
 
@@ -65,6 +71,9 @@ export function InstructorCourseDetailPage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false)
   const [maxPossibleScore, setMaxPossibleScore] = useState<number>(0)
+  const settingsSaveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+  const pendingSettingsPatches = useRef<Record<string, AssignmentSettingsPatch>>({})
+  const settingsSaveVersions = useRef<Record<string, number>>({})
 
   useEffect(() => {
     if (id) {
@@ -72,6 +81,12 @@ export function InstructorCourseDetailPage() {
       fetchLeaderboard()
     }
   }, [id])
+
+  useEffect(() => {
+    return () => {
+      Object.values(settingsSaveTimers.current).forEach(clearTimeout)
+    }
+  }, [])
 
   async function fetchDetail() {
     setLoading(true)
@@ -108,41 +123,60 @@ export function InstructorCourseDetailPage() {
     }
   }
 
-  async function handleUpdateAssignmentSettings(
-    exerciseId: string,
-    patch: { isVisible?: boolean; allowSubmission?: boolean; maxSubmissions?: number | null }
-  ) {
+  function handleUpdateAssignmentSettings(exerciseId: string, patch: AssignmentSettingsPatch) {
     if (!id) return
 
-    try {
-      const response = await api.put(`/api/instructor/sections/${id}/schedule/settings`, {
-        exercise_id: exerciseId,
-        ...(patch.isVisible !== undefined ? { is_visible: patch.isVisible } : {}),
-        ...(patch.allowSubmission !== undefined ? { allow_submission: patch.allowSubmission } : {}),
-        ...(patch.maxSubmissions !== undefined ? { max_submissions: patch.maxSubmissions } : {}),
-      })
-
-      const next = response.data
-      if (detail) {
-        setDetail({
-          ...detail,
-          exercises: detail.exercises.map((ex) =>
-            ex.exerciseId === exerciseId
-              ? {
-                  ...ex,
-                  isVisible: next.isVisible ?? ex.isVisible,
-                  allowSubmission: next.allowSubmission ?? ex.allowSubmission,
-                  maxSubmissions: next.maxSubmissions ?? null,
-                }
-              : ex
-          ),
-        })
+    setDetail((current) => {
+      if (!current) return current
+      return {
+        ...current,
+        exercises: current.exercises.map((ex) =>
+          ex.exerciseId === exerciseId
+            ? {
+                ...ex,
+                ...(patch.isVisible !== undefined ? { isVisible: patch.isVisible } : {}),
+                ...(patch.allowSubmission !== undefined ? { allowSubmission: patch.allowSubmission } : {}),
+                ...(patch.maxSubmissions !== undefined ? { maxSubmissions: patch.maxSubmissions } : {}),
+              }
+            : ex
+        ),
       }
+    })
 
-      toast.success('Đã cập nhật cấu hình bài tập.')
-    } catch {
-      toast.error('Không thể cập nhật cấu hình bài tập.')
+    pendingSettingsPatches.current[exerciseId] = {
+      ...(pendingSettingsPatches.current[exerciseId] ?? {}),
+      ...patch,
     }
+    settingsSaveVersions.current[exerciseId] = (settingsSaveVersions.current[exerciseId] ?? 0) + 1
+    const saveVersion = settingsSaveVersions.current[exerciseId]
+
+    if (settingsSaveTimers.current[exerciseId]) {
+      clearTimeout(settingsSaveTimers.current[exerciseId])
+    }
+
+    settingsSaveTimers.current[exerciseId] = setTimeout(async () => {
+      const pendingPatch = pendingSettingsPatches.current[exerciseId]
+      if (!pendingPatch) return
+      delete pendingSettingsPatches.current[exerciseId]
+
+      try {
+        await api.put(`/api/instructor/sections/${id}/schedule/settings`, {
+          exercise_id: exerciseId,
+          ...(pendingPatch.isVisible !== undefined ? { is_visible: pendingPatch.isVisible } : {}),
+          ...(pendingPatch.allowSubmission !== undefined ? { allow_submission: pendingPatch.allowSubmission } : {}),
+          ...(pendingPatch.maxSubmissions !== undefined ? { max_submissions: pendingPatch.maxSubmissions } : {}),
+        })
+      } catch {
+        if (settingsSaveVersions.current[exerciseId] === saveVersion) {
+          toast.error('Không thể lưu cấu hình bài tập. Dữ liệu sẽ được tải lại.')
+          fetchDetail()
+        }
+      } finally {
+        if (settingsSaveTimers.current[exerciseId]) {
+          delete settingsSaveTimers.current[exerciseId]
+        }
+      }
+    }, 350)
   }
 
 
