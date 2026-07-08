@@ -349,7 +349,15 @@ function LeaderboardPanel({
                   }`}
                 >
                   <span className="text-center text-base font-extrabold text-slate-700">
-                    {entry.rank}
+                    {entry.rank === 1 ? (
+                      <span className="text-lg filter drop-shadow-sm select-none" title="Huy chương Vàng">🥇</span>
+                    ) : entry.rank === 2 ? (
+                      <span className="text-lg filter drop-shadow-sm select-none" title="Huy chương Bạc">🥈</span>
+                    ) : entry.rank === 3 ? (
+                      <span className="text-lg filter drop-shadow-sm select-none" title="Huy chương Đồng">🥉</span>
+                    ) : (
+                      entry.rank
+                    )}
                   </span>
                   <span className="min-w-0 truncate font-semibold text-primary">
                     {entry.studentName}

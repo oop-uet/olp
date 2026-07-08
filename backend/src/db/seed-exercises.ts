@@ -74,107 +74,8 @@ function weekFromTitle(title: string): number | null {
 }
 
 function isDefaultAssessment(title: string): number {
-  return title.includes("Quản lý sinh viên") || title.includes("Phân số") ? 1 : 0;
+  return title.includes("Quản lý thư viện mini") || title.includes("Số tiền chính xác") ? 1 : 0;
 }
-
-const studentManagementTest = `
-import net.bqc.oasis.junit.JavaReflection;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Test;
-
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-
-public class MyTest {
-    static Method setNameMethod;
-    static Method setIdMethod;
-    static Method setGroupMethod;
-    static Method setEmailMethod;
-    static Method getInfoMethod;
-    static Method getNameMethod;
-    static Method getIdMethod;
-    static Method getGroupMethod;
-    static Method getEmailMethod;
-    static Method sameGroupMethod;
-    static Method addStudentMethod;
-    static Method studentsByGroupMethod;
-    static Method removeStudentMethod;
-
-    @BeforeClass
-    public static void init() {
-        setNameMethod = JavaReflection.getMethod(Student.class, "setName", void.class, "", "", String.class);
-        setIdMethod = JavaReflection.getMethod(Student.class, "setId", void.class, "", "", String.class);
-        setGroupMethod = JavaReflection.getMethod(Student.class, "setGroup", void.class, "", "", String.class);
-        setEmailMethod = JavaReflection.getMethod(Student.class, "setEmail", void.class, "", "", String.class);
-        getInfoMethod = JavaReflection.getMethod(Student.class, "getInfo", String.class, "", "");
-        getNameMethod = JavaReflection.getMethod(Student.class, "getName", String.class, "", "");
-        getIdMethod = JavaReflection.getMethod(Student.class, "getId", String.class, "", "");
-        getGroupMethod = JavaReflection.getMethod(Student.class, "getGroup", String.class, "", "");
-        getEmailMethod = JavaReflection.getMethod(Student.class, "getEmail", String.class, "", "");
-        sameGroupMethod = JavaReflection.getMethod(StudentManagement.class, "sameGroup", boolean.class, "", "static", Student.class, Student.class);
-        addStudentMethod = JavaReflection.getMethod(StudentManagement.class, "addStudent", void.class, "", "", Student.class);
-        studentsByGroupMethod = JavaReflection.getMethod(StudentManagement.class, "studentsByGroup", String.class, "", "");
-        removeStudentMethod = JavaReflection.getMethod(StudentManagement.class, "removeStudent", void.class, "", "", String.class);
-    }
-
-    @Test
-    public void studentFieldsArePrivateStrings() {
-        Assert.assertTrue(JavaReflection.checkField(Student.class, "name", "String|java.lang.String", "private"));
-        Assert.assertTrue(JavaReflection.checkField(Student.class, "id", "String|java.lang.String", "private"));
-        Assert.assertTrue(JavaReflection.checkField(Student.class, "group", "String|java.lang.String", "private"));
-        Assert.assertTrue(JavaReflection.checkField(Student.class, "email", "String|java.lang.String", "private"));
-    }
-
-    @Test
-    public void constructorsAndAccessorsWork() throws Exception {
-        Student defaultStudent = new Student();
-        Assert.assertEquals("Student - 000 - K62CB - uet@vnu.edu.vn", getInfoMethod.invoke(defaultStudent));
-
-        Constructor<Student> constructor = Student.class.getDeclaredConstructor(String.class, String.class, String.class);
-        Student s1 = constructor.newInstance("Nguyen Van An", "17020001", "17020001@vnu.edu.vn");
-        Assert.assertEquals("Nguyen Van An - 17020001 - K62CB - 17020001@vnu.edu.vn", getInfoMethod.invoke(s1));
-
-        s1.setGroup("K62CC");
-        Student copy = new Student(s1);
-        Assert.assertEquals("Nguyen Van An - 17020001 - K62CC - 17020001@vnu.edu.vn", copy.getInfo());
-    }
-
-    @Test
-    public void studentManagementGroupsAndRemovesStudents() throws Exception {
-        Field studentsField = JavaReflection.getField(StudentManagement.class, "students");
-        Assert.assertNotNull(studentsField);
-        Assert.assertTrue(studentsField.getType().isArray());
-
-        StudentManagement sm = new StudentManagement();
-        Student s1 = new Student("Nguyen Van An", "17020001", "17020001@vnu.edu.vn");
-        Student s2 = new Student("Nguyen Van B", "17020002", "17020002@vnu.edu.vn");
-        Student s3 = new Student("Nguyen Van C", "17020003", "17020003@vnu.edu.vn");
-        Student s4 = new Student("Nguyen Van D", "17020004", "17020004@vnu.edu.vn");
-        s1.setGroup("K62CC");
-        s2.setGroup("K62CC");
-
-        Assert.assertTrue(StudentManagement.sameGroup(s1, s2));
-        Assert.assertFalse(StudentManagement.sameGroup(s1, s3));
-
-        sm.addStudent(s1);
-        sm.addStudent(s2);
-        sm.addStudent(s3);
-        sm.addStudent(s4);
-        Assert.assertEquals(
-            "K62CC\\nNguyen Van An - 17020001 - K62CC - 17020001@vnu.edu.vn\\nNguyen Van B - 17020002 - K62CC - 17020002@vnu.edu.vn\\nK62CB\\nNguyen Van C - 17020003 - K62CB - 17020003@vnu.edu.vn\\nNguyen Van D - 17020004 - K62CB - 17020004@vnu.edu.vn",
-            sm.studentsByGroup().trim()
-        );
-
-        sm.removeStudent("17020002");
-        Assert.assertEquals(
-            "K62CC\\nNguyen Van An - 17020001 - K62CC - 17020001@vnu.edu.vn\\nK62CB\\nNguyen Van C - 17020003 - K62CB - 17020003@vnu.edu.vn\\nNguyen Van D - 17020004 - K62CB - 17020004@vnu.edu.vn",
-            sm.studentsByGroup().trim()
-        );
-    }
-}
-`;
 
 const exerciseSeeds: ExerciseSeed[] = [
   {
@@ -208,804 +109,859 @@ const exerciseSeeds: ExerciseSeed[] = [
       },
     ]),
     testCasesData: [
-      stdoutCase("", "Hello World", 40),
-      stdoutCase("An", "Hello World\nHello An", 60, 0),
+      stdoutCase("", "Hello World", 25),
+      stdoutCase("An", "Hello World\nHello An", 25, 0),
+      stdoutCase("Pham Van Minh", "Hello World\nHello Pham Van Minh", 25, 0),
+      stdoutCase("  Nguyen Thi An  ", "Hello World\nHello Nguyen Thi An", 25, 0),
     ],
   },
   {
-    title: "Tuần 1 - Robot và Engine",
+    title: "Tuần 1 - Máy pha cà phê và bình nước",
     description: [
-      "# Tuần 1. Khái niệm lập trình hướng đối tượng",
+      "# Tuần 1. Đối tượng, trạng thái và quan hệ has-a",
       "",
-      "## Yêu cầu",
-      "- Cài đặt lớp `Engine` có thuộc tính `private String serialNumber`, `private int power`.",
-      "- `Engine(String serialNumber, int power)` khởi tạo động cơ. Nếu `power < 0`, đưa về `0`.",
-      "- `void setPower(int power)` cập nhật công suất, không cho giá trị âm.",
-      "- `String getSerialNumber()` và `int getPower()`.",
-      "- Cài đặt lớp `HouseBot` có `private String id`, `private String name`, `private Engine engine`.",
-      "- `HouseBot(String id, String name, Engine engine)` khởi tạo robot.",
-      "- `String forward()` trả về `Robot <name> moves forward with power <power>`.",
-      "- `String turnLeft()` trả về `Robot <name> turns left`.",
-      "- `String cleanUp()` trả về `Robot <name> cleans the room`.",
+      "Cài đặt hai lớp `WaterTank` và `CoffeeMachine`.",
       "",
-      "Bài này kiểm tra khả năng tách đối tượng theo trạng thái/hành vi và quan hệ has-a giữa `HouseBot` và `Engine`.",
+      "## `WaterTank`",
+      "- Có thuộc tính `private int capacity` và `private int amount`.",
+      "- Constructor `WaterTank(int capacity)` đặt dung tích tối đa. Nếu capacity âm thì dùng `0`.",
+      "- `void addWater(int ml)` thêm nước, không vượt quá `capacity`, bỏ qua lượng âm.",
+      "- `boolean useWater(int ml)` trừ nước nếu đủ và trả về `true`; nếu không đủ thì giữ nguyên và trả về `false`.",
+      "- Getter `getCapacity()` và `getAmount()`.",
+      "",
+      "## `CoffeeMachine`",
+      "- Có thuộc tính `private String model`, `private WaterTank tank`, `private int cupsMade`.",
+      "- Constructor `CoffeeMachine(String model, WaterTank tank)`.",
+      "- `String brew(String drink)` cần 200 ml nước. Nếu đủ nước, tăng `cupsMade` và trả về `Brewing <drink> on <model>`.",
+      "- Nếu không đủ nước, trả về `Not enough water`.",
+      "- `int getCupsMade()` trả về số ly đã pha.",
     ].join("\n"),
     difficulty: "easy",
-    oopTags: ["oop-concepts", "composition", "classes"],
+    oopTags: ["oop-concepts", "composition", "encapsulation"],
     starterCode: javaStarterFiles([
       {
-        name: "Engine.java",
+        name: "WaterTank.java",
         content: [
-          "public class Engine {",
-          "    private String serialNumber;",
-          "    private int power;",
+          "public class WaterTank {",
+          "    private int capacity;",
+          "    private int amount;",
           "",
-          "    public Engine(String serialNumber, int power) {",
+          "    public WaterTank(int capacity) {",
           "        // TODO",
           "    }",
           "",
-          "    public String getSerialNumber() { return serialNumber; }",
-          "    public int getPower() { return power; }",
-          "    public void setPower(int power) {",
-          "        // TODO",
-          "    }",
-          "}",
-        ].join("\n"),
-      },
-      {
-        name: "HouseBot.java",
-        content: [
-          "public class HouseBot {",
-          "    private String id;",
-          "    private String name;",
-          "    private Engine engine;",
-          "",
-          "    public HouseBot(String id, String name, Engine engine) {",
+          "    public void addWater(int ml) {",
           "        // TODO",
           "    }",
           "",
-          "    public String forward() { return \"\"; }",
-          "    public String turnLeft() { return \"\"; }",
-          "    public String cleanUp() { return \"\"; }",
-          "}",
-        ].join("\n"),
-      },
-    ]),
-    testCasesData: [
-      javaTestCase(
-        "RobotTest.java",
-        `
-import net.bqc.oasis.junit.JavaReflection;
-import org.junit.Assert;
-import org.junit.Test;
-
-public class RobotTest {
-    @Test
-    public void fieldsArePrivateAndCompositionIsUsed() {
-        Assert.assertTrue(JavaReflection.checkField(Engine.class, "serialNumber", "String|java.lang.String", "private"));
-        Assert.assertTrue(JavaReflection.checkField(Engine.class, "power", "int", "private"));
-        Assert.assertTrue(JavaReflection.checkField(HouseBot.class, "id", "String|java.lang.String", "private"));
-        Assert.assertTrue(JavaReflection.checkField(HouseBot.class, "name", "String|java.lang.String", "private"));
-        Assert.assertTrue(JavaReflection.checkField(HouseBot.class, "engine", "Engine", "private"));
-    }
-
-    @Test
-    public void behaviorUsesObjectState() {
-        Engine engine = new Engine("E-01", 75);
-        HouseBot bot = new HouseBot("HB-01", "Mika", engine);
-        Assert.assertEquals("E-01", engine.getSerialNumber());
-        Assert.assertEquals(75, engine.getPower());
-        Assert.assertEquals("Robot Mika moves forward with power 75", bot.forward());
-        Assert.assertEquals("Robot Mika turns left", bot.turnLeft());
-        Assert.assertEquals("Robot Mika cleans the room", bot.cleanUp());
-    }
-
-    @Test
-    public void negativePowerIsClampedToZero() {
-        Engine engine = new Engine("E-02", -10);
-        Assert.assertEquals(0, engine.getPower());
-        engine.setPower(-5);
-        Assert.assertEquals(0, engine.getPower());
-    }
-}
-        `,
-        100
-      ),
-    ],
-  },
-  {
-    title: "Tuần 2 - Quản lý sinh viên",
-    description: [
-      "# Tuần 2. Setter/Getter, Constructor",
-      "",
-      "## Lớp `Student`",
-      "- Có 4 thuộc tính `private String`: `name`, `id`, `group`, `email`.",
-      "- Constructor mặc định tạo sinh viên `Student - 000 - K62CB - uet@vnu.edu.vn`.",
-      "- Constructor `Student(String name, String id, String email)` đặt `group` mặc định là `K62CB`.",
-      "- Constructor sao chép `Student(Student s)` sao chép đầy đủ thông tin.",
-      "- Có getter/setter cho đủ 4 thuộc tính.",
-      "- `getInfo()` trả về `<name> - <id> - <group> - <email>`.",
-      "",
-      "## Lớp `StudentManagement`",
-      "- Có mảng `students` kiểu `Student[]`, kích thước từ 4 đến 100.",
-      "- `static boolean sameGroup(Student s1, Student s2)` kiểm tra cùng lớp.",
-      "- `void addStudent(Student newStudent)` thêm sinh viên.",
-      "- `String studentsByGroup()` nhóm sinh viên theo `group`, giữ thứ tự nhóm xuất hiện đầu tiên.",
-      "- `void removeStudent(String id)` xóa sinh viên theo mã sinh viên.",
-      "",
-      "Bộ chấm dùng reflection nên tên lớp, tên phương thức, kiểu trả về và modifier phải khớp chính xác.",
-    ].join("\n"),
-    difficulty: "easy",
-    oopTags: ["classes", "objects", "encapsulation", "constructor"],
-    starterCode: javaStarterFiles([
-      {
-        name: "Student.java",
-        content: [
-          "public class Student {",
-          "    private String name;",
-          "    private String id;",
-          "    private String group;",
-          "    private String email;",
-          "",
-          "    public Student() {",
-          "        // TODO",
-          "    }",
-          "",
-          "    public Student(String name, String id, String email) {",
-          "        // TODO",
-          "    }",
-          "",
-          "    public Student(Student s) {",
-          "        // TODO",
-          "    }",
-          "",
-          "    public String getName() { return name; }",
-          "    public void setName(String name) { this.name = name; }",
-          "    public String getId() { return id; }",
-          "    public void setId(String id) { this.id = id; }",
-          "    public String getGroup() { return group; }",
-          "    public void setGroup(String group) { this.group = group; }",
-          "    public String getEmail() { return email; }",
-          "    public void setEmail(String email) { this.email = email; }",
-          "",
-          "    public String getInfo() {",
-          "        // TODO",
-          "        return \"\";",
-          "    }",
-          "}",
-        ].join("\n"),
-      },
-      {
-        name: "StudentManagement.java",
-        content: [
-          "public class StudentManagement {",
-          "    Student[] students = new Student[100];",
-          "    private int studentCount = 0;",
-          "",
-          "    public static boolean sameGroup(Student s1, Student s2) {",
+          "    public boolean useWater(int ml) {",
           "        // TODO",
           "        return false;",
           "    }",
           "",
-          "    public void addStudent(Student newStudent) {",
+          "    public int getCapacity() { return capacity; }",
+          "    public int getAmount() { return amount; }",
+          "}",
+        ].join("\n"),
+      },
+      {
+        name: "CoffeeMachine.java",
+        content: [
+          "public class CoffeeMachine {",
+          "    private String model;",
+          "    private WaterTank tank;",
+          "    private int cupsMade;",
+          "",
+          "    public CoffeeMachine(String model, WaterTank tank) {",
           "        // TODO",
           "    }",
           "",
-          "    public String studentsByGroup() {",
+          "    public String brew(String drink) {",
           "        // TODO",
           "        return \"\";",
           "    }",
           "",
-          "    public void removeStudent(String id) {",
-          "        // TODO",
-          "    }",
-          "}",
-        ].join("\n"),
-      },
-    ]),
-    testCasesData: [javaTestCase("MyTest.java", studentManagementTest, 100)],
-  },
-  {
-    title: "Tuần 3 - Ước số, Fibonacci và sàng Eratosthenes",
-    description: [
-      "# Tuần 3. Kiểu dữ liệu nguyên thủy và phương thức tĩnh",
-      "",
-      "Cài đặt lớp `Week3` với các phương thức `public static`:",
-      "- `int gcd(int a, int b)`: trả về ước số chung lớn nhất của hai số nguyên. Kết quả luôn không âm.",
-      "- `long fibonacci(int n)`: trả về số Fibonacci thứ `n`, với `fibonacci(0) = 0`, `fibonacci(1) = 1`.",
-      "- `String sieveEratosthenes(int n)`: trả về các số nguyên tố từ 2 đến `n`, cách nhau bởi một dấu cách. Nếu không có số nguyên tố, trả về chuỗi rỗng.",
-      "",
-      "Không sử dụng thư viện ngoài. Cần xử lý tốt các giá trị biên như `0`, số âm trong `gcd`, và `n < 2`.",
-    ].join("\n"),
-    difficulty: "easy",
-    oopTags: ["primitive-types", "static-methods", "algorithm"],
-    starterCode: javaStarterFiles([
-      {
-        name: "Week3.java",
-        content: [
-          "public class Week3 {",
-          "    public static int gcd(int a, int b) {",
-          "        // TODO",
-          "        return 0;",
-          "    }",
-          "",
-          "    public static long fibonacci(int n) {",
-          "        // TODO",
-          "        return 0;",
-          "    }",
-          "",
-          "    public static String sieveEratosthenes(int n) {",
-          "        // TODO",
-          "        return \"\";",
-          "    }",
+          "    public int getCupsMade() { return cupsMade; }",
           "}",
         ].join("\n"),
       },
     ]),
     testCasesData: [
       javaTestCase(
-        "Week3Test.java",
-        `
-import org.junit.Assert;
-import org.junit.Test;
-
-public class Week3Test {
-    @Test
-    public void testGcd() {
-        Assert.assertEquals(6, Week3.gcd(54, 24));
-        Assert.assertEquals(7, Week3.gcd(-21, 14));
-        Assert.assertEquals(5, Week3.gcd(0, 5));
-        Assert.assertEquals(0, Week3.gcd(0, 0));
-    }
-
-    @Test
-    public void testFibonacci() {
-        Assert.assertEquals(0L, Week3.fibonacci(0));
-        Assert.assertEquals(1L, Week3.fibonacci(1));
-        Assert.assertEquals(55L, Week3.fibonacci(10));
-        Assert.assertEquals(6765L, Week3.fibonacci(20));
-    }
-
-    @Test
-    public void testSieve() {
-        Assert.assertEquals("", Week3.sieveEratosthenes(1));
-        Assert.assertEquals("2", Week3.sieveEratosthenes(2));
-        Assert.assertEquals("2 3 5 7 11 13 17 19", Week3.sieveEratosthenes(20));
-    }
-}
-        `,
-        100
-      ),
-    ],
-  },
-  {
-    title: "Tuần 3 - Phân số",
-    description: [
-      "# Tuần 3. Lớp `Fraction` và so sánh đối tượng",
-      "",
-      "Cài đặt lớp `Fraction`:",
-      "- Thuộc tính `private int numerator`, `private int denominator`.",
-      "- Constructor `Fraction(int numerator, int denominator)`. Nếu mẫu bằng 0 thì ném `ArithmeticException` với thông điệp `Denominator is zero`.",
-      "- Getter/setter cho tử và mẫu. Setter mẫu cũng phải kiểm tra mẫu khác 0.",
-      "- `Fraction reduce()` rút gọn phân số, chuẩn hóa dấu âm nằm ở tử số, và trả về chính đối tượng hiện tại.",
-      "- `Fraction add(Fraction other)`, `subtract`, `multiply`, `divide` trả về phân số mới đã rút gọn.",
-      "- Override `equals(Object obj)` để hai phân số bằng nhau nếu giá trị sau rút gọn bằng nhau.",
-      "- `toString()` trả về `numerator/denominator`; nếu mẫu là 1 thì chỉ trả về tử số.",
-    ].join("\n"),
-    difficulty: "medium",
-    oopTags: ["classes", "encapsulation", "equals"],
-    starterCode: javaStarterFiles([
-      {
-        name: "Fraction.java",
-        content: [
-          "public class Fraction {",
-          "    private int numerator;",
-          "    private int denominator;",
-          "",
-          "    public Fraction(int numerator, int denominator) {",
-          "        // TODO",
-          "    }",
-          "",
-          "    public int getNumerator() { return numerator; }",
-          "    public void setNumerator(int numerator) { this.numerator = numerator; }",
-          "    public int getDenominator() { return denominator; }",
-          "    public void setDenominator(int denominator) {",
-          "        // TODO",
-          "    }",
-          "",
-          "    public Fraction reduce() {",
-          "        // TODO",
-          "        return this;",
-          "    }",
-          "",
-          "    public Fraction add(Fraction other) { return null; }",
-          "    public Fraction subtract(Fraction other) { return null; }",
-          "    public Fraction multiply(Fraction other) { return null; }",
-          "    public Fraction divide(Fraction other) { return null; }",
-          "}",
-        ].join("\n"),
-      },
-    ]),
-    testCasesData: [
-      javaTestCase(
-        "FractionTest.java",
-        `
-import net.bqc.oasis.junit.JavaReflection;
-import org.junit.Assert;
-import org.junit.Test;
-
-public class FractionTest {
-    @Test
-    public void fieldsArePrivateIntegers() {
-        Assert.assertTrue(JavaReflection.checkField(Fraction.class, "numerator", "int", "private"));
-        Assert.assertTrue(JavaReflection.checkField(Fraction.class, "denominator", "int", "private"));
-    }
-
-    @Test
-    public void reduceAndNormalizeSign() {
-        Assert.assertEquals("1/2", new Fraction(2, 4).reduce().toString());
-        Assert.assertEquals("-1/3", new Fraction(3, -9).reduce().toString());
-        Assert.assertEquals("0", new Fraction(0, -5).reduce().toString());
-    }
-
-    @Test
-    public void arithmeticWorks() {
-        Assert.assertEquals("5/6", new Fraction(1, 2).add(new Fraction(1, 3)).toString());
-        Assert.assertEquals("1/6", new Fraction(1, 2).subtract(new Fraction(1, 3)).toString());
-        Assert.assertEquals("1/6", new Fraction(1, 2).multiply(new Fraction(1, 3)).toString());
-        Assert.assertEquals("3/2", new Fraction(1, 2).divide(new Fraction(1, 3)).toString());
-    }
-
-    @Test
-    public void equalsAndInvalidDenominator() {
-        Assert.assertEquals(new Fraction(1, 2), new Fraction(2, 4));
-        try {
-            new Fraction(1, 0);
-            Assert.fail("Expected ArithmeticException");
-        } catch (ArithmeticException ex) {
-            Assert.assertEquals("Denominator is zero", ex.getMessage());
-        }
-    }
-}
-        `,
-        100
-      ),
-    ],
-  },
-  {
-    title: "Tuần 3 - Static, mảng và BMI",
-    description: [
-      "# Tuần 3. Static, mảng, JUnit",
-      "",
-      "Cài đặt lớp `Week4` với các phương thức `public static`:",
-      "- `int max2Int(int a, int b)` trả về số lớn hơn.",
-      "- `int minArray(int[] arr)` trả về giá trị nhỏ nhất trong mảng. Nếu mảng rỗng hoặc `null`, ném `IllegalArgumentException`.",
-      "- `String calculateBMI(double weight, double height)` tính BMI, làm tròn 1 chữ số thập phân, rồi trả về: `Thiếu cân`, `Bình thường`, `Thừa cân`, hoặc `Béo phì`.",
-      "",
-      "Ngưỡng BMI: dưới 18.5 là thiếu cân; 18.5 đến 22.9 bình thường; 23 đến 24.9 thừa cân; từ 25 béo phì.",
-    ].join("\n"),
-    difficulty: "easy",
-    oopTags: ["static-methods", "arrays", "junit"],
-    starterCode: javaStarterFiles([
-      {
-        name: "Week4.java",
-        content: [
-          "public class Week4 {",
-          "    public static int max2Int(int a, int b) { return 0; }",
-          "    public static int minArray(int[] arr) { return 0; }",
-          "    public static String calculateBMI(double weight, double height) { return \"\"; }",
-          "}",
-        ].join("\n"),
-      },
-    ]),
-    testCasesData: [
-      javaTestCase(
-        "Week4Test.java",
-        `
-import org.junit.Assert;
-import org.junit.Test;
-
-public class Week4Test {
-    @Test
-    public void maxAndMinWork() {
-        Assert.assertEquals(8, Week4.max2Int(8, 3));
-        Assert.assertEquals(-1, Week4.max2Int(-5, -1));
-        Assert.assertEquals(-10, Week4.minArray(new int[] {3, 5, -10, 4}));
-        Assert.assertEquals(7, Week4.minArray(new int[] {7}));
-    }
-
-    @Test
-    public void bmiCategoriesWork() {
-        Assert.assertEquals("Thiếu cân", Week4.calculateBMI(45, 1.70));
-        Assert.assertEquals("Bình thường", Week4.calculateBMI(60, 1.65));
-        Assert.assertEquals("Thừa cân", Week4.calculateBMI(68, 1.68));
-        Assert.assertEquals("Béo phì", Week4.calculateBMI(82, 1.70));
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void emptyArrayThrowsException() {
-        Week4.minArray(new int[] {});
-    }
-}
-        `,
-        100
-      ),
-    ],
-  },
-  {
-    title: "Tuần 4 - Circle và Cylinder",
-    description: [
-      "# Tuần 4. Kế thừa, constructor, overriding",
-      "",
-      "Cài đặt hai lớp:",
-      "",
-      "## `Circle`",
-      "- Thuộc tính `protected double radius`, `protected String color`.",
-      "- Constructor mặc định: `radius = 1.0`, `color = \"red\"`.",
-      "- Constructor `Circle(double radius)` và `Circle(double radius, String color)`.",
-      "- Getter/setter cho `radius`, `color`.",
-      "- `double getArea()` trả về diện tích hình tròn.",
-      "- `toString()` trả về `Circle[radius=<radius>,color=<color>]`.",
-      "",
-      "## `Cylinder extends Circle`",
-      "- Thuộc tính `private double height`.",
-      "- Constructor mặc định: `radius = 1.0`, `height = 1.0`, `color = \"red\"`.",
-      "- Constructor `Cylinder(double radius, double height)`.",
-      "- Constructor `Cylinder(double radius, double height, String color)`.",
-      "- `double getVolume()` trả về thể tích.",
-      "- Override `getArea()` để trả về diện tích toàn phần.",
-      "- `toString()` trả về `Cylinder[height=<height>,base=<Circle.toString()>]`.",
-    ].join("\n"),
-    difficulty: "medium",
-    oopTags: ["inheritance", "constructor", "overriding"],
-    starterCode: javaStarterFiles([
-      {
-        name: "Circle.java",
-        content: [
-          "public class Circle {",
-          "    protected double radius;",
-          "    protected String color;",
-          "",
-          "    public Circle() { }",
-          "    public Circle(double radius) { }",
-          "    public Circle(double radius, String color) { }",
-          "",
-          "    public double getRadius() { return radius; }",
-          "    public void setRadius(double radius) { this.radius = radius; }",
-          "    public String getColor() { return color; }",
-          "    public void setColor(String color) { this.color = color; }",
-          "    public double getArea() { return 0; }",
-          "}",
-        ].join("\n"),
-      },
-      {
-        name: "Cylinder.java",
-        content: [
-          "public class Cylinder extends Circle {",
-          "    private double height;",
-          "",
-          "    public Cylinder() { }",
-          "    public Cylinder(double radius, double height) { }",
-          "    public Cylinder(double radius, double height, String color) { }",
-          "",
-          "    public double getHeight() { return height; }",
-          "    public void setHeight(double height) { this.height = height; }",
-          "    public double getVolume() { return 0; }",
-          "}",
-        ].join("\n"),
-      },
-    ]),
-    testCasesData: [
-      javaTestCase(
-        "CircleCylinderTest.java",
-        `
-import net.bqc.oasis.junit.JavaReflection;
-import org.junit.Assert;
-import org.junit.Test;
-
-public class CircleCylinderTest {
-    @Test
-    public void classStructureIsCorrect() {
-        Assert.assertTrue(JavaReflection.checkField(Circle.class, "radius", "double", "protected"));
-        Assert.assertTrue(JavaReflection.checkField(Circle.class, "color", "String|java.lang.String", "protected"));
-        Assert.assertTrue(JavaReflection.checkField(Cylinder.class, "height", "double", "private"));
-        Assert.assertEquals(Circle.class, Cylinder.class.getSuperclass());
-    }
-
-    @Test
-    public void circleAreaAndStringWork() {
-        Circle c = new Circle(2.0, "blue");
-        Assert.assertEquals(4.0 * Math.PI, c.getArea(), 0.0001);
-        Assert.assertEquals("Circle[radius=2.0,color=blue]", c.toString());
-    }
-
-    @Test
-    public void cylinderVolumeAreaAndStringWork() {
-        Cylinder cy = new Cylinder(2.0, 3.0, "green");
-        Assert.assertEquals(12.0 * Math.PI, cy.getVolume(), 0.0001);
-        Assert.assertEquals(20.0 * Math.PI, cy.getArea(), 0.0001);
-        Assert.assertEquals("Cylinder[height=3.0,base=Circle[radius=2.0,color=green]]", cy.toString());
-    }
-}
-        `,
-        100
-      ),
-    ],
-  },
-  {
-    title: "Tuần 5 - Biểu thức đại số",
-    description: [
-      "# Tuần 5. Đa hình, abstract, exception",
-      "",
-      "Cài đặt mô hình biểu thức:",
-      "- `abstract class Expression` có `abstract int evaluate()`.",
-      "- `Numeral extends Expression` lưu một số nguyên.",
-      "- `Square extends Expression` bình phương giá trị biểu thức con.",
-      "- `BinaryExpression extends Expression` là lớp trừu tượng có `left`, `right`.",
-      "- `Addition`, `Subtraction`, `Multiplication`, `Division` kế thừa `BinaryExpression`.",
-      "- `Division.evaluate()` ném `ArithmeticException` với thông điệp `Lỗi chia cho 0` nếu mẫu bằng 0.",
-      "- `toString()` phải thể hiện biểu thức có ngoặc, ví dụ `((10 + -3) * 4)`.",
-      "",
-      "Bài này kiểm tra abstraction, kế thừa, ghi đè phương thức và xử lý ngoại lệ trong cây đối tượng.",
-    ].join("\n"),
-    difficulty: "medium",
-    oopTags: ["polymorphism", "abstraction", "exception-handling"],
-    starterCode: javaStarterFiles([
-      {
-        name: "Expression.java",
-        content: [
-          "public abstract class Expression {",
-          "    public abstract int evaluate();",
-          "}",
-          "",
-          "class Numeral extends Expression {",
-          "    // TODO",
-          "    public int evaluate() { return 0; }",
-          "}",
-          "",
-          "class Square extends Expression {",
-          "    // TODO",
-          "    public int evaluate() { return 0; }",
-          "}",
-          "",
-          "abstract class BinaryExpression extends Expression {",
-          "    protected Expression left;",
-          "    protected Expression right;",
-          "}",
-          "",
-          "class Addition extends BinaryExpression {",
-          "    // TODO",
-          "    public int evaluate() { return 0; }",
-          "}",
-          "",
-          "class Subtraction extends BinaryExpression { public int evaluate() { return 0; } }",
-          "class Multiplication extends BinaryExpression { public int evaluate() { return 0; } }",
-          "class Division extends BinaryExpression { public int evaluate() { return 0; } }",
-        ].join("\n"),
-      },
-    ]),
-    testCasesData: [
-      javaTestCase(
-        "ExpressionTest.java",
+        "CoffeeMachineTest.java",
         `
 import org.junit.Assert;
 import org.junit.Test;
 import java.lang.reflect.Modifier;
 
-public class ExpressionTest {
+public class CoffeeMachineTest {
     @Test
-    public void classesAreAbstractWhereNeeded() {
-        Assert.assertTrue(Modifier.isAbstract(Expression.class.getModifiers()));
-        Assert.assertTrue(Modifier.isAbstract(BinaryExpression.class.getModifiers()));
+    public void waterTankClampsAndConsumesWater() throws Exception {
+        Assert.assertTrue(Modifier.isPrivate(WaterTank.class.getDeclaredField("capacity").getModifiers()));
+        Assert.assertTrue(Modifier.isPrivate(WaterTank.class.getDeclaredField("amount").getModifiers()));
+        WaterTank tank = new WaterTank(500);
+        tank.addWater(700);
+        Assert.assertEquals(500, tank.getAmount());
+        Assert.assertTrue(tank.useWater(200));
+        Assert.assertEquals(300, tank.getAmount());
+        Assert.assertFalse(tank.useWater(400));
+        Assert.assertEquals(300, tank.getAmount());
     }
 
     @Test
-    public void expressionTreeEvaluatesCorrectly() {
-        Expression exp = new Square(
-            new Addition(
-                new Addition(new Square(new Numeral(10)), new Numeral(-3)),
-                new Multiplication(new Numeral(4), new Numeral(3))
-            )
-        );
-        Assert.assertEquals(11881, exp.evaluate());
-    }
-
-    @Test
-    public void operationsAndDivisionByZeroWork() {
-        Assert.assertEquals(7, new Subtraction(new Numeral(10), new Numeral(3)).evaluate());
-        Assert.assertEquals(5, new Division(new Numeral(10), new Numeral(2)).evaluate());
-        try {
-            new Division(new Numeral(10), new Numeral(0)).evaluate();
-            Assert.fail("Expected ArithmeticException");
-        } catch (ArithmeticException ex) {
-            Assert.assertEquals("Lỗi chia cho 0", ex.getMessage());
-        }
+    public void coffeeMachineUsesItsTank() {
+        WaterTank tank = new WaterTank(450);
+        tank.addWater(450);
+        CoffeeMachine machine = new CoffeeMachine("Aroma-7", tank);
+        Assert.assertEquals("Brewing espresso on Aroma-7", machine.brew("espresso"));
+        Assert.assertEquals("Brewing latte on Aroma-7", machine.brew("latte"));
+        Assert.assertEquals("Not enough water", machine.brew("americano"));
+        Assert.assertEquals(2, machine.getCupsMade());
+        Assert.assertEquals(50, tank.getAmount());
     }
 }
         `,
-        100
+        100,
+        1
       ),
     ],
   },
   {
-    title: "Tuần 5 - Sơ đồ hình học, Layer và Diagram",
+    title: "Tuần 2 - Quản lý thư viện mini",
     description: [
-      "# Tuần 5. Đa hình, interface, quản lý danh sách đối tượng",
+      "# Tuần 2. Getter/setter, constructor và mảng đối tượng",
+      "",
+      "Cài đặt lớp `LibraryMember`:",
+      "- Có các thuộc tính `private String fullName`, `private String cardId`, `private String email`, `private boolean active`.",
+      "- Constructor mặc định tạo hồ sơ `Guest - CARD-000 - guest@library.local - active`.",
+      "- Constructor `LibraryMember(String fullName, String cardId, String email)` đặt `active = true`.",
+      "- Constructor sao chép `LibraryMember(LibraryMember other)`.",
+      "- Getter/setter đầy đủ cho 4 thuộc tính.",
+      "- `String getProfile()` trả về `<cardId> - <fullName> - <email> - <active|inactive>`.",
+      "",
+      "Cài đặt lớp `LibraryRegistry`:",
+      "- Có mảng `members` kiểu `LibraryMember[]`, tối đa 100 phần tử.",
+      "- `void addMember(LibraryMember member)` thêm thẻ nếu `cardId` chưa tồn tại.",
+      "- `void deactivateMember(String cardId)` chuyển thành viên sang trạng thái inactive.",
+      "- `int countActive()` đếm thành viên đang active.",
+      "- `String findByEmailDomain(String domain)` trả về mỗi profile khớp domain trên một dòng, theo thứ tự thêm.",
+    ].join("\n"),
+    difficulty: "easy",
+    oopTags: ["classes", "objects", "encapsulation", "constructor"],
+    starterCode: javaStarterFiles([
+      {
+        name: "LibraryMember.java",
+        content: [
+          "public class LibraryMember {",
+          "    private String fullName;",
+          "    private String cardId;",
+          "    private String email;",
+          "    private boolean active;",
+          "",
+          "    public LibraryMember() {",
+          "        // TODO",
+          "    }",
+          "",
+          "    public LibraryMember(String fullName, String cardId, String email) {",
+          "        // TODO",
+          "    }",
+          "",
+          "    public LibraryMember(LibraryMember other) {",
+          "        // TODO",
+          "    }",
+          "",
+          "    public String getFullName() { return fullName; }",
+          "    public void setFullName(String fullName) { this.fullName = fullName; }",
+          "    public String getCardId() { return cardId; }",
+          "    public void setCardId(String cardId) { this.cardId = cardId; }",
+          "    public String getEmail() { return email; }",
+          "    public void setEmail(String email) { this.email = email; }",
+          "    public boolean isActive() { return active; }",
+          "    public void setActive(boolean active) { this.active = active; }",
+          "",
+          "    public String getProfile() {",
+          "        // TODO",
+          "        return \"\";",
+          "    }",
+          "}",
+        ].join("\n"),
+      },
+      {
+        name: "LibraryRegistry.java",
+        content: [
+          "public class LibraryRegistry {",
+          "    private LibraryMember[] members = new LibraryMember[100];",
+          "    private int memberCount = 0;",
+          "",
+          "    public void addMember(LibraryMember member) {",
+          "        // TODO",
+          "    }",
+          "",
+          "    public void deactivateMember(String cardId) {",
+          "        // TODO",
+          "    }",
+          "",
+          "    public int countActive() {",
+          "        // TODO",
+          "        return 0;",
+          "    }",
+          "",
+          "    public String findByEmailDomain(String domain) {",
+          "        // TODO",
+          "        return \"\";",
+          "    }",
+          "}",
+        ].join("\n"),
+      },
+    ]),
+    testCasesData: [
+      javaTestCase(
+        "LibraryTest.java",
+        `
+import org.junit.Assert;
+import org.junit.Test;
+import java.lang.reflect.Modifier;
+
+public class LibraryTest {
+    @Test
+    public void memberConstructorsAndProfileWork() throws Exception {
+        Assert.assertTrue(Modifier.isPrivate(LibraryMember.class.getDeclaredField("fullName").getModifiers()));
+        LibraryMember guest = new LibraryMember();
+        Assert.assertEquals("CARD-000 - Guest - guest@library.local - active", guest.getProfile());
+        LibraryMember an = new LibraryMember("Nguyen An", "LIB-001", "an@vnu.edu.vn");
+        an.setActive(false);
+        LibraryMember copy = new LibraryMember(an);
+        an.setFullName("Changed");
+        Assert.assertEquals("LIB-001 - Nguyen An - an@vnu.edu.vn - inactive", copy.getProfile());
+    }
+
+    @Test
+    public void registryAddsUniqueCardsAndFiltersDomain() {
+        LibraryRegistry registry = new LibraryRegistry();
+        registry.addMember(new LibraryMember("An", "LIB-001", "an@vnu.edu.vn"));
+        registry.addMember(new LibraryMember("Binh", "LIB-002", "binh@gmail.com"));
+        registry.addMember(new LibraryMember("Duplicate", "LIB-001", "dup@vnu.edu.vn"));
+        registry.deactivateMember("LIB-002");
+        Assert.assertEquals(1, registry.countActive());
+        Assert.assertEquals("LIB-001 - An - an@vnu.edu.vn - active", registry.findByEmailDomain("vnu.edu.vn").trim());
+    }
+}
+        `,
+        100,
+        1
+      ),
+    ],
+  },
+  {
+    title: "Tuần 3 - SensorMath và dãy số",
+    description: [
+      "# Tuần 3. Kiểu nguyên thủy và phương thức tĩnh",
+      "",
+      "Cài đặt lớp `SensorMath` với các phương thức `public static`:",
+      "- `int digitalRoot(int n)`: tính tổng chữ số lặp lại đến khi còn một chữ số. Dùng trị tuyệt đối của `n`.",
+      "- `boolean isArmstrong(int n)`: kiểm tra số Armstrong trong hệ thập phân. Số âm trả về `false`.",
+      "- `String compressRanges(int[] values)`: với mảng số nguyên đã tăng dần, nén các đoạn liên tiếp. Ví dụ `[1,2,3,5,7,8]` thành `1-3,5,7-8`.",
+      "",
+      "Không dùng thư viện ngoài. Cần xử lý mảng rỗng, số âm và các đoạn chỉ có một phần tử.",
+    ].join("\n"),
+    difficulty: "easy",
+    oopTags: ["primitive-types", "static-methods", "arrays"],
+    starterCode: javaStarterFiles([
+      {
+        name: "SensorMath.java",
+        content: [
+          "public class SensorMath {",
+          "    public static int digitalRoot(int n) {",
+          "        // TODO",
+          "        return 0;",
+          "    }",
+          "",
+          "    public static boolean isArmstrong(int n) {",
+          "        // TODO",
+          "        return false;",
+          "    }",
+          "",
+          "    public static String compressRanges(int[] values) {",
+          "        // TODO",
+          "        return \"\";",
+          "    }",
+          "}",
+        ].join("\n"),
+      },
+    ]),
+    testCasesData: [
+      javaTestCase(
+        "SensorMathTest.java",
+        `
+import org.junit.Assert;
+import org.junit.Test;
+
+public class SensorMathTest {
+    @Test
+    public void digitalRootHandlesSignsAndZero() {
+        Assert.assertEquals(0, SensorMath.digitalRoot(0));
+        Assert.assertEquals(9, SensorMath.digitalRoot(987654));
+        Assert.assertEquals(6, SensorMath.digitalRoot(-123));
+    }
+
+    @Test
+    public void armstrongDetectionWorks() {
+        Assert.assertTrue(SensorMath.isArmstrong(153));
+        Assert.assertTrue(SensorMath.isArmstrong(9474));
+        Assert.assertFalse(SensorMath.isArmstrong(9475));
+        Assert.assertFalse(SensorMath.isArmstrong(-153));
+    }
+
+    @Test
+    public void rangesAreCompressed() {
+        Assert.assertEquals("", SensorMath.compressRanges(new int[] {}));
+        Assert.assertEquals("1-3,5,7-9", SensorMath.compressRanges(new int[] {1, 2, 3, 5, 7, 8, 9}));
+        Assert.assertEquals("-3--1,2", SensorMath.compressRanges(new int[] {-3, -2, -1, 2}));
+    }
+}
+        `,
+        100,
+        1
+      ),
+    ],
+  },
+  {
+    title: "Tuần 3 - Số tiền chính xác",
+    description: [
+      "# Tuần 3. Value object, equals và bất biến dữ liệu",
+      "",
+      "Cài đặt lớp `MoneyAmount`:",
+      "- Có thuộc tính `private long cents` lưu tổng số cent.",
+      "- Constructor `MoneyAmount(long cents)`.",
+      "- Constructor `MoneyAmount(long units, int cents)`; `cents` phải trong khoảng `0..99`, nếu không ném `IllegalArgumentException` với thông điệp `Invalid cents`.",
+      "- `long getCents()`.",
+      "- `MoneyAmount add(MoneyAmount other)`, `subtract(MoneyAmount other)`, `multiply(int factor)` trả về đối tượng mới.",
+      "- `boolean isNegative()`.",
+      "- Override `equals(Object obj)` để so sánh theo tổng cent.",
+      "- `toString()` trả về dạng tiền có 2 chữ số phần lẻ, ví dụ `12.05`, `-3.40`.",
+    ].join("\n"),
+    difficulty: "medium",
+    oopTags: ["classes", "encapsulation", "equals", "immutability"],
+    starterCode: javaStarterFiles([
+      {
+        name: "MoneyAmount.java",
+        content: [
+          "public class MoneyAmount {",
+          "    private long cents;",
+          "",
+          "    public MoneyAmount(long cents) {",
+          "        // TODO",
+          "    }",
+          "",
+          "    public MoneyAmount(long units, int cents) {",
+          "        // TODO",
+          "    }",
+          "",
+          "    public long getCents() { return cents; }",
+          "    public MoneyAmount add(MoneyAmount other) { return null; }",
+          "    public MoneyAmount subtract(MoneyAmount other) { return null; }",
+          "    public MoneyAmount multiply(int factor) { return null; }",
+          "    public boolean isNegative() { return false; }",
+          "}",
+        ].join("\n"),
+      },
+    ]),
+    testCasesData: [
+      javaTestCase(
+        "MoneyAmountTest.java",
+        `
+import org.junit.Assert;
+import org.junit.Test;
+import java.lang.reflect.Modifier;
+
+public class MoneyAmountTest {
+    @Test
+    public void fieldsAndFormattingWork() throws Exception {
+        Assert.assertTrue(Modifier.isPrivate(MoneyAmount.class.getDeclaredField("cents").getModifiers()));
+        Assert.assertEquals("12.05", new MoneyAmount(12, 5).toString());
+        Assert.assertEquals("-3.40", new MoneyAmount(-340).toString());
+        Assert.assertEquals("0.00", new MoneyAmount(0).toString());
+    }
+
+    @Test
+    public void arithmeticReturnsNewValues() {
+        MoneyAmount a = new MoneyAmount(10, 50);
+        MoneyAmount b = new MoneyAmount(275);
+        Assert.assertEquals("13.25", a.add(b).toString());
+        Assert.assertEquals("7.75", a.subtract(b).toString());
+        Assert.assertEquals("21.00", a.multiply(2).toString());
+        Assert.assertEquals("10.50", a.toString());
+    }
+
+    @Test
+    public void equalityAndValidationWork() {
+        Assert.assertEquals(new MoneyAmount(1050), new MoneyAmount(10, 50));
+        Assert.assertTrue(new MoneyAmount(-1).isNegative());
+        try {
+            new MoneyAmount(1, 120);
+            Assert.fail("Expected IllegalArgumentException");
+        } catch (IllegalArgumentException ex) {
+            Assert.assertEquals("Invalid cents", ex.getMessage());
+        }
+    }
+}
+        `,
+        100,
+        1
+      ),
+    ],
+  },
+  {
+    title: "Tuần 4 - Bảng điểm học phần",
+    description: [
+      "# Tuần 4. Static, mảng và kiểm thử",
+      "",
+      "Cài đặt lớp `CourseScores` với các phương thức `public static`:",
+      "- `double average(int[] scores)`: trả về điểm trung bình, làm tròn 2 chữ số thập phân.",
+      "- `int countAtLeast(int[] scores, int threshold)`: đếm số điểm lớn hơn hoặc bằng ngưỡng.",
+      "- `String grade(double average)`: quy đổi `A` nếu >= 8.5, `B` nếu >= 7.0, `C` nếu >= 5.5, `D` nếu >= 4.0, còn lại `F`.",
+      "- `int[] normalizeBonus(int[] scores, int bonus)`: trả về mảng mới sau khi cộng bonus, mỗi điểm tối đa 10; không thay đổi mảng đầu vào.",
+      "",
+      "Nếu mảng điểm `null` hoặc rỗng, `average` và `countAtLeast` ném `IllegalArgumentException`.",
+    ].join("\n"),
+    difficulty: "easy",
+    oopTags: ["static-methods", "arrays", "junit"],
+    starterCode: javaStarterFiles([
+      {
+        name: "CourseScores.java",
+        content: [
+          "public class CourseScores {",
+          "    public static double average(int[] scores) { return 0; }",
+          "    public static int countAtLeast(int[] scores, int threshold) { return 0; }",
+          "    public static String grade(double average) { return \"\"; }",
+          "    public static int[] normalizeBonus(int[] scores, int bonus) { return new int[0]; }",
+          "}",
+        ].join("\n"),
+      },
+    ]),
+    testCasesData: [
+      javaTestCase(
+        "CourseScoresTest.java",
+        `
+import org.junit.Assert;
+import org.junit.Test;
+
+public class CourseScoresTest {
+    @Test
+    public void averageCountAndGradeWork() {
+        int[] scores = {8, 9, 6, 10};
+        Assert.assertEquals(8.25, CourseScores.average(scores), 0.0001);
+        Assert.assertEquals(3, CourseScores.countAtLeast(scores, 8));
+        Assert.assertEquals("B", CourseScores.grade(8.25));
+        Assert.assertEquals("F", CourseScores.grade(3.9));
+    }
+
+    @Test
+    public void bonusDoesNotMutateInput() {
+        int[] scores = {7, 9, 10};
+        Assert.assertArrayEquals(new int[] {9, 10, 10}, CourseScores.normalizeBonus(scores, 2));
+        Assert.assertArrayEquals(new int[] {7, 9, 10}, scores);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void emptyAverageThrowsException() {
+        CourseScores.average(new int[] {});
+    }
+}
+        `,
+        100,
+        1
+      ),
+    ],
+  },
+  {
+    title: "Tuần 4 - Phương tiện điện",
+    description: [
+      "# Tuần 4. Kế thừa, constructor và overriding",
+      "",
+      "Cài đặt hai lớp:",
+      "",
+      "## `Vehicle`",
+      "- Thuộc tính `protected String licensePlate`, `protected int speed`.",
+      "- Constructor `Vehicle(String licensePlate)` đặt speed ban đầu là `0`.",
+      "- `void accelerate(int amount)` tăng tốc nếu amount dương.",
+      "- `void brake(int amount)` giảm tốc nhưng không thấp hơn 0.",
+      "- `String move()` trả về `Vehicle <licensePlate> moves at <speed> km/h`.",
+      "",
+      "## `ElectricCar extends Vehicle`",
+      "- Thuộc tính `private int batteryLevel` trong khoảng `0..100`.",
+      "- Constructor `ElectricCar(String licensePlate, int batteryLevel)`.",
+      "- `void charge(int amount)` tăng pin, tối đa 100.",
+      "- `boolean consumeBattery(int amount)` trừ pin nếu đủ.",
+      "- Override `move()` trả về `ElectricCar <licensePlate> moves at <speed> km/h with <batteryLevel>% battery`.",
+    ].join("\n"),
+    difficulty: "medium",
+    oopTags: ["inheritance", "constructor", "overriding"],
+    starterCode: javaStarterFiles([
+      {
+        name: "Vehicle.java",
+        content: [
+          "public class Vehicle {",
+          "    protected String licensePlate;",
+          "    protected int speed;",
+          "",
+          "    public Vehicle(String licensePlate) {",
+          "        // TODO",
+          "    }",
+          "",
+          "    public void accelerate(int amount) { }",
+          "    public void brake(int amount) { }",
+          "    public String move() { return \"\"; }",
+          "    public int getSpeed() { return speed; }",
+          "}",
+        ].join("\n"),
+      },
+      {
+        name: "ElectricCar.java",
+        content: [
+          "public class ElectricCar extends Vehicle {",
+          "    private int batteryLevel;",
+          "",
+          "    public ElectricCar(String licensePlate, int batteryLevel) {",
+          "        super(licensePlate);",
+          "        // TODO",
+          "    }",
+          "",
+          "    public void charge(int amount) { }",
+          "    public boolean consumeBattery(int amount) { return false; }",
+          "    public int getBatteryLevel() { return batteryLevel; }",
+          "}",
+        ].join("\n"),
+      },
+    ]),
+    testCasesData: [
+      javaTestCase(
+        "VehicleTest.java",
+        `
+import org.junit.Assert;
+import org.junit.Test;
+import java.lang.reflect.Modifier;
+
+public class VehicleTest {
+    @Test
+    public void vehicleSpeedNeverBecomesNegative() throws Exception {
+        Assert.assertTrue(Modifier.isProtected(Vehicle.class.getDeclaredField("licensePlate").getModifiers()));
+        Vehicle vehicle = new Vehicle("30A-12345");
+        vehicle.accelerate(40);
+        vehicle.brake(15);
+        Assert.assertEquals("Vehicle 30A-12345 moves at 25 km/h", vehicle.move());
+        vehicle.brake(100);
+        Assert.assertEquals(0, vehicle.getSpeed());
+    }
+
+    @Test
+    public void electricCarOverridesMoveAndManagesBattery() {
+        ElectricCar car = new ElectricCar("EV-01", 80);
+        Assert.assertEquals(Vehicle.class, ElectricCar.class.getSuperclass());
+        car.accelerate(60);
+        Assert.assertTrue(car.consumeBattery(30));
+        Assert.assertFalse(car.consumeBattery(60));
+        car.charge(15);
+        Assert.assertEquals(65, car.getBatteryLevel());
+        Assert.assertEquals("ElectricCar EV-01 moves at 60 km/h with 65% battery", car.move());
+    }
+}
+        `,
+        100,
+        1
+      ),
+    ],
+  },
+  {
+    title: "Tuần 5 - Playlist đa phương tiện",
+    description: [
+      "# Tuần 5. Abstract class, đa hình và collection",
+      "",
+      "Cài đặt mô hình playlist:",
+      "- `abstract class MediaItem` có `title`, `durationSeconds`, constructor, getter và `abstract String play()`.",
+      "- `Song extends MediaItem` có thêm `artist`, `play()` trả về `Song: <title> by <artist>`.",
+      "- `PodcastEpisode extends MediaItem` có thêm `showName`, `play()` trả về `Podcast: <showName> - <title>`.",
+      "- `VideoClip extends MediaItem` có thêm `resolution`, `play()` trả về `Video: <title> [<resolution>]`.",
+      "- `Playlist` quản lý danh sách `MediaItem`, có `addItem`, `int totalDuration()`, `String playAll()`.",
+      "",
+      "`playAll()` trả về kết quả `play()` của từng item, mỗi item một dòng và giữ thứ tự thêm.",
+    ].join("\n"),
+    difficulty: "medium",
+    oopTags: ["polymorphism", "abstraction", "collections"],
+    starterCode: javaStarterFiles([
+      {
+        name: "Playlist.java",
+        content: [
+          "import java.util.*;",
+          "",
+          "abstract class MediaItem {",
+          "    protected String title;",
+          "    protected int durationSeconds;",
+          "    public MediaItem(String title, int durationSeconds) {",
+          "        // TODO",
+          "    }",
+          "    public String getTitle() { return title; }",
+          "    public int getDurationSeconds() { return durationSeconds; }",
+          "    public abstract String play();",
+          "}",
+          "",
+          "class Song extends MediaItem {",
+          "    // TODO",
+          "    public Song(String title, int durationSeconds, String artist) { super(title, durationSeconds); }",
+          "    public String play() { return \"\"; }",
+          "}",
+          "",
+          "class PodcastEpisode extends MediaItem {",
+          "    public PodcastEpisode(String title, int durationSeconds, String showName) { super(title, durationSeconds); }",
+          "    public String play() { return \"\"; }",
+          "}",
+          "",
+          "class VideoClip extends MediaItem {",
+          "    public VideoClip(String title, int durationSeconds, String resolution) { super(title, durationSeconds); }",
+          "    public String play() { return \"\"; }",
+          "}",
+          "",
+          "public class Playlist {",
+          "    private List<MediaItem> items = new ArrayList<>();",
+          "    public void addItem(MediaItem item) { }",
+          "    public int totalDuration() { return 0; }",
+          "    public String playAll() { return \"\"; }",
+          "}",
+        ].join("\n"),
+      },
+    ]),
+    testCasesData: [
+      javaTestCase(
+        "PlaylistTest.java",
+        `
+import org.junit.Assert;
+import org.junit.Test;
+import java.lang.reflect.Modifier;
+
+public class PlaylistTest {
+    @Test
+    public void mediaItemIsAbstractAndSubclassesPlayDifferently() {
+        Assert.assertTrue(Modifier.isAbstract(MediaItem.class.getModifiers()));
+        Assert.assertEquals("Song: Morning by Linh", new Song("Morning", 180, "Linh").play());
+        Assert.assertEquals("Podcast: OOP Talks - Interfaces", new PodcastEpisode("Interfaces", 900, "OOP Talks").play());
+        Assert.assertEquals("Video: Demo [1080p]", new VideoClip("Demo", 120, "1080p").play());
+    }
+
+    @Test
+    public void playlistUsesPolymorphism() {
+        Playlist playlist = new Playlist();
+        playlist.addItem(new Song("Morning", 180, "Linh"));
+        playlist.addItem(new PodcastEpisode("Interfaces", 900, "OOP Talks"));
+        playlist.addItem(new VideoClip("Demo", 120, "1080p"));
+        Assert.assertEquals(1200, playlist.totalDuration());
+        Assert.assertEquals(
+            "Song: Morning by Linh\\nPodcast: OOP Talks - Interfaces\\nVideo: Demo [1080p]",
+            playlist.playAll().trim()
+        );
+    }
+}
+        `,
+        100,
+        1
+      ),
+    ],
+  },
+  {
+    title: "Tuần 5 - Phòng học thông minh",
+    description: [
+      "# Tuần 5. Interface, đa hình và quản lý danh sách",
       "",
       "Cài đặt:",
-      "- `interface Drawable` có `String draw()`.",
-      "- `abstract class Shape implements Drawable` có tọa độ `x`, `y`, phương thức `boolean samePosition(Shape other)`.",
-      "- Các lớp `Circle`, `Square`, `Triangle` kế thừa `Shape`.",
-      "- `Layer` chứa danh sách `Shape`, có thuộc tính `visible`, `addShape`, `removeTriangles`, `removeDuplicates`, `draw()`.",
-      "- `Diagram` chứa danh sách `Layer`, có `addLayer`, `removeCircles`, `moveShapesToDedicatedLayers`, `draw()`.",
+      "- `interface Switchable` có `turnOn()`, `turnOff()`, `boolean isOn()`.",
+      "- `abstract class SmartDevice implements Switchable` có `id`, `room`, trạng thái bật/tắt và `String status()`.",
+      "- `LightDevice` có thêm `brightness`, status dạng `Light <id> in <room>: on/off (<brightness>%)`.",
+      "- `AirConditioner` có thêm `temperature`, status dạng `AC <id> in <room>: on/off (<temperature>C)`.",
+      "- `SmartRoom` chứa danh sách `SmartDevice`, có `addDevice`, `turnAllOn`, `turnAllOff`, `countOn`, `String report()`.",
       "",
-      "Hai hình trùng nhau nếu cùng lớp, cùng tọa độ và cùng kích thước đặc trưng. `draw()` chỉ vẽ layer đang visible.",
+      "`report()` liệt kê status của thiết bị theo thứ tự thêm, mỗi dòng một thiết bị.",
     ].join("\n"),
     difficulty: "hard",
     oopTags: ["polymorphism", "interfaces", "collections"],
     starterCode: javaStarterFiles([
       {
-        name: "Diagram.java",
+        name: "SmartRoom.java",
         content: [
           "import java.util.*;",
           "",
-          "interface Drawable {",
-          "    String draw();",
+          "interface Switchable {",
+          "    void turnOn();",
+          "    void turnOff();",
+          "    boolean isOn();",
           "}",
           "",
-          "abstract class Shape implements Drawable {",
-          "    protected int x;",
-          "    protected int y;",
+          "abstract class SmartDevice implements Switchable {",
+          "    protected String id;",
+          "    protected String room;",
+          "    protected boolean on;",
+          "    public SmartDevice(String id, String room) { }",
+          "    public void turnOn() { }",
+          "    public void turnOff() { }",
+          "    public boolean isOn() { return false; }",
+          "    public abstract String status();",
           "}",
           "",
-          "class Circle extends Shape { }",
-          "class Square extends Shape { }",
-          "class Triangle extends Shape { }",
-          "",
-          "class Layer implements Drawable {",
-          "    private boolean visible = true;",
-          "    private List<Shape> shapes = new ArrayList<>();",
+          "class LightDevice extends SmartDevice {",
+          "    public LightDevice(String id, String room, int brightness) { super(id, room); }",
+          "    public String status() { return \"\"; }",
           "}",
           "",
-          "public class Diagram implements Drawable {",
-          "    private List<Layer> layers = new ArrayList<>();",
-          "    public String draw() { return \"\"; }",
+          "class AirConditioner extends SmartDevice {",
+          "    public AirConditioner(String id, String room, int temperature) { super(id, room); }",
+          "    public String status() { return \"\"; }",
+          "}",
+          "",
+          "public class SmartRoom {",
+          "    private List<SmartDevice> devices = new ArrayList<>();",
+          "    public void addDevice(SmartDevice device) { }",
+          "    public void turnAllOn() { }",
+          "    public void turnAllOff() { }",
+          "    public int countOn() { return 0; }",
+          "    public String report() { return \"\"; }",
           "}",
         ].join("\n"),
       },
     ]),
     testCasesData: [
       javaTestCase(
-        "DiagramTest.java",
+        "SmartRoomTest.java",
         `
 import org.junit.Assert;
 import org.junit.Test;
 
-public class DiagramTest {
+public class SmartRoomTest {
     @Test
-    public void layerOperationsWork() {
-        Layer layer = new Layer();
-        layer.addShape(new Circle(0, 0, 5));
-        layer.addShape(new Circle(0, 0, 5));
-        layer.addShape(new Square(1, 1, 3));
-        layer.addShape(new Triangle(2, 2, 4));
-        layer.removeTriangles();
-        layer.removeDuplicates();
-        Assert.assertEquals("Circle(0,0,5)\\nSquare(1,1,3)", layer.draw().trim());
+    public void devicesImplementSwitchable() {
+        LightDevice light = new LightDevice("L1", "Lab", 75);
+        Assert.assertTrue(light instanceof Switchable);
+        Assert.assertFalse(light.isOn());
+        light.turnOn();
+        Assert.assertEquals("Light L1 in Lab: on (75%)", light.status());
     }
 
     @Test
-    public void invisibleLayerIsNotDrawn() {
-        Layer layer = new Layer();
-        layer.addShape(new Circle(0, 0, 5));
-        layer.setVisible(false);
-        Assert.assertEquals("", layer.draw());
-    }
-
-    @Test
-    public void diagramRemovesCirclesAndDrawsVisibleLayers() {
-        Layer l1 = new Layer();
-        l1.addShape(new Circle(0, 0, 5));
-        l1.addShape(new Square(1, 1, 3));
-        Layer l2 = new Layer();
-        l2.addShape(new Triangle(2, 2, 4));
-        Diagram diagram = new Diagram();
-        diagram.addLayer(l1);
-        diagram.addLayer(l2);
-        diagram.removeCircles();
-        Assert.assertEquals("Square(1,1,3)\\nTriangle(2,2,4)", diagram.draw().trim());
+    public void roomControlsAllDevices() {
+        SmartRoom room = new SmartRoom();
+        room.addDevice(new LightDevice("L1", "Lab", 75));
+        room.addDevice(new AirConditioner("A1", "Lab", 24));
+        room.turnAllOn();
+        Assert.assertEquals(2, room.countOn());
+        Assert.assertEquals("Light L1 in Lab: on (75%)\\nAC A1 in Lab: on (24C)", room.report().trim());
+        room.turnAllOff();
+        Assert.assertEquals(0, room.countOn());
     }
 }
         `,
-        100
+        100,
+        1
       ),
     ],
   },
   {
-    title: "Tuần 6 - Xử lý ngoại lệ",
+    title: "Tuần 6 - Đăng ký tài khoản an toàn",
     description: [
-      "# Tuần 6. try-catch, throw, custom exception",
+      "# Tuần 6. Exception và custom exception",
       "",
-      "Cài đặt lớp `Week8_Task2` gồm 5 phương thức `public static String`:",
-      "- `nullPointerEx()` bắt `NullPointerException` và trả về `Lỗi NullPointerException`.",
-      "- `arrayIndexOutOfBoundsEx()` bắt `ArrayIndexOutOfBoundsException`.",
-      "- `arithmeticEx()` bắt `ArithmeticException`.",
-      "- `classCastEx()` bắt `ClassCastException`.",
-      "- `fileNotFoundEx()` bắt `java.io.FileNotFoundException`.",
-      "",
-      "Nếu không có ngoại lệ, phương thức trả về `Không có lỗi`. Không để ngoại lệ thoát ra ngoài các phương thức trên.",
+      "Cài đặt:",
+      "- `InvalidRegistrationException extends Exception`.",
+      "- `RegistrationForm.parseAge(String text)` trả về tuổi dạng số nguyên; nếu không parse được hoặc tuổi ngoài `13..120`, ném `InvalidRegistrationException`.",
+      "- `RegistrationForm.validateEmail(String email)` trả về `true` nếu email chứa đúng một ký tự `@` và có dấu `.` sau `@`; ngược lại ném `InvalidRegistrationException`.",
+      "- `RegistrationForm.register(String email, String ageText)` trả về `Registered <email> (<age>)` nếu hợp lệ.",
+      "- Nếu dữ liệu không hợp lệ, `register` bắt exception và trả về `Invalid registration: <message>`.",
     ].join("\n"),
     difficulty: "easy",
-    oopTags: ["exception-handling"],
+    oopTags: ["exception-handling", "custom-exception"],
     starterCode: javaStarterFiles([
       {
-        name: "Week8_Task2.java",
+        name: "RegistrationForm.java",
         content: [
-          "public class Week8_Task2 {",
-          "    public static String nullPointerEx() { return \"\"; }",
-          "    public static String arrayIndexOutOfBoundsEx() { return \"\"; }",
-          "    public static String arithmeticEx() { return \"\"; }",
-          "    public static String classCastEx() { return \"\"; }",
-          "    public static String fileNotFoundEx() { return \"\"; }",
+          "class InvalidRegistrationException extends Exception {",
+          "    public InvalidRegistrationException(String message) {",
+          "        super(message);",
+          "    }",
+          "}",
+          "",
+          "public class RegistrationForm {",
+          "    public static int parseAge(String text) throws InvalidRegistrationException {",
+          "        return 0;",
+          "    }",
+          "",
+          "    public static boolean validateEmail(String email) throws InvalidRegistrationException {",
+          "        return false;",
+          "    }",
+          "",
+          "    public static String register(String email, String ageText) {",
+          "        return \"\";",
+          "    }",
           "}",
         ].join("\n"),
       },
     ]),
     testCasesData: [
       javaTestCase(
-        "Week8Task2Test.java",
+        "RegistrationFormTest.java",
         `
 import org.junit.Assert;
 import org.junit.Test;
 
-public class Week8Task2Test {
+public class RegistrationFormTest {
     @Test
-    public void methodsReturnExpectedMessages() {
-        Assert.assertEquals("Lỗi NullPointerException", Week8_Task2.nullPointerEx());
-        Assert.assertEquals("Lỗi ArrayIndexOutOfBoundsException", Week8_Task2.arrayIndexOutOfBoundsEx());
-        Assert.assertEquals("Lỗi ArithmeticException", Week8_Task2.arithmeticEx());
-        Assert.assertEquals("Lỗi ClassCastException", Week8_Task2.classCastEx());
-        Assert.assertEquals("Lỗi FileNotFoundException", Week8_Task2.fileNotFoundEx());
+    public void validRegistrationWorks() {
+        Assert.assertEquals(20, RegistrationForm.parseAge("20"));
+        Assert.assertTrue(RegistrationForm.validateEmail("student@vnu.edu.vn"));
+        Assert.assertEquals("Registered student@vnu.edu.vn (20)", RegistrationForm.register("student@vnu.edu.vn", "20"));
+    }
+
+    @Test
+    public void invalidDataIsReportedByRegister() {
+        Assert.assertEquals("Invalid registration: Age must be between 13 and 120", RegistrationForm.register("a@b.com", "12"));
+        Assert.assertEquals("Invalid registration: Invalid email", RegistrationForm.register("not-an-email", "18"));
+        Assert.assertEquals("Invalid registration: Age is not a number", RegistrationForm.register("a@b.com", "abc"));
     }
 }
         `,
-        100
+        100,
+        1
       ),
     ],
   },
   {
-    title: "Tuần 7 - Utils đọc ghi tệp",
+    title: "Tuần 7 - Nhật ký học tập",
     description: [
-      "# Tuần 7. I/O Streams và lớp `File`",
+      "# Tuần 7. I/O Streams và File",
       "",
-      "Cài đặt lớp `Utils` với các phương thức `public static`:",
-      "- `String readContentFromFile(String path)` đọc toàn bộ nội dung file text UTF-8.",
-      "- `void writeContentToFile(String path, String content)` ghi mới nội dung, xóa nội dung cũ nếu file đã tồn tại.",
-      "- `void appendContentToFile(String path, String content)` ghi nối cuối file.",
-      "- `File findFileByName(String folderPath, String fileName)` tìm file theo tên trong thư mục và các thư mục con; không thấy thì trả về `null`.",
+      "Cài đặt lớp `JournalStore` với các phương thức `public static`:",
+      "- `void writeEntry(String path, String content)` ghi mới nội dung UTF-8, tạo file nếu chưa có.",
+      "- `void appendEntry(String path, String content)` nối nội dung vào cuối file.",
+      "- `String readEntry(String path)` đọc toàn bộ nội dung UTF-8.",
+      "- `File findEntryFile(String folderPath, String fileName)` tìm file trong thư mục và các thư mục con; không thấy trả về `null`.",
       "",
-      "Cần dùng API chuẩn của Java (`java.io`, `java.nio.file`) và đóng tài nguyên đúng cách.",
+      "Có thể dùng `java.io` hoặc `java.nio.file`, nhưng cần đóng tài nguyên đúng cách.",
     ].join("\n"),
     difficulty: "medium",
     oopTags: ["io-streams", "files", "static-methods"],
     starterCode: javaStarterFiles([
       {
-        name: "Utils.java",
+        name: "JournalStore.java",
         content: [
           "import java.io.File;",
           "",
-          "public class Utils {",
-          "    public static String readContentFromFile(String path) { return \"\"; }",
-          "    public static void writeContentToFile(String path, String content) { }",
-          "    public static void appendContentToFile(String path, String content) { }",
-          "    public static File findFileByName(String folderPath, String fileName) { return null; }",
+          "public class JournalStore {",
+          "    public static void writeEntry(String path, String content) { }",
+          "    public static void appendEntry(String path, String content) { }",
+          "    public static String readEntry(String path) { return \"\"; }",
+          "    public static File findEntryFile(String folderPath, String fileName) { return null; }",
           "}",
         ].join("\n"),
       },
     ]),
     testCasesData: [
       javaTestCase(
-        "UtilsTest.java",
+        "JournalStoreTest.java",
         `
 import org.junit.Assert;
 import org.junit.Test;
@@ -1013,351 +969,508 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-public class UtilsTest {
+public class JournalStoreTest {
     @Test
-    public void readWriteAppendAndFindWork() throws Exception {
-        Path dir = Files.createTempDirectory("oop-utils-test");
-        Path file = dir.resolve("data.txt");
-        Utils.writeContentToFile(file.toString(), "Hello");
-        Assert.assertEquals("Hello", Utils.readContentFromFile(file.toString()));
+    public void writeAppendReadAndFindWork() throws Exception {
+        Path dir = Files.createTempDirectory("journal-store");
+        Path file = dir.resolve("week7.txt");
+        JournalStore.writeEntry(file.toString(), "Day 1");
+        JournalStore.appendEntry(file.toString(), "\\nDay 2");
+        Assert.assertEquals("Day 1\\nDay 2", JournalStore.readEntry(file.toString()));
 
-        Utils.appendContentToFile(file.toString(), "\\nOOP");
-        Assert.assertEquals("Hello\\nOOP", Utils.readContentFromFile(file.toString()));
-
-        Files.createDirectories(dir.resolve("nested"));
-        Path nested = dir.resolve("nested").resolve("target.txt");
-        Files.writeString(nested, "target");
-        File found = Utils.findFileByName(dir.toString(), "target.txt");
+        Path nested = dir.resolve("notes").resolve("oop");
+        Files.createDirectories(nested);
+        Files.writeString(nested.resolve("target.md"), "content");
+        File found = JournalStore.findEntryFile(dir.toString(), "target.md");
         Assert.assertNotNull(found);
-        Assert.assertEquals("target.txt", found.getName());
-        Assert.assertNull(Utils.findFileByName(dir.toString(), "missing.txt"));
+        Assert.assertEquals("target.md", found.getName());
+        Assert.assertNull(JournalStore.findEntryFile(dir.toString(), "missing.md"));
     }
 }
         `,
-        100
+        100,
+        1
       ),
     ],
   },
   {
-    title: "Tuần 9 - String, List và Map",
+    title: "Tuần 8 - Kho dữ liệu generic",
     description: [
-      "# Tuần 9. Data structures: String, List, ArrayList, HashMap",
+      "# Tuần 8. Generic, interface và Comparable",
       "",
-      "Cài đặt lớp `TextAnalyzer`:",
-      "- `List<String> normalizeWords(String text)`: tách từ theo khoảng trắng, bỏ dấu câu ở đầu/cuối, chuyển về chữ thường, bỏ token rỗng.",
-      "- `Map<String, Integer> wordFrequency(String text)`: đếm số lần xuất hiện của từng từ, giữ thứ tự từ xuất hiện đầu tiên.",
-      "- `String topWords(String text, int limit)`: trả về các cặp `word=count`, mỗi cặp một dòng, sắp xếp giảm dần theo số lần xuất hiện; nếu bằng nhau giữ thứ tự xuất hiện.",
+      "Cài đặt:",
+      "- `interface Identifiable` có `String getId()`.",
+      "- `class Product implements Identifiable, Comparable<Product>` có `id`, `name`, `price`.",
+      "- `Product.compareTo` sắp xếp theo `price` tăng dần, nếu bằng nhau thì theo `name` tăng dần.",
+      "- `class Repository<T extends Identifiable>` quản lý danh sách phần tử.",
+      "- `void save(T item)` thêm mới hoặc thay thế phần tử trùng id.",
+      "- `T findById(String id)` trả về phần tử hoặc `null`.",
+      "- `List<T> findAll()` trả về danh sách mới theo thứ tự lưu.",
+      "- `static <T extends Comparable<T>> List<T> sortedCopy(List<T> input)` trả về bản sao đã sắp xếp, không đổi input.",
+    ].join("\n"),
+    difficulty: "medium",
+    oopTags: ["generics", "comparable", "collections"],
+    starterCode: javaStarterFiles([
+      {
+        name: "Repository.java",
+        content: [
+          "import java.util.*;",
+          "",
+          "interface Identifiable {",
+          "    String getId();",
+          "}",
+          "",
+          "class Product implements Identifiable, Comparable<Product> {",
+          "    private String id;",
+          "    private String name;",
+          "    private int price;",
+          "    public Product(String id, String name, int price) { }",
+          "    public String getId() { return id; }",
+          "    public String getName() { return name; }",
+          "    public int getPrice() { return price; }",
+          "    public int compareTo(Product other) { return 0; }",
+          "    public String toString() { return \"\"; }",
+          "}",
+          "",
+          "public class Repository<T extends Identifiable> {",
+          "    private List<T> items = new ArrayList<>();",
+          "    public void save(T item) { }",
+          "    public T findById(String id) { return null; }",
+          "    public List<T> findAll() { return new ArrayList<>(); }",
+          "    public static <T extends Comparable<T>> List<T> sortedCopy(List<T> input) { return new ArrayList<>(); }",
+          "}",
+        ].join("\n"),
+      },
+    ]),
+    testCasesData: [
+      javaTestCase(
+        "RepositoryTest.java",
+        `
+import org.junit.Assert;
+import org.junit.Test;
+import java.util.*;
+
+public class RepositoryTest {
+    @Test
+    public void repositorySavesReplacesAndFindsById() {
+        Repository<Product> repo = new Repository<>();
+        repo.save(new Product("P1", "Book", 120));
+        repo.save(new Product("P2", "Pen", 10));
+        repo.save(new Product("P1", "Notebook", 80));
+        Assert.assertEquals(2, repo.findAll().size());
+        Assert.assertEquals("P1-Notebook-80", repo.findById("P1").toString());
+        Assert.assertNull(repo.findById("missing"));
+    }
+
+    @Test
+    public void sortedCopyDoesNotMutateInput() {
+        List<Product> products = new ArrayList<>(Arrays.asList(
+            new Product("P1", "Book", 120),
+            new Product("P2", "Pen", 10),
+            new Product("P3", "Album", 120)
+        ));
+        List<Product> sorted = Repository.sortedCopy(products);
+        Assert.assertEquals("P2-Pen-10", sorted.get(0).toString());
+        Assert.assertEquals("P3-Album-120", sorted.get(1).toString());
+        Assert.assertEquals("P1-Book-120", products.get(0).toString());
+    }
+}
+        `,
+        100,
+        1
+      ),
+    ],
+  },
+  {
+    title: "Tuần 9 - Phân tích access log",
+    description: [
+      "# Tuần 9. String, List và Map",
       "",
-      "Bài này kiểm tra cách dùng `String`, `List`, `ArrayList`, `Map`, `LinkedHashMap` và sắp xếp collection.",
+      "Cài đặt lớp `AccessLogAnalyzer`:",
+      "- Mỗi dòng log có dạng `<user> <action>`, ví dụ `alice LOGIN`.",
+      "- `List<String> users(String logs)` trả về danh sách user khác nhau theo thứ tự xuất hiện đầu tiên.",
+      "- `Map<String, Integer> actionCounts(String logs)` đếm số lần xuất hiện của từng action, giữ thứ tự action xuất hiện.",
+      "- `String topUsers(String logs, int limit)` trả về các dòng `user=count`, sắp xếp giảm dần theo số dòng log của user; nếu bằng nhau giữ thứ tự xuất hiện.",
+      "",
+      "Bỏ qua dòng rỗng và dòng không đủ 2 token.",
     ].join("\n"),
     difficulty: "medium",
     oopTags: ["strings", "collections", "map"],
     starterCode: javaStarterFiles([
       {
-        name: "TextAnalyzer.java",
+        name: "AccessLogAnalyzer.java",
         content: [
           "import java.util.*;",
           "",
-          "public class TextAnalyzer {",
-          "    public static List<String> normalizeWords(String text) { return new ArrayList<>(); }",
-          "    public static Map<String, Integer> wordFrequency(String text) { return new LinkedHashMap<>(); }",
-          "    public static String topWords(String text, int limit) { return \"\"; }",
+          "public class AccessLogAnalyzer {",
+          "    public static List<String> users(String logs) { return new ArrayList<>(); }",
+          "    public static Map<String, Integer> actionCounts(String logs) { return new LinkedHashMap<>(); }",
+          "    public static String topUsers(String logs, int limit) { return \"\"; }",
           "}",
         ].join("\n"),
       },
     ]),
     testCasesData: [
       javaTestCase(
-        "TextAnalyzerTest.java",
+        "AccessLogAnalyzerTest.java",
         `
 import org.junit.Assert;
 import org.junit.Test;
 import java.util.*;
 
-public class TextAnalyzerTest {
+public class AccessLogAnalyzerTest {
+    private static final String LOGS =
+        "alice LOGIN\\n" +
+        "bob VIEW\\n" +
+        "alice VIEW\\n" +
+        "broken\\n" +
+        "\\n" +
+        "carol LOGIN\\n" +
+        "bob LOGOUT\\n";
+
     @Test
-    public void normalizeWordsWorks() {
-        Assert.assertEquals(
-            Arrays.asList("java", "oop", "java"),
-            TextAnalyzer.normalizeWords(" Java,   OOP! java. ")
-        );
+    public void usersKeepFirstAppearanceOrder() {
+        Assert.assertEquals(Arrays.asList("alice", "bob", "carol"), AccessLogAnalyzer.users(LOGS));
     }
 
     @Test
-    public void frequencyKeepsInsertionOrder() {
-        Map<String, Integer> map = TextAnalyzer.wordFrequency("a b a c b a");
-        Assert.assertEquals(Arrays.asList("a", "b", "c"), new ArrayList<>(map.keySet()));
-        Assert.assertEquals(Integer.valueOf(3), map.get("a"));
-        Assert.assertEquals(Integer.valueOf(2), map.get("b"));
-        Assert.assertEquals(Integer.valueOf(1), map.get("c"));
+    public void actionsAreCountedInInsertionOrder() {
+        Map<String, Integer> counts = AccessLogAnalyzer.actionCounts(LOGS);
+        Assert.assertEquals(Arrays.asList("LOGIN", "VIEW", "LOGOUT"), new ArrayList<>(counts.keySet()));
+        Assert.assertEquals(Integer.valueOf(2), counts.get("LOGIN"));
+        Assert.assertEquals(Integer.valueOf(2), counts.get("VIEW"));
     }
 
     @Test
-    public void topWordsSortsByCount() {
-        Assert.assertEquals("java=3\\noop=2", TextAnalyzer.topWords("java oop java design oop java", 2));
+    public void topUsersSortsByCountThenAppearance() {
+        Assert.assertEquals("alice=2\\nbob=2", AccessLogAnalyzer.topUsers(LOGS, 2));
     }
 }
         `,
-        100
+        100,
+        1
       ),
     ],
   },
   {
-    title: "Tuần 8 - Generic sort và Person",
-    description: [
-      "# Tuần 8. Lập trình tổng quát",
-      "",
-      "Cài đặt:",
-      "- Lớp `Week11` có phương thức `public static <T extends Comparable<T>> List<T> sortGeneric(List<T> arr)`.",
-      "- Tự cài đặt thuật toán sắp xếp, không gọi `Collections.sort`, `List.sort`, `Arrays.sort`.",
-      "- Phương thức trả về một danh sách mới, không làm thay đổi danh sách đầu vào.",
-      "- Lớp `Person implements Comparable<Person>` có `name`, `age`, `address`.",
-      "- `Person` sắp xếp theo `name` tăng dần; nếu trùng tên thì theo `age` tăng dần.",
-      "",
-      "Bài này kiểm tra generic method, bounded type parameter, Comparable và tính bất biến dữ liệu đầu vào.",
-    ].join("\n"),
-    difficulty: "medium",
-    oopTags: ["generics", "comparable", "sorting"],
-    starterCode: javaStarterFiles([
-      {
-        name: "Week11.java",
-        content: [
-          "import java.util.*;",
-          "",
-          "public class Week11 {",
-          "    public static <T extends Comparable<T>> List<T> sortGeneric(List<T> arr) {",
-          "        return new ArrayList<>();",
-          "    }",
-          "}",
-          "",
-          "class Person implements Comparable<Person> {",
-          "    private String name;",
-          "    private int age;",
-          "    private String address;",
-          "}",
-        ].join("\n"),
-      },
-    ]),
-    testCasesData: [
-      javaTestCase(
-        "Week11Test.java",
-        `
-import org.junit.Assert;
-import org.junit.Test;
-import java.util.*;
-
-public class Week11Test {
-    @Test
-    public void sortPrimitiveWrappersAndStrings() {
-        List<Integer> input = new ArrayList<>(Arrays.asList(5, -1, 3, 3, 0));
-        Assert.assertEquals(Arrays.asList(-1, 0, 3, 3, 5), Week11.sortGeneric(input));
-        Assert.assertEquals(Arrays.asList(5, -1, 3, 3, 0), input);
-        Assert.assertEquals(Arrays.asList("An", "Binh", "Cuong"), Week11.sortGeneric(Arrays.asList("Cuong", "An", "Binh")));
-    }
-
-    @Test
-    public void sortPersonByNameThenAge() {
-        List<Person> people = Arrays.asList(
-            new Person("Nguyen A", 22, "HN"),
-            new Person("Nguyen A", 20, "HCM"),
-            new Person("Le B", 21, "DN")
-        );
-        List<Person> sorted = Week11.sortGeneric(people);
-        Assert.assertEquals("Le B-21-DN", sorted.get(0).toString());
-        Assert.assertEquals("Nguyen A-20-HCM", sorted.get(1).toString());
-        Assert.assertEquals("Nguyen A-22-HN", sorted.get(2).toString());
-    }
-}
-        `,
-        100
-      ),
-    ],
-  },
-  {
-    title: "Tuần 10 - Phả hệ với Composite",
+    title: "Tuần 10 - Cây công việc với Composite",
     description: [
       "# Tuần 10. Design Pattern: Composite",
       "",
-      "Cài đặt mô hình phả hệ:",
-      "- `PersonNode` lưu `name`, `birthYear`, `gender`, `spouse`, danh sách con.",
-      "- `void marry(PersonNode other)` thiết lập quan hệ vợ/chồng hai chiều.",
-      "- `void addChild(PersonNode child)` thêm con.",
-      "- Lớp `Genealogy` có các phương thức `public static`:",
-      "  - `List<PersonNode> findUnmarried(PersonNode root)`.",
-      "  - `List<String> findCouplesWithTwoChildren(PersonNode root)` trả về `A-B`.",
-      "  - `List<PersonNode> findLatestGeneration(PersonNode root)` trả về các cá nhân không có con.",
+      "Cài đặt mô hình cây công việc:",
+      "- `TaskNode` có `title`, `done`, danh sách công việc con.",
+      "- `void addChild(TaskNode child)` thêm công việc con.",
+      "- `boolean isLeaf()` kiểm tra không có con.",
+      "- `List<TaskNode> getChildren()` trả về danh sách con.",
+      "- `ProjectReport.countDone(TaskNode root)` đếm số node đã hoàn thành.",
+      "- `ProjectReport.findLeafTitles(TaskNode root)` trả về tiêu đề các node lá theo thứ tự duyệt trước.",
+      "- `ProjectReport.completionRate(TaskNode root)` trả về tỷ lệ hoàn thành theo phần trăm, làm tròn 1 chữ số thập phân.",
       "",
-      "Cần duyệt cây không lặp vô hạn qua quan hệ vợ/chồng và giữ thứ tự duyệt từ gốc xuống.",
+      "Không duyệt qua node `null`; cây rỗng có tỷ lệ hoàn thành `0.0`.",
     ].join("\n"),
     difficulty: "hard",
     oopTags: ["design-patterns", "composite", "tree"],
     starterCode: javaStarterFiles([
       {
-        name: "Genealogy.java",
+        name: "ProjectReport.java",
         content: [
           "import java.util.*;",
           "",
-          "class PersonNode {",
-          "    // TODO: fields, constructor, marry, addChild, getters",
+          "class TaskNode {",
+          "    private String title;",
+          "    private boolean done;",
+          "    private List<TaskNode> children = new ArrayList<>();",
+          "    public TaskNode(String title, boolean done) { }",
+          "    public String getTitle() { return title; }",
+          "    public boolean isDone() { return done; }",
+          "    public void setDone(boolean done) { this.done = done; }",
+          "    public void addChild(TaskNode child) { }",
+          "    public List<TaskNode> getChildren() { return children; }",
+          "    public boolean isLeaf() { return false; }",
           "}",
           "",
-          "public class Genealogy {",
-          "    public static List<PersonNode> findUnmarried(PersonNode root) { return new ArrayList<>(); }",
-          "    public static List<String> findCouplesWithTwoChildren(PersonNode root) { return new ArrayList<>(); }",
-          "    public static List<PersonNode> findLatestGeneration(PersonNode root) { return new ArrayList<>(); }",
+          "public class ProjectReport {",
+          "    public static int countDone(TaskNode root) { return 0; }",
+          "    public static List<String> findLeafTitles(TaskNode root) { return new ArrayList<>(); }",
+          "    public static double completionRate(TaskNode root) { return 0; }",
           "}",
         ].join("\n"),
       },
     ]),
     testCasesData: [
       javaTestCase(
-        "GenealogyTest.java",
+        "ProjectReportTest.java",
         `
 import org.junit.Assert;
 import org.junit.Test;
 import java.util.*;
-import java.util.stream.Collectors;
 
-public class GenealogyTest {
-    private PersonNode buildTree() {
-        PersonNode james = new PersonNode("James", 1940, "M");
-        PersonNode hana = new PersonNode("Hana", 1942, "F");
-        PersonNode ryan = new PersonNode("Ryan", 1965, "M");
-        PersonNode kai = new PersonNode("Kai", 1968, "M");
-        PersonNode jennifer = new PersonNode("Jennifer", 1970, "F");
-        PersonNode anna = new PersonNode("Anna", 1995, "F");
-        PersonNode ben = new PersonNode("Ben", 1998, "M");
-        PersonNode chris = new PersonNode("Chris", 2000, "M");
-        PersonNode dana = new PersonNode("Dana", 2002, "F");
-        james.marry(hana);
-        james.addChild(ryan);
-        james.addChild(kai);
-        kai.marry(jennifer);
-        kai.addChild(anna);
-        kai.addChild(ben);
-        kai.addChild(chris);
-        kai.addChild(dana);
-        return james;
+public class ProjectReportTest {
+    private TaskNode buildTree() {
+        TaskNode root = new TaskNode("Build platform", true);
+        TaskNode backend = new TaskNode("Backend", true);
+        TaskNode frontend = new TaskNode("Frontend", false);
+        backend.addChild(new TaskNode("API", true));
+        backend.addChild(new TaskNode("Database", false));
+        frontend.addChild(new TaskNode("Editor", false));
+        root.addChild(backend);
+        root.addChild(frontend);
+        return root;
     }
 
     @Test
-    public void queriesWork() {
-        PersonNode root = buildTree();
-        Assert.assertEquals(Arrays.asList("Ryan", "Anna", "Ben", "Chris", "Dana"),
-            Genealogy.findUnmarried(root).stream().map(PersonNode::getName).collect(Collectors.toList()));
-        Assert.assertEquals(Arrays.asList("James-Hana"),
-            Genealogy.findCouplesWithTwoChildren(root));
-        Assert.assertEquals(Arrays.asList("Ryan", "Anna", "Ben", "Chris", "Dana"),
-            Genealogy.findLatestGeneration(root).stream().map(PersonNode::getName).collect(Collectors.toList()));
+    public void compositeQueriesWork() {
+        TaskNode root = buildTree();
+        Assert.assertEquals(3, ProjectReport.countDone(root));
+        Assert.assertEquals(Arrays.asList("API", "Database", "Editor"), ProjectReport.findLeafTitles(root));
+        Assert.assertEquals(50.0, ProjectReport.completionRate(root), 0.0001);
+    }
+
+    @Test
+    public void nullRootIsHandled() {
+        Assert.assertEquals(0, ProjectReport.countDone(null));
+        Assert.assertEquals(Collections.emptyList(), ProjectReport.findLeafTitles(null));
+        Assert.assertEquals(0.0, ProjectReport.completionRate(null), 0.0001);
     }
 }
         `,
-        100
+        100,
+        1
       ),
     ],
   },
   {
-    title: "Tuần 10 - Sắp xếp với Strategy",
+    title: "Tuần 10 - Tính giảm giá với Strategy",
     description: [
       "# Tuần 10. Design Pattern: Strategy",
       "",
       "Cài đặt:",
-      "- `interface SortStrategy` có `int[] sort(int[] data, boolean ascending)`.",
-      "- `BubbleSortStrategy` và `SelectionSortStrategy` cài đặt thuật toán tương ứng.",
-      "- `Sorter` nhận `SortStrategy` qua constructor, có `setStrategy` và `sort`.",
-      "- Không thay đổi mảng đầu vào; luôn trả về mảng mới.",
+      "- `interface DiscountStrategy` có `int discount(int subtotal)`.",
+      "- `NoDiscountStrategy` không giảm giá.",
+      "- `FixedDiscountStrategy(int amount)` giảm một số tiền cố định, không vượt quá subtotal.",
+      "- `PercentageDiscountStrategy(int percent)` giảm theo phần trăm, làm tròn xuống.",
+      "- `Checkout` nhận strategy qua constructor, có `setStrategy` và `int total(int subtotal)`.",
       "",
-      "Bài này kiểm tra khả năng tách thuật toán khỏi ngữ cảnh sử dụng để có thể thay đổi thuật toán về sau.",
+      "`Checkout.total` trả về `subtotal - discount`, không âm. Bài này kiểm tra khả năng thay đổi thuật toán ở runtime.",
     ].join("\n"),
     difficulty: "medium",
-    oopTags: ["design-patterns", "strategy", "sorting"],
+    oopTags: ["design-patterns", "strategy"],
     starterCode: javaStarterFiles([
       {
-        name: "Sorter.java",
+        name: "Checkout.java",
         content: [
-          "interface SortStrategy {",
-          "    int[] sort(int[] data, boolean ascending);",
+          "interface DiscountStrategy {",
+          "    int discount(int subtotal);",
           "}",
           "",
-          "class BubbleSortStrategy implements SortStrategy {",
-          "    public int[] sort(int[] data, boolean ascending) { return data; }",
+          "class NoDiscountStrategy implements DiscountStrategy {",
+          "    public int discount(int subtotal) { return 0; }",
           "}",
           "",
-          "class SelectionSortStrategy implements SortStrategy {",
-          "    public int[] sort(int[] data, boolean ascending) { return data; }",
+          "class FixedDiscountStrategy implements DiscountStrategy {",
+          "    public FixedDiscountStrategy(int amount) { }",
+          "    public int discount(int subtotal) { return 0; }",
           "}",
           "",
-          "public class Sorter {",
-          "    private SortStrategy strategy;",
-          "    public Sorter(SortStrategy strategy) { this.strategy = strategy; }",
-          "    public void setStrategy(SortStrategy strategy) { this.strategy = strategy; }",
-          "    public int[] sort(int[] data, boolean ascending) { return strategy.sort(data, ascending); }",
+          "class PercentageDiscountStrategy implements DiscountStrategy {",
+          "    public PercentageDiscountStrategy(int percent) { }",
+          "    public int discount(int subtotal) { return 0; }",
+          "}",
+          "",
+          "public class Checkout {",
+          "    private DiscountStrategy strategy;",
+          "    public Checkout(DiscountStrategy strategy) { this.strategy = strategy; }",
+          "    public void setStrategy(DiscountStrategy strategy) { this.strategy = strategy; }",
+          "    public int total(int subtotal) { return subtotal; }",
           "}",
         ].join("\n"),
       },
     ]),
     testCasesData: [
       javaTestCase(
-        "SorterTest.java",
+        "CheckoutTest.java",
         `
 import org.junit.Assert;
 import org.junit.Test;
 
-public class SorterTest {
+public class CheckoutTest {
     @Test
-    public void strategiesSortBothDirectionsWithoutMutatingInput() {
-        int[] original = {5, 1, 4, 2, 8};
-        Sorter sorter = new Sorter(new BubbleSortStrategy());
-        Assert.assertArrayEquals(new int[] {1, 2, 4, 5, 8}, sorter.sort(original, true));
-        Assert.assertArrayEquals(new int[] {5, 1, 4, 2, 8}, original);
-
-        sorter.setStrategy(new SelectionSortStrategy());
-        Assert.assertArrayEquals(new int[] {8, 5, 4, 2, 1}, sorter.sort(original, false));
-        Assert.assertArrayEquals(new int[] {5, 1, 4, 2, 8}, original);
+    public void strategiesCalculateTotals() {
+        Checkout checkout = new Checkout(new NoDiscountStrategy());
+        Assert.assertEquals(1000, checkout.total(1000));
+        checkout.setStrategy(new FixedDiscountStrategy(300));
+        Assert.assertEquals(700, checkout.total(1000));
+        Assert.assertEquals(0, checkout.total(200));
+        checkout.setStrategy(new PercentageDiscountStrategy(15));
+        Assert.assertEquals(850, checkout.total(1000));
+        Assert.assertEquals(86, checkout.total(101));
     }
 }
         `,
-        100
+        100,
+        1
       ),
     ],
   },
   {
-    title: "Tuần 10 - Adapter cho thư viện sắp xếp",
+    title: "Tuần 10 - Adapter cảm biến nhiệt độ",
     description: [
       "# Tuần 10. Design Pattern: Adapter",
       "",
       "Cài đặt:",
-      "- `interface IMath` có `int[] sort(int[] arr)`.",
-      "- `MyMathLib` có sẵn phương thức `int[] quickSort(int[] arr)`.",
-      "- `MathLibAdapter implements IMath`, bọc `MyMathLib` để client chỉ gọi `sort`.",
-      "- `Client.sortNumbers(IMath math, int[] arr)` gọi qua interface, không phụ thuộc trực tiếp vào `MyMathLib`.",
-      "- Không làm thay đổi mảng đầu vào.",
+      "- `interface TemperatureProvider` có `double readCelsius()`.",
+      "- `LegacyFahrenheitSensor` có `double readFahrenheit()`.",
+      "- `FahrenheitSensorAdapter implements TemperatureProvider`, bọc `LegacyFahrenheitSensor` và chuyển Fahrenheit sang Celsius.",
+      "- `ClimateDashboard.averageCelsius(TemperatureProvider[] sensors)` trả về nhiệt độ trung bình Celsius, làm tròn 2 chữ số thập phân.",
+      "",
+      "Nếu mảng sensor rỗng hoặc null, trả về `0.0`.",
     ].join("\n"),
     difficulty: "medium",
     oopTags: ["design-patterns", "adapter", "interfaces"],
     starterCode: javaStarterFiles([
       {
-        name: "Client.java",
+        name: "ClimateDashboard.java",
         content: [
-          "interface IMath {",
-          "    int[] sort(int[] arr);",
+          "interface TemperatureProvider {",
+          "    double readCelsius();",
           "}",
           "",
-          "class MyMathLib {",
-          "    public int[] quickSort(int[] arr) {",
-          "        // Gia lap thu vien co san.",
-          "        return arr;",
+          "class LegacyFahrenheitSensor {",
+          "    private double fahrenheit;",
+          "    public LegacyFahrenheitSensor(double fahrenheit) {",
+          "        this.fahrenheit = fahrenheit;",
+          "    }",
+          "    public double readFahrenheit() {",
+          "        return fahrenheit;",
           "    }",
           "}",
           "",
-          "class MathLibAdapter implements IMath {",
-          "    // TODO",
-          "    public int[] sort(int[] arr) { return arr; }",
+          "class FahrenheitSensorAdapter implements TemperatureProvider {",
+          "    public FahrenheitSensorAdapter(LegacyFahrenheitSensor sensor) { }",
+          "    public double readCelsius() { return 0; }",
           "}",
           "",
-          "public class Client {",
-          "    public static int[] sortNumbers(IMath math, int[] arr) {",
-          "        return math.sort(arr);",
+          "public class ClimateDashboard {",
+          "    public static double averageCelsius(TemperatureProvider[] sensors) { return 0; }",
+          "}",
+        ].join("\n"),
+      },
+    ]),
+    testCasesData: [
+      javaTestCase(
+        "ClimateDashboardTest.java",
+        `
+import org.junit.Assert;
+import org.junit.Test;
+
+public class ClimateDashboardTest {
+    private static class FixedCelsiusSensor implements TemperatureProvider {
+        private final double value;
+        FixedCelsiusSensor(double value) {
+            this.value = value;
+        }
+        public double readCelsius() {
+            return value;
+        }
+    }
+
+    @Test
+    public void adapterConvertsFahrenheitToCelsius() {
+        TemperatureProvider freezing = new FahrenheitSensorAdapter(new LegacyFahrenheitSensor(32));
+        TemperatureProvider warm = new FahrenheitSensorAdapter(new LegacyFahrenheitSensor(77));
+        Assert.assertEquals(0.0, freezing.readCelsius(), 0.0001);
+        Assert.assertEquals(25.0, warm.readCelsius(), 0.0001);
+    }
+
+    @Test
+    public void dashboardUsesProviderInterfaceOnly() {
+        TemperatureProvider[] sensors = {
+            new FixedCelsiusSensor(20.0),
+            new FahrenheitSensorAdapter(new LegacyFahrenheitSensor(68)),
+            new FixedCelsiusSensor(21.25)
+        };
+        Assert.assertEquals(20.42, ClimateDashboard.averageCelsius(sensors), 0.0001);
+        Assert.assertEquals(0.0, ClimateDashboard.averageCelsius(new TemperatureProvider[] {}), 0.0001);
+    }
+}
+        `,
+        100,
+        1
+      ),
+    ],
+  },
+  {
+    title: "Tuần 2 - Giỏ hàng mini",
+    description: [
+      "# Tuần 2. Constructor, getter/setter và mảng đối tượng",
+      "",
+      "Cài đặt lớp `CartItem`:",
+      "- Có thuộc tính `private String sku`, `private String name`, `private int unitPrice`, `private int quantity`.",
+      "- Constructor `CartItem(String sku, String name, int unitPrice, int quantity)`.",
+      "- Nếu `unitPrice` hoặc `quantity` âm thì đưa về `0`.",
+      "- Getter/setter đầy đủ cho 4 thuộc tính. Setter cũng không nhận giá trị âm cho `unitPrice` và `quantity`.",
+      "- `int subtotal()` trả về `unitPrice * quantity`.",
+      "- `String toLine()` trả về `<sku> - <name> - <quantity> x <unitPrice> = <subtotal>`.",
+      "",
+      "Cài đặt lớp `ShoppingCart`:",
+      "- Có mảng `items` kiểu `CartItem[]`, tối đa 50 phần tử.",
+      "- `void addItem(CartItem item)` thêm mới nếu SKU chưa có; nếu trùng SKU thì cộng quantity.",
+      "- `void removeItem(String sku)` xóa item theo SKU.",
+      "- `int total()` trả về tổng tiền.",
+      "- `String receipt()` trả về mỗi dòng là `toLine()` của item theo thứ tự thêm.",
+    ].join("\n"),
+    difficulty: "easy",
+    oopTags: ["classes", "objects", "arrays", "constructor"],
+    starterCode: javaStarterFiles([
+      {
+        name: "CartItem.java",
+        content: [
+          "public class CartItem {",
+          "    private String sku;",
+          "    private String name;",
+          "    private int unitPrice;",
+          "    private int quantity;",
+          "",
+          "    public CartItem(String sku, String name, int unitPrice, int quantity) {",
+          "        // TODO",
+          "    }",
+          "",
+          "    public String getSku() { return sku; }",
+          "    public void setSku(String sku) { this.sku = sku; }",
+          "    public String getName() { return name; }",
+          "    public void setName(String name) { this.name = name; }",
+          "    public int getUnitPrice() { return unitPrice; }",
+          "    public void setUnitPrice(int unitPrice) { }",
+          "    public int getQuantity() { return quantity; }",
+          "    public void setQuantity(int quantity) { }",
+          "    public int subtotal() { return 0; }",
+          "    public String toLine() { return \"\"; }",
+          "}",
+        ].join("\n"),
+      },
+      {
+        name: "ShoppingCart.java",
+        content: [
+          "public class ShoppingCart {",
+          "    private CartItem[] items = new CartItem[50];",
+          "    private int itemCount = 0;",
+          "",
+          "    public void addItem(CartItem item) {",
+          "        // TODO",
+          "    }",
+          "",
+          "    public void removeItem(String sku) {",
+          "        // TODO",
+          "    }",
+          "",
+          "    public int total() {",
+          "        // TODO",
+          "        return 0;",
+          "    }",
+          "",
+          "    public String receipt() {",
+          "        // TODO",
+          "        return \"\";",
           "    }",
           "}",
         ].join("\n"),
@@ -1365,730 +1478,283 @@ public class SorterTest {
     ]),
     testCasesData: [
       javaTestCase(
-        "AdapterTest.java",
+        "ShoppingCartTest.java",
+        `
+import org.junit.Assert;
+import org.junit.Test;
+import java.lang.reflect.Modifier;
+
+public class ShoppingCartTest {
+    @Test
+    public void cartItemClampsNegativeValues() throws Exception {
+        Assert.assertTrue(Modifier.isPrivate(CartItem.class.getDeclaredField("sku").getModifiers()));
+        CartItem item = new CartItem("B01", "Book", -10, -2);
+        Assert.assertEquals(0, item.getUnitPrice());
+        Assert.assertEquals(0, item.getQuantity());
+        item.setUnitPrice(120);
+        item.setQuantity(3);
+        Assert.assertEquals(360, item.subtotal());
+        Assert.assertEquals("B01 - Book - 3 x 120 = 360", item.toLine());
+    }
+
+    @Test
+    public void cartMergesDuplicateSkuAndRemovesItems() {
+        ShoppingCart cart = new ShoppingCart();
+        cart.addItem(new CartItem("B01", "Book", 120, 2));
+        cart.addItem(new CartItem("P01", "Pen", 10, 5));
+        cart.addItem(new CartItem("B01", "Book", 120, 1));
+        Assert.assertEquals(410, cart.total());
+        Assert.assertEquals("B01 - Book - 3 x 120 = 360\\nP01 - Pen - 5 x 10 = 50", cart.receipt().trim());
+        cart.removeItem("B01");
+        Assert.assertEquals(50, cart.total());
+        Assert.assertEquals("P01 - Pen - 5 x 10 = 50", cart.receipt().trim());
+    }
+}
+        `,
+        100,
+        1
+      ),
+    ],
+  },
+  {
+    title: "Tuần 4 - Nhân sự và lương theo giờ",
+    description: [
+      "# Tuần 4. Kế thừa và overriding",
+      "",
+      "Cài đặt hai lớp:",
+      "",
+      "## `StaffMember`",
+      "- Thuộc tính `protected String id`, `protected String name`, `protected int baseSalary`.",
+      "- Constructor `StaffMember(String id, String name, int baseSalary)`; nếu lương âm thì đưa về `0`.",
+      "- `int monthlyPay()` trả về `baseSalary`.",
+      "- `String summary()` trả về `Staff <id> - <name> - pay <monthlyPay>`.",
+      "",
+      "## `HourlyStaff extends StaffMember`",
+      "- Thuộc tính `private int hourlyRate`, `private int hoursWorked`.",
+      "- Constructor `HourlyStaff(String id, String name, int hourlyRate, int hoursWorked)` gọi super với baseSalary bằng `0`.",
+      "- Nếu `hourlyRate` hoặc `hoursWorked` âm thì đưa về `0`.",
+      "- Override `monthlyPay()` trả về `hourlyRate * hoursWorked`.",
+      "- Override `summary()` trả về `Hourly <id> - <name> - pay <monthlyPay>`.",
+    ].join("\n"),
+    difficulty: "medium",
+    oopTags: ["inheritance", "constructor", "overriding"],
+    starterCode: javaStarterFiles([
+      {
+        name: "StaffMember.java",
+        content: [
+          "public class StaffMember {",
+          "    protected String id;",
+          "    protected String name;",
+          "    protected int baseSalary;",
+          "",
+          "    public StaffMember(String id, String name, int baseSalary) {",
+          "        // TODO",
+          "    }",
+          "",
+          "    public int monthlyPay() { return 0; }",
+          "    public String summary() { return \"\"; }",
+          "}",
+        ].join("\n"),
+      },
+      {
+        name: "HourlyStaff.java",
+        content: [
+          "public class HourlyStaff extends StaffMember {",
+          "    private int hourlyRate;",
+          "    private int hoursWorked;",
+          "",
+          "    public HourlyStaff(String id, String name, int hourlyRate, int hoursWorked) {",
+          "        super(id, name, 0);",
+          "        // TODO",
+          "    }",
+          "",
+          "    public int getHourlyRate() { return hourlyRate; }",
+          "    public int getHoursWorked() { return hoursWorked; }",
+          "}",
+        ].join("\n"),
+      },
+    ]),
+    testCasesData: [
+      javaTestCase(
+        "StaffMemberTest.java",
+        `
+import org.junit.Assert;
+import org.junit.Test;
+import java.lang.reflect.Modifier;
+
+public class StaffMemberTest {
+    @Test
+    public void baseStaffUsesBaseSalary() throws Exception {
+        Assert.assertTrue(Modifier.isProtected(StaffMember.class.getDeclaredField("id").getModifiers()));
+        StaffMember staff = new StaffMember("S01", "An", 900);
+        Assert.assertEquals(900, staff.monthlyPay());
+        Assert.assertEquals("Staff S01 - An - pay 900", staff.summary());
+        Assert.assertEquals(0, new StaffMember("S02", "Binh", -1).monthlyPay());
+    }
+
+    @Test
+    public void hourlyStaffOverridesPayAndSummary() {
+        Assert.assertEquals(StaffMember.class, HourlyStaff.class.getSuperclass());
+        HourlyStaff staff = new HourlyStaff("H01", "Chi", 25, 32);
+        Assert.assertEquals(800, staff.monthlyPay());
+        Assert.assertEquals("Hourly H01 - Chi - pay 800", staff.summary());
+        Assert.assertEquals(0, new HourlyStaff("H02", "Dung", -5, 10).monthlyPay());
+    }
+}
+        `,
+        100,
+        1
+      ),
+    ],
+  },
+  {
+    title: "Tuần 6 - Bộ đọc cấu hình",
+    description: [
+      "# Tuần 6. Exception và kiểm tra dữ liệu",
+      "",
+      "Cài đặt:",
+      "- `ConfigException extends Exception`.",
+      "- `AppConfig` lưu `host`, `port`, `secure` và có `toString()` trả về `<host>:<port> secure=<secure>`.",
+      "- `ConfigLoader.parse(String line)` nhận chuỗi dạng `host=localhost;port=8080;secure=true`.",
+      "- Thiếu `host`, `port`, hoặc `secure` thì ném `ConfigException` với thông điệp `Missing key`.",
+      "- `port` không phải số hoặc ngoài `1..65535` thì ném `ConfigException` với thông điệp `Invalid port`.",
+      "- `secure` chỉ nhận `true` hoặc `false`; sai thì ném `ConfigException` với thông điệp `Invalid secure flag`.",
+      "- `ConfigLoader.describe(String line)` trả về `toString()` nếu hợp lệ; nếu lỗi trả về `Config error: <message>`.",
+    ].join("\n"),
+    difficulty: "medium",
+    oopTags: ["exception-handling", "parsing", "custom-exception"],
+    starterCode: javaStarterFiles([
+      {
+        name: "ConfigLoader.java",
+        content: [
+          "class ConfigException extends Exception {",
+          "    public ConfigException(String message) {",
+          "        super(message);",
+          "    }",
+          "}",
+          "",
+          "class AppConfig {",
+          "    private String host;",
+          "    private int port;",
+          "    private boolean secure;",
+          "    public AppConfig(String host, int port, boolean secure) { }",
+          "    public String getHost() { return host; }",
+          "    public int getPort() { return port; }",
+          "    public boolean isSecure() { return secure; }",
+          "    public String toString() { return \"\"; }",
+          "}",
+          "",
+          "public class ConfigLoader {",
+          "    public static AppConfig parse(String line) throws ConfigException {",
+          "        return null;",
+          "    }",
+          "",
+          "    public static String describe(String line) {",
+          "        return \"\";",
+          "    }",
+          "}",
+        ].join("\n"),
+      },
+    ]),
+    testCasesData: [
+      javaTestCase(
+        "ConfigLoaderTest.java",
         `
 import org.junit.Assert;
 import org.junit.Test;
 
-public class AdapterTest {
+public class ConfigLoaderTest {
     @Test
-    public void adapterLetsClientUseExistingLibraryThroughInterface() {
-        int[] input = {9, 1, 5, 3};
-        IMath math = new MathLibAdapter(new MyMathLib());
-        Assert.assertArrayEquals(new int[] {1, 3, 5, 9}, Client.sortNumbers(math, input));
-        Assert.assertArrayEquals(new int[] {9, 1, 5, 3}, input);
+    public void validConfigIsParsed() throws Exception {
+        AppConfig config = ConfigLoader.parse("host=localhost;port=8080;secure=true");
+        Assert.assertEquals("localhost", config.getHost());
+        Assert.assertEquals(8080, config.getPort());
+        Assert.assertTrue(config.isSecure());
+        Assert.assertEquals("localhost:8080 secure=true", ConfigLoader.describe("host=localhost;port=8080;secure=true"));
+    }
+
+    @Test
+    public void invalidConfigIsReported() {
+        Assert.assertEquals("Config error: Missing key", ConfigLoader.describe("host=localhost;secure=false"));
+        Assert.assertEquals("Config error: Invalid port", ConfigLoader.describe("host=localhost;port=70000;secure=false"));
+        Assert.assertEquals("Config error: Invalid secure flag", ConfigLoader.describe("host=localhost;port=8080;secure=yes"));
     }
 }
         `,
-        100
+        100,
+        1
+      ),
+    ],
+  },
+  {
+    title: "Tuần 9 - Chỉ mục hashtag",
+    description: [
+      "# Tuần 9. String, Set và Map",
+      "",
+      "Cài đặt lớp `HashtagIndex`:",
+      "- `List<String> extractTags(String text)` trả về các hashtag trong text, bỏ ký tự `#`, chuyển về chữ thường.",
+      "- Hashtag chỉ gồm chữ cái, chữ số hoặc `_`; dừng khi gặp ký tự khác.",
+      "- `Map<String, Integer> tagFrequency(List<String> posts)` đếm tần suất tag, giữ thứ tự tag xuất hiện đầu tiên.",
+      "- `String trending(List<String> posts, int limit)` trả về các dòng `tag=count`, sắp xếp giảm dần theo count; nếu bằng nhau giữ thứ tự xuất hiện.",
+      "",
+      "Bỏ qua ký tự `#` không có tag phía sau.",
+    ].join("\n"),
+    difficulty: "medium",
+    oopTags: ["strings", "collections", "map", "set"],
+    starterCode: javaStarterFiles([
+      {
+        name: "HashtagIndex.java",
+        content: [
+          "import java.util.*;",
+          "",
+          "public class HashtagIndex {",
+          "    public static List<String> extractTags(String text) { return new ArrayList<>(); }",
+          "    public static Map<String, Integer> tagFrequency(List<String> posts) { return new LinkedHashMap<>(); }",
+          "    public static String trending(List<String> posts, int limit) { return \"\"; }",
+          "}",
+        ].join("\n"),
+      },
+    ]),
+    testCasesData: [
+      javaTestCase(
+        "HashtagIndexTest.java",
+        `
+import org.junit.Assert;
+import org.junit.Test;
+import java.util.*;
+
+public class HashtagIndexTest {
+    @Test
+    public void tagsAreExtractedAndNormalized() {
+        Assert.assertEquals(
+            Arrays.asList("java", "oop_2026", "java"),
+            HashtagIndex.extractTags("Learning #Java with #oop_2026! #JAVA #")
+        );
+    }
+
+    @Test
+    public void frequencyKeepsFirstAppearanceOrder() {
+        Map<String, Integer> counts = HashtagIndex.tagFrequency(Arrays.asList("#java #oop", "#java #clean_code", "#oop"));
+        Assert.assertEquals(Arrays.asList("java", "oop", "clean_code"), new ArrayList<>(counts.keySet()));
+        Assert.assertEquals(Integer.valueOf(2), counts.get("java"));
+        Assert.assertEquals(Integer.valueOf(2), counts.get("oop"));
+    }
+
+    @Test
+    public void trendingSortsByCountThenAppearance() {
+        Assert.assertEquals(
+            "java=3\\noop=2",
+            HashtagIndex.trending(Arrays.asList("#java #oop", "#java", "#oop #java #test"), 2)
+        );
+    }
+}
+        `,
+        100,
+        1
       ),
     ],
   },
 ];
-
-function rebalancePoints(seed: ExerciseSeed) {
-  const total = seed.testCasesData.length;
-  if (total === 0) return;
-
-  const base = Math.floor(100 / total);
-  let remaining = 100;
-  seed.testCasesData = seed.testCasesData.map((tc, index) => {
-    const pointValue = index === total - 1 ? remaining : base;
-    remaining -= pointValue;
-    return { ...tc, pointValue };
-  });
-}
-
-function addTestCases(title: string, cases: ExerciseSeed["testCasesData"]) {
-  const seed = exerciseSeeds.find((item) => item.title === title);
-  if (!seed) {
-    throw new Error(`Cannot find exercise seed: ${title}`);
-  }
-
-  seed.testCasesData.push(...cases);
-  rebalancePoints(seed);
-}
-
-function strengthenExerciseTestCases() {
-  addTestCases("Tuần 1 - Hello World và tham số dòng lệnh", [
-    stdoutCase("Pham Van Minh", "Hello World\nHello Pham Van Minh", 1, 0),
-    stdoutCase("  Nguyen Thi An  ", "Hello World\nHello Nguyen Thi An", 1, 0),
-  ]);
-
-  addTestCases("Tuần 1 - Robot và Engine", [
-    javaTestCase(
-      "RobotStateHiddenTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-
-public class RobotStateHiddenTest {
-    @Test
-    public void setPowerUpdatesForwardBehavior() {
-        Engine engine = new Engine("E-99", 10);
-        HouseBot bot = new HouseBot("HB-99", "Kiki", engine);
-        Assert.assertEquals("Robot Kiki moves forward with power 10", bot.forward());
-        engine.setPower(42);
-        Assert.assertEquals("Robot Kiki moves forward with power 42", bot.forward());
-    }
-
-    @Test
-    public void differentBotsKeepIndependentNamesAndEngines() {
-        HouseBot first = new HouseBot("A", "Alpha", new Engine("EA", 3));
-        HouseBot second = new HouseBot("B", "Beta", new Engine("EB", 8));
-        Assert.assertEquals("Robot Alpha turns left", first.turnLeft());
-        Assert.assertEquals("Robot Beta cleans the room", second.cleanUp());
-        Assert.assertEquals("Robot Beta moves forward with power 8", second.forward());
-    }
-}
-      `,
-      1
-    ),
-    javaTestCase(
-      "RobotApiHiddenTest.java",
-      `
-import net.bqc.oasis.junit.JavaReflection;
-import org.junit.Assert;
-import org.junit.Test;
-
-public class RobotApiHiddenTest {
-    @Test
-    public void publicApiHasRequiredReturnTypes() {
-        Assert.assertNotNull(JavaReflection.getMethod(Engine.class, "getSerialNumber", String.class, "", ""));
-        Assert.assertNotNull(JavaReflection.getMethod(Engine.class, "getPower", int.class, "", ""));
-        Assert.assertNotNull(JavaReflection.getMethod(Engine.class, "setPower", void.class, "", "", int.class));
-        Assert.assertNotNull(JavaReflection.getMethod(HouseBot.class, "forward", String.class, "", ""));
-        Assert.assertNotNull(JavaReflection.getMethod(HouseBot.class, "turnLeft", String.class, "", ""));
-        Assert.assertNotNull(JavaReflection.getMethod(HouseBot.class, "cleanUp", String.class, "", ""));
-    }
-}
-      `,
-      1
-    ),
-  ]);
-
-  addTestCases("Tuần 2 - Quản lý sinh viên", [
-    javaTestCase(
-      "StudentAccessorsHiddenTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-
-public class StudentAccessorsHiddenTest {
-    @Test
-    public void settersAndCopyConstructorAreIndependent() {
-        Student s = new Student("Le A", "24000001", "a@vnu.edu.vn");
-        s.setName("Le B");
-        s.setId("24000002");
-        s.setGroup("INT2204");
-        s.setEmail("b@vnu.edu.vn");
-        Student copy = new Student(s);
-        s.setName("Changed");
-        Assert.assertEquals("Le B - 24000002 - INT2204 - b@vnu.edu.vn", copy.getInfo());
-        Assert.assertEquals("Changed - 24000002 - INT2204 - b@vnu.edu.vn", s.getInfo());
-    }
-}
-      `,
-      1
-    ),
-    javaTestCase(
-      "StudentManagementHiddenTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-
-public class StudentManagementHiddenTest {
-    @Test
-    public void removeMissingStudentDoesNotChangeGrouping() {
-        StudentManagement sm = new StudentManagement();
-        Student a = new Student("A", "1", "a@vnu.edu.vn");
-        Student b = new Student("B", "2", "b@vnu.edu.vn");
-        b.setGroup("K67CA");
-        sm.addStudent(a);
-        sm.addStudent(b);
-        String before = sm.studentsByGroup();
-        sm.removeStudent("missing");
-        Assert.assertEquals(before, sm.studentsByGroup());
-    }
-}
-      `,
-      1
-    ),
-  ]);
-
-  addTestCases("Tuần 3 - Ước số, Fibonacci và sàng Eratosthenes", [
-    javaTestCase(
-      "Week3BoundaryHiddenTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-
-public class Week3BoundaryHiddenTest {
-    @Test
-    public void gcdHandlesSignAndOrder() {
-        Assert.assertEquals(9, Week3.gcd(9, -27));
-        Assert.assertEquals(1, Week3.gcd(17, 31));
-        Assert.assertEquals(12, Week3.gcd(-48, -180));
-    }
-
-    @Test
-    public void fibonacciLargerValues() {
-        Assert.assertEquals(832040L, Week3.fibonacci(30));
-        Assert.assertEquals(102334155L, Week3.fibonacci(40));
-    }
-}
-      `,
-      1
-    ),
-    javaTestCase(
-      "Week3SieveHiddenTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-
-public class Week3SieveHiddenTest {
-    @Test
-    public void sieveHasNoTrailingSpacesAndHandlesCompositeRange() {
-        Assert.assertEquals("", Week3.sieveEratosthenes(0));
-        Assert.assertEquals("2 3 5 7 11 13 17 19 23 29", Week3.sieveEratosthenes(30));
-        Assert.assertFalse(Week3.sieveEratosthenes(30).endsWith(" "));
-    }
-}
-      `,
-      1
-    ),
-  ]);
-
-  addTestCases("Tuần 3 - Phân số", [
-    javaTestCase(
-      "FractionAdvancedHiddenTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-
-public class FractionAdvancedHiddenTest {
-    @Test
-    public void arithmeticDoesNotMutateOperands() {
-        Fraction a = new Fraction(2, 3);
-        Fraction b = new Fraction(3, 4);
-        Assert.assertEquals("17/12", a.add(b).toString());
-        Assert.assertEquals("2/3", a.toString());
-        Assert.assertEquals("3/4", b.toString());
-    }
-
-    @Test
-    public void divisionByZeroFractionThrows() {
-        try {
-            new Fraction(1, 2).divide(new Fraction(0, 5));
-            Assert.fail("Expected ArithmeticException");
-        } catch (ArithmeticException expected) {
-            Assert.assertTrue(expected.getMessage() == null || expected.getMessage().length() > 0);
-        }
-    }
-}
-      `,
-      1
-    ),
-    javaTestCase(
-      "FractionSetterHiddenTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-
-public class FractionSetterHiddenTest {
-    @Test
-    public void settersAndEqualsUseReducedValue() {
-        Fraction f = new Fraction(1, 3);
-        f.setNumerator(6);
-        f.setDenominator(-9);
-        Assert.assertEquals("-2/3", f.reduce().toString());
-        Assert.assertEquals(new Fraction(-4, 6), f);
-    }
-}
-      `,
-      1
-    ),
-  ]);
-
-  addTestCases("Tuần 3 - Static, mảng và BMI", [
-    javaTestCase(
-      "Week4BoundaryHiddenTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-
-public class Week4BoundaryHiddenTest {
-    @Test
-    public void bmiBoundaryValuesUseRoundedOneDecimal() {
-        Assert.assertEquals("Bình thường", Week4.calculateBMI(53.465, 1.70));
-        Assert.assertEquals("Thừa cân", Week4.calculateBMI(64.8, 1.68));
-        Assert.assertEquals("Béo phì", Week4.calculateBMI(72.25, 1.70));
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void nullArrayThrowsException() {
-        Week4.minArray(null);
-    }
-}
-      `,
-      1
-    ),
-    javaTestCase(
-      "Week4ArrayHiddenTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-
-public class Week4ArrayHiddenTest {
-    @Test
-    public void minArrayHandlesDuplicatesAndLargeValues() {
-        Assert.assertEquals(Integer.MIN_VALUE, Week4.minArray(new int[] {5, Integer.MAX_VALUE, Integer.MIN_VALUE, 5}));
-        Assert.assertEquals(2, Week4.max2Int(2, 2));
-    }
-}
-      `,
-      1
-    ),
-  ]);
-
-  addTestCases("Tuần 4 - Circle và Cylinder", [
-    javaTestCase(
-      "CircleCylinderConstructorsHiddenTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-
-public class CircleCylinderConstructorsHiddenTest {
-    @Test
-    public void defaultAndPartialConstructorsWork() {
-        Circle c = new Circle();
-        Assert.assertEquals(1.0, c.getRadius(), 0.0001);
-        Assert.assertEquals("red", c.getColor());
-
-        Cylinder cy = new Cylinder(3.0, 4.0);
-        Assert.assertEquals(3.0, cy.getRadius(), 0.0001);
-        Assert.assertEquals(4.0, cy.getHeight(), 0.0001);
-        Assert.assertEquals("red", cy.getColor());
-    }
-}
-      `,
-      1
-    ),
-    javaTestCase(
-      "CircleCylinderMutationHiddenTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-
-public class CircleCylinderMutationHiddenTest {
-    @Test
-    public void settersAffectComputedValues() {
-        Cylinder cy = new Cylinder();
-        cy.setRadius(2.5);
-        cy.setHeight(10.0);
-        cy.setColor("yellow");
-        Assert.assertEquals(62.5 * Math.PI, cy.getVolume(), 0.0001);
-        Assert.assertEquals(62.5 * Math.PI, cy.getArea(), 0.0001);
-        Assert.assertEquals("Cylinder[height=10.0,base=Circle[radius=2.5,color=yellow]]", cy.toString());
-    }
-}
-      `,
-      1
-    ),
-  ]);
-
-  addTestCases("Tuần 5 - Biểu thức đại số", [
-    javaTestCase(
-      "ExpressionStringHiddenTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-
-public class ExpressionStringHiddenTest {
-    @Test
-    public void composedExpressionEvaluatesCorrectly() {
-        Expression exp = new Multiplication(
-            new Addition(new Numeral(10), new Numeral(-3)),
-            new Square(new Numeral(4))
-        );
-        Assert.assertEquals(112, exp.evaluate());
-    }
-}
-      `,
-      1
-    ),
-    javaTestCase(
-      "ExpressionNestedHiddenTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-
-public class ExpressionNestedHiddenTest {
-    @Test
-    public void nestedDivisionAndSubtractionEvaluateLeftToRight() {
-        Expression exp = new Division(
-            new Subtraction(new Numeral(50), new Multiplication(new Numeral(6), new Numeral(5))),
-            new Numeral(4)
-        );
-        Assert.assertEquals(5, exp.evaluate());
-    }
-}
-      `,
-      1
-    ),
-  ]);
-
-  addTestCases("Tuần 5 - Sơ đồ hình học, Layer và Diagram", [
-    javaTestCase(
-      "DiagramMovementHiddenTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-
-public class DiagramMovementHiddenTest {
-    @Test
-    public void movingShapesToDedicatedLayersKeepsDrawableOutput() {
-        Layer mixed = new Layer();
-        mixed.addShape(new Circle(1, 1, 2));
-        mixed.addShape(new Square(2, 2, 3));
-        mixed.addShape(new Triangle(3, 3, 4));
-        Diagram diagram = new Diagram();
-        diagram.addLayer(mixed);
-        diagram.moveShapesToDedicatedLayers();
-        String output = diagram.draw();
-        Assert.assertTrue(output.contains("Circle(1,1,2)"));
-        Assert.assertTrue(output.contains("Square(2,2,3)"));
-        Assert.assertTrue(output.contains("Triangle(3,3,4)"));
-    }
-}
-      `,
-      1
-    ),
-    javaTestCase(
-      "DiagramDuplicatesHiddenTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-
-public class DiagramDuplicatesHiddenTest {
-    @Test
-    public void duplicateDefinitionUsesTypePositionAndSize() {
-        Layer layer = new Layer();
-        layer.addShape(new Circle(0, 0, 5));
-        layer.addShape(new Circle(0, 0, 6));
-        layer.addShape(new Square(0, 0, 5));
-        layer.addShape(new Circle(0, 0, 5));
-        layer.removeDuplicates();
-        Assert.assertEquals("Circle(0,0,5)\\nCircle(0,0,6)\\nSquare(0,0,5)", layer.draw().trim());
-    }
-}
-      `,
-      1
-    ),
-  ]);
-
-  addTestCases("Tuần 6 - Xử lý ngoại lệ", [
-    javaTestCase(
-      "Week8Task2NoThrowHiddenTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-
-public class Week8Task2NoThrowHiddenTest {
-    @Test
-    public void everyMethodHandlesItsExceptionInternally() {
-        String[] results = {
-            Week8_Task2.nullPointerEx(),
-            Week8_Task2.arrayIndexOutOfBoundsEx(),
-            Week8_Task2.arithmeticEx(),
-            Week8_Task2.classCastEx(),
-            Week8_Task2.fileNotFoundEx()
-        };
-        for (String result : results) {
-            Assert.assertTrue(result.startsWith("Lỗi "));
-            Assert.assertFalse(result.contains("Không có lỗi"));
-        }
-    }
-}
-      `,
-      1
-    ),
-  ]);
-
-  addTestCases("Tuần 7 - Utils đọc ghi tệp", [
-    javaTestCase(
-      "UtilsOverwriteHiddenTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-import java.nio.file.Files;
-import java.nio.file.Path;
-
-public class UtilsOverwriteHiddenTest {
-    @Test
-    public void writeOverwritesOldContentAndAppendCreatesFile() throws Exception {
-        Path dir = Files.createTempDirectory("oop-utils-hidden");
-        Path file = dir.resolve("log.txt");
-        Utils.writeContentToFile(file.toString(), "old");
-        Utils.writeContentToFile(file.toString(), "new");
-        Assert.assertEquals("new", Utils.readContentFromFile(file.toString()));
-        Path appended = dir.resolve("append.txt");
-        Utils.appendContentToFile(appended.toString(), "A");
-        Utils.appendContentToFile(appended.toString(), "B");
-        Assert.assertEquals("AB", Utils.readContentFromFile(appended.toString()));
-    }
-}
-      `,
-      1
-    ),
-    javaTestCase(
-      "UtilsRecursiveHiddenTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Path;
-
-public class UtilsRecursiveHiddenTest {
-    @Test
-    public void findFileSearchesRecursivelyMoreThanOneLevel() throws Exception {
-        Path root = Files.createTempDirectory("oop-utils-tree");
-        Path deep = root.resolve("a").resolve("b").resolve("c");
-        Files.createDirectories(deep);
-        Files.writeString(deep.resolve("answer.txt"), "42");
-        File found = Utils.findFileByName(root.toString(), "answer.txt");
-        Assert.assertNotNull(found);
-        Assert.assertEquals("answer.txt", found.getName());
-    }
-}
-      `,
-      1
-    ),
-  ]);
-
-  addTestCases("Tuần 9 - String, List và Map", [
-    javaTestCase(
-      "TextAnalyzerEdgeHiddenTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-import java.util.*;
-
-public class TextAnalyzerEdgeHiddenTest {
-    @Test
-    public void normalizeHandlesEmptyAndPunctuationOnlyTokens() {
-        Assert.assertEquals(Collections.emptyList(), TextAnalyzer.normalizeWords(" ,,, !!! "));
-        Assert.assertEquals(Arrays.asList("hello", "world", "hello"), TextAnalyzer.normalizeWords("...Hello; world? HELLO"));
-    }
-
-    @Test
-    public void topWordsHandlesLimitLargerThanVocabulary() {
-        Assert.assertEquals("b=2\\na=1\\nc=1", TextAnalyzer.topWords("a b b c", 10));
-    }
-}
-      `,
-      1
-    ),
-    javaTestCase(
-      "TextAnalyzerOrderHiddenTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-
-public class TextAnalyzerOrderHiddenTest {
-    @Test
-    public void tiesKeepFirstAppearanceOrder() {
-        Assert.assertEquals("x=2\\ny=2\\nz=2", TextAnalyzer.topWords("x y z y z x", 3));
-    }
-}
-      `,
-      1
-    ),
-  ]);
-
-  addTestCases("Tuần 8 - Generic sort và Person", [
-    javaTestCase(
-      "Week11HiddenSortTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-import java.util.*;
-
-public class Week11HiddenSortTest {
-    @Test
-    public void sortHandlesEmptyAndAlreadySortedLists() {
-        Assert.assertEquals(Collections.emptyList(), Week11.sortGeneric(Collections.<Integer>emptyList()));
-        Assert.assertEquals(Arrays.asList(1, 2, 3), Week11.sortGeneric(Arrays.asList(1, 2, 3)));
-    }
-
-    @Test
-    public void returnedListIsIndependent() {
-        List<Integer> input = new ArrayList<>(Arrays.asList(3, 1, 2));
-        List<Integer> sorted = Week11.sortGeneric(input);
-        sorted.set(0, 99);
-        Assert.assertEquals(Arrays.asList(3, 1, 2), input);
-    }
-}
-      `,
-      1
-    ),
-    javaTestCase(
-      "PersonComparableHiddenTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-
-public class PersonComparableHiddenTest {
-    @Test
-    public void compareToUsesNameBeforeAge() {
-        Person a20 = new Person("An", 20, "HN");
-        Person a21 = new Person("An", 21, "HN");
-        Person binh18 = new Person("Binh", 18, "HN");
-        Assert.assertTrue(a20.compareTo(a21) < 0);
-        Assert.assertTrue(binh18.compareTo(a21) > 0);
-        Assert.assertEquals("An-20-HN", a20.toString());
-    }
-}
-      `,
-      1
-    ),
-  ]);
-
-  addTestCases("Tuần 10 - Phả hệ với Composite", [
-    javaTestCase(
-      "GenealogyRelationshipHiddenTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-
-public class GenealogyRelationshipHiddenTest {
-    @Test
-    public void marriageIsBidirectionalAndChildrenAreStored() {
-        PersonNode a = new PersonNode("A", 1970, "M");
-        PersonNode b = new PersonNode("B", 1972, "F");
-        PersonNode c = new PersonNode("C", 2000, "F");
-        a.marry(b);
-        a.addChild(c);
-        Assert.assertSame(b, a.getSpouse());
-        Assert.assertSame(a, b.getSpouse());
-        Assert.assertEquals(1, a.getChildren().size());
-        Assert.assertSame(c, a.getChildren().get(0));
-    }
-}
-      `,
-      1
-    ),
-    javaTestCase(
-      "GenealogyTraversalHiddenTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-import java.util.*;
-import java.util.stream.Collectors;
-
-public class GenealogyTraversalHiddenTest {
-    @Test
-    public void latestGenerationCanContainGrandChildren() {
-        PersonNode root = new PersonNode("Root", 1940, "M");
-        PersonNode child = new PersonNode("Child", 1970, "F");
-        PersonNode grand = new PersonNode("Grand", 2000, "M");
-        root.addChild(child);
-        child.addChild(grand);
-        Assert.assertEquals(Arrays.asList("Grand"),
-            Genealogy.findLatestGeneration(root).stream().map(PersonNode::getName).collect(Collectors.toList()));
-        Assert.assertEquals(Arrays.asList("Root", "Child", "Grand"),
-            Genealogy.findUnmarried(root).stream().map(PersonNode::getName).collect(Collectors.toList()));
-    }
-}
-      `,
-      1
-    ),
-  ]);
-
-  addTestCases("Tuần 10 - Sắp xếp với Strategy", [
-    javaTestCase(
-      "SorterHiddenTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-
-public class SorterHiddenTest {
-    @Test
-    public void sortHandlesDuplicatesNegativesAndEmptyArrays() {
-        Sorter sorter = new Sorter(new BubbleSortStrategy());
-        Assert.assertArrayEquals(new int[] {-3, -3, 0, 7, 7}, sorter.sort(new int[] {7, -3, 0, 7, -3}, true));
-        sorter.setStrategy(new SelectionSortStrategy());
-        Assert.assertArrayEquals(new int[] {7, 7, 0, -3, -3}, sorter.sort(new int[] {7, -3, 0, 7, -3}, false));
-        Assert.assertArrayEquals(new int[] {}, sorter.sort(new int[] {}, true));
-    }
-}
-      `,
-      1
-    ),
-    javaTestCase(
-      "SorterStrategySwitchHiddenTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-
-public class SorterStrategySwitchHiddenTest {
-    @Test
-    public void sorterDelegatesToCurrentStrategy() {
-        Sorter sorter = new Sorter(new BubbleSortStrategy());
-        Assert.assertArrayEquals(new int[] {1, 2, 3}, sorter.sort(new int[] {3, 2, 1}, true));
-        sorter.setStrategy(new SelectionSortStrategy());
-        Assert.assertArrayEquals(new int[] {3, 2, 1}, sorter.sort(new int[] {1, 2, 3}, false));
-    }
-}
-      `,
-      1
-    ),
-  ]);
-
-  addTestCases("Tuần 10 - Adapter cho thư viện sắp xếp", [
-    javaTestCase(
-      "AdapterHiddenTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-
-public class AdapterHiddenTest {
-    @Test
-    public void adapterSortsDuplicatesAndEmptyArrays() {
-        IMath math = new MathLibAdapter(new MyMathLib());
-        Assert.assertArrayEquals(new int[] {}, Client.sortNumbers(math, new int[] {}));
-        Assert.assertArrayEquals(new int[] {-1, 0, 4, 4}, Client.sortNumbers(math, new int[] {4, -1, 4, 0}));
-    }
-}
-      `,
-      1
-    ),
-    javaTestCase(
-      "AdapterDependencyHiddenTest.java",
-      `
-import org.junit.Assert;
-import org.junit.Test;
-
-public class AdapterDependencyHiddenTest {
-    private static class ReverseMath implements IMath {
-        public int[] sort(int[] arr) {
-            return new int[] {3, 2, 1};
-        }
-    }
-
-    @Test
-    public void clientDependsOnInterfaceOnly() {
-        Assert.assertArrayEquals(new int[] {3, 2, 1}, Client.sortNumbers(new ReverseMath(), new int[] {1, 2, 3}));
-    }
-}
-      `,
-      1
-    ),
-  ]);
-}
-
-strengthenExerciseTestCases();
 
 async function replaceExerciseLibrary() {
   const oldLibraryExercises = await db

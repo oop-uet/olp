@@ -129,19 +129,27 @@ export function PlagiarismPage() {
   async function fetchOptions() {
     setLoadingOptions(true)
     try {
-      const [exercisesRes, sectionsRes] = await Promise.all([
+      const [exercisesRes, libraryRes, sectionsRes] = await Promise.all([
         api.get('/api/exercises'),
+        api.get('/api/exercises/library').catch(() => ({ data: [] })),
         api.get('/api/instructor/sections').catch(() => ({ data: [] })),
       ])
       const exerciseData = Array.isArray(exercisesRes.data)
         ? exercisesRes.data
         : exercisesRes.data?.data ?? []
+      const libraryData = Array.isArray(libraryRes.data)
+        ? libraryRes.data
+        : libraryRes.data?.data ?? []
       const sectionData = Array.isArray(sectionsRes.data)
         ? sectionsRes.data
         : sectionsRes.data?.data ?? []
-      setExercises(
-        (exerciseData as ExerciseOption[]).map((e) => ({ id: e.id, title: e.title }))
-      )
+      const exerciseMap = new Map<string, ExerciseOption>()
+      ;[...libraryData, ...exerciseData].forEach((e) => {
+        if (e?.id && e?.title) {
+          exerciseMap.set(e.id, { id: e.id, title: e.title })
+        }
+      })
+      setExercises([...exerciseMap.values()])
       setSections(
         (sectionData as SectionOption[]).map((s) => ({
           id: s.id,
