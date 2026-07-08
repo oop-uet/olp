@@ -291,7 +291,15 @@ export function InstructorCourseDetailPage() {
                     <li key={item.studentId} className="flex items-center justify-between py-2 text-xs border-b border-slate-100 last:border-b-0">
                       <div className="flex items-center gap-3">
                         <span className="font-bold text-slate-800 w-4 text-center">
-                          {idx + 1}
+                          {idx + 1 === 1 ? (
+                            <span className="text-sm filter drop-shadow-sm select-none" title="Huy chương Vàng">🥇</span>
+                          ) : idx + 1 === 2 ? (
+                            <span className="text-sm filter drop-shadow-sm select-none" title="Huy chương Bạc">🥈</span>
+                          ) : idx + 1 === 3 ? (
+                            <span className="text-sm filter drop-shadow-sm select-none" title="Huy chương Đồng">🥉</span>
+                          ) : (
+                            idx + 1
+                          )}
                         </span>
                         <Link
                           to={`/instructor/classes/${section.id}/students/${item.studentId}/profile`}

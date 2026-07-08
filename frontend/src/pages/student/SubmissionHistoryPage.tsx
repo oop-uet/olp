@@ -444,7 +444,17 @@ export function SubmissionHistoryPage() {
               <ul className="divide-y divide-slate-200">
                 {leaderboard.slice(0, 10).map((entry, index) => (
                   <li key={entry.studentId} className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 py-4">
-                    <span className="text-base font-bold text-slate-800">{index + 1}</span>
+                    <span className="text-base font-bold text-slate-800">
+                      {index + 1 === 1 ? (
+                        <span className="text-lg filter drop-shadow-sm select-none" title="Huy chương Vàng">🥇</span>
+                      ) : index + 1 === 2 ? (
+                        <span className="text-lg filter drop-shadow-sm select-none" title="Huy chương Bạc">🥈</span>
+                      ) : index + 1 === 3 ? (
+                        <span className="text-lg filter drop-shadow-sm select-none" title="Huy chương Đồng">🥉</span>
+                      ) : (
+                        index + 1
+                      )}
+                    </span>
                     <Link
                       to={`/student/classes/${selectedSectionId}/students/${entry.studentUserId || entry.studentId}/profile`}
                       className="min-w-0 truncate text-base font-medium text-sky-500 hover:underline"

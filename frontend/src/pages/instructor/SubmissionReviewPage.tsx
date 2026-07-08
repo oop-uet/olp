@@ -1026,7 +1026,17 @@ export function SubmissionReviewPage() {
               <ul className="divide-y divide-slate-200">
                 {leaderboard.map((item, index) => (
                   <li key={item.studentId} className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3 py-4">
-                    <span className="text-base font-bold text-slate-800">{index + 1}</span>
+                    <span className="text-base font-bold text-slate-800">
+                      {index + 1 === 1 ? (
+                        <span className="text-lg filter drop-shadow-sm select-none" title="Huy chương Vàng">🥇</span>
+                      ) : index + 1 === 2 ? (
+                        <span className="text-lg filter drop-shadow-sm select-none" title="Huy chương Bạc">🥈</span>
+                      ) : index + 1 === 3 ? (
+                        <span className="text-lg filter drop-shadow-sm select-none" title="Huy chương Đồng">🥉</span>
+                      ) : (
+                        index + 1
+                      )}
+                    </span>
                     <span className="min-w-0 truncate text-base font-medium text-sky-500" title={item.studentName}>
                       {item.studentName}
                     </span>
