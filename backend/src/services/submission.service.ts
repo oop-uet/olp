@@ -13,7 +13,6 @@ import {
 import {
   applyStylePolicyToEvaluation,
   buildStyleReport,
-  evaluateCheckstyle,
   type CheckstyleEvaluation,
 } from "./checkstyle.service.js";
 import { parseExerciseStylePolicy } from "./exercise.service.js";
@@ -136,9 +135,69 @@ function combineScores(functionalScore: number, styleScore: number | null, style
   return Math.round((functionalScore * testWeightPercent + styleScore * styleWeightPercent) * 100) / 10000;
 }
 
+function resolveLocalStyleEvaluation(input: {
+  styleReport?: CheckstyleEvaluation;
+  styleSettings: { enabled: boolean };
+  exerciseStylePolicy: unknown;
+  effectiveStyleSettings: {
+    enabled: boolean;
+    penaltyPerViolation: number;
+    maxViolations: number;
+  };
+}): CheckstyleEvaluation {
+  const { styleReport, styleSettings, exerciseStylePolicy, effectiveStyleSettings } = input;
+
+  if (!effectiveStyleSettings.enabled) {
+    return skippedStyleEvaluation(
+      styleSettings.enabled
+        ? "Bài tập này không chấm quy tắc lập trình."
+        : "Chức năng chấm Checkstyle đang tắt trong cấu hình hệ thống."
+    );
+  }
+
+  if (!styleReport) {
+    return unavailableStyleEvaluation(
+      "Không nhận được kết quả Checkstyle từ Local Executor trên máy sinh viên."
+    );
+  }
+
+  if (styleReport.status === "unavailable") {
+    return unavailableStyleEvaluation(
+      styleReport.feedback || "Local Executor chưa chạy được Checkstyle trên máy sinh viên."
+    );
+  }
+
+  return applyStylePolicyToEvaluation({
+    status: styleReport.status,
+    score: styleReport.score,
+    violationCount: styleReport.violationCount,
+    violations: styleReport.violations,
+    feedback: styleReport.feedback ?? (
+      styleReport.status === "passed"
+        ? "Không phát hiện lỗi Checkstyle theo cấu hình Local Executor."
+        : `Phát hiện ${styleReport.violationCount} lỗi Checkstyle. Điểm quy tắc lập trình: ${styleReport.score}/100.`
+    ),
+    toolVersion: styleReport.toolVersion || "checkstyle-local-executor",
+  }, exerciseStylePolicy, {
+    penaltyPerViolation: effectiveStyleSettings.penaltyPerViolation,
+    maxViolations: effectiveStyleSettings.maxViolations,
+  });
+}
+
 function clamp(value: number, min: number, max: number): number {
   if (!Number.isFinite(value)) return min;
   return Math.max(min, Math.min(max, value));
+}
+
+function unavailableStyleEvaluation(feedback: string): CheckstyleEvaluation {
+  return {
+    status: "unavailable",
+    score: null,
+    violationCount: 0,
+    violations: [],
+    feedback,
+    toolVersion: "checkstyle-local-executor",
+  };
 }
 
 function skippedStyleEvaluation(feedback: string): CheckstyleEvaluation {
@@ -293,37 +352,15 @@ export async function createSubmission(
     penaltyPerViolation: exerciseStylePolicy.penaltyPerViolation ?? styleSettings.penaltyPerViolation,
     maxViolations: exerciseStylePolicy.maxViolations ?? styleSettings.maxViolations,
   };
-  let styleEvaluation =
+  const styleEvaluation =
     isAntiCheatZero || isExitAttempt
       ? skippedStyleEvaluation("Không chấm Checkstyle vì bài nộp đã bị ghi nhận 0 điểm.")
-      : effectiveStyleSettings.enabled
-        ? await evaluateCheckstyle(code, {
-          penaltyPerViolation: effectiveStyleSettings.penaltyPerViolation,
-          maxViolations: effectiveStyleSettings.maxViolations,
-          policy: exerciseStylePolicy,
-        })
-        : skippedStyleEvaluation(
-          styleSettings.enabled
-            ? "Bài tập này không chấm quy tắc lập trình."
-            : "Chức năng chấm Checkstyle đang tắt trong cấu hình hệ thống."
-        );
-
-  // Fallback to client-side style check report if server check failed/unavailable and client provided one
-  if (effectiveStyleSettings.enabled && styleEvaluation.status === "unavailable" && styleReport && styleReport.status !== "unavailable") {
-    styleEvaluation = applyStylePolicyToEvaluation({
-      status: styleReport.status,
-      score: styleReport.score,
-      violationCount: styleReport.violationCount,
-      violations: styleReport.violations,
-      feedback: styleReport.status === "passed"
-        ? "Không phát hiện lỗi Checkstyle theo Google Java Style."
-        : `Phát hiện ${styleReport.violationCount} lỗi Checkstyle. Điểm quy tắc lập trình: ${styleReport.score}/100.`,
-      toolVersion: styleReport.toolVersion || "checkstyle-client",
-    }, exerciseStylePolicy, {
-      penaltyPerViolation: effectiveStyleSettings.penaltyPerViolation,
-      maxViolations: effectiveStyleSettings.maxViolations,
-    });
-  }
+      : resolveLocalStyleEvaluation({
+        styleReport,
+        styleSettings,
+        exerciseStylePolicy,
+        effectiveStyleSettings,
+      });
 
   const score =
     isAntiCheatZero || isExitAttempt
@@ -536,64 +573,9 @@ export async function getSubmissionById(id: string, database: Database = default
     };
   }
 
-  const recheckedStyle = await recheckUnavailableStyle(submission, database);
-  const hydratedSubmission = recheckedStyle ? { ...submission, ...recheckedStyle } : submission;
-
   return {
-    ...hydratedSubmission,
-    effectiveScore: hydratedSubmission.manualScore ?? hydratedSubmission.score,
-  };
-}
-
-async function recheckUnavailableStyle(submission: any, database: Database) {
-  if (submission.styleStatus !== "unavailable") return null;
-  if (submission.feedback) return null;
-
-  const styleSettings = await getStyleSettings(database);
-  if (!styleSettings.enabled) return null;
-  const exerciseRecord = await database.query.exercises.findFirst({
-    where: eq(exercises.id, submission.exerciseId),
-    columns: {
-      id: true,
-      styleCheckEnabled: true,
-      stylePolicy: true,
-    },
-  });
-  const exerciseStylePolicy = parseExerciseStylePolicy(exerciseRecord);
-  if (exerciseStylePolicy.enabled === false) return null;
-
-  const styleEvaluation = await evaluateCheckstyle(submission.code, {
-    penaltyPerViolation: exerciseStylePolicy.penaltyPerViolation ?? styleSettings.penaltyPerViolation,
-    maxViolations: exerciseStylePolicy.maxViolations ?? styleSettings.maxViolations,
-    policy: exerciseStylePolicy,
-  });
-  const functionalScore = Number.isFinite(Number(submission.functionalScore))
-    ? Number(submission.functionalScore)
-    : Number(submission.score ?? 0);
-  const score = combineScores(
-    functionalScore,
-    styleEvaluation.status === "unavailable" ? null : styleEvaluation.score,
-    exerciseStylePolicy.weightPercent ?? styleSettings.weightPercent
-  );
-  const styleReport = buildStyleReport(styleEvaluation);
-
-  await database
-    .update(submissions)
-    .set({
-      score,
-      styleScore: styleEvaluation.score,
-      styleStatus: styleEvaluation.status,
-      styleFeedback: styleEvaluation.feedback,
-      styleReport,
-    })
-    .where(eq(submissions.id, submission.id));
-
-  return {
-    score,
-    styleScore: styleEvaluation.score,
-    styleStatus: styleEvaluation.status,
-    styleFeedback: styleEvaluation.feedback,
-    styleReport,
+    ...submission,
+    effectiveScore: submission.manualScore ?? submission.score,
   };
 }
 

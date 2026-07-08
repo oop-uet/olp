@@ -12,7 +12,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Path;
+import java.nio.file.Files;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,9 +27,11 @@ public class StyleChecker {
     public static JsonObject checkStyle(Path workDir, List<CodeCompiler.SourceFile> sourceFiles) {
         JsonObject result = new JsonObject();
         result.addProperty("provider", "checkstyle");
+        result.addProperty("toolVersion", "checkstyle-local-executor-" + Main.VERSION);
         result.addProperty("status", "passed");
         result.addProperty("score", 100.0);
         result.addProperty("violationCount", 0);
+        result.addProperty("feedback", "Không phát hiện lỗi Checkstyle theo cấu hình UET OASIS.");
         
         JsonArray violationsJson = new JsonArray();
         result.add("violations", violationsJson);
@@ -43,8 +49,9 @@ public class StyleChecker {
         }
 
         try {
+            Path configPath = writeUetCheckstyleConfig(workDir);
             Configuration config = ConfigurationLoader.loadConfiguration(
-                    "google_checks.xml",
+                    configPath.toString(),
                     new PropertiesExpander(System.getProperties())
             );
 
@@ -102,13 +109,37 @@ public class StyleChecker {
             result.addProperty("status", violationCount == 0 ? "passed" : "failed");
             result.addProperty("score", score);
             result.addProperty("violationCount", violationCount);
+            result.addProperty(
+                    "feedback",
+                    violationCount == 0
+                            ? "Không phát hiện lỗi Checkstyle theo cấu hình UET OASIS."
+                            : "Phát hiện " + violationCount + " lỗi Checkstyle. Điểm quy tắc lập trình: " + score + "/100."
+            );
 
         } catch (Exception e) {
             logger.error("Checkstyle execution failed programmatically", e);
             result.addProperty("status", "unavailable");
             result.addProperty("error", e.getMessage());
+            result.addProperty("feedback", "Không chạy được Checkstyle trên Local Executor: " + e.getMessage());
         }
 
         return result;
+    }
+
+    private static Path writeUetCheckstyleConfig(Path workDir) throws IOException {
+        try (InputStream input = StyleChecker.class.getClassLoader().getResourceAsStream("google_checks.xml")) {
+            if (input == null) {
+                throw new IOException("Không tìm thấy google_checks.xml trong Checkstyle runtime.");
+            }
+            String googleChecks = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+            String uetChecks = googleChecks
+                    .replace("<property name=\"basicOffset\" value=\"2\"/>", "<property name=\"basicOffset\" value=\"4\"/>")
+                    .replace("<property name=\"braceAdjustment\" value=\"2\"/>", "<property name=\"braceAdjustment\" value=\"4\"/>")
+                    .replace("<property name=\"caseIndent\" value=\"2\"/>", "<property name=\"caseIndent\" value=\"4\"/>")
+                    .replace("<property name=\"arrayInitIndent\" value=\"2\"/>", "<property name=\"arrayInitIndent\" value=\"4\"/>");
+            Path configPath = workDir.resolve("uet_google_checks_4space.xml");
+            Files.writeString(configPath, uetChecks, StandardCharsets.UTF_8);
+            return configPath;
+        }
     }
 }

@@ -69,15 +69,20 @@ interface TestResult {
 interface StyleResult {
   provider: string
   status: 'passed' | 'failed' | 'unavailable'
-  score: number
+  score: number | null
   violationCount: number
+  feedback?: string | null
+  toolVersion?: string
   violations: Array<{
     file: string
-    line: number
-    column: number
+    line: number | null
+    column: number | null
     severity: string
     message: string
     source: string
+    ruleId?: string
+    ruleLabel?: string
+    category?: string
   }>
 }
 
@@ -474,6 +479,8 @@ export function ExerciseWorkspacePage() {
           score: executionResult.styleResult.score,
           violationCount: executionResult.styleResult.violationCount,
           violations: executionResult.styleResult.violations,
+          feedback: executionResult.styleResult.feedback ?? null,
+          toolVersion: executionResult.styleResult.toolVersion,
         } : undefined,
       })
       const score = response.data.score
@@ -687,10 +694,12 @@ export function ExerciseWorkspacePage() {
               onSelect={setActiveFileId}
               onAdd={() => {
                 const nextFile = createNewSourceFile(files)
+                setExecutionResult(null)
                 setFiles((current) => [...current, nextFile])
                 setActiveFileId(nextFile.id)
               }}
               onRemove={(fileId) => {
+                setExecutionResult(null)
                 setFiles((current) => {
                   if (current.length === 1) return current
                   const next = current.filter((file) => file.id !== fileId)
@@ -717,6 +726,7 @@ export function ExerciseWorkspacePage() {
                     file.id === fileId ? { ...file, name: normalizedName } : file
                   )
                 )
+                setExecutionResult(null)
                 return true
               }}
             />
@@ -725,7 +735,8 @@ export function ExerciseWorkspacePage() {
               language="java"
               theme="vs-dark"
               value={files.find((file) => file.id === activeFileId)?.content ?? ''}
-              onChange={(value) =>
+              onChange={(value) => {
+                setExecutionResult(null)
                 setFiles((current) =>
                   current.map((file) =>
                     file.id === activeFileId
@@ -733,7 +744,7 @@ export function ExerciseWorkspacePage() {
                       : file
                   )
                 )
-              }
+              }}
               options={{
                 minimap: { enabled: false },
                 fontSize: 14,

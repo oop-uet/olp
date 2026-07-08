@@ -32,15 +32,20 @@ export interface CompilationError {
 export interface StyleResult {
   provider: string
   status: 'passed' | 'failed' | 'unavailable'
-  score: number
+  score: number | null
   violationCount: number
+  feedback?: string | null
+  toolVersion?: string
   violations: Array<{
     file: string
-    line: number
-    column: number
+    line: number | null
+    column: number | null
     severity: string
     message: string
     source: string
+    ruleId?: string
+    ruleLabel?: string
+    category?: string
   }>
 }
 

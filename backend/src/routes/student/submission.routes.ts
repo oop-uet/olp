@@ -23,6 +23,9 @@ const checkstyleViolationSchema = z.object({
   severity: z.string(),
   message: z.string(),
   source: z.string(),
+  ruleId: z.string().optional(),
+  ruleLabel: z.string().optional(),
+  category: z.string().optional(),
 });
 
 const styleReportSchema = z.object({
@@ -31,6 +34,8 @@ const styleReportSchema = z.object({
   score: z.number().nullable(),
   violationCount: z.number(),
   violations: z.array(checkstyleViolationSchema),
+  feedback: z.string().nullable().optional(),
+  toolVersion: z.string().optional(),
 });
 
 export const createSubmissionSchema = z.object({
