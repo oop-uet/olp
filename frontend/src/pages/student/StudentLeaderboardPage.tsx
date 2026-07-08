@@ -282,7 +282,15 @@ export function StudentLeaderboardPage() {
                         }
                       >
                         <td className="table-td text-center font-bold text-slate-800">
-                          {entry.rank}
+                          {entry.rank === 1 ? (
+                            <span className="inline-flex items-center justify-center text-lg filter drop-shadow-sm select-none" title="Huy chương Vàng">🥇</span>
+                          ) : entry.rank === 2 ? (
+                            <span className="inline-flex items-center justify-center text-lg filter drop-shadow-sm select-none" title="Huy chương Bạc">🥈</span>
+                          ) : entry.rank === 3 ? (
+                            <span className="inline-flex items-center justify-center text-lg filter drop-shadow-sm select-none" title="Huy chương Đồng">🥉</span>
+                          ) : (
+                            entry.rank
+                          )}
                         </td>
                         <td className="table-td font-semibold text-slate-800">
                           <span className={mine ? 'text-primary' : 'text-slate-800'}>
