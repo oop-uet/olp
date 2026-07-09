@@ -27,10 +27,8 @@ const DIFFICULTY_LABELS: Record<Difficulty, string> = {
 
 const OOP_TOPIC_SUGGESTIONS = [
   'Java Introduction',
-  'Object Oriented Programming Concept',
-  'Object Oriented Programming in Java',
+  'OOP Concepts',
   'Classes and Objects',
-  'Objects and Classes',
   'More on Java',
   'Inheritance',
   'Polymorphism',
