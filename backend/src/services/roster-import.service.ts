@@ -249,8 +249,14 @@ export async function importClassRoster(
 
   // 1. Create or find the class section
   const sectionId = crypto.randomUUID();
+  let rawSectionName = (metadata.sectionName || "Imported Section").trim();
+  const cCode = (metadata.courseCode || "INT2204").trim();
+  if (cCode && !/[A-Z]{3,4}\s*\d{4}/i.test(rawSectionName)) {
+    rawSectionName = `${cCode} ${rawSectionName}`;
+  }
+
   const sectionName = normalizeSectionNameForSemester(
-    metadata.sectionName || "Imported Section",
+    rawSectionName,
     metadata.semester
   );
 

@@ -42,9 +42,14 @@ export function stripSemesterCompactPrefix(sectionName: string): string {
 export function normalizeSectionNameForSemester(sectionName: string, semester: string): string {
   const trimmedName = sectionName.trim().replace(/\s+/g, " ");
   const prefix = getSemesterCompactPrefix(semester);
-  if (!prefix) return trimmedName;
+  
+  let baseName = stripSemesterCompactPrefix(trimmedName);
+  if (!baseName) return prefix || trimmedName;
+  
+  if (!/[A-Z]{3,4}\s*\d{4}/i.test(baseName)) {
+    baseName = `INT2204 ${baseName}`;
+  }
 
-  const baseName = stripSemesterCompactPrefix(trimmedName);
-  if (!baseName) return prefix;
+  if (!prefix) return baseName;
   return `${prefix} ${baseName}`;
 }

@@ -47,7 +47,13 @@ export function stripSemesterCompactPrefix(sectionName: string): string {
 }
 
 export function formatSectionDisplayName(sectionName: string): string {
-  const withoutSemester = stripSemesterCompactPrefix(sectionName).replace(/\s+/g, ' ').trim()
+  let withoutSemester = stripSemesterCompactPrefix(sectionName).replace(/\s+/g, ' ').trim()
+  if (!withoutSemester) return sectionName
+
+  if (!/[A-Z]{3,4}\s*\d{4}/i.test(withoutSemester)) {
+    withoutSemester = `INT2204 ${withoutSemester}`
+  }
+
   const duplicateCode = withoutSemester.match(/^(.+?)\s*-\s*\1\s*-\s*(.+)$/i)
   if (duplicateCode) return `${duplicateCode[1]} - ${duplicateCode[2]}`
   return withoutSemester
@@ -55,7 +61,13 @@ export function formatSectionDisplayName(sectionName: string): string {
 
 export function normalizePreviewSectionName(sectionName: string, semester: string): string {
   const prefix = getSemesterCompactPrefix(semester)
-  const baseName = stripSemesterCompactPrefix(sectionName)
-  if (!prefix || !baseName) return sectionName.trim()
+  let baseName = stripSemesterCompactPrefix(sectionName).replace(/\s+/g, ' ').trim()
+  if (!baseName) return prefix || sectionName.trim()
+
+  if (!/[A-Z]{3,4}\s*\d{4}/i.test(baseName)) {
+    baseName = `INT2204 ${baseName}`
+  }
+
+  if (!prefix) return baseName
   return `${prefix} ${baseName}`
 }
