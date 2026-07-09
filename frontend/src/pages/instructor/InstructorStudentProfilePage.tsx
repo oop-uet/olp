@@ -72,11 +72,6 @@ function formatTimestamp(ts: string) {
   })
 }
 
-function dateKey(ts: string) {
-  const date = new Date(ts)
-  if (Number.isNaN(date.getTime())) return ts.slice(0, 10)
-  return date.toISOString().slice(0, 10)
-}
 
 function getStatusLabel(status: SubmissionRow['status'], score: number) {
   if (score >= 100) return { label: 'Hoàn thành', className: 'badge-green' }
@@ -152,21 +147,26 @@ export function InstructorStudentProfilePage() {
     }
   }
 
-  const activity = useMemo(() => {
-    const byDate = new Map<string, { count: number; bestScore: number }>()
-    for (const submission of submissions) {
-      const key = dateKey(submission.submittedAt)
-      const current = byDate.get(key) ?? { count: 0, bestScore: 0 }
-      byDate.set(key, {
-        count: current.count + 1,
-        bestScore: Math.max(current.bestScore, submission.effectiveScore),
-      })
-    }
-    return [...byDate.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .slice(-14)
-      .map(([date, value]) => ({ date, ...value }))
-  }, [profile])
+  const exerciseColorMap = useMemo(() => {
+    const uniqueExercises = Array.from(new Set(submissions.map((s) => s.exerciseTitle)))
+    const palette = [
+      '#0ea5e9', // sky blue
+      '#ef4444', // red
+      '#84cc16', // lime green
+      '#06b6d4', // cyan
+      '#a855f7', // purple
+      '#3b82f6', // blue
+      '#10b981', // emerald
+      '#f59e0b', // amber
+      '#ec4899', // pink
+      '#f97316', // orange
+    ]
+    const map = new Map<string, string>()
+    uniqueExercises.forEach((title, idx) => {
+      map.set(title, palette[idx % palette.length])
+    })
+    return map
+  }, [submissions])
 
   if (loading) return <PageLoader label="Đang tải hồ sơ sinh viên..." />
 
@@ -355,14 +355,7 @@ export function InstructorStudentProfilePage() {
           </div>
 
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-black uppercase tracking-wide text-slate-400">Biểu đồ nộp bài</p>
-                <h2 className="text-2xl font-black text-slate-900">Hoạt động gần đây</h2>
-              </div>
-              <p className="text-sm font-bold text-primary">{submissions.length} lượt nộp</p>
-            </div>
-            <ActivityChart data={activity} />
+            <SubmissionScatterChart submissions={submissions} exerciseColorMap={exerciseColorMap} />
           </div>
         </main>
       </div>
@@ -410,31 +403,279 @@ function Legend({ color, label }: { color: string; label: string }) {
   )
 }
 
-function ActivityChart({ data }: { data: Array<{ date: string; count: number; bestScore: number }> }) {
-  const maxCount = Math.max(1, ...data.map((item) => item.count))
-  if (data.length === 0) {
-    return <p className="py-12 text-center text-sm text-slate-400">Chưa có dữ liệu để vẽ biểu đồ.</p>
-  }
+function formatMonthLabel(val: string) {
+  const [year, month] = val.split('-')
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ]
+  const mIdx = Number(month) - 1
+  return `${monthNames[mIdx]} ${year}`
+}
+
+function SubmissionScatterChart({
+  submissions,
+  exerciseColorMap,
+}: {
+  submissions: SubmissionRow[]
+  exerciseColorMap: Map<string, string>
+}) {
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    if (submissions.length > 0) {
+      const latestDate = new Date(submissions[0].submittedAt)
+      return `${latestDate.getFullYear()}-${String(latestDate.getMonth() + 1).padStart(2, '0')}`
+    }
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  })
+
+  const [hoveredPoint, setHoveredPoint] = useState<{ sub: SubmissionRow; x: number; y: number } | null>(null)
+
+  const filteredByMonth = useMemo(() => {
+    const [year, month] = selectedMonth.split('-').map(Number)
+    return submissions.filter((sub) => {
+      const d = new Date(sub.submittedAt)
+      return d.getFullYear() === year && (d.getMonth() + 1) === month
+    })
+  }, [submissions, selectedMonth])
+
+  const { xMin, xMax, ticks } = useMemo(() => {
+    const [year, month] = selectedMonth.split('-').map(Number)
+    const startOfMonth = new Date(year, month - 1, 1).getTime()
+    const endOfMonth = new Date(year, month, 1).getTime() - 1
+
+    if (filteredByMonth.length === 0) {
+      const ticksList: Array<{ time: number; label: string }> = []
+      for (let i = 0; i < 5; i++) {
+        const t = startOfMonth + (endOfMonth - startOfMonth) * (i / 4)
+        const d = new Date(t)
+        ticksList.push({
+          time: t,
+          label: `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`,
+        })
+      }
+      return { xMin: startOfMonth, xMax: endOfMonth, ticks: ticksList }
+    }
+
+    const times = filteredByMonth.map((s) => new Date(s.submittedAt).getTime())
+    let minTime = Math.min(...times)
+    let maxTime = Math.max(...times)
+
+    const minRange = 24 * 60 * 60 * 1000
+    if (maxTime - minTime < minRange) {
+      const center = (minTime + maxTime) / 2
+      minTime = center - minRange / 2
+      maxTime = center + minRange / 2
+    } else {
+      const pad = (maxTime - minTime) * 0.05
+      minTime -= pad
+      maxTime += pad
+    }
+
+    const duration = maxTime - minTime
+    const ticksList: Array<{ time: number; label: string }> = []
+
+    if (duration <= 3 * 24 * 60 * 60 * 1000) {
+      const sixHours = 6 * 60 * 60 * 1000
+      let t = Math.ceil(minTime / sixHours) * sixHours
+      while (t <= maxTime) {
+        const d = new Date(t)
+        let hour = d.getHours()
+        const ampm = hour >= 12 ? 'PM' : 'AM'
+        hour = hour % 12
+        if (hour === 0) hour = 12
+        const label = `${String(hour).padStart(2, '0')}:00 ${ampm}`
+        ticksList.push({ time: t, label })
+        t += sixHours
+      }
+    } else {
+      const numTicks = Math.min(8, Math.max(4, Math.round(duration / (24 * 60 * 60 * 1000))))
+      for (let i = 0; i < numTicks; i++) {
+        const t = minTime + duration * (i / (numTicks - 1))
+        const d = new Date(t)
+        const label = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
+        ticksList.push({ time: t, label })
+      }
+    }
+
+    return { xMin: minTime, xMax: maxTime, ticks: ticksList }
+  }, [filteredByMonth, selectedMonth])
+
+  const width = 800
+  const height = 350
+  const paddingTop = 25
+  const paddingBottom = 65
+  const paddingLeft = 60
+  const paddingRight = 40
+  const plotWidth = width - paddingLeft - paddingRight
+  const plotHeight = height - paddingTop - paddingBottom
+
+  const yTicks = [0, 20, 40, 60, 80, 100]
 
   return (
-    <div className="mt-6 flex h-72 items-end gap-3 border-l border-b border-slate-300 px-4 pb-8 pt-4">
-      {data.map((item) => {
-        const height = Math.max(12, (item.count / maxCount) * 210)
-        return (
-          <div key={item.date} className="flex min-w-0 flex-1 flex-col items-center gap-2">
-            <div className="flex h-56 items-end">
-              <div
-                className="w-8 rounded-t-md bg-primary shadow-sm"
-                style={{ height }}
-                title={`${item.date}: ${item.count} lượt, điểm tốt nhất ${item.bestScore.toFixed(1)}`}
+    <div className="flex flex-col space-y-4">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-100 pb-4">
+        <div className="relative inline-flex items-center">
+          <input
+            type="month"
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+          />
+          <button className="flex items-center gap-2 rounded border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 cursor-pointer select-none">
+            <svg className="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span>{formatMonthLabel(selectedMonth)}</span>
+          </button>
+        </div>
+
+        <h3 className="text-xl font-bold text-slate-800 tracking-wide select-none md:absolute md:left-1/2 md:-translate-x-1/2">
+          Biểu đồ nộp bài
+        </h3>
+
+        <div className="text-xs font-bold text-slate-500 select-none">
+          {filteredByMonth.length} lượt nộp trong tháng
+        </div>
+      </div>
+
+      <div className="relative w-full aspect-[800/350] bg-white border border-slate-150 rounded-lg p-2 shadow-inner">
+        <svg className="w-full h-full" viewBox={`0 0 ${width} ${height}`} overflow="visible">
+          <line
+            x1={paddingLeft}
+            y1={paddingTop}
+            x2={paddingLeft}
+            y2={paddingTop + plotHeight}
+            stroke="#94a3b8"
+            strokeWidth="1.5"
+          />
+
+          <line
+            x1={paddingLeft}
+            y1={paddingTop + plotHeight}
+            x2={width - paddingRight}
+            y2={paddingTop + plotHeight}
+            stroke="#94a3b8"
+            strokeWidth="1.5"
+          />
+
+          <text
+            x={paddingLeft - 45}
+            y={paddingTop + plotHeight / 2}
+            transform={`rotate(-90 ${paddingLeft - 45} ${paddingTop + plotHeight / 2})`}
+            textAnchor="middle"
+            className="fill-slate-700 text-sm font-bold"
+          >
+            Điểm
+          </text>
+
+          {yTicks.map((val) => {
+            const y = paddingTop + plotHeight - (val / 100) * plotHeight
+            return (
+              <g key={val}>
+                <line
+                  x1={paddingLeft}
+                  y1={y}
+                  x2={width - paddingRight}
+                  y2={y}
+                  stroke="#e2e8f0"
+                  strokeWidth="1"
+                  strokeDasharray={val === 0 ? "0" : "4 4"}
+                />
+                <text
+                  x={paddingLeft - 10}
+                  y={y + 4}
+                  textAnchor="end"
+                  className="fill-slate-500 text-xs font-bold"
+                >
+                  {val}
+                </text>
+              </g>
+            )
+          })}
+
+          {ticks.map((t, idx) => {
+            const x = paddingLeft + ((t.time - xMin) / (xMax - xMin)) * plotWidth
+            if (x < paddingLeft || x > width - paddingRight) return null
+            return (
+              <g key={idx}>
+                <line
+                  x1={x}
+                  y1={paddingTop}
+                  x2={x}
+                  y2={paddingTop + plotHeight}
+                  stroke="#e2e8f0"
+                  strokeWidth="1"
+                  strokeDasharray="4 4"
+                />
+                <line
+                  x1={x}
+                  y1={paddingTop + plotHeight}
+                  x2={x}
+                  y2={paddingTop + plotHeight + 6}
+                  stroke="#94a3b8"
+                  strokeWidth="1.5"
+                />
+                <text
+                  x={x}
+                  y={paddingTop + plotHeight + 20}
+                  textAnchor="middle"
+                  className="fill-slate-500 text-[10px] font-bold"
+                >
+                  {t.label}
+                </text>
+              </g>
+            )
+          })}
+
+          {filteredByMonth.map((sub, idx) => {
+            const score = sub.effectiveScore ?? 0
+            const time = new Date(sub.submittedAt).getTime()
+            const x = paddingLeft + ((time - xMin) / (xMax - xMin)) * plotWidth
+            const y = paddingTop + plotHeight - (score / 100) * plotHeight
+            const color = exerciseColorMap.get(sub.exerciseTitle) || '#0284c7'
+
+            return (
+              <circle
+                key={sub.id || idx}
+                cx={x}
+                cy={y}
+                r={6.5}
+                fill={color}
+                stroke="#ffffff"
+                strokeWidth={1.5}
+                className="cursor-pointer transition-all duration-150 hover:scale-125 filter drop-shadow-sm origin-center"
+                onMouseEnter={() => setHoveredPoint({ sub, x, y })}
+                onMouseLeave={() => setHoveredPoint(null)}
               />
-            </div>
-            <span className="-rotate-45 whitespace-nowrap text-[10px] font-bold text-slate-400">
-              {item.date.slice(5)}
-            </span>
+            )
+          })}
+        </svg>
+
+        {hoveredPoint && (
+          <div
+            className="absolute z-20 pointer-events-none rounded-lg bg-slate-900/95 px-3 py-2 text-xs font-semibold text-white shadow-xl max-w-xs border border-slate-700"
+            style={{
+              left: `${(hoveredPoint.x / width) * 100}%`,
+              top: `${(hoveredPoint.y / height) * 100}%`,
+              transform: 'translate(-50%, -115%)',
+            }}
+          >
+            <p className="font-extrabold text-cyan-300">{hoveredPoint.sub.exerciseTitle}</p>
+            <p className="mt-1 text-slate-200">Điểm: <span className="font-black text-white text-sm">{hoveredPoint.sub.effectiveScore}</span></p>
+            <p className="text-[10px] text-slate-400 mt-0.5">{formatTimestamp(hoveredPoint.sub.submittedAt)}</p>
           </div>
-        )
-      })}
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 mt-4 pt-4 border-t border-slate-100">
+        {Array.from(exerciseColorMap.entries()).map(([title, color]) => (
+          <div key={title} className="flex items-center gap-2 text-xs font-bold text-slate-600">
+            <span className="h-3.5 w-3.5 rounded-full border border-white shadow-sm" style={{ backgroundColor: color }} />
+            <span>{title}</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
