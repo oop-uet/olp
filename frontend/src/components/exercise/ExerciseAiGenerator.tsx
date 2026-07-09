@@ -25,6 +25,22 @@ const DIFFICULTY_LABELS: Record<Difficulty, string> = {
   hard: 'Khó',
 }
 
+const OOP_TOPIC_SUGGESTIONS = [
+  'Java Introduction',
+  'Object Oriented Programming Concept',
+  'Object Oriented Programming in Java',
+  'Classes and Objects',
+  'Objects and Classes',
+  'More on Java',
+  'Inheritance',
+  'Polymorphism',
+  'Exceptions',
+  'Input - Output Streams',
+  'Generic Programming',
+  'Data Structures',
+  'Design Patterns',
+]
+
 export function ExerciseAiGenerator({
   difficulty,
   tags,
@@ -35,6 +51,7 @@ export function ExerciseAiGenerator({
   const [statusLoading, setStatusLoading] = useState(true)
   const [open, setOpen] = useState(false)
   const [topic, setTopic] = useState('')
+  const [autoSuggestTopic, setAutoSuggestTopic] = useState(false)
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>(difficulty)
   const [testCount, setTestCount] = useState(6)
   const [tagText, setTagText] = useState(tags.join(', '))
@@ -82,15 +99,19 @@ export function ExerciseAiGenerator({
   }
 
   async function handleGenerate() {
-    if (!topic.trim()) {
+    if (!autoSuggestTopic && !topic.trim()) {
       toast.error('Vui lòng nhập chủ đề bài tập.')
       return
     }
 
+    const effectiveTopic = autoSuggestTopic
+      ? 'AI tự đề xuất chủ đề bài tập phù hợp với chủ điểm OOP, độ khó và ngữ cảnh bài giảng.'
+      : topic.trim()
+
     setGenerating(true)
     try {
       const response = await api.post('/api/exercises/ai/generate', {
-        topic: topic.trim(),
+        topic: effectiveTopic,
         difficulty: selectedDifficulty,
         test_count: testCount,
         oop_tags: parsedTags,
@@ -111,6 +132,24 @@ export function ExerciseAiGenerator({
     } finally {
       setGenerating(false)
     }
+  }
+
+  function toggleSuggestedTag(tag: string) {
+    const currentTags = tagText
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)
+    const normalized = tag.toLowerCase()
+    const exists = currentTags.some((item) => item.toLowerCase() === normalized)
+    const nextTags = exists
+      ? currentTags.filter((item) => item.toLowerCase() !== normalized)
+      : [...currentTags, tag].slice(0, 5)
+    setTagText(nextTags.join(', '))
+  }
+
+  function hasSuggestedTag(tag: string) {
+    const normalized = tag.toLowerCase()
+    return parsedTags.some((item) => item.toLowerCase() === normalized)
   }
 
   const disabled = statusLoading || !status?.enabled
@@ -153,13 +192,27 @@ export function ExerciseAiGenerator({
                 <label htmlFor="ai-topic" className="label">
                   Chủ đề <span className="text-danger-500">*</span>
                 </label>
+                <label className="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={autoSuggestTopic}
+                    onChange={(event) => setAutoSuggestTopic(event.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
+                  />
+                  AI tự đề xuất chủ đề phù hợp với chủ điểm đã chọn
+                </label>
                 <input
                   id="ai-topic"
                   value={topic}
                   onChange={(event) => setTopic(event.target.value)}
+                  disabled={autoSuggestTopic}
                   className="input"
                   maxLength={300}
-                  placeholder="Ví dụ: quản lý giỏ hàng, thư viện sách, đặt vé xem phim..."
+                  placeholder={
+                    autoSuggestTopic
+                      ? 'AI sẽ tự đề xuất chủ đề khi tạo draft'
+                      : 'Ví dụ: quản lý giỏ hàng, thư viện sách, đặt vé xem phim...'
+                  }
                 />
               </div>
 
@@ -196,12 +249,31 @@ export function ExerciseAiGenerator({
 
               <div>
                 <label htmlFor="ai-tags" className="label">Chủ điểm OOP</label>
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {OOP_TOPIC_SUGGESTIONS.map((tag) => {
+                    const selected = hasSuggestedTag(tag)
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => toggleSuggestedTag(tag)}
+                        className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                          selected
+                            ? 'border-primary bg-primary text-white'
+                            : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-primary/40 hover:bg-primary-50 hover:text-primary'
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    )
+                  })}
+                </div>
                 <input
                   id="ai-tags"
                   value={tagText}
                   onChange={(event) => setTagText(event.target.value)}
                   className="input"
-                  placeholder="class, encapsulation, inheritance..."
+                  placeholder="Chọn từ gợi ý hoặc tự nhập thêm, ví dụ: encapsulation, collection..."
                 />
                 <p className="mt-1 text-xs text-slate-400">Tối đa 5 tag, phân tách bằng dấu phẩy.</p>
               </div>
