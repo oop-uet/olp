@@ -95,19 +95,19 @@
     @apply inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold tracking-wide uppercase shadow-sm border border-transparent;
   }
   .badge-blue {
-    @apply badge bg-blue-50 text-blue-700 ring-1 ring-blue-700/10 border-blue-100;
+    @apply badge bg-sky-500 text-white border-transparent;
   }
   .badge-green {
-    @apply badge bg-emerald-50 text-emerald-700 ring-1 ring-emerald-700/10 border-emerald-100;
+    @apply badge bg-emerald-500 text-white border-transparent;
   }
   .badge-yellow {
-    @apply badge bg-amber-50 text-amber-700 ring-1 ring-amber-700/10 border-amber-100;
+    @apply badge bg-amber-500 text-white border-transparent;
   }
   .badge-red {
-    @apply badge bg-rose-50 text-rose-700 ring-1 ring-rose-700/10 border-rose-100;
+    @apply badge bg-rose-500 text-white border-transparent;
   }
   .badge-gray {
-    @apply badge bg-slate-50 text-slate-700 ring-1 ring-slate-700/10 border-slate-200;
+    @apply badge bg-slate-400 text-white border-transparent;
   }
 
   .tag {
