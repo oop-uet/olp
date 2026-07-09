@@ -544,6 +544,7 @@ function SubmissionScatterChart({
   })
 
   const [hoveredPoint, setHoveredPoint] = useState<{ sub: SubmissionRow; x: number; y: number } | null>(null)
+  const [selectedPointId, setSelectedPointId] = useState<string | null>(null)
 
   const selectedMonth = useMemo(() => {
     const parts = selectedDate.split('-')
@@ -666,8 +667,23 @@ function SubmissionScatterChart({
         </div>
       </div>
 
-      <div className="relative w-full aspect-[800/350] bg-white border border-slate-150 rounded-lg p-2 shadow-inner">
-        <svg className="w-full h-full" viewBox={`0 0 ${width} ${height}`} overflow="visible">
+      <div 
+        className="relative w-full aspect-[800/350] bg-white border border-slate-150 rounded-lg p-2 shadow-inner"
+        onClick={() => {
+          setSelectedPointId(null)
+          setHoveredPoint(null)
+        }}
+      >
+        <svg 
+          className="w-full h-full" 
+          viewBox={`0 0 ${width} ${height}`} 
+          overflow="visible"
+          onClick={(e) => {
+            if ((e.target as SVGElement).tagName === 'circle') {
+              e.stopPropagation()
+            }
+          }}
+        >
           <line
             x1={paddingLeft}
             y1={paddingTop}
@@ -761,6 +777,7 @@ function SubmissionScatterChart({
             const x = paddingLeft + ((time - xMin) / (xMax - xMin)) * plotWidth
             const y = paddingTop + plotHeight - (score / 100) * plotHeight
             const color = exerciseColorMap.get(sub.exerciseTitle) || '#0284c7'
+            const isHovered = hoveredPoint?.sub.id === sub.id
 
             return (
               <circle
@@ -769,11 +786,27 @@ function SubmissionScatterChart({
                 cy={y}
                 r={6.5}
                 fill={color}
-                stroke="#ffffff"
-                strokeWidth={1.5}
-                className="cursor-pointer transition-all duration-150 hover:scale-125 filter drop-shadow-sm origin-center"
+                stroke={isHovered ? '#0f172a' : '#ffffff'}
+                strokeWidth={isHovered ? 2.5 : 1.5}
+                className={`cursor-pointer transition-all duration-150 filter drop-shadow-sm origin-center ${
+                  isHovered ? 'scale-125' : 'hover:scale-125'
+                }`}
                 onMouseEnter={() => setHoveredPoint({ sub, x, y })}
-                onMouseLeave={() => setHoveredPoint(null)}
+                onMouseLeave={() => {
+                  if (selectedPointId !== sub.id) {
+                    setHoveredPoint(null)
+                  }
+                }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (selectedPointId === sub.id) {
+                    setSelectedPointId(null)
+                    setHoveredPoint(null)
+                  } else {
+                    setSelectedPointId(sub.id)
+                    setHoveredPoint({ sub, x, y })
+                  }
+                }}
               />
             )
           })}
