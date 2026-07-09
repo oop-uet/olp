@@ -662,7 +662,13 @@ export function SubmissionReviewPage() {
               <div className="space-y-3 p-4 text-sm text-slate-700">
                 <div className="border-b border-slate-100 pb-3">
                   <p className="text-lg font-black text-slate-900">
-                    #{selectedSubmission.id.slice(0, 8)}: <span className="text-sky-500">{exerciseTitle}</span>
+                    #{selectedSubmission.id.slice(0, 8)}:{' '}
+                    <Link
+                      to={`/instructor/exercises/${selectedSubmission.exerciseId}?section_id=${selectedSectionId}`}
+                      className="text-sky-500 hover:text-sky-700 hover:underline"
+                    >
+                      {exerciseTitle}
+                    </Link>
                   </p>
                   <p className="mt-1 text-xs font-semibold text-slate-500">
                     Sinh viên:{' '}
