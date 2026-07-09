@@ -4,7 +4,7 @@ import { AxiosError } from 'axios'
 import { api } from '../../lib/api'
 import { PageLoader, Spinner } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
-import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
+import { formatSemesterDisplayName, normalizePreviewSectionName } from '../../utils/semester'
 
 interface InstructorInfo {
   id: string
@@ -453,7 +453,7 @@ export function InstructorSectionDetailPage() {
       {/* Page Header Bar */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 p-6 text-white shadow-md border-b-4 border-secondary flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div className="text-shadow-md">
-          <h1 className="text-2xl font-black font-sans uppercase tracking-wide">{formatSectionDisplayName(section.name)}</h1>
+          <h1 className="text-2xl font-black font-sans uppercase tracking-wide">{normalizePreviewSectionName(section.name, section.semester)}</h1>
           <p className="text-xs text-white/90 mt-1.5 font-bold">Học kỳ: {formatSemesterDisplayName(section.semester)} | Quản lý thành viên lớp học phần</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -502,7 +502,7 @@ export function InstructorSectionDetailPage() {
                 onClick={() => setSectionsDropdownOpen((o) => !o)}
                 className="badge-blue hover:bg-sky-700/80 active:scale-95 ml-2 font-bold normal-case inline-flex items-center gap-1 transition-all select-none border-0 cursor-pointer"
               >
-                <span>{formatSectionDisplayName(section.name)}</span>
+                <span>{normalizePreviewSectionName(section.name, section.semester)}</span>
                 <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                 </svg>
@@ -526,7 +526,7 @@ export function InstructorSectionDetailPage() {
                             : 'text-slate-700 font-medium'
                         }`}
                       >
-                        {formatSectionDisplayName(sec.name)}
+                        {normalizePreviewSectionName(sec.name, sec.semester)}
                       </button>
                     ))
                   )}
@@ -643,7 +643,7 @@ export function InstructorSectionDetailPage() {
                             {student.fullName || student.username}
                           </button>
                         </td>
-                        <td className="px-4 py-2.5 text-slate-500 font-medium">{formatSectionDisplayName(section.name)}</td>
+                        <td className="px-4 py-2.5 text-slate-500 font-medium">{normalizePreviewSectionName(section.name, section.semester)}</td>
                         <td className="px-4 py-2.5 text-center">
                           <div className="flex items-center justify-center gap-2">
                             {/* Sửa button (green) */}
@@ -785,7 +785,7 @@ export function InstructorSectionDetailPage() {
                       const instructorNames = enrollment.instructors.map((instructor) => instructor.name).join(', ')
                       return (
                         <li key={enrollment.enrollmentId}>
-                          <span className="font-bold">{formatSectionDisplayName(enrollment.sectionName)}</span>
+                          <span className="font-bold">{normalizePreviewSectionName(enrollment.sectionName, enrollment.semester)}</span>
                           <span> · {formatSemesterDisplayName(enrollment.semester)}</span>
                           {instructorNames && <span> · GV: {instructorNames}</span>}
                         </li>
