@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { api } from '../../lib/api'
+import { api, cachedGet } from '../../lib/api'
 import { PageLoader, Spinner, SectionIcon, CheckCircleIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import {
@@ -159,7 +159,7 @@ export function SectionManagerPage() {
   const fetchSections = useCallback(async () => {
     setLoading(true)
     try {
-      const response = await api.get('/api/admin/sections')
+      const response = await cachedGet('/api/admin/sections', undefined, { ttlMs: 60_000 })
       setSections(response.data)
     } catch {
       toast.error('Không thể tải danh sách lớp. Vui lòng thử lại.')
@@ -170,7 +170,7 @@ export function SectionManagerPage() {
 
   const fetchInstructors = useCallback(async () => {
     try {
-      const response = await api.get('/api/admin/users', { params: { role: 'instructor' } })
+      const response = await cachedGet('/api/admin/users', { params: { role: 'instructor' } }, { ttlMs: 60_000 })
       setInstructors(response.data)
     } catch {
       // Silently handle - instructor list is optional for the form

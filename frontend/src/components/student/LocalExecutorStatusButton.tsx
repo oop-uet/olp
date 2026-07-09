@@ -8,10 +8,6 @@ export function LocalExecutorStatusButton() {
   const downloadUrl = `${import.meta.env.BASE_URL}downloads/oop-local-executor-1.0.0.zip?v=20260709-checkstyle-dedupe`
 
   useEffect(() => {
-    connect()
-  }, [connect])
-
-  useEffect(() => {
     function onClick(event: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
         setOpen(false)

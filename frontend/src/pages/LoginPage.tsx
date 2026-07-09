@@ -192,26 +192,34 @@ export function LoginPage() {
 }
 
 function prefetchAfterLogin(role: 'student' | 'instructor' | 'admin') {
-  if (role === 'student') {
+  const run = () => {
+    if (role === 'student') {
+      void Promise.all([
+        cachedGet('/api/students/sections'),
+        cachedGet('/api/students/exercises'),
+        import('./student/StudentCourseDetailPage'),
+      ]).catch(() => undefined)
+      return
+    }
+
+    if (role === 'instructor') {
+      void Promise.all([
+        cachedGet('/api/instructor/sections'),
+        cachedGet('/api/exercises', undefined, { ttlMs: 60_000 }),
+        import('./instructor/ExerciseManagerPage'),
+      ]).catch(() => undefined)
+      return
+    }
+
     void Promise.all([
-      cachedGet('/api/students/sections'),
-      cachedGet('/api/students/exercises'),
-      import('./student/StudentCourseDetailPage'),
+      cachedGet('/api/admin/stats', undefined, { ttlMs: 30_000 }),
+      import('./admin/DashboardPage'),
     ]).catch(() => undefined)
-    return
   }
 
-  if (role === 'instructor') {
-    void Promise.all([
-      cachedGet('/api/instructor/sections'),
-      cachedGet('/api/exercises', undefined, { ttlMs: 60_000 }),
-      import('./instructor/ExerciseManagerPage'),
-    ]).catch(() => undefined)
-    return
+  if ('requestIdleCallback' in window) {
+    window.requestIdleCallback(run, { timeout: 2000 })
+  } else {
+    globalThis.setTimeout(run, 500)
   }
-
-  void Promise.all([
-    cachedGet('/api/admin/stats', undefined, { ttlMs: 30_000 }),
-    import('./admin/DashboardPage'),
-  ]).catch(() => undefined)
 }

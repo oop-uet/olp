@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
-import { api } from '../../lib/api'
+import { api, cachedGet } from '../../lib/api'
 import { PageLoader, Spinner, CheckCircleIcon, XCircleIcon, SubmissionIcon } from '../../components/ui'
 import { StyleAnnotatedCodeViewer } from '../../components/submission/StyleAnnotatedCodeViewer'
 import { JUnitFunctionalSummary } from '../../components/submission/JUnitFunctionalSummary'
@@ -417,7 +417,7 @@ export function SubmissionReviewPage() {
 
   async function fetchExercises() {
     try {
-      const response = await api.get('/api/exercises')
+      const response = await cachedGet('/api/exercises', undefined, { ttlMs: 60_000 })
       setExercises(
         response.data.map((e: { id: string; title: string }) => ({ id: e.id, title: e.title }))
       )
@@ -428,7 +428,7 @@ export function SubmissionReviewPage() {
 
   async function fetchSections() {
     try {
-      const response = await api.get('/api/instructor/sections')
+      const response = await cachedGet('/api/instructor/sections')
       setSections(response.data)
       if (response.data.length > 0) {
         setSelectedSectionId(response.data[0].id)
@@ -441,7 +441,7 @@ export function SubmissionReviewPage() {
   async function fetchLeaderboard(sectionId: string) {
     setLoadingLeaderboard(true)
     try {
-      const response = await api.get(`/api/sections/${sectionId}/leaderboard`)
+      const response = await cachedGet(`/api/sections/${sectionId}/leaderboard`, undefined, { ttlMs: 30_000 })
       const list: LeaderboardEntry[] = response.data.leaderboard ?? response.data ?? []
       setLeaderboard(list.slice(0, 10)) // top 10
     } catch {
@@ -459,7 +459,7 @@ export function SubmissionReviewPage() {
       if (selectedExerciseId) {
         params.exercise_id = selectedExerciseId
       }
-      const response = await api.get('/api/submissions', { params })
+      const response = await cachedGet('/api/submissions', { params }, { ttlMs: 15_000 })
       setSubmissions(response.data)
     } catch {
       toast.error('Không thể tải danh sách bài nộp. Vui lòng thử lại.')

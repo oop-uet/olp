@@ -15,7 +15,7 @@ import {
   InfoIcon,
 } from '../ui/Icon'
 import { LocalExecutorStatusButton } from '../student/LocalExecutorStatusButton'
-import { api } from '../../lib/api'
+import { cachedGet } from '../../lib/api'
 import { FeedbackButton } from './FeedbackButton'
 
 interface MenuItem {
@@ -71,7 +71,7 @@ export function TopNav() {
 
   useEffect(() => {
     if (user?.role === 'student') {
-      api.get('/api/students/sections')
+      cachedGet('/api/students/sections')
         .then((res) => {
           setStudentSections(res.data ?? [])
         })

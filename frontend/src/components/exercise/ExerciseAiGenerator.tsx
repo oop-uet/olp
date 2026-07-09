@@ -153,35 +153,41 @@ export function ExerciseAiGenerator({
   const disabled = statusLoading || !status?.enabled
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        disabled={disabled}
-        title={disabled ? status?.reason || 'Đang kiểm tra trạng thái AI...' : undefined}
-        className="btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {statusLoading ? 'Kiểm tra AI...' : 'Tạo bằng AI'}
-      </button>
+    <div className="w-full space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          disabled={disabled}
+          title={disabled ? status?.reason || 'Đang kiểm tra trạng thái AI...' : undefined}
+          className="btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {statusLoading ? 'Kiểm tra AI...' : open ? 'Ẩn AI' : 'Tạo bằng AI'}
+        </button>
+        {status?.enabled && status.model && (
+          <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-700 ring-1 ring-emerald-100">
+            {status.provider.toUpperCase()} · {status.model}
+          </span>
+        )}
+      </div>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-xl">
-            <div className="border-b border-slate-200 px-5 py-4">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900">Tạo bài tập bằng AI</h3>
-                  <p className="mt-1 text-xs font-medium text-slate-500">
-                    AI chỉ tạo draft theo template. Giảng viên cần rà soát đề, starter code và test case trước khi lưu.
-                  </p>
-                </div>
-                <button type="button" onClick={() => setOpen(false)} className="btn-ghost btn-sm">
-                  Đóng
-                </button>
-              </div>
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 px-4 py-3">
+            <div>
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-900">
+                Tạo bài tập bằng AI
+              </h3>
+              <p className="mt-1 text-xs font-medium text-slate-500">
+                AI chỉ tạo draft. Giảng viên cần rà soát đề, starter code và test case trước khi lưu.
+              </p>
             </div>
+            <button type="button" onClick={() => setOpen(false)} className="btn-ghost btn-sm">
+              Thu gọn
+            </button>
+          </div>
 
-            <div className="space-y-4 p-5">
+          <div className="space-y-4 p-4">
               <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
                 Đang dùng {status?.provider.toUpperCase()} {status?.model ? `(${status.model})` : ''}.
               </div>
@@ -301,22 +307,21 @@ export function ExerciseAiGenerator({
               </div>
             </div>
 
-            <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 px-5 py-4">
-              <button type="button" onClick={() => setOpen(false)} className="btn-secondary btn-sm">
-                Hủy
-              </button>
-              <button
-                type="button"
-                onClick={handleGenerate}
-                disabled={generating}
-                className="btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {generating ? 'Đang tạo...' : 'Tạo draft và áp dụng'}
-              </button>
-            </div>
+          <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 px-4 py-3">
+            <button type="button" onClick={() => setOpen(false)} className="btn-secondary btn-sm">
+              Hủy
+            </button>
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={generating}
+              className="btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {generating ? 'Đang tạo...' : 'Tạo draft và áp dụng'}
+            </button>
           </div>
         </div>
       )}
-    </>
+    </div>
   )
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { api } from '../../lib/api'
+import { cachedGet } from '../../lib/api'
 import { PageLoader, Spinner } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { formatSectionDisplayName, formatSemesterDisplayName, parseSemesterId } from '../../utils/semester'
@@ -65,7 +65,7 @@ export function InstructorSectionsPage() {
   async function fetchSections() {
     setLoading(true)
     try {
-      const response = await api.get('/api/instructor/sections')
+      const response = await cachedGet('/api/instructor/sections')
       const data = response.data ?? []
       setSections(data)
       if (data.length > 0) {
@@ -81,7 +81,7 @@ export function InstructorSectionsPage() {
   async function fetchLeaderboard(sectionId: string) {
     setLoadingLeaderboard(true)
     try {
-      const response = await api.get(`/api/sections/${sectionId}/leaderboard`)
+      const response = await cachedGet(`/api/sections/${sectionId}/leaderboard`, undefined, { ttlMs: 30_000 })
       const data: LeaderboardEntry[] = response.data.leaderboard ?? response.data ?? []
       setLeaderboard(data.slice(0, 10)) // top 10
       setMaxPossibleScore(response.data.maxPossibleScore ?? 0)

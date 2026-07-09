@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AxiosError } from 'axios'
-import { api } from '../../lib/api'
+import { api, cachedGet } from '../../lib/api'
 import { PageLoader, Spinner } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { formatSectionDisplayName } from '../../utils/semester'
@@ -92,7 +92,7 @@ export function InstructorCourseDetailPage() {
     setLoading(true)
     setAccessError(null)
     try {
-      const response = await api.get(`/api/instructor/sections/${id}/detail`)
+      const response = await cachedGet(`/api/instructor/sections/${id}/detail`, undefined, { ttlMs: 30_000 })
       setDetail(response.data)
     } catch (error) {
       const status = (error as AxiosError)?.response?.status
@@ -112,7 +112,7 @@ export function InstructorCourseDetailPage() {
     if (!id) return
     setLoadingLeaderboard(true)
     try {
-      const response = await api.get(`/api/sections/${id}/leaderboard`)
+      const response = await cachedGet(`/api/sections/${id}/leaderboard`, undefined, { ttlMs: 30_000 })
       const data: LeaderboardEntry[] = response.data.leaderboard ?? response.data ?? []
       setLeaderboard(data.slice(0, 10)) // top 10 only
       setMaxPossibleScore(response.data.maxPossibleScore ?? 0)

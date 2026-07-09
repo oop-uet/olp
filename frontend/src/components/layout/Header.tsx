@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../stores/auth.store'
 import { MenuIcon } from '../ui/Icon'
-import { api } from '../../lib/api'
+import { cachedGet } from '../../lib/api'
 
 interface HeaderProps {
   onToggleSidebar?: () => void
@@ -24,7 +24,7 @@ export function Header({ onToggleSidebar, onToggleMobile }: HeaderProps) {
 
   useEffect(() => {
     if (user?.role === 'student') {
-      api.get('/api/students/sections')
+      cachedGet('/api/students/sections')
         .then((res) => {
           setStudentSections(res.data ?? [])
         })

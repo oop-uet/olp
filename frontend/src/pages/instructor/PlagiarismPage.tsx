@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { AxiosError } from 'axios'
-import { api } from '../../lib/api'
+import { api, cachedGet } from '../../lib/api'
 import { toast } from '../../stores/toast.store'
 import { PageLoader, Spinner, SubmissionIcon, XCircleIcon } from '../../components/ui'
 import { normalizePreviewSectionName } from '../../utils/semester'
@@ -130,9 +130,9 @@ export function PlagiarismPage() {
     setLoadingOptions(true)
     try {
       const [exercisesRes, libraryRes, sectionsRes] = await Promise.all([
-        api.get('/api/exercises'),
-        api.get('/api/exercises/library').catch(() => ({ data: [] })),
-        api.get('/api/instructor/sections').catch(() => ({ data: [] })),
+        cachedGet('/api/exercises', undefined, { ttlMs: 60_000 }),
+        cachedGet('/api/exercises/library').catch(() => ({ data: [] })),
+        cachedGet('/api/instructor/sections').catch(() => ({ data: [] })),
       ])
       const exerciseData = Array.isArray(exercisesRes.data)
         ? exercisesRes.data

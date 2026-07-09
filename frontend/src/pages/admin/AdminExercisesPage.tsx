@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { api } from '../../lib/api'
+import { api, cachedGet } from '../../lib/api'
 import { PageLoader, ExerciseIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 
@@ -94,7 +94,7 @@ export function AdminExercisesPage() {
     setLoading(true)
     setCurrentPage(1)
     try {
-      const response = await api.get('/api/admin/exercises')
+      const response = await cachedGet('/api/admin/exercises', undefined, { ttlMs: 60_000 })
       setExercises(response.data)
     } catch {
       toast.error('Không thể tải danh sách bài tập. Vui lòng thử lại.')

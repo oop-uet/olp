@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { api } from '../../lib/api'
+import { api, cachedGet } from '../../lib/api'
 import { PageLoader, ExerciseIcon } from '../ui'
 import { toast } from '../../stores/toast.store'
 
@@ -58,8 +58,8 @@ export function ExerciseLibrary() {
     setLoading(true)
     try {
       const [exercisesRes, sectionsRes] = await Promise.all([
-        api.get('/api/exercises/library'),
-        api.get('/api/instructor/sections').catch(() => ({ data: [] })),
+        cachedGet('/api/exercises/library'),
+        cachedGet('/api/instructor/sections').catch(() => ({ data: [] })),
       ])
       const rawExercises = Array.isArray(exercisesRes.data) ? exercisesRes.data : []
       setExercises(
