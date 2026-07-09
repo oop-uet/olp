@@ -217,7 +217,12 @@ export function InstructorStudentProfilePage() {
               <h2 className="text-sm font-black uppercase tracking-wide">Mức độ hoàn thành</h2>
             </div>
             <div className="p-5">
-              <CompletionDonut percent={summary.completionPercent} />
+              <CompletionDonut
+                percent={summary.completionPercent}
+                completed={completed}
+                attempted={attempted}
+                notStarted={notStarted}
+              />
               <div className="mt-5 space-y-2 text-sm">
                 <Legend color="bg-emerald-500" label={`Hoàn thành: ${completed}`} />
                 <Legend color="bg-amber-400" label={`Đã nộp chưa đạt: ${attempted}`} />
@@ -387,26 +392,81 @@ export function InstructorStudentProfilePage() {
   )
 }
 
-function CompletionDonut({ percent }: { percent: number }) {
+function CompletionDonut({
+  percent,
+  completed,
+  attempted,
+  notStarted,
+}: {
+  percent: number
+  completed: number
+  attempted: number
+  notStarted: number
+}) {
   const radius = 58
   const circumference = 2 * Math.PI * radius
-  const offset = circumference - (Math.min(100, percent) / 100) * circumference
+  const total = completed + attempted + notStarted
+
+  const pCompleted = total > 0 ? (completed / total) * 100 : 0
+  const pAttempted = total > 0 ? (attempted / total) * 100 : 0
+  const pNotStarted = total > 0 ? (notStarted / total) * 100 : 0
+
+  const strokeCompleted = (pCompleted / 100) * circumference
+  const strokeAttempted = (pAttempted / 100) * circumference
+  const strokeNotStarted = (pNotStarted / 100) * circumference
+
+  const rotCompleted = -90
+  const rotAttempted = -90 + (pCompleted / 100) * 360
+  const rotNotStarted = -90 + ((pCompleted + pAttempted) / 100) * 360
+
   return (
     <div className="flex items-center justify-center">
       <svg width="170" height="170" viewBox="0 0 170 170" role="img" aria-label={`Hoàn thành ${percent.toFixed(1)}%`}>
-        <circle cx="85" cy="85" r={radius} fill="none" stroke="#f43f5e" strokeWidth="22" />
-        <circle
-          cx="85"
-          cy="85"
-          r={radius}
-          fill="none"
-          stroke="#0ea5a4"
-          strokeWidth="22"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          transform="rotate(-90 85 85)"
-        />
+        {total === 0 ? (
+          <circle cx="85" cy="85" r={radius} fill="none" stroke="#e2e8f0" strokeWidth="22" />
+        ) : (
+          <>
+            {/* Segment 3: Not Started (Rose Red) */}
+            {pNotStarted > 0 && (
+              <circle
+                cx="85"
+                cy="85"
+                r={radius}
+                fill="none"
+                stroke="#f43f5e"
+                strokeWidth="22"
+                strokeDasharray={`${strokeNotStarted} ${circumference}`}
+                transform={`rotate(${rotNotStarted} 85 85)`}
+              />
+            )}
+            {/* Segment 2: Attempted (Amber Yellow) */}
+            {pAttempted > 0 && (
+              <circle
+                cx="85"
+                cy="85"
+                r={radius}
+                fill="none"
+                stroke="#fbbf24"
+                strokeWidth="22"
+                strokeDasharray={`${strokeAttempted} ${circumference}`}
+                transform={`rotate(${rotAttempted} 85 85)`}
+              />
+            )}
+            {/* Segment 1: Completed (Emerald Green) */}
+            {pCompleted > 0 && (
+              <circle
+                cx="85"
+                cy="85"
+                r={radius}
+                fill="none"
+                stroke="#10b981"
+                strokeWidth="22"
+                strokeDasharray={`${strokeCompleted} ${circumference}`}
+                transform={`rotate(${rotCompleted} 85 85)`}
+              />
+            )}
+          </>
+        )}
         <text x="85" y="80" textAnchor="middle" className="fill-slate-900 text-2xl font-black">
           {percent.toFixed(1)}%
         </text>
