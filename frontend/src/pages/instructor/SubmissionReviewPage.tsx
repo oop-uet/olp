@@ -3,9 +3,11 @@ import { useSearchParams, Link } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader, Spinner, CheckCircleIcon, XCircleIcon, SubmissionIcon } from '../../components/ui'
 import { StyleAnnotatedCodeViewer } from '../../components/submission/StyleAnnotatedCodeViewer'
+import { JUnitFunctionalSummary } from '../../components/submission/JUnitFunctionalSummary'
 import { toast } from '../../stores/toast.store'
 import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
 import { deduplicateCheckstyleViolations } from '../../utils/checkstyle'
+import { isJavaJUnitTestInput } from '../../utils/junitAssertions'
 
 // --- Types ---
 type StyleStatus = 'passed' | 'failed' | 'unavailable' | 'skipped'
@@ -30,9 +32,12 @@ interface SubmissionListItem {
 interface TestCaseInfo {
   id: string
   inputData?: string | null
+  input_data?: string | null
   expectedOutput?: string | null
+  expected_output?: string | null
   isVisible?: number | boolean
   pointValue?: number | null
+  point_value?: number | null
 }
 
 interface TestCaseResult {
@@ -1216,7 +1221,11 @@ function FunctionalResultCard({
 }) {
   const passed = result.passed === true || result.passed === 1
   const [expanded, setExpanded] = useState(!passed)
-  const pointValue = result.testCase?.pointValue ?? 0
+  const inputData = result.testCase?.inputData ?? result.testCase?.input_data ?? ''
+  const expectedOutput = result.testCase?.expectedOutput ?? result.testCase?.expected_output ?? ''
+  const pointValue = result.testCase?.pointValue ?? result.testCase?.point_value ?? 0
+  const actualOutput = result.actualOutput ?? ''
+  const isJUnitTest = isJavaJUnitTestInput(inputData)
   const statusClass = passed
     ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
     : 'border-rose-200 bg-rose-50 text-rose-700'
@@ -1257,25 +1266,34 @@ function FunctionalResultCard({
 
       {expanded && (
         <div className={`border-t px-5 py-4 ${passed ? 'border-emerald-100 bg-emerald-50/60' : 'border-rose-100 bg-rose-50/70'}`}>
-          <div className="mx-auto max-w-none space-y-5 font-mono text-sm leading-6">
-            <OutputBlock
-              title="View"
-              wrongLabel="Kết quả thực tế"
-              wrongValue={result.actualOutput || (passed ? (result.testCase?.expectedOutput || '') : 'Không có output.')}
-              correctLabel="Kết quả đúng"
-              correctValue={result.testCase?.expectedOutput || (passed ? (result.actualOutput || '') : '') || 'Không có.'}
+          {isJUnitTest ? (
+            <JUnitFunctionalSummary
+              inputData={inputData}
+              expectedOutput={expectedOutput}
+              actualOutput={actualOutput}
               passed={passed}
             />
-            <OutputBlock
-              title="Original code"
-              wrongLabel="Đầu vào"
-              wrongValue={result.testCase?.inputData || 'Không có stdin.'}
-              correctLabel="Trạng thái"
-              correctValue={message}
-              passed={passed}
-              compact
-            />
-          </div>
+          ) : (
+            <div className="mx-auto max-w-none space-y-5 font-mono text-sm leading-6">
+              <OutputBlock
+                title="View"
+                wrongLabel="Kết quả thực tế"
+                wrongValue={actualOutput || (passed ? expectedOutput : 'Không có output.')}
+                correctLabel="Kết quả đúng"
+                correctValue={expectedOutput || (passed ? actualOutput : '') || 'Không có.'}
+                passed={passed}
+              />
+              <OutputBlock
+                title="Original code"
+                wrongLabel="Đầu vào"
+                wrongValue={inputData || 'Không có stdin.'}
+                correctLabel="Trạng thái"
+                correctValue={message}
+                passed={passed}
+                compact
+              />
+            </div>
+          )}
         </div>
       )}
     </section>

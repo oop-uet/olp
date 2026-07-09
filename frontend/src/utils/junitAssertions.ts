@@ -8,6 +8,17 @@ export interface JUnitAssertionSummary {
 }
 
 const ASSERT_CALL_PATTERN = /\b(?:[A-Za-z_][\w]*\.)?(assert[A-Z][A-Za-z0-9_]*)\s*\(/g
+const JAVA_TEST_MARKER = '__OOP_JAVA_TEST__'
+
+export function isJavaJUnitTestInput(inputData: string | null | undefined): boolean {
+  return Boolean(inputData?.startsWith(JAVA_TEST_MARKER))
+}
+
+export function getJavaJUnitTestFileName(inputData: string | null | undefined): string {
+  if (!inputData) return 'MyTest.java'
+  const [, fileName] = inputData.split(/\r?\n/, 2)
+  return fileName?.trim() || 'MyTest.java'
+}
 
 export function extractJUnitAssertionSummaries(
   source: string,

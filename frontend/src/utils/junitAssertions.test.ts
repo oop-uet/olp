@@ -1,7 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { extractJUnitAssertionSummaries } from './junitAssertions'
+import {
+  extractJUnitAssertionSummaries,
+  getJavaJUnitTestFileName,
+  isJavaJUnitTestInput,
+} from './junitAssertions'
 
 describe('extractJUnitAssertionSummaries', () => {
+  it('detects OASIS JUnit test metadata', () => {
+    expect(isJavaJUnitTestInput('__OOP_JAVA_TEST__\nCoffeeMachineTest.java')).toBe(true)
+    expect(isJavaJUnitTestInput('1 2 3')).toBe(false)
+    expect(getJavaJUnitTestFileName('__OOP_JAVA_TEST__\nCoffeeMachineTest.java')).toBe('CoffeeMachineTest.java')
+    expect(getJavaJUnitTestFileName('__OOP_JAVA_TEST__')).toBe('MyTest.java')
+  })
+
   it('extracts common JUnit assertions into readable labels', () => {
     const source = `
       import org.junit.Assert;

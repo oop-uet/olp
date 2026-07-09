@@ -3,9 +3,11 @@ import { useParams, Link } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader, CheckCircleIcon, XCircleIcon } from '../../components/ui'
 import { StyleAnnotatedCodeViewer } from '../../components/submission/StyleAnnotatedCodeViewer'
+import { JUnitFunctionalSummary } from '../../components/submission/JUnitFunctionalSummary'
 import { toast } from '../../stores/toast.store'
 import { useAuthStore } from '../../stores/auth.store'
 import { deduplicateCheckstyleViolations } from '../../utils/checkstyle'
+import { isJavaJUnitTestInput } from '../../utils/junitAssertions'
 
 type ResultStatus = 'passed' | 'failed' | 'timeout' | 'error'
 type ReviewTab = 'source' | 'results' | 'style'
@@ -13,8 +15,11 @@ type StyleStatus = 'passed' | 'failed' | 'unavailable' | 'skipped'
 
 interface ApiTestCaseInfo {
   inputData?: string | null
+  input_data?: string | null
   expectedOutput?: string | null
+  expected_output?: string | null
   pointValue?: number | null
+  point_value?: number | null
   isVisible?: number | boolean
 }
 
@@ -123,7 +128,13 @@ function isPassed(value: boolean | number | undefined): boolean {
 }
 
 function normalizeResult(result: ApiResult, index: number): TestCaseResult {
-  const pointValue = Number(result.pointValue ?? result.point_value ?? result.testCase?.pointValue ?? 0)
+  const pointValue = Number(
+    result.pointValue ??
+      result.point_value ??
+      result.testCase?.pointValue ??
+      result.testCase?.point_value ??
+      0
+  )
   const status = result.status ?? (isPassed(result.passed) ? 'passed' : 'failed')
   return {
     id: result.id ?? `result-${index}`,
@@ -131,8 +142,8 @@ function normalizeResult(result: ApiResult, index: number): TestCaseResult {
     status,
     pointValue,
     testCaseLabel: result.testCaseLabel ?? `Test case ${index + 1}`,
-    inputData: result.testCase?.inputData ?? '',
-    expectedOutput: result.testCase?.expectedOutput ?? '',
+    inputData: result.testCase?.inputData ?? result.testCase?.input_data ?? '',
+    expectedOutput: result.testCase?.expectedOutput ?? result.testCase?.expected_output ?? '',
     actualOutput: result.actualOutput ?? result.actual_output ?? '',
     executionTimeMs: result.executionTimeMs ?? result.execution_time_ms ?? null,
   }
@@ -719,6 +730,7 @@ function FunctionalResultCard({
   const message = nullified
     ? 'Kết quả test không được tính vì bài nộp đã bị hủy điểm.'
     : getFunctionalMessage(result)
+  const isJUnitTest = isJavaJUnitTestInput(result.inputData)
 
   return (
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -754,27 +766,36 @@ function FunctionalResultCard({
 
       {expanded && (
         <div className={`border-t px-5 py-4 ${result.passed ? 'border-emerald-100 bg-emerald-50/60' : 'border-rose-100 bg-rose-50/70'}`}>
-          <div className="mx-auto max-w-none space-y-5 font-mono text-sm leading-6">
-            <OutputBlock
-              title="View"
-              wrongLabel="Kết quả thực tế"
-              wrongValue={isInstructor ? (result.actualOutput || 'Không có output') : (result.actualOutput || (result.passed ? result.expectedOutput : 'Không có output.'))}
-              correctLabel="Kết quả đúng"
-              correctValue={isInstructor ? (result.expectedOutput || 'Không có') : (result.expectedOutput || (result.passed ? result.actualOutput : 'Không công khai.'))}
+          {isJUnitTest ? (
+            <JUnitFunctionalSummary
+              inputData={result.inputData}
+              expectedOutput={result.expectedOutput}
+              actualOutput={result.actualOutput}
               passed={result.passed}
             />
-            {(isInstructor || result.inputData || result.actualOutput || result.expectedOutput) && (
+          ) : (
+            <div className="mx-auto max-w-none space-y-5 font-mono text-sm leading-6">
               <OutputBlock
-                title="Original code"
-                wrongLabel="Đầu vào"
-                wrongValue={isInstructor ? (result.inputData || 'Không có stdin') : (result.inputData || 'Không có stdin công khai.')}
-                correctLabel="Trạng thái"
-                correctValue={getFunctionalMessage(result)}
+                title="View"
+                wrongLabel="Kết quả thực tế"
+                wrongValue={isInstructor ? (result.actualOutput || 'Không có output') : (result.actualOutput || (result.passed ? result.expectedOutput : 'Không có output.'))}
+                correctLabel="Kết quả đúng"
+                correctValue={isInstructor ? (result.expectedOutput || 'Không có') : (result.expectedOutput || (result.passed ? result.actualOutput : 'Không công khai.'))}
                 passed={result.passed}
-                compact
               />
-            )}
-          </div>
+              {(isInstructor || result.inputData || result.actualOutput || result.expectedOutput) && (
+                <OutputBlock
+                  title="Original code"
+                  wrongLabel="Đầu vào"
+                  wrongValue={isInstructor ? (result.inputData || 'Không có stdin') : (result.inputData || 'Không có stdin công khai.')}
+                  correctLabel="Trạng thái"
+                  correctValue={getFunctionalMessage(result)}
+                  passed={result.passed}
+                  compact
+                />
+              )}
+            </div>
+          )}
         </div>
       )}
     </section>
