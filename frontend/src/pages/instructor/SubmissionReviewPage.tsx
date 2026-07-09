@@ -517,7 +517,17 @@ export function SubmissionReviewPage() {
                   {exerciseTitle}
                 </h1>
                 <p className="text-xs font-semibold text-slate-500 mt-0.5">
-                  Sinh viên: <span className="text-slate-800 font-bold">{studentName} ({studentUsername})</span>
+                  Sinh viên:{' '}
+                  {selectedSubmission.student?.id ? (
+                    <Link
+                      to={`/instructor/classes/${selectedSectionId}/students/${selectedSubmission.student.id}/profile`}
+                      className="text-sky-600 hover:text-sky-800 hover:underline font-bold"
+                    >
+                      {studentName} ({studentUsername})
+                    </Link>
+                  ) : (
+                    <span className="text-slate-800 font-bold">{studentName} ({studentUsername})</span>
+                  )}
                 </p>
                 <p className="text-[10px] font-bold text-slate-400 mt-0.5 uppercase tracking-wide">
                   Lần nộp #{selectedSubmission.attemptNumber} · {formatTimestamp(selectedSubmission.submittedAt)}
@@ -570,7 +580,17 @@ export function SubmissionReviewPage() {
                     #{selectedSubmission.id.slice(0, 8)}: <span className="text-sky-500">{exerciseTitle}</span>
                   </p>
                   <p className="mt-1 text-xs font-semibold text-slate-500">
-                    Sinh viên: <span className="text-sky-500">{studentName}</span>
+                    Sinh viên:{' '}
+                    {selectedSubmission.student?.id ? (
+                      <Link
+                        to={`/instructor/classes/${selectedSectionId}/students/${selectedSubmission.student.id}/profile`}
+                        className="text-sky-500 hover:text-sky-700 hover:underline font-bold"
+                      >
+                        {studentName}
+                      </Link>
+                    ) : (
+                      <span className="text-sky-500">{studentName}</span>
+                    )}
                   </p>
                 </div>
                 <div className="flex items-center justify-between gap-3">
@@ -1106,6 +1126,20 @@ export function SubmissionReviewPage() {
   )
 }
 
+function getFunctionalMessage(tc: TestCaseResult) {
+  const passed = tc.passed === true || tc.passed === 1
+  if (passed) {
+    return 'Chạy thành công và kết quả chính xác.'
+  }
+  if (tc.status === 'timeout') {
+    return 'Chương trình chạy quá thời gian cho phép.'
+  }
+  if (tc.status === 'error') {
+    return tc.actualOutput || 'Chương trình gặp lỗi khi chạy test.'
+  }
+  return 'Kết quả đầu ra không khớp với đầu ra mong đợi.'
+}
+
 function FunctionalResultCard({
   result,
   index,
@@ -1114,16 +1148,22 @@ function FunctionalResultCard({
   index: number
 }) {
   const passed = result.passed === true || result.passed === 1
+  const [expanded, setExpanded] = useState(!passed)
   const pointValue = result.testCase?.pointValue ?? 0
   const statusClass = passed
     ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
     : 'border-rose-200 bg-rose-50 text-rose-700'
   const iconClass = passed ? 'bg-emerald-600' : 'bg-rose-600'
   const statusLabel = passed ? 'Accepted' : result.status === 'timeout' ? 'Timeout' : result.status === 'error' ? 'Error' : 'Wrong Answer'
+  const message = getFunctionalMessage(result)
 
   return (
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left">
+      <button
+        type="button"
+        onClick={() => setExpanded((value) => !value)}
+        className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left cursor-pointer"
+      >
         <div className="flex min-w-0 items-center gap-4">
           <span
             className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white ${iconClass}`}
@@ -1139,20 +1179,78 @@ function FunctionalResultCard({
               Bộ test #{index + 1} ({pointValue} điểm)
             </h3>
             <p className="mt-1 text-xs font-semibold text-slate-500">
-              {result.status === 'timeout'
-                ? 'Chương trình chạy quá thời gian cho phép.'
-                : result.status === 'error'
-                ? result.actualOutput || 'Chương trình gặp lỗi khi chạy test.'
-                : passed
-                ? 'Chạy thành công và kết quả chính xác.'
-                : 'Kết quả đầu ra không khớp với đầu ra mong đợi.'}
+              {message}
             </p>
           </div>
         </div>
         <span className={`rounded-md border px-3 py-1 text-xs font-bold uppercase ${statusClass}`}>
           {statusLabel}
         </span>
-      </div>
+      </button>
+
+      {expanded && (
+        <div className={`border-t px-5 py-4 ${passed ? 'border-emerald-100 bg-emerald-50/60' : 'border-rose-100 bg-rose-50/70'}`}>
+          <div className="mx-auto max-w-none space-y-5 font-mono text-sm leading-6">
+            <OutputBlock
+              title="View"
+              wrongLabel="Kết quả thực tế"
+              wrongValue={result.actualOutput || (passed ? (result.testCase?.expectedOutput || '') : 'Không có output.')}
+              correctLabel="Kết quả đúng"
+              correctValue={result.testCase?.expectedOutput || (passed ? (result.actualOutput || '') : '') || 'Không có.'}
+              passed={passed}
+            />
+            <OutputBlock
+              title="Original code"
+              wrongLabel="Đầu vào"
+              wrongValue={result.testCase?.inputData || 'Không có stdin.'}
+              correctLabel="Trạng thái"
+              correctValue={message}
+              passed={passed}
+              compact
+            />
+          </div>
+        </div>
+      )}
     </section>
+  )
+}
+
+function OutputBlock({
+  title,
+  wrongLabel,
+  wrongValue,
+  correctLabel,
+  correctValue,
+  passed,
+  compact = false,
+}: {
+  title: string
+  wrongLabel: string
+  wrongValue: string
+  correctLabel: string
+  correctValue: string
+  passed: boolean
+  compact?: boolean
+}) {
+  return (
+    <div className="space-y-3">
+      <p className="text-center font-mono text-base text-slate-700">
+        ---------- {title} ----------
+      </p>
+      <div>
+        <p className={`font-semibold ${passed ? 'text-emerald-700' : 'text-rose-700'}`}>
+          {wrongLabel}:
+        </p>
+        <pre className={`mt-1 whitespace-pre-wrap break-words text-sm ${passed ? 'text-emerald-800' : 'text-rose-700'} ${compact ? 'max-h-48 overflow-auto' : ''}`}>
+          {wrongValue}
+        </pre>
+      </div>
+      <div>
+        <p className="font-semibold text-emerald-700">{correctLabel}:</p>
+        <pre className={`mt-1 whitespace-pre-wrap break-words text-sm text-emerald-800 ${compact ? 'max-h-48 overflow-auto' : ''}`}>
+          {correctValue}
+        </pre>
+      </div>
+    </div>
   )
 }

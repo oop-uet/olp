@@ -45,6 +45,8 @@ interface TestCaseResult {
 
 interface SubmissionDetail {
   id: string
+  sectionId: string
+  studentId: string
   exerciseId: string
   exerciseTitle: string
   studentName: string | null
@@ -65,10 +67,13 @@ interface SubmissionDetail {
 }
 
 type SubmissionDetailResponse = Partial<SubmissionDetail> & {
+  section_id?: string
+  student_id?: string
   exercise?: {
     title?: string
   }
   student?: {
+    id?: string | null
     fullName?: string | null
     username?: string | null
     email?: string | null
@@ -141,6 +146,8 @@ function normalizeSubmissionDetail(data: SubmissionDetailResponse): SubmissionDe
 
   return {
     id: data.id ?? '',
+    sectionId: data.sectionId ?? data.section_id ?? '',
+    studentId: data.studentId ?? data.student_id ?? data.student?.id ?? '',
     exerciseId: data.exerciseId ?? data.exercise_id ?? '',
     exerciseTitle: data.exerciseTitle ?? data.exercise?.title ?? 'Bài tập',
     studentName: data.studentName ?? data.student?.fullName ?? null,
@@ -406,7 +413,16 @@ export function SubmissionDetailPage() {
                 <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
                   <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Sinh viên</p>
                   <p className="mt-1 font-bold text-slate-900">
-                    {submission.studentName ?? submission.studentUsername ?? 'Không rõ'}
+                    {submission.studentId && submission.sectionId ? (
+                      <Link
+                        to={`/instructor/classes/${submission.sectionId}/students/${submission.studentId}/profile`}
+                        className="text-sky-600 hover:text-sky-800 hover:underline"
+                      >
+                        {submission.studentName ?? submission.studentUsername ?? 'Không rõ'}
+                      </Link>
+                    ) : (
+                      submission.studentName ?? submission.studentUsername ?? 'Không rõ'
+                    )}
                   </p>
                   {(submission.studentUsername || submission.studentEmail) && (
                     <p className="mt-0.5 text-xs font-medium text-slate-500">
@@ -617,6 +633,7 @@ export function SubmissionDetailPage() {
                       result={tc}
                       index={index}
                       nullified={nullified}
+                      isInstructor={isInstructorView}
                     />
                   ))}
                 </div>
@@ -647,10 +664,12 @@ function FunctionalResultCard({
   result,
   index,
   nullified = false,
+  isInstructor = false,
 }: {
   result: TestCaseResult
   index: number
   nullified?: boolean
+  isInstructor?: boolean
 }) {
   const [expanded, setExpanded] = useState(!result.passed)
   const statusClass = result.passed
@@ -708,16 +727,16 @@ function FunctionalResultCard({
             <OutputBlock
               title="View"
               wrongLabel="Kết quả thực tế"
-              wrongValue={result.actualOutput || (result.passed ? result.expectedOutput : 'Không có output.')}
+              wrongValue={isInstructor ? (result.actualOutput || 'Không có output') : (result.actualOutput || (result.passed ? result.expectedOutput : 'Không có output.'))}
               correctLabel="Kết quả đúng"
-              correctValue={result.expectedOutput || (result.passed ? result.actualOutput : 'Không công khai.')}
+              correctValue={isInstructor ? (result.expectedOutput || 'Không có') : (result.expectedOutput || (result.passed ? result.actualOutput : 'Không công khai.'))}
               passed={result.passed}
             />
-            {(result.inputData || result.actualOutput || result.expectedOutput) && (
+            {(isInstructor || result.inputData || result.actualOutput || result.expectedOutput) && (
               <OutputBlock
                 title="Original code"
                 wrongLabel="Đầu vào"
-                wrongValue={result.inputData || 'Không có stdin công khai.'}
+                wrongValue={isInstructor ? (result.inputData || 'Không có stdin') : (result.inputData || 'Không có stdin công khai.')}
                 correctLabel="Trạng thái"
                 correctValue={getFunctionalMessage(result)}
                 passed={result.passed}
