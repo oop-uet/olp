@@ -16,6 +16,7 @@ import {
 } from '../ui/Icon'
 import { LocalExecutorStatusButton } from '../student/LocalExecutorStatusButton'
 import { api } from '../../lib/api'
+import { FeedbackButton } from './FeedbackButton'
 
 interface MenuItem {
   label: string
@@ -141,6 +142,7 @@ export function TopNav() {
         {/* Right side: user dropdown + mobile hamburger */}
         <div className="flex items-center gap-2">
           {user.role === 'student' && <LocalExecutorStatusButton />}
+          <FeedbackButton />
 
           <div className="relative" ref={userMenuRef}>
             <button
@@ -273,6 +275,9 @@ export function TopNav() {
                 </li>
               )
             })}
+            <li>
+              <FeedbackButton mobile onClick={() => setMobileOpen(false)} />
+            </li>
           </ul>
         </nav>
       )}

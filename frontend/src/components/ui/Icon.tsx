@@ -99,9 +99,14 @@ export const InfoIcon = ({ className }: IconProps) => (
   </svg>
 )
 
+export const FeedbackIcon = ({ className }: IconProps) => (
+  <svg className={base(className)} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h8M8 14h5m-8 6 3.5-3.5H18a3 3 0 003-3V7a3 3 0 00-3-3H6a3 3 0 00-3 3v6.5a3 3 0 003 3h.5L5 20z" />
+  </svg>
+)
+
 export const CalendarIcon = ({ className }: IconProps) => (
   <svg className={base(className)} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
   </svg>
 )
-
