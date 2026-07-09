@@ -5,6 +5,7 @@ import { db as defaultDb } from "../db/index.js";
 import { systemConfig } from "../db/schema.js";
 
 type Database = typeof defaultDb;
+type AiProvider = "openai" | "anthropic" | "gemini";
 
 const CONFIG_KEYS = {
   provider: "ai_generation_provider",
@@ -17,12 +18,17 @@ const CONFIG_KEYS = {
   lastCheckedAt: "ai_generation_last_checked_at",
 } as const;
 
-const DEFAULT_MODEL = "gpt-4o-mini";
+const DEFAULT_PROVIDER: AiProvider = "openai";
+const DEFAULT_MODELS: Record<AiProvider, string> = {
+  openai: "gpt-4o-mini",
+  anthropic: "claude-sonnet-4-5",
+  gemini: "gemini-2.5-flash",
+};
 const ENCRYPTION_PREFIX = "v1";
 
 const DEFAULT_CONFIGS: Array<{ key: string; value: string; validRange: string }> = [
-  { key: CONFIG_KEYS.provider, value: "openai", validRange: "enum:openai" },
-  { key: CONFIG_KEYS.model, value: DEFAULT_MODEL, validRange: "text" },
+  { key: CONFIG_KEYS.provider, value: DEFAULT_PROVIDER, validRange: "enum:openai,anthropic,gemini" },
+  { key: CONFIG_KEYS.model, value: DEFAULT_MODELS.openai, validRange: "text" },
   { key: CONFIG_KEYS.enabled, value: "0", validRange: "0-1" },
   { key: CONFIG_KEYS.encryptedApiKey, value: "", validRange: "secret" },
   { key: CONFIG_KEYS.keyLast4, value: "", validRange: "text" },
@@ -76,7 +82,8 @@ export type AiGenerateExerciseInput = z.infer<typeof aiGenerateExerciseSchema>;
 export type GeneratedExerciseDraft = z.infer<typeof generatedExerciseSchema>;
 
 export interface AiConfigStatus {
-  provider: "openai";
+  provider: AiProvider;
+  providers: Array<{ value: AiProvider; label: string; defaultModel: string; keyPlaceholder: string }>;
   model: string;
   enabled: boolean;
   keyConfigured: boolean;
@@ -89,7 +96,7 @@ export interface AiConfigStatus {
 
 export interface AiAvailability {
   enabled: boolean;
-  provider: "openai";
+  provider: AiProvider;
   model: string;
   reason: string | null;
 }
@@ -233,6 +240,7 @@ function decryptApiKey(encryptedApiKey: string): string | AiServiceError {
 
 function toStatus(config: Record<string, string>): AiConfigStatus {
   const keyConfigured = Boolean(config[CONFIG_KEYS.encryptedApiKey]);
+  const provider = parseProvider(config[CONFIG_KEYS.provider]);
   const rawStatus = config[CONFIG_KEYS.lastCheckStatus] || "missing";
   const lastCheckStatus =
     rawStatus === "ok" || rawStatus === "error" || rawStatus === "untested"
@@ -240,8 +248,9 @@ function toStatus(config: Record<string, string>): AiConfigStatus {
       : "missing";
 
   return {
-    provider: "openai",
-    model: config[CONFIG_KEYS.model] || DEFAULT_MODEL,
+    provider,
+    providers: getProviderOptions(),
+    model: config[CONFIG_KEYS.model] || DEFAULT_MODELS[provider],
     enabled: config[CONFIG_KEYS.enabled] === "1" && keyConfigured && lastCheckStatus === "ok",
     keyConfigured,
     keyLast4: config[CONFIG_KEYS.keyLast4] || "",
@@ -281,7 +290,7 @@ export async function getAiAvailability(database: Database = defaultDb): Promise
 
 export async function updateAiConfig(
   input: {
-    provider?: "openai";
+    provider?: AiProvider;
     model?: string;
     apiKey?: string;
     enabled?: boolean;
@@ -292,14 +301,18 @@ export async function updateAiConfig(
 ): Promise<AiConfigStatus | AiServiceError> {
   await ensureAiConfigRows(database);
 
-  if (input.provider && input.provider !== "openai") {
+  if (input.provider && !isSupportedProvider(input.provider)) {
     return {
       error: {
         code: "VALIDATION_ERROR",
-        message: "Hiện tại hệ thống chỉ hỗ trợ provider OpenAI.",
+        message: "Provider AI không được hỗ trợ.",
       },
     };
   }
+
+  const currentConfig = await readConfigMap(database);
+  const currentProvider = parseProvider(currentConfig[CONFIG_KEYS.provider]);
+  const providerChanged = Boolean(input.provider && input.provider !== currentProvider);
 
   const nextModel = input.model?.trim();
   if (nextModel !== undefined) {
@@ -316,6 +329,14 @@ export async function updateAiConfig(
 
   if (input.provider) {
     await setConfigValue(CONFIG_KEYS.provider, input.provider, updatedBy, database);
+    if (nextModel === undefined) {
+      await setConfigValue(CONFIG_KEYS.model, DEFAULT_MODELS[input.provider], updatedBy, database);
+    }
+    if (providerChanged && !input.apiKey?.trim()) {
+      await setConfigValue(CONFIG_KEYS.lastCheckStatus, "untested", updatedBy, database);
+      await setConfigValue(CONFIG_KEYS.lastCheckError, "Provider đã thay đổi, vui lòng lưu API key phù hợp và kiểm tra lại.", updatedBy, database);
+      await setConfigValue(CONFIG_KEYS.enabled, "0", updatedBy, database);
+    }
   }
 
   if (input.clearApiKey) {
@@ -357,18 +378,15 @@ export async function testAiConfig(
   const config = await readConfigMap(database);
   const apiKey = decryptApiKey(config[CONFIG_KEYS.encryptedApiKey] || "");
   if (isAiServiceError(apiKey)) return apiKey;
+  const provider = parseProvider(config[CONFIG_KEYS.provider]);
+  const model = config[CONFIG_KEYS.model] || DEFAULT_MODELS[provider];
 
   try {
-    const response = await fetch("https://api.openai.com/v1/models", {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-      },
-    });
+    const testResult = await testProviderKey(provider, model, apiKey);
 
-    if (!response.ok) {
-      const message = await readOpenAiError(response);
+    if (!testResult.ok) {
       await setConfigValue(CONFIG_KEYS.lastCheckStatus, "error", updatedBy, database);
-      await setConfigValue(CONFIG_KEYS.lastCheckError, message, updatedBy, database);
+      await setConfigValue(CONFIG_KEYS.lastCheckError, testResult.message, updatedBy, database);
       await setConfigValue(CONFIG_KEYS.lastCheckedAt, new Date().toISOString(), updatedBy, database);
       await setConfigValue(CONFIG_KEYS.enabled, "0", updatedBy, database);
       return getAiConfigStatus(database);
@@ -383,7 +401,7 @@ export async function testAiConfig(
     await setConfigValue(CONFIG_KEYS.lastCheckStatus, "error", updatedBy, database);
     await setConfigValue(
       CONFIG_KEYS.lastCheckError,
-      "Không thể kết nối tới OpenAI để kiểm tra API key.",
+      `Không thể kết nối tới ${getProviderLabel(provider)} để kiểm tra API key.`,
       updatedBy,
       database
     );
@@ -410,33 +428,17 @@ export async function generateExerciseDraft(
 
   const apiKey = decryptApiKey(config[CONFIG_KEYS.encryptedApiKey] || "");
   if (isAiServiceError(apiKey)) return apiKey;
+  const provider = parseProvider(config[CONFIG_KEYS.provider]);
+  const model = config[CONFIG_KEYS.model] || DEFAULT_MODELS[provider];
 
   try {
-    const response = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(buildOpenAiRequest(config[CONFIG_KEYS.model] || DEFAULT_MODEL, input)),
-    });
-
-    if (!response.ok) {
-      return {
-        error: {
-          code: "OPENAI_REQUEST_FAILED",
-          message: await readOpenAiError(response),
-        },
-      };
-    }
-
-    const payload = (await response.json()) as Record<string, unknown>;
-    const text = extractOutputText(payload);
+    const text = await generateWithProvider(provider, model, apiKey, input);
+    if (isAiServiceError(text)) return text;
     if (!text) {
       return {
         error: {
-          code: "OPENAI_EMPTY_RESPONSE",
-          message: "OpenAI không trả về nội dung bài tập.",
+          code: "AI_EMPTY_RESPONSE",
+          message: `${getProviderLabel(provider)} không trả về nội dung bài tập.`,
         },
       };
     }
@@ -466,15 +468,7 @@ export async function generateExerciseDraft(
 function buildOpenAiRequest(model: string, input: AiGenerateExerciseInput) {
   return {
     model,
-    instructions: [
-      "Bạn là trợ lý ra đề lập trình Java OOP cho hệ thống UET OASIS.",
-      "Luôn trả về JSON hợp lệ theo schema. Không trả markdown, không giải thích ngoài JSON.",
-      "Đề bài phải mới, không sao chép đề có sẵn, phù hợp sinh viên đang học OOP Java.",
-      "Ưu tiên test JUnit 4 cho bài OOP: input_data bắt đầu bằng __OOP_JAVA_TEST__\\nTênFileTest.java và expected_output là mã test đầy đủ.",
-      "Starter code nên dùng JSON string format oop-java-files nếu bài cần nhiều file Java.",
-      "Test case cần gồm cả visible và hidden nếu số lượng test từ 2 trở lên; tổng điểm nên xấp xỉ 100.",
-      "Mô tả bài tập bằng tiếng Việt, rõ lớp, thuộc tính, constructor, phương thức và ràng buộc dữ liệu.",
-    ].join("\n"),
+    instructions: getGenerationInstructions(),
     input: buildPrompt(input),
     temperature: 0.35,
     max_output_tokens: 7000,
@@ -487,6 +481,65 @@ function buildOpenAiRequest(model: string, input: AiGenerateExerciseInput) {
       },
     },
   };
+}
+
+function buildAnthropicRequest(model: string, input: AiGenerateExerciseInput) {
+  return {
+    model,
+    max_tokens: 7000,
+    temperature: 0.35,
+    system: getGenerationInstructions(),
+    messages: [
+      {
+        role: "user",
+        content: buildPrompt(input),
+      },
+    ],
+    tools: [
+      {
+        name: "create_oop_exercise_template",
+        description: "Create one Java OOP exercise template for UET OASIS.",
+        input_schema: exerciseJsonSchema,
+      },
+    ],
+    tool_choice: {
+      type: "tool",
+      name: "create_oop_exercise_template",
+    },
+  };
+}
+
+function buildGeminiRequest(input: AiGenerateExerciseInput) {
+  return {
+    contents: [
+      {
+        role: "user",
+        parts: [
+          {
+            text: `${getGenerationInstructions()}\n\n${buildPrompt(input)}`,
+          },
+        ],
+      },
+    ],
+    generationConfig: {
+      temperature: 0.35,
+      maxOutputTokens: 7000,
+      responseMimeType: "application/json",
+      responseSchema: exerciseJsonSchema,
+    },
+  };
+}
+
+function getGenerationInstructions(): string {
+  return [
+    "Bạn là trợ lý ra đề lập trình Java OOP cho hệ thống UET OASIS.",
+    "Luôn trả về JSON hợp lệ theo schema. Không trả markdown, không giải thích ngoài JSON.",
+    "Đề bài phải mới, không sao chép đề có sẵn, phù hợp sinh viên đang học OOP Java.",
+    "Ưu tiên test JUnit 4 cho bài OOP: input_data bắt đầu bằng __OOP_JAVA_TEST__\\nTênFileTest.java và expected_output là mã test đầy đủ.",
+    "Starter code nên dùng JSON string format oop-java-files nếu bài cần nhiều file Java.",
+    "Test case cần gồm cả visible và hidden nếu số lượng test từ 2 trở lên; tổng điểm nên xấp xỉ 100.",
+    "Mô tả bài tập bằng tiếng Việt, rõ lớp, thuộc tính, constructor, phương thức và ràng buộc dữ liệu.",
+  ].join("\n");
 }
 
 function buildPrompt(input: AiGenerateExerciseInput): string {
@@ -588,18 +641,150 @@ const exerciseJsonSchema = {
   ],
 };
 
-async function readOpenAiError(response: Response): Promise<string> {
+function isSupportedProvider(value: string): value is AiProvider {
+  return value === "openai" || value === "anthropic" || value === "gemini";
+}
+
+function parseProvider(value: string | undefined): AiProvider {
+  return value && isSupportedProvider(value) ? value : DEFAULT_PROVIDER;
+}
+
+function getProviderOptions() {
+  return [
+    {
+      value: "openai" as const,
+      label: "OpenAI",
+      defaultModel: DEFAULT_MODELS.openai,
+      keyPlaceholder: "sk-...",
+    },
+    {
+      value: "anthropic" as const,
+      label: "Anthropic Claude",
+      defaultModel: DEFAULT_MODELS.anthropic,
+      keyPlaceholder: "sk-ant-...",
+    },
+    {
+      value: "gemini" as const,
+      label: "Google Gemini",
+      defaultModel: DEFAULT_MODELS.gemini,
+      keyPlaceholder: "AIza...",
+    },
+  ];
+}
+
+function getProviderLabel(provider: AiProvider): string {
+  return getProviderOptions().find((option) => option.value === provider)?.label ?? provider;
+}
+
+async function testProviderKey(
+  provider: AiProvider,
+  model: string,
+  apiKey: string
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const response =
+    provider === "openai"
+      ? await fetch("https://api.openai.com/v1/models", {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      })
+      : provider === "anthropic"
+        ? await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model,
+            max_tokens: 8,
+            messages: [{ role: "user", content: "Reply OK" }],
+          }),
+        })
+        : await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`);
+
+  if (response.ok) return { ok: true };
+  return { ok: false, message: await readProviderError(response, provider) };
+}
+
+async function generateWithProvider(
+  provider: AiProvider,
+  model: string,
+  apiKey: string,
+  input: AiGenerateExerciseInput
+): Promise<string | AiServiceError> {
+  if (provider === "openai") {
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(buildOpenAiRequest(model, input)),
+    });
+    if (!response.ok) {
+      return {
+        error: {
+          code: "AI_REQUEST_FAILED",
+          message: await readProviderError(response, provider),
+        },
+      };
+    }
+    return extractOpenAiOutputText((await response.json()) as Record<string, unknown>) || "";
+  }
+
+  if (provider === "anthropic") {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify(buildAnthropicRequest(model, input)),
+    });
+    if (!response.ok) {
+      return {
+        error: {
+          code: "AI_REQUEST_FAILED",
+          message: await readProviderError(response, provider),
+        },
+      };
+    }
+    const toolInput = extractAnthropicToolInput((await response.json()) as Record<string, unknown>);
+    return JSON.stringify(toolInput);
+  }
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(buildGeminiRequest(input)),
+    }
+  );
+  if (!response.ok) {
+    return {
+      error: {
+        code: "AI_REQUEST_FAILED",
+        message: await readProviderError(response, provider),
+      },
+    };
+  }
+  return extractGeminiText((await response.json()) as Record<string, unknown>) || "";
+}
+
+async function readProviderError(response: Response, provider: AiProvider): Promise<string> {
   try {
     const payload = (await response.json()) as {
       error?: { message?: string };
     };
-    return payload.error?.message || `OpenAI trả về lỗi HTTP ${response.status}.`;
+    return payload.error?.message || `${getProviderLabel(provider)} trả về lỗi HTTP ${response.status}.`;
   } catch {
-    return `OpenAI trả về lỗi HTTP ${response.status}.`;
+    return `${getProviderLabel(provider)} trả về lỗi HTTP ${response.status}.`;
   }
 }
 
-function extractOutputText(payload: Record<string, unknown>): string | null {
+function extractOpenAiOutputText(payload: Record<string, unknown>): string | null {
   if (typeof payload.output_text === "string") return payload.output_text;
 
   const output = payload.output;
@@ -610,6 +795,41 @@ function extractOutputText(payload: Record<string, unknown>): string | null {
     const content = (item as { content?: unknown }).content;
     if (!Array.isArray(content)) continue;
     for (const part of content) {
+      if (!part || typeof part !== "object") continue;
+      const text = (part as { text?: unknown }).text;
+      if (typeof text === "string") return text;
+    }
+  }
+
+  return null;
+}
+
+function extractAnthropicToolInput(payload: Record<string, unknown>): unknown {
+  const content = payload.content;
+  if (!Array.isArray(content)) return null;
+
+  for (const part of content) {
+    if (!part || typeof part !== "object") continue;
+    const typed = part as { type?: unknown; input?: unknown };
+    if (typed.type === "tool_use" && typed.input && typeof typed.input === "object") {
+      return typed.input;
+    }
+  }
+
+  return null;
+}
+
+function extractGeminiText(payload: Record<string, unknown>): string | null {
+  const candidates = payload.candidates;
+  if (!Array.isArray(candidates)) return null;
+
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== "object") continue;
+    const content = (candidate as { content?: unknown }).content;
+    if (!content || typeof content !== "object") continue;
+    const parts = (content as { parts?: unknown }).parts;
+    if (!Array.isArray(parts)) continue;
+    for (const part of parts) {
       if (!part || typeof part !== "object") continue;
       const text = (part as { text?: unknown }).text;
       if (typeof text === "string") return text;

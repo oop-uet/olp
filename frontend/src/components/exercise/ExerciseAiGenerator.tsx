@@ -6,7 +6,7 @@ type Difficulty = 'easy' | 'medium' | 'hard'
 
 interface AiStatus {
   enabled: boolean
-  provider: 'openai'
+  provider: 'openai' | 'anthropic' | 'gemini'
   model: string
   reason: string | null
 }

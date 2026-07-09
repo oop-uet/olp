@@ -26,7 +26,13 @@ interface ConfigParam {
 }
 
 interface AiConfigStatus {
-  provider: 'openai'
+  provider: 'openai' | 'anthropic' | 'gemini'
+  providers: Array<{
+    value: 'openai' | 'anthropic' | 'gemini'
+    label: string
+    defaultModel: string
+    keyPlaceholder: string
+  }>
   model: string
   enabled: boolean
   keyConfigured: boolean
@@ -121,6 +127,7 @@ export function ConfigPage() {
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [saving, setSaving] = useState<string | null>(null)
   const [aiConfig, setAiConfig] = useState<AiConfigStatus | null>(null)
+  const [aiProvider, setAiProvider] = useState<AiConfigStatus['provider']>('openai')
   const [aiModel, setAiModel] = useState('gpt-4o-mini')
   const [aiApiKey, setAiApiKey] = useState('')
   const [aiEnabled, setAiEnabled] = useState(false)
@@ -144,6 +151,7 @@ export function ConfigPage() {
       const aiData: AiConfigStatus = aiResponse.data.data
       setConfigs(data)
       setAiConfig(aiData)
+      setAiProvider(aiData.provider)
       setAiModel(aiData.model)
       setAiEnabled(aiData.enabled)
       setAiApiKey('')
@@ -292,13 +300,14 @@ export function ConfigPage() {
     setAiSaving(true)
     try {
       const response = await api.put('/api/admin/ai-config', {
-        provider: 'openai',
+        provider: aiProvider,
         model: trimmedModel,
         apiKey: aiApiKey.trim() || undefined,
         enabled: aiEnabled,
       })
       const nextConfig: AiConfigStatus = response.data.data
       setAiConfig(nextConfig)
+      setAiProvider(nextConfig.provider)
       setAiModel(nextConfig.model)
       setAiEnabled(nextConfig.enabled)
       setAiApiKey('')
@@ -321,6 +330,7 @@ export function ConfigPage() {
       const response = await api.post('/api/admin/ai-config/test')
       const nextConfig: AiConfigStatus = response.data.data
       setAiConfig(nextConfig)
+      setAiProvider(nextConfig.provider)
       setAiModel(nextConfig.model)
       setAiEnabled(nextConfig.enabled)
       if (nextConfig.lastCheckStatus === 'ok') {
@@ -345,6 +355,7 @@ export function ConfigPage() {
       })
       const nextConfig: AiConfigStatus = response.data.data
       setAiConfig(nextConfig)
+      setAiProvider(nextConfig.provider)
       setAiModel(nextConfig.model)
       setAiEnabled(false)
       setAiApiKey('')
@@ -364,6 +375,17 @@ export function ConfigPage() {
     if (aiConfig.lastCheckStatus === 'error') return 'Key lỗi'
     return 'Chưa có API key'
   }
+
+  function handleAiProviderChange(provider: AiConfigStatus['provider']) {
+    setAiProvider(provider)
+    const selected = aiConfig?.providers.find((option) => option.value === provider)
+    if (selected) {
+      setAiModel(selected.defaultModel)
+    }
+    setAiEnabled(false)
+  }
+
+  const selectedAiProvider = aiConfig?.providers.find((option) => option.value === aiProvider)
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -502,8 +524,17 @@ export function ConfigPage() {
             <label htmlFor="ai-provider" className="block text-sm font-semibold text-gray-800">
               Provider
             </label>
-            <select id="ai-provider" value="openai" disabled className="input mt-2">
-              <option value="openai">OpenAI</option>
+            <select
+              id="ai-provider"
+              value={aiProvider}
+              onChange={(event) => handleAiProviderChange(event.target.value as AiConfigStatus['provider'])}
+              className="input mt-2"
+            >
+              {(aiConfig?.providers ?? [{ value: 'openai', label: 'OpenAI', defaultModel: 'gpt-4o-mini', keyPlaceholder: 'sk-...' }]).map((provider) => (
+                <option key={provider.value} value={provider.value}>
+                  {provider.label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -522,7 +553,7 @@ export function ConfigPage() {
 
           <div className="lg:col-span-2">
             <label htmlFor="ai-api-key" className="block text-sm font-semibold text-gray-800">
-              OpenAI API key
+              {selectedAiProvider?.label ?? 'AI'} API key
             </label>
             <input
               id="ai-api-key"
@@ -530,7 +561,7 @@ export function ConfigPage() {
               value={aiApiKey}
               onChange={(event) => setAiApiKey(event.target.value)}
               className="input mt-2"
-              placeholder={aiConfig?.keyConfigured ? 'Để trống nếu không đổi key' : 'sk-...'}
+              placeholder={aiConfig?.keyConfigured ? 'Để trống nếu không đổi key' : selectedAiProvider?.keyPlaceholder ?? 'API key'}
               autoComplete="off"
             />
           </div>
