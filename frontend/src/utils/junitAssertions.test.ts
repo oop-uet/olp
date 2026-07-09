@@ -23,9 +23,9 @@ describe('extractJUnitAssertionSummaries', () => {
 
     expect(result.map((item) => item.label)).toEqual([
       'machine.getTank().getAmount() phải bằng 850',
-      'Điều kiện đúng: machine.brew("LATTE")',
-      'Điều kiện sai: machine.brew("UNKNOWN")',
-      'Giá trị không được null: machine.getTank()',
+      'machine.brew("LATTE") phải trả về true',
+      'machine.brew("UNKNOWN") phải trả về false',
+      'machine.getTank() không được null',
     ])
   })
 
@@ -59,7 +59,28 @@ describe('extractJUnitAssertionSummaries', () => {
     const result = extractJUnitAssertionSummaries(source)
 
     expect(result).toHaveLength(1)
-    expect(result[0].label).toBe('() -> account.deposit(-1) phải ném IllegalArgumentException.class')
+    expect(result[0].label).toBe('() -> account.deposit(-1) phải ném IllegalArgumentException')
+  })
+
+  it('describes Java reflection modifier assertions without exposing the full expression', () => {
+    const source = `
+      public class WaterTankTest {
+        @Test
+        public void fieldsArePrivate() throws Exception {
+          assertTrue(Modifier.isPrivate(WaterTank.class.getDeclaredField("capacity").getModifiers()));
+          assertTrue(Modifier.isPrivate(WaterTank.class.getDeclaredField("amount").getModifiers()));
+          assertFalse(Modifier.isStatic(WaterTank.class.getDeclaredField("amount").getModifiers()));
+        }
+      }
+    `
+
+    const result = extractJUnitAssertionSummaries(source)
+
+    expect(result.map((item) => item.label)).toEqual([
+      'Thuộc tính capacity của lớp WaterTank phải là private',
+      'Thuộc tính amount của lớp WaterTank phải là private',
+      'Thuộc tính amount của lớp WaterTank không được là static',
+    ])
   })
 
   it('limits the number of displayed assertions', () => {

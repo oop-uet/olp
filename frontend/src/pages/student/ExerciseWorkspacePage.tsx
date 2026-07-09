@@ -1097,9 +1097,9 @@ function TestCasesPanel({
 
               <div className="space-y-2">
                 {tc.type === 'java_junit' ? (
-                  <div className="rounded-lg border border-slate-100 bg-white p-3 text-[11px] text-slate-600">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="font-bold text-slate-700">
+                  <div className="min-w-0 overflow-hidden rounded-lg border border-slate-100 bg-white p-3 text-[11px] text-slate-600">
+                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                      <span className="min-w-0 font-bold text-slate-700 [overflow-wrap:anywhere]">
                         JUnit công khai: {tc.testFileName ?? 'MyTest.java'}
                       </span>
                       <span className="rounded bg-slate-50 px-2 py-0.5 font-mono text-[10px] font-bold text-slate-500">
@@ -1112,16 +1112,18 @@ function TestCasesPanel({
                         <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
                           Hệ thống sẽ kiểm tra
                         </p>
-                        <ol className="space-y-1.5">
+                        <ol className="overflow-hidden rounded-lg border border-slate-100 bg-slate-50/70">
                           {tc.assertionSummaries.map((assertion, assertionIndex) => (
                             <li
                               key={`${tc.id}-${assertionIndex}`}
-                              className="rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-2"
+                              className="grid min-w-0 grid-cols-[1.5rem,minmax(0,1fr)] gap-2 border-b border-slate-100 px-3 py-2 last:border-b-0"
                             >
-                              <span className="mr-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-50 px-1 text-[10px] font-black text-primary">
+                              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary-50 text-[10px] font-black text-primary">
                                 {assertionIndex + 1}
                               </span>
-                              <span className="font-medium text-slate-700">{assertion.label}</span>
+                              <span className="min-w-0 font-medium leading-relaxed text-slate-700 [overflow-wrap:anywhere]">
+                                {assertion.label}
+                              </span>
                             </li>
                           ))}
                         </ol>

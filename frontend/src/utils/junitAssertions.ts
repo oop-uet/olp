@@ -51,13 +51,13 @@ function buildSummary(
     case 'assertNotSame':
       return comparisonSummary(assertion, args, raw, 'phải khác tham chiếu với')
     case 'assertTrue':
-      return conditionSummary(assertion, args, raw, 'Điều kiện đúng')
+      return booleanConditionSummary(assertion, args, raw, true)
     case 'assertFalse':
-      return conditionSummary(assertion, args, raw, 'Điều kiện sai')
+      return booleanConditionSummary(assertion, args, raw, false)
     case 'assertNull':
-      return conditionSummary(assertion, args, raw, 'Giá trị phải là null')
+      return nullConditionSummary(assertion, args, raw, true)
     case 'assertNotNull':
-      return conditionSummary(assertion, args, raw, 'Giá trị không được null')
+      return nullConditionSummary(assertion, args, raw, false)
     case 'assertThrows':
       return throwsSummary(args, raw)
     default:
@@ -81,26 +81,50 @@ function comparisonSummary(
   if (args.length < 2) return null
 
   const [expected, actual] = args
+  const readableExpected = humanizeExpression(expected)
+  const readableActual = humanizeExpression(actual)
   return {
     assertion,
-    label: `${actual} ${relation} ${expected}`,
-    expected,
-    actual,
+    label: `${readableActual} ${relation} ${readableExpected}`,
+    expected: readableExpected,
+    actual: readableActual,
     raw: compactExpression(raw),
   }
 }
 
-function conditionSummary(
+function booleanConditionSummary(
   assertion: string,
   args: string[],
   raw: string,
-  label: string
+  expectedValue: boolean
 ): JUnitAssertionSummary | null {
   if (args.length < 1) return null
   const condition = args[0]
+  const readableCondition = describeKnownBooleanCondition(condition, expectedValue)
+  const fallbackValue = expectedValue ? 'true' : 'false'
+
   return {
     assertion,
-    label: `${label}: ${condition}`,
+    label: readableCondition ?? `${humanizeExpression(condition)} phải trả về ${fallbackValue}`,
+    condition,
+    raw: compactExpression(raw),
+  }
+}
+
+function nullConditionSummary(
+  assertion: string,
+  args: string[],
+  raw: string,
+  expectsNull: boolean
+): JUnitAssertionSummary | null {
+  if (args.length < 1) return null
+  const condition = args[0]
+  const readableCondition = humanizeExpression(condition)
+  return {
+    assertion,
+    label: expectsNull
+      ? `${readableCondition} phải là null`
+      : `${readableCondition} không được null`,
     condition,
     raw: compactExpression(raw),
   }
@@ -109,13 +133,41 @@ function conditionSummary(
 function throwsSummary(args: string[], raw: string): JUnitAssertionSummary | null {
   if (args.length < 2) return null
   const [expected, executable] = args
+  const readableExpected = humanizeExpression(expected)
+  const readableExecutable = humanizeExpression(executable)
   return {
     assertion: 'assertThrows',
-    label: `${executable} phải ném ${expected}`,
-    expected,
-    actual: executable,
+    label: `${readableExecutable} phải ném ${readableExpected}`,
+    expected: readableExpected,
+    actual: readableExecutable,
     raw: compactExpression(raw),
   }
+}
+
+function describeKnownBooleanCondition(condition: string, expectedValue: boolean): string | null {
+  const fieldModifierMatch = condition.match(
+    /^(?:[A-Za-z_$][\w$]*\.)?Modifier\.is(Private|Public|Protected|Static|Final)\(([A-Za-z_$][\w$]*)\.class\.getDeclaredField\("([^"]+)"\)\.getModifiers\(\)\)$/
+  )
+  if (fieldModifierMatch) {
+    const [, modifier, className, fieldName] = fieldModifierMatch
+    const phrase = `Thuộc tính ${fieldName} của lớp ${className}`
+    return `${phrase} ${expectedValue ? 'phải' : 'không được'} là ${modifier.toLowerCase()}`
+  }
+
+  const methodModifierMatch = condition.match(
+    /^(?:[A-Za-z_$][\w$]*\.)?Modifier\.is(Private|Public|Protected|Static|Final)\(([A-Za-z_$][\w$]*)\.class\.getDeclaredMethod\("([^"]+)"(?:,\s*.*)?\)\.getModifiers\(\)\)$/
+  )
+  if (methodModifierMatch) {
+    const [, modifier, className, methodName] = methodModifierMatch
+    const phrase = `Phương thức ${methodName} của lớp ${className}`
+    return `${phrase} ${expectedValue ? 'phải' : 'không được'} là ${modifier.toLowerCase()}`
+  }
+
+  return null
+}
+
+function humanizeExpression(expression: string): string {
+  return expression.replace(/([A-Za-z_$][\w$]*)\.class\b/g, '$1')
 }
 
 function dropOptionalMessage(assertion: string, args: string[]): string[] {
