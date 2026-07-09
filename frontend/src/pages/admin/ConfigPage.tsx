@@ -25,6 +25,18 @@ interface ConfigParam {
   options?: Array<{ value: string; label: string }>
 }
 
+interface AiConfigStatus {
+  provider: 'openai'
+  model: string
+  enabled: boolean
+  keyConfigured: boolean
+  keyLast4: string
+  lastCheckStatus: 'missing' | 'untested' | 'ok' | 'error'
+  lastCheckError: string
+  lastCheckedAt: string
+  encryptionReady: boolean
+}
+
 // ─── Config Parameter Metadata ───────────────────────────────────────────────
 
 const CONFIG_PARAMS: Record<string, Omit<ConfigParam, 'key' | 'currentValue'>> = {
@@ -108,6 +120,12 @@ export function ConfigPage() {
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [saving, setSaving] = useState<string | null>(null)
+  const [aiConfig, setAiConfig] = useState<AiConfigStatus | null>(null)
+  const [aiModel, setAiModel] = useState('gpt-4o-mini')
+  const [aiApiKey, setAiApiKey] = useState('')
+  const [aiEnabled, setAiEnabled] = useState(false)
+  const [aiSaving, setAiSaving] = useState(false)
+  const [aiTesting, setAiTesting] = useState(false)
 
   useEffect(() => {
     fetchConfig()
@@ -117,9 +135,18 @@ export function ConfigPage() {
     try {
       setLoading(true)
       setFetchError(null)
-      const response = await api.get('/api/admin/config')
-      const data: ConfigEntry[] = response.data.data
+      const [configResponse, aiResponse] = await Promise.all([
+        api.get('/api/admin/config'),
+        api.get('/api/admin/ai-config'),
+      ])
+
+      const data: ConfigEntry[] = configResponse.data.data
+      const aiData: AiConfigStatus = aiResponse.data.data
       setConfigs(data)
+      setAiConfig(aiData)
+      setAiModel(aiData.model)
+      setAiEnabled(aiData.enabled)
+      setAiApiKey('')
 
       // Initialize form values from current config
       const values: Record<string, string> = {}
@@ -255,6 +282,89 @@ export function ConfigPage() {
     }
   }
 
+  async function handleSaveAiConfig() {
+    const trimmedModel = aiModel.trim()
+    if (trimmedModel.length < 3) {
+      toast.error('Tên model AI không hợp lệ.')
+      return
+    }
+
+    setAiSaving(true)
+    try {
+      const response = await api.put('/api/admin/ai-config', {
+        provider: 'openai',
+        model: trimmedModel,
+        apiKey: aiApiKey.trim() || undefined,
+        enabled: aiEnabled,
+      })
+      const nextConfig: AiConfigStatus = response.data.data
+      setAiConfig(nextConfig)
+      setAiModel(nextConfig.model)
+      setAiEnabled(nextConfig.enabled)
+      setAiApiKey('')
+      toast.success(
+        nextConfig.enabled
+          ? 'Đã lưu và bật tính năng tạo bài tập bằng AI.'
+          : 'Đã lưu cấu hình AI. Hãy kiểm tra API key thành công để bật tính năng.'
+      )
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
+      toast.error(axiosErr.response?.data?.error?.message || 'Không thể lưu cấu hình AI.')
+    } finally {
+      setAiSaving(false)
+    }
+  }
+
+  async function handleTestAiConfig() {
+    setAiTesting(true)
+    try {
+      const response = await api.post('/api/admin/ai-config/test')
+      const nextConfig: AiConfigStatus = response.data.data
+      setAiConfig(nextConfig)
+      setAiModel(nextConfig.model)
+      setAiEnabled(nextConfig.enabled)
+      if (nextConfig.lastCheckStatus === 'ok') {
+        toast.success('API key AI hoạt động. Tính năng tạo bài tập đã được bật.')
+      } else {
+        toast.error(nextConfig.lastCheckError || 'API key AI chưa kiểm tra thành công.')
+      }
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
+      toast.error(axiosErr.response?.data?.error?.message || 'Không thể kiểm tra API key AI.')
+    } finally {
+      setAiTesting(false)
+    }
+  }
+
+  async function handleClearAiKey() {
+    setAiSaving(true)
+    try {
+      const response = await api.put('/api/admin/ai-config', {
+        clearApiKey: true,
+        enabled: false,
+      })
+      const nextConfig: AiConfigStatus = response.data.data
+      setAiConfig(nextConfig)
+      setAiModel(nextConfig.model)
+      setAiEnabled(false)
+      setAiApiKey('')
+      toast.success('Đã xóa API key AI và tắt tính năng tạo bài tập bằng AI.')
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
+      toast.error(axiosErr.response?.data?.error?.message || 'Không thể xóa API key AI.')
+    } finally {
+      setAiSaving(false)
+    }
+  }
+
+  function getAiStatusLabel() {
+    if (!aiConfig?.keyConfigured) return 'Chưa có API key'
+    if (aiConfig.lastCheckStatus === 'ok') return 'Key hoạt động'
+    if (aiConfig.lastCheckStatus === 'untested') return 'Key chưa kiểm tra'
+    if (aiConfig.lastCheckStatus === 'error') return 'Key lỗi'
+    return 'Chưa có API key'
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Page header */}
@@ -363,6 +473,125 @@ export function ConfigPage() {
           <p className="text-sm text-gray-500">Không tìm thấy tham số nào có thể cấu hình.</p>
         </div>
       )}
+
+      <div className="card p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-2xl">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">
+              AI tạo bài tập
+            </h2>
+            <p className="mt-1 text-xs text-gray-500">
+              Cấu hình API key để bật nút tạo draft bài tập bằng AI trong form ra đề.
+              Frontend chỉ thấy trạng thái, không bao giờ nhận API key.
+            </p>
+            {!aiConfig?.encryptionReady && (
+              <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
+                Backend cần AI_SECRET_ENCRYPTION_KEY hoặc JWT_SECRET để mã hóa API key trước khi lưu.
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600">
+            {getAiStatusLabel()}
+            {aiConfig?.keyLast4 && <span className="ml-1 font-mono">••••{aiConfig.keyLast4}</span>}
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          <div>
+            <label htmlFor="ai-provider" className="block text-sm font-semibold text-gray-800">
+              Provider
+            </label>
+            <select id="ai-provider" value="openai" disabled className="input mt-2">
+              <option value="openai">OpenAI</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="ai-model" className="block text-sm font-semibold text-gray-800">
+              Model
+            </label>
+            <input
+              id="ai-model"
+              value={aiModel}
+              onChange={(event) => setAiModel(event.target.value)}
+              className="input mt-2"
+              placeholder="gpt-4o-mini"
+            />
+          </div>
+
+          <div className="lg:col-span-2">
+            <label htmlFor="ai-api-key" className="block text-sm font-semibold text-gray-800">
+              OpenAI API key
+            </label>
+            <input
+              id="ai-api-key"
+              type="password"
+              value={aiApiKey}
+              onChange={(event) => setAiApiKey(event.target.value)}
+              className="input mt-2"
+              placeholder={aiConfig?.keyConfigured ? 'Để trống nếu không đổi key' : 'sk-...'}
+              autoComplete="off"
+            />
+          </div>
+        </div>
+
+        {aiConfig?.lastCheckError && (
+          <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+            {aiConfig.lastCheckError}
+          </div>
+        )}
+
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setAiEnabled((value) => !value)}
+            className={`inline-flex h-9 items-center rounded-full border px-3 text-xs font-bold transition ${
+              aiEnabled
+                ? 'border-primary bg-primary-50 text-primary'
+                : 'border-gray-200 bg-gray-50 text-gray-500'
+            }`}
+            aria-pressed={aiEnabled}
+          >
+            {aiEnabled ? 'Muốn bật' : 'Đang tắt'}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSaveAiConfig}
+            disabled={aiSaving || !aiConfig?.encryptionReady}
+            className="btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {aiSaving ? 'Đang lưu...' : 'Lưu cấu hình AI'}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleTestAiConfig}
+            disabled={aiTesting || !aiConfig?.keyConfigured || !aiConfig?.encryptionReady}
+            className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {aiTesting ? 'Đang kiểm tra...' : 'Kiểm tra key'}
+          </button>
+
+          {aiConfig?.keyConfigured && (
+            <button
+              type="button"
+              onClick={handleClearAiKey}
+              disabled={aiSaving}
+              className="btn-ghost btn-sm text-danger-600"
+            >
+              Xóa key
+            </button>
+          )}
+        </div>
+
+        {aiConfig?.lastCheckedAt && (
+          <p className="mt-3 text-xs text-gray-400">
+            Lần kiểm tra gần nhất: {new Date(aiConfig.lastCheckedAt).toLocaleString('vi-VN')}
+          </p>
+        )}
+      </div>
     </div>
   )
 }

@@ -4,6 +4,7 @@ import cors from 'cors';
 import authRoutes from './routes/auth.routes.js';
 import sectionRoutes from './routes/admin/section.routes.js';
 import configRoutes from './routes/admin/config.routes.js';
+import aiConfigRoutes from './routes/admin/ai-config.routes.js';
 import importRoutes from './routes/admin/import.routes.js';
 import rosterRoutes from './routes/admin/roster.routes.js';
 import userRoutes from './routes/admin/user.routes.js';
@@ -54,6 +55,7 @@ app.use('/api/admin', authMiddleware(), requireRole('admin'), rosterRoutes);
 app.use('/api/admin/users', authMiddleware(), requireRole('admin'), userRoutes);
 app.use('/api/admin/exercises', authMiddleware(), requireRole('admin'), adminExerciseRoutes);
 app.use('/api/admin/config', authMiddleware(), requireRole('admin'), configRoutes);
+app.use('/api/admin/ai-config', authMiddleware(), requireRole('admin'), aiConfigRoutes);
 app.use('/api/admin', adminRoutes);
 
 // Instructor - Sections (assigned classes + detail)

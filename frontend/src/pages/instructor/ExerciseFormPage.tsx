@@ -4,6 +4,7 @@ import { api } from '../../lib/api'
 import { PageLoader } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { ExerciseDescriptionEditor } from '../../components/exercise/ExerciseDescriptionEditor'
+import { ExerciseAiGenerator } from '../../components/exercise/ExerciseAiGenerator'
 
 const DIFFICULTY_OPTIONS = ['easy', 'medium', 'hard'] as const
 type Difficulty = (typeof DIFFICULTY_OPTIONS)[number]
@@ -614,6 +615,12 @@ export function ExerciseFormPage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
+              <ExerciseAiGenerator
+                difficulty={difficulty || 'easy'}
+                tags={selectedTags}
+                template={buildTemplateFromForm()}
+                onApply={applyTemplate}
+              />
               <button type="button" onClick={handleDownloadBlankTemplate} className="btn-secondary btn-sm">
                 Tải mẫu JSON
               </button>

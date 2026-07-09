@@ -16,6 +16,12 @@ import {
   checkExercisePlagiarism,
   isPlagiarismError,
 } from "../../services/plagiarism.service.js";
+import {
+  aiGenerateExerciseSchema,
+  generateExerciseDraft,
+  getAiAvailability,
+  isAiServiceError,
+} from "../../services/ai-exercise.service.js";
 
 // ─── Zod Schemas ─────────────────────────────────────────────────────────────
 
@@ -132,6 +138,49 @@ router.get("/library", async (_req: Request, res: Response) => {
   try {
     const result = await browseLibrary();
     res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "An unexpected error occurred",
+      },
+    });
+  }
+});
+
+/**
+ * GET /api/exercises/ai/status
+ * Returns whether AI exercise generation is available for instructors.
+ */
+router.get("/ai/status", async (_req: Request, res: Response) => {
+  try {
+    const status = await getAiAvailability();
+    res.status(200).json({ data: status });
+  } catch (error) {
+    res.status(500).json({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "An unexpected error occurred",
+      },
+    });
+  }
+});
+
+/**
+ * POST /api/exercises/ai/generate
+ * Generates an exercise template draft. It does not persist the exercise.
+ */
+router.post("/ai/generate", validate(aiGenerateExerciseSchema), async (req: Request, res: Response) => {
+  try {
+    const result = await generateExerciseDraft(req.body);
+
+    if (isAiServiceError(result)) {
+      const statusCode = result.error.code === "AI_GENERATION_DISABLED" ? 403 : 400;
+      res.status(statusCode).json({ error: result.error });
+      return;
+    }
+
+    res.status(200).json({ data: result });
   } catch (error) {
     res.status(500).json({
       error: {

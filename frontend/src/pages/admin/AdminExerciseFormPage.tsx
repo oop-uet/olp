@@ -5,6 +5,7 @@ import { api } from '../../lib/api'
 import { PageLoader } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { ExerciseDescriptionEditor } from '../../components/exercise/ExerciseDescriptionEditor'
+import { ExerciseAiGenerator } from '../../components/exercise/ExerciseAiGenerator'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -610,6 +611,12 @@ export function AdminExerciseFormPage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
+              <ExerciseAiGenerator
+                difficulty={difficulty}
+                tags={splitTags(tagsInput)}
+                template={buildTemplateFromForm()}
+                onApply={applyTemplate}
+              />
               <button
                 type="button"
                 onClick={() => downloadJson('uet-oasis-exercise-template.json', SAMPLE_TEMPLATE)}
