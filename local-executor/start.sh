@@ -12,6 +12,7 @@ set -e
 
 JAR_NAME="oop-local-executor-1.0.0.jar"
 DEFAULT_PORT=9876
+MIN_JAVA_MAJOR=17
 JAVA_CMD=""
 
 # Resolve script directory (so the script works from any working directory)
@@ -19,13 +20,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 JAR_PATH="$SCRIPT_DIR/$JAR_NAME"
 
 find_java() {
-    if command -v java >/dev/null 2>&1; then
-        JAVA_CMD="$(command -v java)"
-        return 0
-    fi
-
-    if [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
-        JAVA_CMD="$JAVA_HOME/bin/java"
+    if [ -n "${JAVA_HOME:-}" ] && try_java "$JAVA_HOME/bin/java"; then
         return 0
     fi
 
@@ -45,11 +40,42 @@ find_java() {
 
     local candidate
     for candidate in "${candidates[@]}"; do
-        if [ -x "$candidate/bin/java" ]; then
-            JAVA_CMD="$candidate/bin/java"
+        if try_java "$candidate/bin/java"; then
             return 0
         fi
     done
+
+    if command -v java >/dev/null 2>&1; then
+        while IFS= read -r candidate; do
+            if try_java "$candidate"; then
+                return 0
+            fi
+        done < <(which -a java 2>/dev/null)
+    fi
+
+    return 1
+}
+
+java_major() {
+    local version
+    version=$("$1" -version 2>&1 | awk -F\" '/version/ {print $2; exit}')
+    if [[ "$version" == 1.* ]]; then
+        echo "$version" | cut -d. -f2
+    else
+        echo "$version" | cut -d. -f1 | sed 's/[^0-9].*//'
+    fi
+}
+
+try_java() {
+    local candidate="$1"
+    [ -x "$candidate" ] || return 1
+
+    local major
+    major="$(java_major "$candidate")"
+    if [ -n "$major" ] && [ "$major" -ge "$MIN_JAVA_MAJOR" ] 2>/dev/null; then
+        JAVA_CMD="$candidate"
+        return 0
+    fi
 
     return 1
 }
@@ -68,7 +94,7 @@ fi
 # Check if Java is available. PATH is not required; IntelliJ/JetBrains JDKs
 # are detected automatically when possible.
 if ! find_java; then
-    echo "ERROR: Java/JDK was not found."
+    echo "ERROR: Java/JDK 17+ was not found."
     echo ""
     echo "The launcher checked PATH, JAVA_HOME, IntelliJ IDEA, JetBrains Toolbox,"
     echo "the user's .jdks folder, and common JDK installation folders."
@@ -81,15 +107,6 @@ if ! find_java; then
 fi
 
 export JAVA_HOME="$(cd "$(dirname "$JAVA_CMD")/.." && pwd)"
-
-# Check Java version
-JAVA_VERSION=$("$JAVA_CMD" -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
-if [ "$JAVA_VERSION" -lt 17 ] 2>/dev/null; then
-    echo "ERROR: Java 17 or higher is required. Found version: $JAVA_VERSION"
-    echo ""
-    echo "Please update your JDK installation."
-    exit 1
-fi
 
 # Determine port
 PORT="${1:-$DEFAULT_PORT}"

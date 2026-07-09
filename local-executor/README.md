@@ -227,8 +227,13 @@ If port 9876 is already in use:
 
 If you see `UnsupportedClassVersionError`:
 
-- Your Java runtime is older than version 17
-- Update to JDK 17 or higher and try again
+- Your current `java` command is older than version 17, often Java 8 from the
+  Windows Oracle `javapath` shim.
+- Run the bundled `Start Local Executor.bat` / `.command` launcher. It skips old
+  Java runtimes and searches common IntelliJ, JetBrains Toolbox, `.jdks`, and
+  Adoptium locations for JDK 17+.
+- If the launcher still cannot find JDK 17+, install JDK 17 or higher and try
+  again.
 
 ## License
 

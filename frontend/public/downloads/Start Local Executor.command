@@ -4,16 +4,11 @@ set -e
 cd "$(dirname "$0")"
 
 JAR_NAME="oop-local-executor-1.0.0.jar"
+MIN_JAVA_MAJOR=17
 JAVA_CMD=""
 
 find_java() {
-  if command -v java >/dev/null 2>&1; then
-    JAVA_CMD="$(command -v java)"
-    return 0
-  fi
-
-  if [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
-    JAVA_CMD="$JAVA_HOME/bin/java"
+  if [ -n "${JAVA_HOME:-}" ] && try_java "$JAVA_HOME/bin/java"; then
     return 0
   fi
 
@@ -33,11 +28,42 @@ find_java() {
 
   local candidate
   for candidate in "${candidates[@]}"; do
-    if [ -x "$candidate/bin/java" ]; then
-      JAVA_CMD="$candidate/bin/java"
+    if try_java "$candidate/bin/java"; then
       return 0
     fi
   done
+
+  if command -v java >/dev/null 2>&1; then
+    while IFS= read -r candidate; do
+      if try_java "$candidate"; then
+        return 0
+      fi
+    done < <(which -a java 2>/dev/null)
+  fi
+
+  return 1
+}
+
+java_major() {
+  local version
+  version=$("$1" -version 2>&1 | awk -F\" '/version/ {print $2; exit}')
+  if [[ "$version" == 1.* ]]; then
+    echo "$version" | cut -d. -f2
+  else
+    echo "$version" | cut -d. -f1 | sed 's/[^0-9].*//'
+  fi
+}
+
+try_java() {
+  local candidate="$1"
+  [ -x "$candidate" ] || return 1
+
+  local major
+  major="$(java_major "$candidate")"
+  if [ -n "$major" ] && [ "$major" -ge "$MIN_JAVA_MAJOR" ] 2>/dev/null; then
+    JAVA_CMD="$candidate"
+    return 0
+  fi
 
   return 1
 }
@@ -56,7 +82,7 @@ if [ ! -f "$JAR_NAME" ]; then
 fi
 
 if ! find_java; then
-  echo "ERROR: Khong tim thay Java/JDK."
+  echo "ERROR: Khong tim thay Java/JDK 17+."
   echo "Executor da thu tim trong PATH, JAVA_HOME, IntelliJ IDEA, JetBrains Toolbox,"
   echo "thu muc ~/.jdks va cac thu muc JDK pho bien."
   echo ""

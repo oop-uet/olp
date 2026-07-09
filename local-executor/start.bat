@@ -12,6 +12,7 @@ setlocal enabledelayedexpansion
 
 set JAR_NAME=oop-local-executor-1.0.0.jar
 set DEFAULT_PORT=9876
+set MIN_JAVA_MAJOR=17
 set JAVA_CMD=
 
 REM Resolve script directory
@@ -34,7 +35,7 @@ REM Check if Java is available. PATH is not required; IntelliJ/JetBrains JDKs
 REM are detected automatically when possible.
 call :find_java
 if not defined JAVA_CMD (
-    echo ERROR: Java/JDK was not found.
+    echo ERROR: Java/JDK 17+ was not found.
     echo.
     echo The launcher checked PATH, JAVA_HOME, IntelliJ IDEA, JetBrains Toolbox,
     echo the user's .jdks folder, and common JDK installation folders.
@@ -48,21 +49,6 @@ if not defined JAVA_CMD (
 )
 
 for %%J in ("!JAVA_CMD!\..\..") do set JAVA_HOME=%%~fJ
-
-REM Check Java version
-for /f "tokens=3" %%g in ('"!JAVA_CMD!" -version 2^>^&1 ^| findstr /i "version"') do (
-    set JAVA_VER=%%g
-)
-set JAVA_VER=%JAVA_VER:"=%
-for /f "delims=." %%a in ("%JAVA_VER%") do set JAVA_MAJOR=%%a
-
-if %JAVA_MAJOR% LSS 17 (
-    echo ERROR: Java 17 or higher is required. Found version: %JAVA_MAJOR%
-    echo.
-    echo Please update your JDK installation.
-    pause
-    exit /b 1
-)
 
 REM Determine port
 set PORT=%DEFAULT_PORT%
@@ -86,49 +72,96 @@ pause
 exit /b 0
 
 :find_java
-for /f "delims=" %%J in ('where java 2^>nul') do (
-    set JAVA_CMD=%%J
-    exit /b 0
-)
-
 if defined JAVA_HOME if exist "%JAVA_HOME%\bin\java.exe" (
-    set JAVA_CMD=%JAVA_HOME%\bin\java.exe
-    exit /b 0
+    call :try_java "%JAVA_HOME%\bin\java.exe"
+    if defined JAVA_CMD exit /b 0
 )
 
 for /d %%D in ("%USERPROFILE%\.jdks\*") do if exist "%%~fD\bin\java.exe" (
-    set JAVA_CMD=%%~fD\bin\java.exe
-    exit /b 0
+    call :try_java "%%~fD\bin\java.exe"
+    if defined JAVA_CMD exit /b 0
 )
 
 for /d %%D in ("%LOCALAPPDATA%\Programs\JetBrains\IntelliJ IDEA*") do if exist "%%~fD\jbr\bin\java.exe" (
-    set JAVA_CMD=%%~fD\jbr\bin\java.exe
-    exit /b 0
+    call :try_java "%%~fD\jbr\bin\java.exe"
+    if defined JAVA_CMD exit /b 0
 )
 
 for /d %%D in ("%ProgramFiles%\JetBrains\IntelliJ IDEA*") do if exist "%%~fD\jbr\bin\java.exe" (
-    set JAVA_CMD=%%~fD\jbr\bin\java.exe
-    exit /b 0
+    call :try_java "%%~fD\jbr\bin\java.exe"
+    if defined JAVA_CMD exit /b 0
 )
 
 for /d %%D in ("%LOCALAPPDATA%\JetBrains\Toolbox\apps\IDEA-U\ch-0\*") do if exist "%%~fD\jbr\bin\java.exe" (
-    set JAVA_CMD=%%~fD\jbr\bin\java.exe
-    exit /b 0
+    call :try_java "%%~fD\jbr\bin\java.exe"
+    if defined JAVA_CMD exit /b 0
 )
 
 for /d %%D in ("%LOCALAPPDATA%\JetBrains\Toolbox\apps\IDEA-C\ch-0\*") do if exist "%%~fD\jbr\bin\java.exe" (
-    set JAVA_CMD=%%~fD\jbr\bin\java.exe
-    exit /b 0
+    call :try_java "%%~fD\jbr\bin\java.exe"
+    if defined JAVA_CMD exit /b 0
 )
 
 for /d %%D in ("%ProgramFiles%\Eclipse Adoptium\jdk-*") do if exist "%%~fD\bin\java.exe" (
-    set JAVA_CMD=%%~fD\bin\java.exe
-    exit /b 0
+    call :try_java "%%~fD\bin\java.exe"
+    if defined JAVA_CMD exit /b 0
+)
+
+for /d %%D in ("%ProgramFiles%\Microsoft\jdk-*") do if exist "%%~fD\bin\java.exe" (
+    call :try_java "%%~fD\bin\java.exe"
+    if defined JAVA_CMD exit /b 0
+)
+
+for /d %%D in ("%ProgramFiles%\Amazon Corretto\jdk*") do if exist "%%~fD\bin\java.exe" (
+    call :try_java "%%~fD\bin\java.exe"
+    if defined JAVA_CMD exit /b 0
+)
+
+for /d %%D in ("%ProgramFiles%\Zulu\zulu-*") do if exist "%%~fD\bin\java.exe" (
+    call :try_java "%%~fD\bin\java.exe"
+    if defined JAVA_CMD exit /b 0
+)
+
+for /d %%D in ("%ProgramFiles%\BellSoft\LibericaJDK-*") do if exist "%%~fD\bin\java.exe" (
+    call :try_java "%%~fD\bin\java.exe"
+    if defined JAVA_CMD exit /b 0
 )
 
 for /d %%D in ("%ProgramFiles%\Java\jdk-*") do if exist "%%~fD\bin\java.exe" (
-    set JAVA_CMD=%%~fD\bin\java.exe
+    call :try_java "%%~fD\bin\java.exe"
+    if defined JAVA_CMD exit /b 0
+)
+
+for /f "delims=" %%J in ('where java 2^>nul') do (
+    call :try_java "%%~fJ"
+    if defined JAVA_CMD exit /b 0
+)
+
+exit /b 1
+
+:try_java
+set CANDIDATE_JAVA=%~1
+set JAVA_VER=
+set JAVA_MAJOR=
+if not exist "%CANDIDATE_JAVA%" exit /b 1
+
+for /f "tokens=3" %%g in ('"%CANDIDATE_JAVA%" -version 2^>^&1 ^| findstr /i "version"') do (
+    set JAVA_VER=%%g
+)
+set JAVA_VER=!JAVA_VER:"=!
+
+for /f "tokens=1,2 delims=." %%a in ("!JAVA_VER!") do (
+    if "%%a"=="1" (
+        set JAVA_MAJOR=%%b
+    ) else (
+        set JAVA_MAJOR=%%a
+    )
+)
+
+if not defined JAVA_MAJOR exit /b 1
+if !JAVA_MAJOR! GEQ %MIN_JAVA_MAJOR% (
+    set JAVA_CMD=%CANDIDATE_JAVA%
     exit /b 0
 )
 
-exit /b 0
+exit /b 1

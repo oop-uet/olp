@@ -17,11 +17,14 @@ Luu y:
 - Nen tai file ZIP va giai nen day du truoc khi chay.
 - Tren Windows, macOS va Linux, script khoi dong se tu tim Java trong PATH,
   JAVA_HOME, IntelliJ IDEA, JetBrains Toolbox, thu muc .jdks va cac thu muc JDK pho bien.
+  Script se bo qua Java cu hon 17 neu may co nhieu ban Java.
   Neu IntelliJ da cai nhung van bao khong thay Java, hay vao IntelliJ > File >
   Project Structure > SDKs va them/cai JDK 17+ cho project.
 - Neu file tai ve co duoi .html hoac chay java -jar bao "Invalid or corrupt jarfile",
   ban da tai nham trang HTML thay vi file executor. Hay xoa file do va tai lai ZIP tu nut
   "Tai ZIP chay nhanh" tren website.
+- Neu chay thu cong bang java -jar va gap UnsupportedClassVersionError, lenh java hien tai
+  dang la Java 8/Java cu. Hay chay bang file Start Local Executor hoac cai JDK 17+.
 
 Khi thay dong "Server started. Waiting for connections at ws://127.0.0.1:9876",
 quay lai trang bai lam va bam "Thu ket noi lai".
