@@ -403,6 +403,7 @@ function CompletionDonut({
   attempted: number
   notStarted: number
 }) {
+  const [hovered, setHovered] = useState<'completed' | 'attempted' | 'notStarted' | null>(null)
   const radius = 58
   const circumference = 2 * Math.PI * radius
   const total = completed + attempted + notStarted
@@ -419,8 +420,22 @@ function CompletionDonut({
   const rotAttempted = -90 + (pCompleted / 100) * 360
   const rotNotStarted = -90 + ((pCompleted + pAttempted) / 100) * 360
 
+  const activeColor =
+    hovered === 'completed'
+      ? 'bg-[#10b981]'
+      : hovered === 'attempted'
+      ? 'bg-[#fbbf24]'
+      : 'bg-[#f43f5e]'
+
+  const activeLabel =
+    hovered === 'completed'
+      ? `Bài tập đã hoàn thành: ${completed}`
+      : hovered === 'attempted'
+      ? `Bài tập đã nộp chưa đạt: ${attempted}`
+      : `Bài tập chưa làm: ${notStarted}`
+
   return (
-    <div className="flex items-center justify-center">
+    <div className="relative flex items-center justify-center">
       <svg width="170" height="170" viewBox="0 0 170 170" role="img" aria-label={`Hoàn thành ${percent.toFixed(1)}%`}>
         {total === 0 ? (
           <circle cx="85" cy="85" r={radius} fill="none" stroke="#e2e8f0" strokeWidth="22" />
@@ -434,9 +449,12 @@ function CompletionDonut({
                 r={radius}
                 fill="none"
                 stroke="#f43f5e"
-                strokeWidth="22"
+                strokeWidth={hovered === 'notStarted' ? 26 : 22}
                 strokeDasharray={`${strokeNotStarted} ${circumference}`}
                 transform={`rotate(${rotNotStarted} 85 85)`}
+                className="cursor-pointer transition-all duration-150"
+                onMouseEnter={() => setHovered('notStarted')}
+                onMouseLeave={() => setHovered(null)}
               />
             )}
             {/* Segment 2: Attempted (Amber Yellow) */}
@@ -447,9 +465,12 @@ function CompletionDonut({
                 r={radius}
                 fill="none"
                 stroke="#fbbf24"
-                strokeWidth="22"
+                strokeWidth={hovered === 'attempted' ? 26 : 22}
                 strokeDasharray={`${strokeAttempted} ${circumference}`}
                 transform={`rotate(${rotAttempted} 85 85)`}
+                className="cursor-pointer transition-all duration-150"
+                onMouseEnter={() => setHovered('attempted')}
+                onMouseLeave={() => setHovered(null)}
               />
             )}
             {/* Segment 1: Completed (Emerald Green) */}
@@ -460,20 +481,38 @@ function CompletionDonut({
                 r={radius}
                 fill="none"
                 stroke="#10b981"
-                strokeWidth="22"
+                strokeWidth={hovered === 'completed' ? 26 : 22}
                 strokeDasharray={`${strokeCompleted} ${circumference}`}
                 transform={`rotate(${rotCompleted} 85 85)`}
+                className="cursor-pointer transition-all duration-150"
+                onMouseEnter={() => setHovered('completed')}
+                onMouseLeave={() => setHovered(null)}
               />
             )}
           </>
         )}
-        <text x="85" y="80" textAnchor="middle" className="fill-slate-900 text-2xl font-black">
+        <text x="85" y="80" textAnchor="middle" className="fill-slate-900 text-2xl font-black select-none pointer-events-none">
           {percent.toFixed(1)}%
         </text>
-        <text x="85" y="104" textAnchor="middle" className="fill-slate-400 text-xs font-bold">
+        <text x="85" y="104" textAnchor="middle" className="fill-slate-400 text-xs font-bold select-none pointer-events-none">
           hoàn thành
         </text>
       </svg>
+
+      {hovered && (
+        <div
+          className="absolute z-10 pointer-events-none rounded-lg bg-slate-900/95 px-3 py-2 text-xs font-semibold text-white shadow-xl flex items-center gap-2 border border-slate-800/80 animate-fade-in whitespace-nowrap"
+          style={{
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -125%)',
+          }}
+        >
+          <span className={`h-3 w-3 rounded-sm ${activeColor} border border-white/20`} />
+          <span>{activeLabel}</span>
+          <div className="absolute top-full left-1/2 h-0 w-0 -translate-x-1/2 border-x-[6px] border-t-[6px] border-x-transparent border-t-slate-900/95" />
+        </div>
+      )}
     </div>
   )
 }
