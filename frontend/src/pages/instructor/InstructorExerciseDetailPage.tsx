@@ -569,7 +569,7 @@ export function InstructorExerciseDetailPage() {
                               {formatSectionDisplayName(sectionDetail.section.name)}
                             </td>
                             <td className="px-4 py-2.5 text-right font-bold text-slate-900">
-                              {student.bestScore === null ? '—' : `${student.bestScore}%`}
+                              {student.bestScore === null ? '—' : formatScore(student.bestScore)}
                             </td>
                           </tr>
                         ))
