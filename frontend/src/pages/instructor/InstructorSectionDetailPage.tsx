@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import { AxiosError } from 'axios'
 import { api } from '../../lib/api'
 import { PageLoader, Spinner } from '../../components/ui'
@@ -76,10 +76,36 @@ interface StudentLookupResult {
 
 export function InstructorSectionDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
 
   const [detail, setDetail] = useState<SectionDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [accessError, setAccessError] = useState<string | null>(null)
+
+  const [sections, setSections] = useState<any[]>([])
+  const [sectionsDropdownOpen, setSectionsDropdownOpen] = useState(false)
+  const sectionsDropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    fetchSections()
+  }, [])
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (sectionsDropdownRef.current && !sectionsDropdownRef.current.contains(e.target as Node)) {
+        setSectionsDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  async function fetchSections() {
+    try {
+      const response = await api.get('/api/instructor/sections')
+      setSections(response.data ?? [])
+    } catch {}
+  }
 
   // ─── Search & Pagination states ─────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('')
@@ -470,7 +496,43 @@ export function InstructorSectionDetailPage() {
           <h2 className="panel-title uppercase">
             <span>☰</span>
             Danh Sách Sinh Viên ({students.length})
-            <span className="badge-blue ml-2 font-bold normal-case">{formatSectionDisplayName(section.name)}</span>
+            <div className="relative inline-block text-left" ref={sectionsDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setSectionsDropdownOpen((o) => !o)}
+                className="badge-blue hover:bg-sky-700/80 active:scale-95 ml-2 font-bold normal-case inline-flex items-center gap-1 transition-all select-none border-0 cursor-pointer"
+              >
+                <span>{formatSectionDisplayName(section.name)}</span>
+                <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {sectionsDropdownOpen && (
+                <div className="absolute left-2 z-50 mt-1 max-h-60 w-64 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 text-slate-700 shadow-xl ring-1 ring-black/5 animate-fade-in normal-case text-xs font-semibold">
+                  {sections.length === 0 ? (
+                    <div className="px-4 py-2 text-slate-400 italic">Đang tải danh sách...</div>
+                  ) : (
+                    sections.map((sec) => (
+                      <button
+                        key={sec.id}
+                        onClick={() => {
+                          setSectionsDropdownOpen(false)
+                          navigate(`/instructor/classes/${sec.id}/students`)
+                        }}
+                        className={`flex w-full items-center px-4 py-2.5 text-left transition-colors hover:bg-slate-50 ${
+                          sec.id === id
+                            ? 'bg-slate-50 font-bold text-primary'
+                            : 'text-slate-700 font-medium'
+                        }`}
+                      >
+                        {formatSectionDisplayName(sec.name)}
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
           </h2>
           <div className="flex flex-wrap items-center gap-1.5 mt-2 sm:mt-0">
             <button
