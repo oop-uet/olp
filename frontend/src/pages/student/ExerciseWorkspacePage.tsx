@@ -134,11 +134,19 @@ function parseStarterFiles(code: string): SourceFile[] {
     const parsed = JSON.parse(code) as {
       format?: string
       files?: Array<{ name?: string; content?: string }>
+      'oop-java-files'?: Array<{ filename?: string; name?: string; content?: string }>
     }
 
-    if (parsed.format !== 'oop-java-files' || !Array.isArray(parsed.files)) return []
+    const rawFiles = parsed.format === 'oop-java-files' && Array.isArray(parsed.files)
+      ? parsed.files
+      : Array.isArray(parsed['oop-java-files'])
+        ? parsed['oop-java-files'].map((file) => ({
+            name: file.name ?? file.filename,
+            content: file.content,
+          }))
+        : []
 
-    return parsed.files
+    return rawFiles
       .filter((file) => file.name?.endsWith('.java') && typeof file.content === 'string')
       .map((file, index) => ({
         id: `${file.name}-${Date.now()}-${index}`,

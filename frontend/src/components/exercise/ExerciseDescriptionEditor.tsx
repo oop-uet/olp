@@ -46,7 +46,7 @@ function renderImage(alt: string, src: string, key: string | number) {
 }
 
 function renderInlineMarkdown(text: string): ReactNode[] {
-  const parts = text.split(/(!\[[^\]]*]\([^)]+\)|`[^`]+`)/g)
+  const parts = text.split(/(!\[[^\]]*]\([^)]+\)|`[^`]+`|\*\*[^*]+\*\*)/g)
   return parts
     .filter((part) => part.length > 0)
     .map((part, index) => {
@@ -63,6 +63,14 @@ function renderInlineMarkdown(text: string): ReactNode[] {
           >
             {part.slice(1, -1)}
           </code>
+        )
+      }
+
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return (
+          <strong key={index} className="font-bold text-slate-900">
+            {part.slice(2, -2)}
+          </strong>
         )
       }
 
@@ -133,6 +141,17 @@ export function ExerciseMarkdownContent({ value }: { value: string }) {
 
     if (/^[-*]\s+/.test(line)) {
       bulletItems.push(renderInlineMarkdown(line.replace(/^[-*]\s+/, '')))
+      return
+    }
+
+    const orderedListMatch = line.match(/^\d+\.\s+(.+)$/)
+    if (orderedListMatch) {
+      flushBullets()
+      blocks.push(
+        <p key={index} className="text-sm font-semibold leading-7 text-slate-800">
+          {renderInlineMarkdown(orderedListMatch[1])}
+        </p>
+      )
       return
     }
 

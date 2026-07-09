@@ -141,6 +141,31 @@ function getJavaTestFileName(input: string) {
   return input.split(/\r?\n/, 2)[1]?.trim() || 'MyTest.java'
 }
 
+function parseStarterCodeFiles(code: string | null | undefined) {
+  if (!code) return []
+  try {
+    const parsed = JSON.parse(code) as {
+      format?: string
+      files?: Array<{ name?: string; content?: string }>
+      'oop-java-files'?: Array<{ filename?: string; name?: string; content?: string }>
+    }
+    const rawFiles = parsed.format === 'oop-java-files' && Array.isArray(parsed.files)
+      ? parsed.files
+      : Array.isArray(parsed['oop-java-files'])
+        ? parsed['oop-java-files'].map((file) => ({
+            name: file.name ?? file.filename,
+            content: file.content,
+          }))
+        : []
+
+    return rawFiles
+      .filter((file) => file.name?.endsWith('.java') && typeof file.content === 'string')
+      .map((file) => ({ name: file.name as string, content: file.content as string }))
+  } catch {
+    return []
+  }
+}
+
 export function InstructorExerciseDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -291,6 +316,7 @@ export function InstructorExerciseDetailPage() {
 
   const { exercise, testCases, stats } = data
   const tags = parseTags(exercise)
+  const starterFiles = parseStarterCodeFiles(exercise.starterCode)
   const difficulty = DIFFICULTY[exercise.difficulty] ?? { label: exercise.difficulty, className: 'badge-gray' }
   const correctCount = new Set(
     data.submissions.filter((row) => row.effectiveScore >= 100).map((row) => row.studentId)
@@ -360,9 +386,24 @@ export function InstructorExerciseDetailPage() {
             <aside className="space-y-3">
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Mã nguồn mẫu</p>
-                <pre className="mt-3 max-h-[420px] overflow-auto rounded-lg bg-slate-950 p-4 font-mono text-xs leading-6 text-slate-100">
-                  {exercise.starterCode || 'Bài tập này chưa có mã nguồn mẫu.'}
-                </pre>
+                {starterFiles.length > 0 ? (
+                  <div className="mt-3 space-y-3">
+                    {starterFiles.map((file) => (
+                      <div key={file.name} className="overflow-hidden rounded-lg border border-slate-800 bg-slate-950">
+                        <div className="border-b border-slate-800 px-3 py-2 font-mono text-xs font-bold text-sky-100">
+                          {file.name}
+                        </div>
+                        <pre className="max-h-[320px] overflow-auto p-4 font-mono text-xs leading-6 text-slate-100">
+                          {file.content}
+                        </pre>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <pre className="mt-3 max-h-[420px] overflow-auto rounded-lg bg-slate-950 p-4 font-mono text-xs leading-6 text-slate-100">
+                    {exercise.starterCode || 'Bài tập này chưa có mã nguồn mẫu.'}
+                  </pre>
+                )}
               </div>
               <Link to={`/instructor/exercises/${exercise.id}/edit`} className="btn-secondary w-full">
                 Sửa đề bài

@@ -446,7 +446,7 @@ export async function generateExerciseDraft(
     }
 
     const parsed = JSON.parse(text) as unknown;
-    const draft = generatedExerciseSchema.parse(parsed);
+    const draft = generatedExerciseSchema.parse(normalizeGeneratedExercise(parsed));
     return { draft };
   } catch (error) {
     if (error instanceof SyntaxError || error instanceof z.ZodError) {
@@ -585,7 +585,9 @@ function getGenerationInstructions(): string {
     "Luôn trả về JSON hợp lệ theo schema. Không trả markdown, không giải thích ngoài JSON.",
     "Đề bài phải mới, không sao chép đề có sẵn, phù hợp sinh viên đang học OOP Java.",
     "Ưu tiên test JUnit 4 cho bài OOP: input_data bắt đầu bằng __OOP_JAVA_TEST__\\nTênFileTest.java và expected_output là mã test đầy đủ.",
-    "Starter code nên dùng JSON string format oop-java-files nếu bài cần nhiều file Java.",
+    "Starter code nhiều file phải là JSON string có dạng {\"format\":\"oop-java-files\",\"version\":1,\"files\":[{\"name\":\"Book.java\",\"content\":\"...\"}]}; không dùng key \"oop-java-files\" ở cấp gốc và không dùng field \"filename\".",
+    "Mã Java trong starter_code và expected_output phải được xuống dòng, thụt lề dễ đọc; không nén cả file Java thành một dòng.",
+    "starter_code phải biên dịch được ngay cả khi còn TODO: method chưa cài phải có thân hàm placeholder hợp lệ; không thêm Main.java demo nếu nó gọi method chưa tồn tại hoặc có lỗi cú pháp.",
     "Test case cần gồm cả visible và hidden nếu số lượng test từ 2 trở lên; tổng điểm nên xấp xỉ 100.",
     "Mô tả bài tập bằng tiếng Việt, rõ lớp, thuộc tính, constructor, phương thức và ràng buộc dữ liệu.",
   ].join("\n");
@@ -689,6 +691,188 @@ const exerciseJsonSchema = {
     "authoring_notes",
   ],
 };
+
+function normalizeGeneratedExercise(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const draft = value as Record<string, unknown>;
+  return {
+    ...draft,
+    starter_code: normalizeStarterCode(draft.starter_code),
+    test_cases: Array.isArray(draft.test_cases)
+      ? draft.test_cases.map(normalizeGeneratedTestCase)
+      : draft.test_cases,
+  };
+}
+
+function normalizeGeneratedTestCase(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const testCase = value as Record<string, unknown>;
+  const expectedOutput = testCase.expected_output;
+  return {
+    ...testCase,
+    expected_output:
+      typeof expectedOutput === "string" && isJUnitTestCaseInput(testCase.input_data)
+        ? formatJavaSource(expectedOutput)
+        : expectedOutput,
+  };
+}
+
+function isJUnitTestCaseInput(inputData: unknown): boolean {
+  return typeof inputData === "string" && inputData.trimStart().startsWith("__OOP_JAVA_TEST__");
+}
+
+function normalizeStarterCode(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const normalized = normalizeJavaFilesJson(value);
+  if (normalized) return normalized;
+  return looksLikeJavaSource(value) ? formatJavaSource(value) : value;
+}
+
+function normalizeJavaFilesJson(value: string): string | null {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    const container = parsed as Record<string, unknown>;
+    const rawFiles =
+      container.format === "oop-java-files" && Array.isArray(container.files)
+        ? container.files
+        : Array.isArray(container["oop-java-files"])
+          ? container["oop-java-files"]
+          : null;
+
+    if (!rawFiles) return null;
+    const files = rawFiles
+      .map((file) => {
+        if (!file || typeof file !== "object" || Array.isArray(file)) return null;
+        const rawFile = file as Record<string, unknown>;
+        const name = typeof rawFile.name === "string"
+          ? rawFile.name
+          : typeof rawFile.filename === "string"
+            ? rawFile.filename
+            : "";
+        const content = typeof rawFile.content === "string" ? rawFile.content : "";
+        if (!name.endsWith(".java") || !content.trim()) return null;
+        return {
+          name,
+          content: formatJavaSource(content),
+        };
+      })
+      .filter((file): file is { name: string; content: string } => Boolean(file));
+
+    if (files.length === 0) return null;
+    return JSON.stringify({ format: "oop-java-files", version: 1, files }, null, 2);
+  } catch {
+    return null;
+  }
+}
+
+function looksLikeJavaSource(value: string): boolean {
+  const text = value.trim();
+  return /(?:^|\s)(?:public\s+)?(?:class|interface|enum|record)\s+[A-Z]\w*/.test(text);
+}
+
+function formatJavaSource(source: string): string {
+  const text = source.trim();
+  if (!text) return source;
+  const lines = text.split(/\r?\n/);
+  if (lines.length === 1 && text.length < 120 && !text.includes(";")) {
+    return text;
+  }
+  if (lines.length > 1 && Math.max(...lines.map((line) => line.length)) < 160) {
+    return `${text}\n`;
+  }
+
+  const rough = breakJavaTokens(text);
+  const formatted: string[] = [];
+  let indent = 0;
+  for (const rawLine of rough.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    if (line.startsWith("}")) indent = Math.max(0, indent - 1);
+    formatted.push(`${"    ".repeat(indent)}${line}`);
+    if (line.endsWith("{")) indent += 1;
+  }
+
+  return `${formatted.join("\n")}\n`;
+}
+
+function breakJavaTokens(source: string): string {
+  let result = "";
+  let state: "normal" | "string" | "char" | "lineComment" | "blockComment" = "normal";
+  let escaped = false;
+
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    const next = source[index + 1];
+
+    if (state === "lineComment") {
+      result += char;
+      if (char === "\n") state = "normal";
+      continue;
+    }
+
+    if (state === "blockComment") {
+      result += char;
+      if (char === "*" && next === "/") {
+        result += next;
+        index += 1;
+        state = "normal";
+      }
+      continue;
+    }
+
+    if (state === "string" || state === "char") {
+      result += char;
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if ((state === "string" && char === "\"") || (state === "char" && char === "'")) {
+        state = "normal";
+      }
+      continue;
+    }
+
+    if (char === "/" && next === "/") {
+      result += char + next;
+      index += 1;
+      state = "lineComment";
+      continue;
+    }
+    if (char === "/" && next === "*") {
+      result += char + next;
+      index += 1;
+      state = "blockComment";
+      continue;
+    }
+    if (char === "\"") {
+      result += char;
+      state = "string";
+      continue;
+    }
+    if (char === "'") {
+      result += char;
+      state = "char";
+      continue;
+    }
+    if (char === "{") {
+      result = result.trimEnd() + " {\n";
+      continue;
+    }
+    if (char === "}") {
+      result = result.trimEnd() + "\n}\n";
+      continue;
+    }
+    if (char === ";") {
+      result += ";\n";
+      continue;
+    }
+
+    result += char;
+  }
+
+  return result;
+}
 
 function isSupportedProvider(value: string): value is AiProvider {
   return (

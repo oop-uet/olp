@@ -384,6 +384,86 @@ describe("AI Exercise Service", () => {
     expect(JSON.stringify(body.generationConfig.responseSchema)).not.toContain("\"enum\":[1]");
   });
 
+  it("normalizes Gemini legacy file payloads and compact JUnit tests", async () => {
+    const db = getDb();
+    await updateAiConfig(
+      {
+        provider: "gemini",
+        model: "gemini-2.5-flash",
+        apiKey: "AIza-test-key",
+      },
+      ADMIN_ID,
+      db as never
+    );
+
+    const draft = createDraft();
+    const aiDraft = {
+      ...draft,
+      starter_code: JSON.stringify({
+        "oop-java-files": [
+          {
+            filename: "Book.java",
+            content: "public class Book { private String title; public Book(String title) { this.title = title; } public String getTitle() { return title; } }",
+          },
+        ],
+      }),
+      test_cases: [
+        {
+          input_data: "__OOP_JAVA_TEST__\nBookTest.java",
+          expected_output: "import org.junit.Test;import static org.junit.Assert.*;public class BookTest { @Test public void testTitle() { Book book = new Book(\"Clean Code\"); assertEquals(\"Clean Code\", book.getTitle()); }}",
+          is_visible: true,
+          point_value: 100,
+          time_limit_seconds: 2,
+        },
+      ],
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ models: [] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          candidates: [
+            {
+              content: {
+                parts: [{ text: JSON.stringify(aiDraft) }],
+              },
+            },
+          ],
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await testAiConfig(ADMIN_ID, db as never);
+    const result = await generateExerciseDraft(
+      {
+        topic: "quản lý sách",
+        difficulty: "easy",
+        test_count: 1,
+        oop_tags: ["classes and objects"],
+        lecture_context: "",
+        additional_requirements: "",
+      },
+      db as never
+    );
+
+    expect(isAiServiceError(result)).toBe(false);
+    if (isAiServiceError(result)) return;
+
+    const starterCode = JSON.parse(result.draft.starter_code) as {
+      format: string;
+      files: Array<{ name: string; content: string }>;
+    };
+    expect(starterCode.format).toBe("oop-java-files");
+    expect(starterCode.files[0]).toMatchObject({ name: "Book.java" });
+    expect(starterCode.files[0].content).toContain("\n    private String title;\n");
+    expect(result.draft.test_cases[0].expected_output).toContain("\npublic class BookTest");
+    expect(result.draft.test_cases[0].expected_output).toContain("\n        assertEquals");
+  });
+
   it("generates an exercise draft through Groq structured chat output", async () => {
     const db = getDb();
     await updateAiConfig(
