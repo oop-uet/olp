@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader, ExerciseIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
@@ -144,14 +144,34 @@ function getJavaTestFileName(input: string) {
 export function InstructorExerciseDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const sectionId = searchParams.get('section_id')
+
   const [data, setData] = useState<OverviewResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>('description')
   const [search, setSearch] = useState('')
 
+  // Selected Section statistics states
+  const [sectionDetail, setSectionDetail] = useState<any | null>(null)
+  const [loadingSectionDetail, setLoadingSectionDetail] = useState(false)
+  const [statSearch, setStatSearch] = useState('')
+  const [statSortField, setStatSortField] = useState<'studentId' | 'fullName' | 'bestScore' | ''>('')
+  const [statSortOrder, setStatSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [statCurrentPage, setStatCurrentPage] = useState(1)
+  const [statPageSize, setStatPageSize] = useState(10)
+
   useEffect(() => {
     fetchOverview()
   }, [id])
+
+  useEffect(() => {
+    if (sectionId) {
+      fetchSectionDetail()
+    } else {
+      setSectionDetail(null)
+    }
+  }, [sectionId])
 
   async function fetchOverview() {
     if (!id) return
@@ -163,6 +183,18 @@ export function InstructorExerciseDetailPage() {
       toast.error('Không thể tải thông tin bài tập.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function fetchSectionDetail() {
+    setLoadingSectionDetail(true)
+    try {
+      const response = await api.get(`/api/instructor/sections/${sectionId}/detail`)
+      setSectionDetail(response.data)
+    } catch {
+      toast.error('Không thể tải thông tin chi tiết lớp học.')
+    } finally {
+      setLoadingSectionDetail(false)
     }
   }
 
@@ -180,6 +212,68 @@ export function InstructorExerciseDetailPage() {
       )
     })
   }, [data?.submissions, search])
+
+  const studentsWithScores = useMemo(() => {
+    const list = sectionDetail?.students ?? []
+    return list.map((student: any) => {
+      const studentSubs = data?.submissions.filter(
+        (sub) => sub.studentId === student.userId && sub.sectionId === sectionId
+      ) ?? []
+      const bestScore = studentSubs.length > 0 
+        ? Math.max(...studentSubs.map((s) => s.effectiveScore)) 
+        : null
+      return {
+        ...student,
+        bestScore,
+      }
+    })
+  }, [sectionDetail?.students, data?.submissions, sectionId])
+
+  const filteredStatStudents = useMemo(() => {
+    if (!statSearch.trim()) return studentsWithScores
+    const q = statSearch.toLowerCase()
+    return studentsWithScores.filter(
+      (s: any) =>
+        (s.studentExternalId || s.username || '').toLowerCase().includes(q) ||
+        (s.fullName || '').toLowerCase().includes(q) ||
+        (s.email || '').toLowerCase().includes(q)
+    )
+  }, [studentsWithScores, statSearch])
+
+  const sortedStatStudents = useMemo(() => {
+    if (!statSortField) return filteredStatStudents
+    return [...filteredStatStudents].sort((a: any, b: any) => {
+      let valA = statSortField === 'studentId' ? (a.studentExternalId || a.username || '') : a[statSortField]
+      let valB = statSortField === 'studentId' ? (b.studentExternalId || b.username || '') : b[statSortField]
+      
+      if (typeof valA === 'string') valA = valA.toLowerCase()
+      if (typeof valB === 'string') valB = valB.toLowerCase()
+      
+      if (valA === null) valA = -1
+      if (valB === null) valB = -1
+
+      if (valA < valB) return statSortOrder === 'asc' ? -1 : 1
+      if (valA > valB) return statSortOrder === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [filteredStatStudents, statSortField, statSortOrder])
+
+  const paginatedStatStudents = useMemo(() => {
+    const startIndex = (statCurrentPage - 1) * statPageSize
+    return sortedStatStudents.slice(startIndex, startIndex + statPageSize)
+  }, [sortedStatStudents, statCurrentPage, statPageSize])
+
+  const statTotalPages = Math.ceil(sortedStatStudents.length / statPageSize)
+
+  const toggleStatSort = (field: 'studentId' | 'fullName' | 'bestScore') => {
+    setStatCurrentPage(1)
+    if (statSortField === field) {
+      setStatSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setStatSortField(field)
+      setStatSortOrder('asc')
+    }
+  }
 
   if (loading) return <PageLoader label="Đang tải bài tập..." />
 
@@ -396,50 +490,205 @@ export function InstructorExerciseDetailPage() {
 
       {activeTab === 'stats' && (
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <SectionHeader title="Bảng thống kê theo lớp giảng viên dạy" />
-          <div className="overflow-x-auto p-5">
-            <table className="min-w-full">
-              <thead>
-                <tr>
-                  <th className="table-th">Lớp</th>
-                  <th className="table-th text-right">Sinh viên</th>
-                  <th className="table-th text-right">Đã nộp</th>
-                  <th className="table-th text-right">Lượt nộp</th>
-                  <th className="table-th text-right">Accepted</th>
-                  <th className="table-th text-right">TB lượt nộp</th>
-                  <th className="table-th text-right">TB tốt nhất</th>
-                  <th className="table-th text-right">Cao nhất</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="px-6 py-10 text-center text-sm font-semibold text-slate-400">
-                      Bài tập chưa được gán vào lớp bạn phụ trách.
-                    </td>
-                  </tr>
-                ) : (
-                  stats.map((row) => (
-                    <tr key={row.sectionId} className="hover:bg-slate-50">
-                      <td className="table-td">
-                        <Link to={`/instructor/classes/${row.sectionId}`} className="font-bold text-sky-600 hover:underline">
-                          {formatSectionDisplayName(row.sectionName)}
-                        </Link>
-                        <span className="ml-2 text-xs text-slate-400">{formatSemesterDisplayName(row.semester)}</span>
-                      </td>
-                      <td className="table-td text-right">{row.studentCount}</td>
-                      <td className="table-td text-right">{row.submittedStudentCount}</td>
-                      <td className="table-td text-right">{row.submissionCount}</td>
-                      <td className="table-td text-right">{row.acceptedCount}</td>
-                      <td className="table-td text-right">{formatScore(row.averageScore)}</td>
-                      <td className="table-td text-right">{formatScore(row.averageBestScore)}</td>
-                      <td className="table-td text-right font-bold text-primary">{formatScore(row.maxScore)}</td>
+          {sectionId && sectionDetail ? (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3">
+                <h2 className="text-sm font-bold text-slate-700">
+                  Bảng Thống Kê Lớp: {formatSectionDisplayName(sectionDetail.section.name)}
+                </h2>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={statSearch}
+                    onChange={(e) => {
+                      setStatSearch(e.target.value)
+                      setStatCurrentPage(1)
+                    }}
+                    className="input text-xs py-1.5 px-3 max-w-xs"
+                    placeholder="Tìm kiếm MSSV, tên..."
+                  />
+                </div>
+              </div>
+
+              {loadingSectionDetail ? (
+                <div className="py-12 text-center text-sm font-semibold text-slate-400">
+                  Đang tải thông tin lớp học...
+                </div>
+              ) : (
+                <div className="overflow-x-auto p-5">
+                  <table className="min-w-full">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 text-xs font-bold uppercase select-none">
+                        <th className="px-4 py-3 text-center w-16 text-slate-500 font-black">#</th>
+                        <th
+                          onClick={() => toggleStatSort('studentId')}
+                          className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors text-slate-500 font-black"
+                        >
+                          MSSV {statSortField === 'studentId' ? (statSortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                        </th>
+                        <th
+                          onClick={() => toggleStatSort('fullName')}
+                          className="px-4 py-3 text-left cursor-pointer hover:bg-slate-100 transition-colors text-slate-500 font-black"
+                        >
+                          Sinh viên {statSortField === 'fullName' ? (statSortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                        </th>
+                        <th className="px-4 py-3 text-left text-slate-500 font-black">Lớp</th>
+                        <th
+                          onClick={() => toggleStatSort('bestScore')}
+                          className="px-4 py-3 text-right cursor-pointer hover:bg-slate-100 transition-colors text-slate-500 font-black w-36"
+                        >
+                          Điểm cao nhất {statSortField === 'bestScore' ? (statSortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
+                      {paginatedStatStudents.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-10 text-center text-sm font-semibold text-slate-400">
+                            Không tìm thấy sinh viên nào trong lớp.
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedStatStudents.map((student: any, index: number) => (
+                          <tr key={student.userId} className="hover:bg-slate-50/50 transition-colors border-b border-slate-100 last:border-b-0">
+                            <td className="px-4 py-2.5 text-center text-slate-400 font-bold">
+                              {index + 1 + (statCurrentPage - 1) * statPageSize}
+                            </td>
+                            <td className="px-4 py-2.5 font-semibold text-slate-800">
+                              {student.studentExternalId || student.username}
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <Link
+                                to={`/instructor/classes/${sectionId}/students/${student.userId}/profile`}
+                                className="font-bold text-primary hover:underline"
+                              >
+                                {student.fullName || student.username}
+                              </Link>
+                            </td>
+                            <td className="px-4 py-2.5 text-slate-500 font-medium">
+                              {formatSectionDisplayName(sectionDetail.section.name)}
+                            </td>
+                            <td className="px-4 py-2.5 text-right font-bold text-slate-900">
+                              {student.bestScore === null ? '—' : `${student.bestScore}%`}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+
+                  {sortedStatStudents.length > 0 && (
+                    <div className="flex justify-between items-center text-xs text-slate-500 p-4 border-t border-slate-100 bg-white flex-wrap gap-3">
+                      <div>
+                        Hiển thị {Math.min(sortedStatStudents.length, (statCurrentPage - 1) * statPageSize + 1)} đến{' '}
+                        {Math.min(sortedStatStudents.length, statCurrentPage * statPageSize)} trong tổng số{' '}
+                        {sortedStatStudents.length} sinh viên
+                      </div>
+                      <div className="flex items-center gap-4">
+                        {statTotalPages > 1 && (
+                          <div className="flex gap-1">
+                            <button
+                              disabled={statCurrentPage === 1}
+                              onClick={() => setStatCurrentPage(statCurrentPage - 1)}
+                              className="btn btn-secondary btn-sm select-none"
+                            >
+                              Trước
+                            </button>
+                            {[...Array(statTotalPages)].map((_, i) => (
+                              <button
+                                key={i}
+                                onClick={() => setStatCurrentPage(i + 1)}
+                                className={`btn btn-sm select-none ${
+                                  statCurrentPage === i + 1
+                                    ? 'btn-primary'
+                                    : 'btn-secondary'
+                                }`}
+                              >
+                                {i + 1}
+                              </button>
+                            ))}
+                            <button
+                              disabled={statCurrentPage === statTotalPages}
+                              onClick={() => setStatCurrentPage(statCurrentPage + 1)}
+                              className="btn btn-secondary btn-sm select-none"
+                            >
+                              Sau
+                            </button>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                          <span>Số dòng hiển thị:</span>
+                          <select
+                            value={statPageSize === 999999 ? 'all' : statPageSize}
+                            onChange={(e) => {
+                              const val = e.target.value
+                              setStatPageSize(val === 'all' ? 999999 : Number(val))
+                              setStatCurrentPage(1)
+                            }}
+                            className="h-8 rounded border border-slate-200 bg-white px-2 outline-none cursor-pointer text-slate-700 font-semibold"
+                          >
+                            <option value="5">5</option>
+                            <option value="10">10</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                            <option value="all">Tất cả</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <SectionHeader title="Bảng thống kê theo lớp giảng viên dạy" />
+              <div className="overflow-x-auto p-5">
+                <table className="min-w-full">
+                  <thead>
+                    <tr>
+                      <th className="table-th">Lớp</th>
+                      <th className="table-th text-right">Sinh viên</th>
+                      <th className="table-th text-right">Đã nộp</th>
+                      <th className="table-th text-right">Lượt nộp</th>
+                      <th className="table-th text-right">Accepted</th>
+                      <th className="table-th text-right">TB lượt nộp</th>
+                      <th className="table-th text-right">TB tốt nhất</th>
+                      <th className="table-th text-right">Cao nhất</th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody>
+                    {stats.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="px-6 py-10 text-center text-sm font-semibold text-slate-400">
+                          Bài tập chưa được gán vào lớp bạn phụ trách.
+                        </td>
+                      </tr>
+                    ) : (
+                      stats.map((row) => (
+                        <tr key={row.sectionId} className="hover:bg-slate-50">
+                          <td className="table-td">
+                            <Link to={`/instructor/classes/${row.sectionId}`} className="font-bold text-sky-600 hover:underline">
+                              {formatSectionDisplayName(row.sectionName)}
+                            </Link>
+                            <span className="ml-2 text-xs text-slate-400">{formatSemesterDisplayName(row.semester)}</span>
+                          </td>
+                          <td className="table-td text-right">{row.studentCount}</td>
+                          <td className="table-td text-right">{row.submittedStudentCount}</td>
+                          <td className="table-td text-right">{row.submissionCount}</td>
+                          <td className="table-td text-right">{row.acceptedCount}</td>
+                          <td className="table-td text-right">{formatScore(row.averageScore)}</td>
+                          <td className="table-td text-right">{formatScore(row.averageBestScore)}</td>
+                          <td className="table-td text-right font-bold text-primary">{formatScore(row.maxScore)}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

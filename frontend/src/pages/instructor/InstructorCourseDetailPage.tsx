@@ -389,7 +389,7 @@ function WeekPanel({
               >
                 <div className="flex items-center gap-2 text-xs">
                   <Link
-                    to={`/instructor/exercises/${ex.exerciseId}`}
+                    to={`/instructor/exercises/${ex.exerciseId}?section_id=${sectionId}`}
                     className="text-sm font-bold text-sky-700 hover:underline"
                   >
                     {ex.title}

@@ -294,7 +294,7 @@ export function InstructorStudentProfilePage() {
                             </td>
                             <td className="px-3 py-3 font-semibold text-slate-700">
                               <Link
-                                to={isStudentView ? `/student/exercises/${submission.exerciseId}` : `/instructor/exercises/${submission.exerciseId}`}
+                                to={isStudentView ? `/student/exercises/${submission.exerciseId}` : `/instructor/exercises/${submission.exerciseId}?section_id=${id}`}
                                 className="hover:text-primary hover:underline transition-colors"
                               >
                                 {submission.exerciseTitle}
