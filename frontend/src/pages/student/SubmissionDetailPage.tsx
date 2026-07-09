@@ -628,38 +628,6 @@ export function SubmissionDetailPage() {
                   </div>
                 ) : (
                   <div className="space-y-4 max-w-3xl mx-auto">
-                    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                      <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-3">Kết quả Checkstyle</h4>
-                      <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                          <p className="text-xs text-slate-500 font-bold uppercase">Trạng thái</p>
-                          <p className="mt-1 font-bold">
-                            {submission.styleStatus === 'passed' ? (
-                              <span className="text-emerald-600 font-bold">Đạt quy tắc</span>
-                            ) : submission.styleStatus === 'failed' ? (
-                              <span className="text-rose-600 font-bold">Vi phạm quy tắc</span>
-                            ) : (
-                              <span className="text-slate-500">N/A</span>
-                            )}
-                          </p>
-                        </div>
-                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                          <p className="text-xs text-slate-500 font-bold uppercase">Điểm quy tắc</p>
-                          <p className="mt-1 font-black text-slate-800 text-lg">
-                            {submission.styleScore.toFixed(1)}/100
-                          </p>
-                        </div>
-                      </div>
-                      {submission.styleFeedback && (
-                        <div className="mt-3">
-                          <p className="text-xs text-slate-500 font-bold uppercase mb-1">Nhận xét quy tắc</p>
-                          <p className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-700">
-                            {submission.styleFeedback}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
                     {submission.styleReport?.violations && submission.styleReport.violations.length > 0 ? (
                       <div className="space-y-3">
                         <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Danh sách vi phạm ({submission.styleReport.violations.length})</h4>

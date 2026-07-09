@@ -101,7 +101,7 @@ export function SubmissionHistoryPage() {
   const [sortField, setSortField] = useState<'submittedAt' | 'score' | 'exerciseTitle' | ''>('')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [currentPage, setCurrentPage] = useState(1)
-  const pageSize = 15
+  const [pageSize, setPageSize] = useState(15)
 
   // Fetch sections once on mount
   useEffect(() => {
@@ -352,61 +352,85 @@ export function SubmissionHistoryPage() {
               </table>
 
               {/* Pagination Controls */}
-              {totalPages > 1 && (
+              {totalSubmissions > 0 && (
                 <div className="flex flex-wrap items-center justify-between border-t border-slate-100 bg-slate-50 px-5 py-3 gap-2">
                   <span className="text-xs text-slate-500 font-medium">
                     Hiển thị dòng {(currentPage - 1) * pageSize + 1} -{' '}
                     {Math.min(currentPage * pageSize, totalSubmissions)} trong tổng số{' '}
                     {totalSubmissions}
                   </span>
-                  <div className="flex items-center gap-1">
-                    <button
-                      disabled={currentPage === 1}
-                      onClick={() => setCurrentPage(1)}
-                      className="btn btn-secondary btn-sm select-none"
-                    >
-                      Đầu
-                    </button>
-                    <button
-                      disabled={currentPage === 1}
-                      onClick={() => setCurrentPage((prev) => prev - 1)}
-                      className="btn btn-secondary btn-sm select-none"
-                    >
-                      Trước
-                    </button>
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      let pageNum = currentPage - 2 + i
-                      if (currentPage <= 2) pageNum = i + 1
-                      else if (currentPage >= totalPages - 1) pageNum = totalPages - 4 + i
-
-                      if (pageNum < 1 || pageNum > totalPages) return null
-
-                      return (
+                  
+                  <div className="flex items-center gap-4">
+                    {totalPages > 1 && (
+                      <div className="flex items-center gap-1">
                         <button
-                          key={pageNum}
-                          onClick={() => setCurrentPage(pageNum)}
-                          className={`btn btn-sm ${
-                            currentPage === pageNum ? 'btn-primary' : 'btn-secondary'
-                          }`}
+                          disabled={currentPage === 1}
+                          onClick={() => setCurrentPage(1)}
+                          className="btn btn-secondary btn-sm select-none"
                         >
-                          {pageNum}
+                          Đầu
                         </button>
-                      )
-                    })}
-                    <button
-                      disabled={currentPage === totalPages}
-                      onClick={() => setCurrentPage((prev) => prev + 1)}
-                      className="btn btn-secondary btn-sm select-none"
-                    >
-                      Sau
-                    </button>
-                    <button
-                      disabled={currentPage === totalPages}
-                      onClick={() => setCurrentPage(totalPages)}
-                      className="btn btn-secondary btn-sm select-none"
-                    >
-                      Cuối
-                    </button>
+                        <button
+                          disabled={currentPage === 1}
+                          onClick={() => setCurrentPage((prev) => prev - 1)}
+                          className="btn btn-secondary btn-sm select-none"
+                        >
+                          Trước
+                        </button>
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          let pageNum = currentPage - 2 + i
+                          if (currentPage <= 2) pageNum = i + 1
+                          else if (currentPage >= totalPages - 1) pageNum = totalPages - 4 + i
+
+                          if (pageNum < 1 || pageNum > totalPages) return null
+
+                          return (
+                            <button
+                              key={pageNum}
+                              onClick={() => setCurrentPage(pageNum)}
+                              className={`btn btn-sm ${
+                                currentPage === pageNum ? 'btn-primary' : 'btn-secondary'
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          )
+                        })}
+                        <button
+                          disabled={currentPage === totalPages}
+                          onClick={() => setCurrentPage((prev) => prev + 1)}
+                          className="btn btn-secondary btn-sm select-none"
+                        >
+                          Sau
+                        </button>
+                        <button
+                          disabled={currentPage === totalPages}
+                          onClick={() => setCurrentPage(totalPages)}
+                          className="btn btn-secondary btn-sm select-none"
+                        >
+                          Cuối
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                      <span>Số dòng hiển thị:</span>
+                      <select
+                        value={pageSize === Number.MAX_SAFE_INTEGER ? 'all' : pageSize}
+                        onChange={(e) => {
+                          const val = e.target.value
+                          setPageSize(val === 'all' ? Number.MAX_SAFE_INTEGER : Number(val))
+                          setCurrentPage(1)
+                        }}
+                        className="h-8 rounded border border-slate-200 bg-white px-2 outline-none cursor-pointer text-slate-700 font-semibold"
+                      >
+                        <option value="5">5</option>
+                        <option value="15">15</option>
+                        <option value="30">30</option>
+                        <option value="50">50</option>
+                        <option value="all">Tất cả</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
               )}

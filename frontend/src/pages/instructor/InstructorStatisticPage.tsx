@@ -131,7 +131,7 @@ export function InstructorStatisticPage() {
   const [sortField, setSortField] = useState<'studentId' | 'fullName' | 'completionPercent' | 'totalScore' | 'attemptCount' | ''>('')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [currentPage, setCurrentPage] = useState(1)
-  const PAGE_SIZE = 10
+  const [pageSize, setPageSize] = useState(10)
 
   const filteredStudents = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -157,11 +157,11 @@ export function InstructorStatisticPage() {
   }, [filteredStudents, sortField, sortOrder])
 
   const paginatedStudents = useMemo(() => {
-    const startIndex = (currentPage - 1) * PAGE_SIZE
-    return sortedStudents.slice(startIndex, startIndex + PAGE_SIZE)
-  }, [sortedStudents, currentPage])
+    const startIndex = (currentPage - 1) * pageSize
+    return sortedStudents.slice(startIndex, startIndex + pageSize)
+  }, [sortedStudents, currentPage, pageSize])
 
-  const totalPages = Math.ceil(sortedStudents.length / PAGE_SIZE)
+  const totalPages = Math.ceil(sortedStudents.length / pageSize)
 
   const toggleSort = (field: 'studentId' | 'fullName' | 'completionPercent' | 'totalScore' | 'attemptCount') => {
     setCurrentPage(1)
@@ -296,7 +296,7 @@ export function InstructorStatisticPage() {
                           {paginatedStudents.map((student, index) => (
                             <tr key={student.userId} className="transition hover:bg-slate-50">
                               <td className="px-4 py-3 font-semibold text-slate-500 text-center">
-                                {index + 1 + (currentPage - 1) * PAGE_SIZE}
+                                {index + 1 + (currentPage - 1) * pageSize}
                               </td>
                               <td className="px-4 py-3 font-bold text-slate-700">{student.studentId}</td>
                               <td className="px-4 py-3">
@@ -322,41 +322,65 @@ export function InstructorStatisticPage() {
                         </tbody>
                       </table>
 
-                      {totalPages > 1 && (
-                        <div className="flex justify-between items-center text-xs text-slate-500 p-4 border-t border-slate-100 bg-white">
+                      {sortedStudents.length > 0 && (
+                        <div className="flex justify-between items-center text-xs text-slate-500 p-4 border-t border-slate-100 bg-white flex-wrap gap-3">
                           <div>
-                            Hiển thị {Math.min(sortedStudents.length, (currentPage - 1) * PAGE_SIZE + 1)} đến{' '}
-                            {Math.min(sortedStudents.length, currentPage * PAGE_SIZE)} trong tổng số{' '}
+                            Hiển thị {Math.min(sortedStudents.length, (currentPage - 1) * pageSize + 1)} đến{' '}
+                            {Math.min(sortedStudents.length, currentPage * pageSize)} trong tổng số{' '}
                             {sortedStudents.length} sinh viên
                           </div>
-                          <div className="flex gap-1">
-                            <button
-                              disabled={currentPage === 1}
-                              onClick={() => setCurrentPage(currentPage - 1)}
-                              className="btn btn-secondary btn-sm select-none"
-                            >
-                              Trước
-                            </button>
-                            {[...Array(totalPages)].map((_, i) => (
-                              <button
-                                key={i}
-                                onClick={() => setCurrentPage(i + 1)}
-                                className={`btn btn-sm select-none ${
-                                  currentPage === i + 1
-                                    ? 'btn-primary'
-                                    : 'btn-secondary'
-                                }`}
+                          
+                          <div className="flex items-center gap-4">
+                            {totalPages > 1 && (
+                              <div className="flex gap-1">
+                                <button
+                                  disabled={currentPage === 1}
+                                  onClick={() => setCurrentPage(currentPage - 1)}
+                                  className="btn btn-secondary btn-sm select-none"
+                                >
+                                  Trước
+                                </button>
+                                {[...Array(totalPages)].map((_, i) => (
+                                  <button
+                                    key={i}
+                                    onClick={() => setCurrentPage(i + 1)}
+                                    className={`btn btn-sm select-none ${
+                                      currentPage === i + 1
+                                        ? 'btn-primary'
+                                        : 'btn-secondary'
+                                    }`}
+                                  >
+                                    {i + 1}
+                                  </button>
+                                ))}
+                                <button
+                                  disabled={currentPage === totalPages}
+                                  onClick={() => setCurrentPage(currentPage + 1)}
+                                  className="btn btn-secondary btn-sm select-none"
+                                >
+                                  Sau
+                                </button>
+                              </div>
+                            )}
+
+                            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                              <span>Số dòng hiển thị:</span>
+                              <select
+                                value={pageSize === 999999 ? 'all' : pageSize}
+                                onChange={(e) => {
+                                  const val = e.target.value
+                                  setPageSize(val === 'all' ? 999999 : Number(val))
+                                  setCurrentPage(1)
+                                }}
+                                className="h-8 rounded border border-slate-200 bg-white px-2 outline-none cursor-pointer text-slate-700 font-semibold"
                               >
-                                {i + 1}
-                              </button>
-                            ))}
-                            <button
-                              disabled={currentPage === totalPages}
-                              onClick={() => setCurrentPage(currentPage + 1)}
-                              className="btn btn-secondary btn-sm select-none"
-                            >
-                              Sau
-                            </button>
+                                <option value="5">5</option>
+                                <option value="10">10</option>
+                                <option value="20">20</option>
+                                <option value="50">50</option>
+                                <option value="all">Tất cả</option>
+                              </select>
+                            </div>
                           </div>
                         </div>
                       )}

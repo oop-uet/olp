@@ -361,7 +361,10 @@ export function InstructorExerciseDetailPage() {
                     return (
                       <tr key={submission.id} className="hover:bg-slate-50">
                         <td className="table-td">
-                          <Link to={`/instructor/submissions?exercise_id=${exercise.id}`} className="font-bold text-sky-600 hover:underline">
+                          <Link
+                            to={`/instructor/submissions?exercise_id=${exercise.id}&submission_id=${submission.id}&section_id=${submission.sectionId}`}
+                            className="font-bold text-sky-600 hover:underline"
+                          >
                             {submission.id.slice(0, 8)}
                           </Link>
                         </td>

@@ -512,6 +512,7 @@ export function InstructorSectionDetailPage() {
                 <option value={20}>20</option>
                 <option value={30}>30</option>
                 <option value={50}>50</option>
+                <option value={999999}>Tất cả</option>
               </select>
               <span>dòng</span>
             </div>

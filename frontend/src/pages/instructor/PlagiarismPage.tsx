@@ -70,7 +70,7 @@ export function PlagiarismPage() {
   const [sortField, setSortField] = useState<'similarity' | ''>('')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [currentPage, setCurrentPage] = useState(1)
-  const PAGE_SIZE = 10
+  const [pageSize, setPageSize] = useState(10)
 
   const filteredPairs = useMemo(() => {
     const raw = report?.pairs ?? []
@@ -97,11 +97,11 @@ export function PlagiarismPage() {
   }, [filteredPairs, sortField, sortOrder])
 
   const paginatedPairs = useMemo(() => {
-    const startIndex = (currentPage - 1) * PAGE_SIZE
-    return sortedPairs.slice(startIndex, startIndex + PAGE_SIZE)
-  }, [sortedPairs, currentPage])
+    const startIndex = (currentPage - 1) * pageSize
+    return sortedPairs.slice(startIndex, startIndex + pageSize)
+  }, [sortedPairs, currentPage, pageSize])
 
-  const totalPages = Math.ceil(sortedPairs.length / PAGE_SIZE)
+  const totalPages = Math.ceil(sortedPairs.length / pageSize)
 
   const toggleSort = (field: 'similarity') => {
     setCurrentPage(1)
@@ -430,7 +430,7 @@ export function PlagiarismPage() {
                             className="hover:bg-slate-50/50 transition-colors"
                           >
                             <td className="px-5 py-3 text-slate-400 font-bold text-center">
-                              {index + 1 + (currentPage - 1) * PAGE_SIZE}
+                              {index + 1 + (currentPage - 1) * pageSize}
                             </td>
                             <td className="px-5 py-3 font-semibold text-slate-800">
                               {pair.studentAName} ({pair.studentAId})
@@ -456,41 +456,65 @@ export function PlagiarismPage() {
                       </tbody>
                     </table>
 
-                    {totalPages > 1 && (
-                      <div className="flex justify-between items-center text-xs text-slate-500 p-4 border-t border-slate-100 bg-white animate-fade-in">
+                    {sortedPairs.length > 0 && (
+                      <div className="flex justify-between items-center text-xs text-slate-500 p-4 border-t border-slate-100 bg-white flex-wrap gap-3 animate-fade-in">
                         <div>
-                          Hiển thị {Math.min(sortedPairs.length, (currentPage - 1) * PAGE_SIZE + 1)} đến{' '}
-                          {Math.min(sortedPairs.length, currentPage * PAGE_SIZE)} trong tổng số{' '}
+                          Hiển thị {Math.min(sortedPairs.length, (currentPage - 1) * pageSize + 1)} đến{' '}
+                          {Math.min(sortedPairs.length, currentPage * pageSize)} trong tổng số{' '}
                           {sortedPairs.length} cặp trùng lặp
                         </div>
-                        <div className="flex gap-1">
-                          <button
-                            disabled={currentPage === 1}
-                            onClick={() => setCurrentPage(currentPage - 1)}
-                            className="btn btn-secondary btn-sm select-none"
-                          >
-                            Trước
-                          </button>
-                          {[...Array(totalPages)].map((_, i) => (
-                            <button
-                              key={i}
-                              onClick={() => setCurrentPage(i + 1)}
-                              className={`btn btn-sm select-none ${
-                                currentPage === i + 1
-                                  ? 'btn-primary'
-                                  : 'btn-secondary'
-                              }`}
+                        
+                        <div className="flex items-center gap-4">
+                          {totalPages > 1 && (
+                            <div className="flex gap-1">
+                              <button
+                                disabled={currentPage === 1}
+                                onClick={() => setCurrentPage(currentPage - 1)}
+                                className="btn btn-secondary btn-sm select-none"
+                              >
+                                Trước
+                              </button>
+                              {[...Array(totalPages)].map((_, i) => (
+                                <button
+                                  key={i}
+                                  onClick={() => setCurrentPage(i + 1)}
+                                  className={`btn btn-sm select-none ${
+                                    currentPage === i + 1
+                                      ? 'btn-primary'
+                                      : 'btn-secondary'
+                                  }`}
+                                >
+                                  {i + 1}
+                                </button>
+                              ))}
+                              <button
+                                  disabled={currentPage === totalPages}
+                                  onClick={() => setCurrentPage(currentPage + 1)}
+                                  className="btn btn-secondary btn-sm select-none"
+                              >
+                                Sau
+                              </button>
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                            <span>Số dòng hiển thị:</span>
+                            <select
+                              value={pageSize === 999999 ? 'all' : pageSize}
+                              onChange={(e) => {
+                                const val = e.target.value
+                                setPageSize(val === 'all' ? 999999 : Number(val))
+                                setCurrentPage(1)
+                              }}
+                              className="h-8 rounded border border-slate-200 bg-white px-2 outline-none cursor-pointer text-slate-700 font-semibold"
                             >
-                              {i + 1}
-                            </button>
-                          ))}
-                          <button
-                            disabled={currentPage === totalPages}
-                            onClick={() => setCurrentPage(currentPage + 1)}
-                            className="btn btn-secondary btn-sm select-none"
-                          >
-                            Sau
-                          </button>
+                              <option value="5">5</option>
+                              <option value="10">10</option>
+                              <option value="20">20</option>
+                              <option value="50">50</option>
+                              <option value="all">Tất cả</option>
+                            </select>
+                          </div>
                         </div>
                       </div>
                     )}

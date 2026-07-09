@@ -46,6 +46,7 @@ interface TestCaseResult {
 interface SubmissionDetail {
   id: string
   exerciseId: string
+  sectionId?: string
   code: string
   functionalScore: number | null
   score: number | null
@@ -169,8 +170,6 @@ function parseStyleReport(report?: string | null): ParsedStyleReport | null {
 
 // --- Helpers ---
 
-const PAGE_SIZE = 10
-
 function formatTimestamp(ts: string): string {
   const date = new Date(ts)
   if (Number.isNaN(date.getTime())) return ts
@@ -275,6 +274,7 @@ export function SubmissionReviewPage() {
   const [activeSubmittedFile, setActiveSubmittedFile] = useState('Main.java')
   const [activeTab, setActiveTab] = useState<'source' | 'results' | 'anti-cheat' | 'style'>('source')
   const [focusStyleLine, setFocusStyleLine] = useState<number | null>(null)
+  const [pageSize, setPageSize] = useState(10)
 
 
   const [sortField, setSortField] = useState<'submittedAt' | 'score' | 'exerciseTitle' | ''>('')
@@ -310,10 +310,10 @@ export function SubmissionReviewPage() {
     })
   }, [submissions, sortField, sortOrder, exerciseTitleById])
 
-  const totalPages = Math.max(1, Math.ceil(sortedSubmissions.length / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(sortedSubmissions.length / pageSize))
   const pageItems = useMemo(
-    () => sortedSubmissions.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE),
-    [currentPage, sortedSubmissions]
+    () => sortedSubmissions.slice(currentPage * pageSize, currentPage * pageSize + pageSize),
+    [currentPage, sortedSubmissions, pageSize]
   )
 
   const toggleSort = (field: 'submittedAt' | 'score' | 'exerciseTitle') => {
@@ -419,6 +419,9 @@ export function SubmissionReviewPage() {
 
   function applyDetail(detail: SubmissionDetail) {
     setSelectedSubmission(detail)
+    if (detail.sectionId) {
+      setSelectedSectionId(detail.sectionId)
+    }
     
     const files = parseSubmittedFiles(detail.code)
     setActiveSubmittedFile(files[0]?.name ?? 'Main.java')
@@ -820,38 +823,6 @@ export function SubmissionReviewPage() {
                   </div>
                 ) : (
                   <div className="space-y-4 max-w-3xl mx-auto">
-                    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                      <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-3">Kết quả Checkstyle</h4>
-                      <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                          <p className="text-xs text-slate-500 font-bold uppercase">Trạng thái</p>
-                          <p className="mt-1 font-bold">
-                            {selectedSubmission.styleStatus === 'passed' ? (
-                              <span className="text-emerald-600 font-bold">Đạt quy tắc</span>
-                            ) : selectedSubmission.styleStatus === 'failed' ? (
-                              <span className="text-rose-600 font-bold">Vi phạm quy tắc</span>
-                            ) : (
-                              <span className="text-slate-500">N/A</span>
-                            )}
-                          </p>
-                        </div>
-                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                          <p className="text-xs text-slate-500 font-bold uppercase">Điểm quy tắc</p>
-                          <p className="mt-1 font-black text-slate-800 text-lg">
-                            {selectedSubmission.styleScore.toFixed(1)}/100
-                          </p>
-                        </div>
-                      </div>
-                      {selectedSubmission.styleFeedback && (
-                        <div className="mt-3">
-                          <p className="text-xs text-slate-500 font-bold uppercase mb-1">Nhận xét quy tắc</p>
-                          <p className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-700">
-                            {selectedSubmission.styleFeedback}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
                     {styleViolations.length > 0 ? (
                       <div className="space-y-3">
                         <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Danh sách vi phạm ({styleViolations.length})</h4>
@@ -936,45 +907,66 @@ export function SubmissionReviewPage() {
           </div>
 
           <div className="border-b border-slate-200 px-6 py-6">
-            <div className="flex flex-wrap items-center gap-0">
-              <button
-                type="button"
-                onClick={() => goToPage(0)}
-                disabled={currentPage === 0}
-                className={`h-11 min-w-12 border border-slate-300 px-4 text-sm font-bold transition ${
-                  currentPage === 0 ? 'bg-sky-500 text-white' : 'bg-white text-sky-500 hover:bg-sky-50'
-                }`}
-              >
-                0
-              </button>
-              {Array.from({ length: Math.min(totalPages - 1, 4) }, (_, index) => index + 1).map((page) => (
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-0">
                 <button
-                  key={page}
                   type="button"
-                  onClick={() => goToPage(page)}
-                  className={`h-11 min-w-12 border border-l-0 border-slate-300 px-4 text-sm font-bold transition ${
-                    currentPage === page ? 'bg-sky-500 text-white' : 'bg-white text-sky-500 hover:bg-sky-50'
+                  onClick={() => goToPage(0)}
+                  disabled={currentPage === 0}
+                  className={`h-11 min-w-12 border border-slate-300 px-4 text-sm font-bold transition ${
+                    currentPage === 0 ? 'bg-sky-500 text-white' : 'bg-white text-sky-500 hover:bg-sky-50'
                   }`}
                 >
-                  {page}
+                  0
                 </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => goToPage(currentPage + 1)}
-                disabled={currentPage >= totalPages - 1}
-                className="h-11 border border-l-0 border-slate-300 bg-white px-5 text-sm font-bold text-sky-500 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:text-slate-300"
-              >
-                Next ›
-              </button>
-              <button
-                type="button"
-                onClick={() => goToPage(totalPages - 1)}
-                disabled={currentPage >= totalPages - 1}
-                className="h-11 border border-l-0 border-slate-300 bg-white px-5 text-sm font-bold text-sky-500 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:text-slate-300"
-              >
-                Last ››
-              </button>
+                {Array.from({ length: Math.min(totalPages - 1, 4) }, (_, index) => index + 1).map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => goToPage(page)}
+                    className={`h-11 min-w-12 border border-l-0 border-slate-300 px-4 text-sm font-bold transition ${
+                      currentPage === page ? 'bg-sky-500 text-white' : 'bg-white text-sky-500 hover:bg-sky-50'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => goToPage(currentPage + 1)}
+                  disabled={currentPage >= totalPages - 1}
+                  className="h-11 border border-l-0 border-slate-300 bg-white px-5 text-sm font-bold text-sky-500 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:text-slate-300"
+                >
+                  Next ›
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goToPage(totalPages - 1)}
+                  disabled={currentPage >= totalPages - 1}
+                  className="h-11 border border-l-0 border-slate-300 bg-white px-5 text-sm font-bold text-sky-500 transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:text-slate-300"
+                >
+                  Last ››
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                <span>Số dòng hiển thị:</span>
+                <select
+                  value={pageSize === Number.MAX_SAFE_INTEGER ? 'all' : pageSize}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    setPageSize(val === 'all' ? Number.MAX_SAFE_INTEGER : Number(val))
+                    setCurrentPage(0)
+                  }}
+                  className="h-9 rounded-md border border-slate-200 bg-white px-2.5 outline-none cursor-pointer text-slate-700 font-bold shadow-sm"
+                >
+                  <option value="5">5</option>
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                  <option value="all">Tất cả</option>
+                </select>
+              </div>
             </div>
 
             <div className="mt-4 block md:hidden">
@@ -1044,7 +1036,7 @@ export function SubmissionReviewPage() {
                     return (
                       <tr key={sub.id} className="text-base text-slate-700 hover:bg-slate-50">
                         <td className="border-b border-slate-200 px-4 py-4 text-center text-slate-400 font-bold">
-                          {index + 1 + currentPage * PAGE_SIZE}
+                          {index + 1 + currentPage * pageSize}
                         </td>
                         <td className="border-b border-slate-200 px-4 py-4">
                           <button

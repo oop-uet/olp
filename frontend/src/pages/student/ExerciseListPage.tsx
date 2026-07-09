@@ -54,7 +54,7 @@ export function ExerciseListPage() {
   const [sortField, setSortField] = useState<'title' | 'difficulty' | 'deadline' | 'bestScore' | ''>('')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [currentPage, setCurrentPage] = useState(1)
-  const PAGE_SIZE = 10
+  const [pageSize, setPageSize] = useState(10)
 
   const filteredEx = useMemo(() => {
     if (!search.trim()) return exercises
@@ -80,11 +80,11 @@ export function ExerciseListPage() {
   }, [filteredEx, sortField, sortOrder])
 
   const paginatedEx = useMemo(() => {
-    const startIndex = (currentPage - 1) * PAGE_SIZE
-    return sortedEx.slice(startIndex, startIndex + PAGE_SIZE)
-  }, [sortedEx, currentPage])
+    const startIndex = (currentPage - 1) * pageSize
+    return sortedEx.slice(startIndex, startIndex + pageSize)
+  }, [sortedEx, currentPage, pageSize])
 
-  const totalPages = Math.ceil(sortedEx.length / PAGE_SIZE)
+  const totalPages = Math.ceil(sortedEx.length / pageSize)
 
   const toggleSort = (field: 'title' | 'difficulty' | 'deadline' | 'bestScore') => {
     setCurrentPage(1)
@@ -221,7 +221,7 @@ export function ExerciseListPage() {
                   {paginatedEx.map((exercise: Exercise, index: number) => (
                     <tr key={`${exercise.id}-${exercise.sectionId}`} className="hover:bg-gray-50">
                       <td className="table-td text-center text-slate-500 font-bold">
-                        {index + 1 + (currentPage - 1) * PAGE_SIZE}
+                        {index + 1 + (currentPage - 1) * pageSize}
                       </td>
                       <td className="table-td">
                         <Link
@@ -263,41 +263,65 @@ export function ExerciseListPage() {
                 </tbody>
               </table>
 
-              {totalPages > 1 && (
-                <div className="flex justify-between items-center text-xs text-slate-500 p-4 border-t border-slate-100 bg-white">
+              {sortedEx.length > 0 && (
+                <div className="flex justify-between items-center text-xs text-slate-500 p-4 border-t border-slate-100 bg-white flex-wrap gap-3">
                   <div>
-                    Hiển thị {Math.min(sortedEx.length, (currentPage - 1) * PAGE_SIZE + 1)} đến{' '}
-                    {Math.min(sortedEx.length, currentPage * PAGE_SIZE)} trong tổng số{' '}
+                    Hiển thị {Math.min(sortedEx.length, (currentPage - 1) * pageSize + 1)} đến{' '}
+                    {Math.min(sortedEx.length, currentPage * pageSize)} trong tổng số{' '}
                     {sortedEx.length} bài tập
                   </div>
-                  <div className="flex gap-1">
-                    <button
-                      disabled={currentPage === 1}
-                      onClick={() => setCurrentPage(currentPage - 1)}
-                      className="btn btn-secondary btn-sm select-none"
-                    >
-                      Trước
-                    </button>
-                    {[...Array(totalPages)].map((_, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setCurrentPage(i + 1)}
-                        className={`btn btn-sm select-none ${
-                          currentPage === i + 1
-                            ? 'btn-primary'
-                            : 'btn-secondary'
-                        }`}
+                  
+                  <div className="flex items-center gap-4">
+                    {totalPages > 1 && (
+                      <div className="flex gap-1">
+                        <button
+                          disabled={currentPage === 1}
+                          onClick={() => setCurrentPage(currentPage - 1)}
+                          className="btn btn-secondary btn-sm select-none"
+                        >
+                          Trước
+                        </button>
+                        {[...Array(totalPages)].map((_, i) => (
+                          <button
+                            key={i}
+                            onClick={() => setCurrentPage(i + 1)}
+                            className={`btn btn-sm select-none ${
+                              currentPage === i + 1
+                                ? 'btn-primary'
+                                : 'btn-secondary'
+                            }`}
+                          >
+                            {i + 1}
+                          </button>
+                        ))}
+                        <button
+                          disabled={currentPage === totalPages}
+                          onClick={() => setCurrentPage(currentPage + 1)}
+                          className="btn btn-secondary btn-sm select-none"
+                        >
+                          Sau
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                      <span>Số dòng hiển thị:</span>
+                      <select
+                        value={pageSize === 999999 ? 'all' : pageSize}
+                        onChange={(e) => {
+                          const val = e.target.value
+                          setPageSize(val === 'all' ? 999999 : Number(val))
+                          setCurrentPage(1)
+                        }}
+                        className="h-8 rounded border border-slate-200 bg-white px-2 outline-none cursor-pointer text-slate-700 font-semibold"
                       >
-                        {i + 1}
-                      </button>
-                    ))}
-                    <button
-                      disabled={currentPage === totalPages}
-                      onClick={() => setCurrentPage(currentPage + 1)}
-                      className="btn btn-secondary btn-sm select-none"
-                    >
-                      Sau
-                    </button>
+                        <option value="5">5</option>
+                        <option value="10">10</option>
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                        <option value="all">Tất cả</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
               )}

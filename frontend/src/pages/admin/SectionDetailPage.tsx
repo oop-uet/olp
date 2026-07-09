@@ -100,7 +100,7 @@ export function SectionDetailPage() {
   const [studentSortField, setStudentSortField] = useState<'studentId' | 'fullName' | 'email' | ''>('')
   const [studentSortOrder, setStudentSortOrder] = useState<'asc' | 'desc'>('asc')
   const [studentCurrentPage, setStudentCurrentPage] = useState(1)
-  const STUDENT_PAGE_SIZE = 10
+  const [studentPageSize, setStudentPageSize] = useState(10)
 
   const filteredStudents = useMemo(() => {
     const raw = detail?.students ?? []
@@ -127,11 +127,11 @@ export function SectionDetailPage() {
   }, [filteredStudents, studentSortField, studentSortOrder])
 
   const paginatedStudents = useMemo(() => {
-    const startIndex = (studentCurrentPage - 1) * STUDENT_PAGE_SIZE
-    return sortedStudents.slice(startIndex, startIndex + STUDENT_PAGE_SIZE)
-  }, [sortedStudents, studentCurrentPage])
+    const startIndex = (studentCurrentPage - 1) * studentPageSize
+    return sortedStudents.slice(startIndex, startIndex + studentPageSize)
+  }, [sortedStudents, studentCurrentPage, studentPageSize])
 
-  const studentTotalPages = Math.ceil(sortedStudents.length / STUDENT_PAGE_SIZE)
+  const studentTotalPages = Math.ceil(sortedStudents.length / studentPageSize)
 
   const toggleStudentSort = (field: 'studentId' | 'fullName' | 'email') => {
     setStudentCurrentPage(1)
@@ -148,7 +148,7 @@ export function SectionDetailPage() {
   const [exSortField, setExSortField] = useState<'title' | 'difficulty' | 'deadline' | ''>('')
   const [exSortOrder, setExSortOrder] = useState<'asc' | 'desc'>('asc')
   const [exCurrentPage, setExCurrentPage] = useState(1)
-  const EX_PAGE_SIZE = 10
+  const [exPageSize, setExPageSize] = useState(10)
 
   const filteredEx = useMemo(() => {
     const raw = detail?.exercises ?? []
@@ -171,11 +171,11 @@ export function SectionDetailPage() {
   }, [filteredEx, exSortField, exSortOrder])
 
   const paginatedEx = useMemo(() => {
-    const startIndex = (exCurrentPage - 1) * EX_PAGE_SIZE
-    return sortedEx.slice(startIndex, startIndex + EX_PAGE_SIZE)
-  }, [sortedEx, exCurrentPage])
+    const startIndex = (exCurrentPage - 1) * exPageSize
+    return sortedEx.slice(startIndex, startIndex + exPageSize)
+  }, [sortedEx, exCurrentPage, exPageSize])
 
-  const exTotalPages = Math.ceil(sortedEx.length / EX_PAGE_SIZE)
+  const exTotalPages = Math.ceil(sortedEx.length / exPageSize)
 
   const toggleExSort = (field: 'title' | 'difficulty' | 'deadline') => {
     setExCurrentPage(1)
@@ -424,7 +424,7 @@ export function SectionDetailPage() {
                 {paginatedStudents.map((student: SectionStudent, index: number) => (
                   <tr key={student.enrollmentId} className="hover:bg-slate-50/50 transition-colors border-b border-slate-100 last:border-b-0">
                     <td className="px-4 py-2.5 text-center text-slate-400 font-bold">
-                      {index + 1 + (studentCurrentPage - 1) * STUDENT_PAGE_SIZE}
+                      {index + 1 + (studentCurrentPage - 1) * studentPageSize}
                     </td>
                     <td className="px-4 py-2.5 font-semibold text-slate-800">
                       {student.studentId || student.username}
@@ -447,41 +447,64 @@ export function SectionDetailPage() {
           </div>
         )}
 
-        {studentTotalPages > 1 && (
-          <div className="flex justify-between items-center text-xs text-slate-500 p-4 border-t border-slate-100 bg-white">
+        {sortedStudents.length > 0 && (
+          <div className="flex justify-between items-center text-xs text-slate-500 p-4 border-t border-slate-100 bg-white flex-wrap gap-3">
             <div>
-              Hiển thị {Math.min(sortedStudents.length, (studentCurrentPage - 1) * STUDENT_PAGE_SIZE + 1)} đến{' '}
-              {Math.min(sortedStudents.length, studentCurrentPage * STUDENT_PAGE_SIZE)} trong tổng số{' '}
+              Hiển thị {Math.min(sortedStudents.length, (studentCurrentPage - 1) * studentPageSize + 1)} đến{' '}
+              {Math.min(sortedStudents.length, studentCurrentPage * studentPageSize)} trong tổng số{' '}
               {sortedStudents.length} sinh viên
             </div>
-            <div className="flex gap-1">
-              <button
-                disabled={studentCurrentPage === 1}
-                onClick={() => setStudentCurrentPage(studentCurrentPage - 1)}
-                className="btn btn-secondary btn-sm select-none"
-              >
-                Trước
-              </button>
-              {[...Array(studentTotalPages)].map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setStudentCurrentPage(i + 1)}
-                  className={`btn btn-sm select-none ${
-                    studentCurrentPage === i + 1
-                      ? 'btn-primary'
-                      : 'btn-secondary'
-                  }`}
+            <div className="flex items-center gap-4">
+              {studentTotalPages > 1 && (
+                <div className="flex gap-1">
+                  <button
+                    disabled={studentCurrentPage === 1}
+                    onClick={() => setStudentCurrentPage(studentCurrentPage - 1)}
+                    className="btn btn-secondary btn-sm select-none"
+                  >
+                    Trước
+                  </button>
+                  {[...Array(studentTotalPages)].map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setStudentCurrentPage(i + 1)}
+                      className={`btn btn-sm select-none ${
+                        studentCurrentPage === i + 1
+                          ? 'btn-primary'
+                          : 'btn-secondary'
+                      }`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                  <button
+                    disabled={studentCurrentPage === studentTotalPages}
+                    onClick={() => setStudentCurrentPage(studentCurrentPage + 1)}
+                    className="btn btn-secondary btn-sm select-none"
+                  >
+                    Sau
+                  </button>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                <span>Số dòng hiển thị:</span>
+                <select
+                  value={studentPageSize === 999999 ? 'all' : studentPageSize}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    setStudentPageSize(val === 'all' ? 999999 : Number(val))
+                    setStudentCurrentPage(1)
+                  }}
+                  className="h-8 rounded border border-slate-200 bg-white px-2 outline-none cursor-pointer text-slate-700 font-semibold"
                 >
-                  {i + 1}
-                </button>
-              ))}
-              <button
-                disabled={studentCurrentPage === studentTotalPages}
-                onClick={() => setStudentCurrentPage(studentCurrentPage + 1)}
-                className="btn btn-secondary btn-sm select-none"
-              >
-                Sau
-              </button>
+                  <option value="5">5</option>
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                  <option value="all">Tất cả</option>
+                </select>
+              </div>
             </div>
           </div>
         )}
@@ -623,7 +646,7 @@ export function SectionDetailPage() {
                 {paginatedEx.map((exercise: SectionExercise, index: number) => (
                   <tr key={exercise.assignmentId} className="hover:bg-slate-50/50 transition-colors border-b border-slate-100 last:border-b-0">
                     <td className="px-4 py-2.5 text-center text-slate-400 font-bold">
-                      {index + 1 + (exCurrentPage - 1) * EX_PAGE_SIZE}
+                      {index + 1 + (exCurrentPage - 1) * exPageSize}
                     </td>
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-2">
@@ -655,41 +678,64 @@ export function SectionDetailPage() {
           </div>
         )}
 
-        {exTotalPages > 1 && (
-          <div className="flex justify-between items-center text-xs text-slate-500 p-4 border-t border-slate-100 bg-white">
+        {sortedEx.length > 0 && (
+          <div className="flex justify-between items-center text-xs text-slate-500 p-4 border-t border-slate-100 bg-white flex-wrap gap-3">
             <div>
-              Hiển thị {Math.min(sortedEx.length, (exCurrentPage - 1) * EX_PAGE_SIZE + 1)} đến{' '}
-              {Math.min(sortedEx.length, exCurrentPage * EX_PAGE_SIZE)} trong tổng số{' '}
+              Hiển thị {Math.min(sortedEx.length, (exCurrentPage - 1) * exPageSize + 1)} đến{' '}
+              {Math.min(sortedEx.length, exCurrentPage * exPageSize)} trong tổng số{' '}
               {sortedEx.length} bài tập
             </div>
-            <div className="flex gap-1">
-              <button
-                disabled={exCurrentPage === 1}
-                onClick={() => setExCurrentPage(exCurrentPage - 1)}
-                className="btn btn-secondary btn-sm select-none"
-              >
-                Trước
-              </button>
-              {[...Array(exTotalPages)].map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setExCurrentPage(i + 1)}
-                  className={`btn btn-sm select-none ${
-                    exCurrentPage === i + 1
-                      ? 'btn-primary'
-                      : 'btn-secondary'
-                  }`}
+            <div className="flex items-center gap-4">
+              {exTotalPages > 1 && (
+                <div className="flex gap-1">
+                  <button
+                    disabled={exCurrentPage === 1}
+                    onClick={() => setExCurrentPage(exCurrentPage - 1)}
+                    className="btn btn-secondary btn-sm select-none"
+                  >
+                    Trước
+                  </button>
+                  {[...Array(exTotalPages)].map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setExCurrentPage(i + 1)}
+                      className={`btn btn-sm select-none ${
+                        exCurrentPage === i + 1
+                          ? 'btn-primary'
+                          : 'btn-secondary'
+                      }`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                  <button
+                    disabled={exCurrentPage === exTotalPages}
+                    onClick={() => setExCurrentPage(exCurrentPage + 1)}
+                    className="btn btn-secondary btn-sm select-none"
+                  >
+                    Sau
+                  </button>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                <span>Số dòng hiển thị:</span>
+                <select
+                  value={exPageSize === 999999 ? 'all' : exPageSize}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    setExPageSize(val === 'all' ? 999999 : Number(val))
+                    setExCurrentPage(1)
+                  }}
+                  className="h-8 rounded border border-slate-200 bg-white px-2 outline-none cursor-pointer text-slate-700 font-semibold"
                 >
-                  {i + 1}
-                </button>
-              ))}
-              <button
-                disabled={exCurrentPage === exTotalPages}
-                onClick={() => setExCurrentPage(exCurrentPage + 1)}
-                className="btn btn-secondary btn-sm select-none"
-              >
-                Sau
-              </button>
+                  <option value="5">5</option>
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                  <option value="all">Tất cả</option>
+                </select>
+              </div>
             </div>
           </div>
         )}
