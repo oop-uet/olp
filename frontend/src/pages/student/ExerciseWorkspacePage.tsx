@@ -337,14 +337,19 @@ export function ExerciseWorkspacePage() {
     e.preventDefault()
     setIsDragging(true)
     
+    const startX = e.clientX
+    const startWidth = leftWidth
+
     const handleMouseMove = (moveEvent: MouseEvent) => {
-      if (!containerRef.current) return
-      const containerRect = containerRef.current.getBoundingClientRect()
-      const calculatedWidth = moveEvent.clientX - containerRect.left
+      const deltaX = moveEvent.clientX - startX
+      const computedWidth = startWidth + deltaX
       
       const minWidth = 360
-      const maxWidth = containerRect.width - 400 // min editor width is 400
-      const nextWidth = Math.max(minWidth, Math.min(maxWidth, calculatedWidth))
+      let maxWidth = 800
+      if (containerRef.current) {
+        maxWidth = containerRef.current.getBoundingClientRect().width - 400
+      }
+      const nextWidth = Math.max(minWidth, Math.min(maxWidth, computedWidth))
       setLeftWidth(nextWidth)
     }
 
@@ -362,13 +367,18 @@ export function ExerciseWorkspacePage() {
     e.preventDefault()
     setIsDragging(true)
 
+    const startY = e.clientY
+    const startHeight = consoleHeight
+
     const handleMouseMove = (moveEvent: MouseEvent) => {
-      if (!rightPanelRef.current) return
-      const rect = rightPanelRef.current.getBoundingClientRect()
-      const computedHeight = rect.bottom - moveEvent.clientY
+      const deltaY = moveEvent.clientY - startY
+      const computedHeight = startHeight - deltaY
       
       const minHeight = 144
-      const maxHeight = rect.height - 200 // min editor height is 200
+      let maxHeight = 600
+      if (rightPanelRef.current) {
+        maxHeight = rightPanelRef.current.getBoundingClientRect().height - 200
+      }
       const nextHeight = Math.max(minHeight, Math.min(maxHeight, computedHeight))
       setConsoleHeight(nextHeight)
     }
