@@ -527,9 +527,30 @@ function buildGeminiRequest(input: AiGenerateExerciseInput) {
       temperature: 0.35,
       maxOutputTokens: 7000,
       responseMimeType: "application/json",
-      responseSchema: exerciseJsonSchema,
+      responseSchema: toGeminiResponseSchema(exerciseJsonSchema),
     },
   };
+}
+
+function toGeminiResponseSchema(schema: unknown): unknown {
+  if (Array.isArray(schema)) {
+    return schema.map(toGeminiResponseSchema);
+  }
+
+  if (!schema || typeof schema !== "object") {
+    return schema;
+  }
+
+  const output: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(schema)) {
+    if (key === "additionalProperties") continue;
+    if (key === "enum" && Array.isArray(value) && !value.every((item) => typeof item === "string")) {
+      continue;
+    }
+    output[key] = toGeminiResponseSchema(value);
+  }
+
+  return output;
 }
 
 function buildOpenAiCompatibleChatRequest(model: string, input: AiGenerateExerciseInput) {

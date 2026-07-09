@@ -376,6 +376,12 @@ describe("AI Exercise Service", () => {
         }),
       })
     );
+    const [, request] = fetchMock.mock.calls[1];
+    const body = JSON.parse(String(request?.body)) as {
+      generationConfig: { responseSchema: unknown };
+    };
+    expect(JSON.stringify(body.generationConfig.responseSchema)).not.toContain("additionalProperties");
+    expect(JSON.stringify(body.generationConfig.responseSchema)).not.toContain("\"enum\":[1]");
   });
 
   it("generates an exercise draft through Groq structured chat output", async () => {
