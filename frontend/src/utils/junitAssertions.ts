@@ -5,6 +5,22 @@ export interface JUnitAssertionSummary {
   actual?: string
   condition?: string
   raw: string
+  lineNumber: number
+}
+
+export type JUnitAssertionResultStatus = 'passed' | 'failed' | 'timeout' | 'error'
+
+export interface JUnitAssertionResultDisplay {
+  id: string
+  label: string
+  fileName: string
+  passed: boolean
+  status: JUnitAssertionResultStatus
+  pointValue: number
+  actualOutput: string
+  assertionIndex: number
+  totalAssertions: number
+  lineNumber: number
 }
 
 const ASSERT_CALL_PATTERN = /\b(?:[A-Za-z_][\w]*\.)?(assert[A-Z][A-Za-z0-9_]*)\s*\(/g
@@ -35,7 +51,12 @@ export function extractJUnitAssertionSummaries(
     if (closeParenIndex < 0) continue
 
     const args = splitTopLevelArgs(source.slice(openParenIndex + 1, closeParenIndex))
-    const summary = buildSummary(assertion, args, source.slice(match.index, closeParenIndex + 1))
+    const summary = buildSummary(
+      assertion,
+      args,
+      source.slice(match.index, closeParenIndex + 1),
+      getLineNumberAt(source, match.index)
+    )
     if (summary) summaries.push(summary)
     ASSERT_CALL_PATTERN.lastIndex = closeParenIndex + 1
   }
@@ -43,40 +64,91 @@ export function extractJUnitAssertionSummaries(
   return summaries
 }
 
+export function buildJUnitAssertionResultDisplays({
+  id,
+  inputData,
+  expectedOutput,
+  actualOutput,
+  passed,
+  status,
+  pointValue,
+}: {
+  id: string
+  inputData: string
+  expectedOutput: string
+  actualOutput: string
+  passed: boolean
+  status: JUnitAssertionResultStatus
+  pointValue: number
+}): JUnitAssertionResultDisplay[] {
+  const assertions = extractJUnitAssertionSummaries(expectedOutput, Number.POSITIVE_INFINITY)
+  if (assertions.length === 0) return []
+
+  const fileName = getJavaJUnitTestFileName(inputData)
+  const failedLines = extractJUnitFailureLines(actualOutput, fileName)
+  const firstFailedLine = failedLines.length > 0 ? Math.min(...failedLines) : null
+  const pointPerAssertion = roundPoint(pointValue / assertions.length)
+
+  return assertions.map((assertion, index) => {
+    let assertionPassed = passed
+    if (!passed && status === 'failed') {
+      assertionPassed =
+        firstFailedLine !== null &&
+        assertion.lineNumber < firstFailedLine &&
+        !failedLines.includes(assertion.lineNumber)
+    }
+
+    return {
+      id: `${id}:assertion:${index + 1}`,
+      label: assertion.label,
+      fileName,
+      passed: assertionPassed,
+      status: assertionPassed ? 'passed' : status,
+      pointValue: pointPerAssertion,
+      actualOutput,
+      assertionIndex: index + 1,
+      totalAssertions: assertions.length,
+      lineNumber: assertion.lineNumber,
+    }
+  })
+}
+
 function buildSummary(
   assertion: string,
   rawArgs: string[],
-  raw: string
+  raw: string,
+  lineNumber: number
 ): JUnitAssertionSummary | null {
   const args = dropOptionalMessage(assertion, rawArgs).map(compactExpression)
 
   switch (assertion) {
     case 'assertEquals':
-      return comparisonSummary(assertion, args, raw, 'phải bằng')
+      return comparisonSummary(assertion, args, raw, lineNumber, 'phải bằng')
     case 'assertNotEquals':
-      return comparisonSummary(assertion, args, raw, 'phải khác')
+      return comparisonSummary(assertion, args, raw, lineNumber, 'phải khác')
     case 'assertArrayEquals':
-      return comparisonSummary(assertion, args, raw, 'phải có cùng phần tử với')
+      return comparisonSummary(assertion, args, raw, lineNumber, 'phải có cùng phần tử với')
     case 'assertSame':
-      return comparisonSummary(assertion, args, raw, 'phải cùng tham chiếu với')
+      return comparisonSummary(assertion, args, raw, lineNumber, 'phải cùng tham chiếu với')
     case 'assertNotSame':
-      return comparisonSummary(assertion, args, raw, 'phải khác tham chiếu với')
+      return comparisonSummary(assertion, args, raw, lineNumber, 'phải khác tham chiếu với')
     case 'assertTrue':
-      return booleanConditionSummary(assertion, args, raw, true)
+      return booleanConditionSummary(assertion, args, raw, lineNumber, true)
     case 'assertFalse':
-      return booleanConditionSummary(assertion, args, raw, false)
+      return booleanConditionSummary(assertion, args, raw, lineNumber, false)
     case 'assertNull':
-      return nullConditionSummary(assertion, args, raw, true)
+      return nullConditionSummary(assertion, args, raw, lineNumber, true)
     case 'assertNotNull':
-      return nullConditionSummary(assertion, args, raw, false)
+      return nullConditionSummary(assertion, args, raw, lineNumber, false)
     case 'assertThrows':
-      return throwsSummary(args, raw)
+      return throwsSummary(args, raw, lineNumber)
     default:
       if (assertion.startsWith('assert')) {
         return {
           assertion,
           label: `${assertion}: ${args.join(', ')}`,
           raw: compactExpression(raw),
+          lineNumber,
         }
       }
       return null
@@ -87,6 +159,7 @@ function comparisonSummary(
   assertion: string,
   args: string[],
   raw: string,
+  lineNumber: number,
   relation: string
 ): JUnitAssertionSummary | null {
   if (args.length < 2) return null
@@ -100,6 +173,7 @@ function comparisonSummary(
     expected: readableExpected,
     actual: readableActual,
     raw: compactExpression(raw),
+    lineNumber,
   }
 }
 
@@ -107,6 +181,7 @@ function booleanConditionSummary(
   assertion: string,
   args: string[],
   raw: string,
+  lineNumber: number,
   expectedValue: boolean
 ): JUnitAssertionSummary | null {
   if (args.length < 1) return null
@@ -119,6 +194,7 @@ function booleanConditionSummary(
     label: readableCondition ?? `${humanizeExpression(condition)} phải trả về ${fallbackValue}`,
     condition,
     raw: compactExpression(raw),
+    lineNumber,
   }
 }
 
@@ -126,6 +202,7 @@ function nullConditionSummary(
   assertion: string,
   args: string[],
   raw: string,
+  lineNumber: number,
   expectsNull: boolean
 ): JUnitAssertionSummary | null {
   if (args.length < 1) return null
@@ -138,10 +215,11 @@ function nullConditionSummary(
       : `${readableCondition} không được null`,
     condition,
     raw: compactExpression(raw),
+    lineNumber,
   }
 }
 
-function throwsSummary(args: string[], raw: string): JUnitAssertionSummary | null {
+function throwsSummary(args: string[], raw: string, lineNumber: number): JUnitAssertionSummary | null {
   if (args.length < 2) return null
   const [expected, executable] = args
   const readableExpected = humanizeExpression(expected)
@@ -152,6 +230,7 @@ function throwsSummary(args: string[], raw: string): JUnitAssertionSummary | nul
     expected: readableExpected,
     actual: readableExecutable,
     raw: compactExpression(raw),
+    lineNumber,
   }
 }
 
@@ -179,6 +258,29 @@ function describeKnownBooleanCondition(condition: string, expectedValue: boolean
 
 function humanizeExpression(expression: string): string {
   return expression.replace(/([A-Za-z_$][\w$]*)\.class\b/g, '$1')
+}
+
+function getLineNumberAt(source: string, index: number): number {
+  return source.slice(0, index).split(/\r?\n/).length
+}
+
+function extractJUnitFailureLines(output: string, fileName: string): number[] {
+  if (!output.trim()) return []
+
+  const escapedFileName = fileName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const pattern = new RegExp(`\\b${escapedFileName}:(\\d+)\\b`, 'g')
+  const lines = new Set<number>()
+  let match: RegExpExecArray | null
+
+  while ((match = pattern.exec(output))) {
+    lines.add(Number(match[1]))
+  }
+
+  return [...lines].filter((line) => Number.isInteger(line) && line > 0)
+}
+
+function roundPoint(value: number): number {
+  return Math.round(value * 10) / 10
 }
 
 function dropOptionalMessage(assertion: string, args: string[]): string[] {

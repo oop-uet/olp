@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildJUnitAssertionResultDisplays,
   extractJUnitAssertionSummaries,
   getJavaJUnitTestFileName,
   isJavaJUnitTestInput,
@@ -98,5 +99,37 @@ describe('extractJUnitAssertionSummaries', () => {
     const source = Array.from({ length: 12 }, (_, index) => `assertEquals(${index}, value${index});`).join('\n')
 
     expect(extractJUnitAssertionSummaries(source, 5)).toHaveLength(5)
+  })
+
+  it('builds one visible result for each assertion', () => {
+    const source = [
+      'public class CoffeeMachineTest {',
+      '  @Test',
+      '  public void waterTank() {',
+      '    assertEquals(500, tank.getAmount());',
+      '    assertTrue(tank.useWater(200));',
+      '    assertEquals(300, tank.getAmount());',
+      '  }',
+      '}',
+    ].join('\n')
+
+    const result = buildJUnitAssertionResultDisplays({
+      id: 'tc-1',
+      inputData: '__OOP_JAVA_TEST__\nCoffeeMachineTest.java',
+      expectedOutput: source,
+      actualOutput: 'java.lang.AssertionError\n\tat CoffeeMachineTest.waterTank(CoffeeMachineTest.java:5)',
+      passed: false,
+      status: 'failed',
+      pointValue: 12.9,
+    })
+
+    expect(result).toHaveLength(3)
+    expect(result.map((item) => item.id)).toEqual([
+      'tc-1:assertion:1',
+      'tc-1:assertion:2',
+      'tc-1:assertion:3',
+    ])
+    expect(result.map((item) => item.passed)).toEqual([true, false, false])
+    expect(result.map((item) => item.pointValue)).toEqual([4.3, 4.3, 4.3])
   })
 })

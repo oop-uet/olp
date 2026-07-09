@@ -8,6 +8,11 @@ interface JUnitFunctionalSummaryProps {
   expectedOutput: string
   actualOutput: string
   passed: boolean
+  assertionLabel?: string
+  assertionIndex?: number
+  totalAssertions?: number
+  lineNumber?: number
+  fileName?: string
 }
 
 export function JUnitFunctionalSummary({
@@ -15,9 +20,16 @@ export function JUnitFunctionalSummary({
   expectedOutput,
   actualOutput,
   passed,
+  assertionLabel,
+  assertionIndex,
+  totalAssertions,
+  lineNumber,
+  fileName: explicitFileName,
 }: JUnitFunctionalSummaryProps) {
-  const assertions = extractJUnitAssertionSummaries(expectedOutput)
-  const fileName = getJavaJUnitTestFileName(inputData)
+  const assertions = assertionLabel
+    ? [{ label: assertionLabel, lineNumber: lineNumber ?? 0 }]
+    : extractJUnitAssertionSummaries(expectedOutput)
+  const fileName = explicitFileName ?? getJavaJUnitTestFileName(inputData)
   const hasActualOutput = actualOutput.trim().length > 0
 
   return (
@@ -31,28 +43,35 @@ export function JUnitFunctionalSummary({
             <p className="mt-1 font-bold text-slate-800 [overflow-wrap:anywhere]">{fileName}</p>
           </div>
           <span className="rounded bg-slate-50 px-2 py-1 font-mono text-xs font-bold text-slate-500">
-            {assertions.length} assert
+            {assertionIndex && totalAssertions
+              ? `assert ${assertionIndex}/${totalAssertions}`
+              : `${assertions.length} assert`}
           </span>
         </div>
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-white p-4">
         <p className="text-xs font-black uppercase tracking-wider text-slate-400">
-          Yêu cầu kiểm thử
+          {assertionLabel ? 'Test case từ assertion' : 'Yêu cầu kiểm thử'}
         </p>
 
         {assertions.length > 0 ? (
           <ol className="mt-3 overflow-hidden rounded-lg border border-slate-100 bg-slate-50/80">
             {assertions.map((assertion, index) => (
               <li
-                key={`${assertion.raw}-${index}`}
+                key={`${assertion.label}-${index}`}
                 className="grid min-w-0 grid-cols-[1.5rem,minmax(0,1fr)] gap-2 border-b border-slate-100 px-3 py-2 last:border-b-0"
               >
                 <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary-50 text-[10px] font-black text-primary">
-                  {index + 1}
+                  {assertionIndex ?? index + 1}
                 </span>
                 <span className="min-w-0 font-medium leading-relaxed text-slate-700 [overflow-wrap:anywhere]">
                   {assertion.label}
+                  {assertion.lineNumber > 0 && (
+                    <span className="ml-2 text-[10px] font-bold text-slate-400">
+                      dòng {assertion.lineNumber}
+                    </span>
+                  )}
                 </span>
               </li>
             ))}

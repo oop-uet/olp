@@ -7,7 +7,10 @@ import { JUnitFunctionalSummary } from '../../components/submission/JUnitFunctio
 import { toast } from '../../stores/toast.store'
 import { useAuthStore } from '../../stores/auth.store'
 import { deduplicateCheckstyleViolations } from '../../utils/checkstyle'
-import { isJavaJUnitTestInput } from '../../utils/junitAssertions'
+import {
+  buildJUnitAssertionResultDisplays,
+  isJavaJUnitTestInput,
+} from '../../utils/junitAssertions'
 
 type ResultStatus = 'passed' | 'failed' | 'timeout' | 'error'
 type ReviewTab = 'source' | 'results' | 'style'
@@ -47,6 +50,11 @@ interface TestCaseResult {
   expectedOutput: string
   actualOutput: string
   executionTimeMs: number | null
+  isJUnitAssertion?: boolean
+  junitFileName?: string
+  assertionIndex?: number
+  totalAssertions?: number
+  lineNumber?: number
 }
 
 interface SubmissionDetail {
@@ -178,6 +186,39 @@ function normalizeSubmissionDetail(data: SubmissionDetailResponse): SubmissionDe
     submittedAt: data.submittedAt ?? data.submitted_at ?? new Date().toISOString(),
     testCaseResults: rawResults.map(normalizeResult),
   }
+}
+
+function expandJUnitAssertionResults(results: TestCaseResult[]): TestCaseResult[] {
+  return results.flatMap((result) => {
+    if (!isJavaJUnitTestInput(result.inputData)) return [result]
+
+    const assertionResults = buildJUnitAssertionResultDisplays({
+      id: result.id,
+      inputData: result.inputData,
+      expectedOutput: result.expectedOutput,
+      actualOutput: result.actualOutput,
+      passed: result.passed,
+      status: result.status,
+      pointValue: result.pointValue,
+    })
+
+    if (assertionResults.length === 0) return [result]
+
+    return assertionResults.map((assertionResult) => ({
+      ...result,
+      id: assertionResult.id,
+      passed: assertionResult.passed,
+      status: assertionResult.status,
+      pointValue: assertionResult.pointValue,
+      testCaseLabel: assertionResult.label,
+      actualOutput: assertionResult.actualOutput,
+      isJUnitAssertion: true,
+      junitFileName: assertionResult.fileName,
+      assertionIndex: assertionResult.assertionIndex,
+      totalAssertions: assertionResult.totalAssertions,
+      lineNumber: assertionResult.lineNumber,
+    }))
+  })
 }
 
 function parseStyleReport(value?: string | StyleReport | null): StyleReport | null {
@@ -343,7 +384,7 @@ export function SubmissionDetailPage() {
   }
 
   const review = useMemo(() => {
-    const results = submission?.testCaseResults ?? []
+    const results = expandJUnitAssertionResults(submission?.testCaseResults ?? [])
     if (submission && isSubmissionNullified(submission)) {
       return {
         results: results.map((tc) => ({ ...tc, passed: false, status: 'failed' as ResultStatus })),
@@ -772,6 +813,11 @@ function FunctionalResultCard({
               expectedOutput={result.expectedOutput}
               actualOutput={result.actualOutput}
               passed={result.passed}
+              assertionLabel={result.isJUnitAssertion ? result.testCaseLabel : undefined}
+              assertionIndex={result.assertionIndex}
+              totalAssertions={result.totalAssertions}
+              lineNumber={result.lineNumber}
+              fileName={result.junitFileName}
             />
           ) : (
             <div className="mx-auto max-w-none space-y-5 font-mono text-sm leading-6">

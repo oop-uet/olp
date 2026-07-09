@@ -7,7 +7,7 @@ import { JUnitFunctionalSummary } from '../../components/submission/JUnitFunctio
 import { toast } from '../../stores/toast.store'
 import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
 import { deduplicateCheckstyleViolations } from '../../utils/checkstyle'
-import { isJavaJUnitTestInput } from '../../utils/junitAssertions'
+import { buildJUnitAssertionResultDisplays, isJavaJUnitTestInput } from '../../utils/junitAssertions'
 
 // --- Types ---
 type StyleStatus = 'passed' | 'failed' | 'unavailable' | 'skipped'
@@ -46,6 +46,12 @@ interface TestCaseResult {
   status: 'passed' | 'failed' | 'timeout' | 'error'
   actualOutput?: string | null
   testCase?: TestCaseInfo | null
+  isJUnitAssertion?: boolean
+  junitAssertionLabel?: string
+  junitFileName?: string
+  assertionIndex?: number
+  totalAssertions?: number
+  lineNumber?: number
 }
 
 interface SubmissionDetail {
@@ -227,6 +233,46 @@ function getSubmissionResult(score: number) {
 
 function isPassed(value: number | boolean): boolean {
   return value === true || value === 1
+}
+
+function expandJUnitAssertionResults(results: TestCaseResult[]): TestCaseResult[] {
+  return results.flatMap((result) => {
+    const inputData = result.testCase?.inputData ?? result.testCase?.input_data ?? ''
+    const expectedOutput = result.testCase?.expectedOutput ?? result.testCase?.expected_output ?? ''
+    if (!isJavaJUnitTestInput(inputData)) return [result]
+
+    const assertionResults = buildJUnitAssertionResultDisplays({
+      id: result.id,
+      inputData,
+      expectedOutput,
+      actualOutput: result.actualOutput ?? '',
+      passed: isPassed(result.passed),
+      status: result.status,
+      pointValue: result.testCase?.pointValue ?? result.testCase?.point_value ?? 0,
+    })
+
+    if (assertionResults.length === 0) return [result]
+
+    return assertionResults.map((assertionResult) => ({
+      ...result,
+      id: assertionResult.id,
+      passed: assertionResult.passed,
+      status: assertionResult.status,
+      actualOutput: assertionResult.actualOutput,
+      testCase: {
+        ...(result.testCase ?? { id: result.id }),
+        inputData,
+        expectedOutput,
+        pointValue: assertionResult.pointValue,
+      },
+      isJUnitAssertion: true,
+      junitAssertionLabel: assertionResult.label,
+      junitFileName: assertionResult.fileName,
+      assertionIndex: assertionResult.assertionIndex,
+      totalAssertions: assertionResult.totalAssertions,
+      lineNumber: assertionResult.lineNumber,
+    }))
+  })
 }
 
 function getEventTypeLabel(eventType: string): string {
@@ -497,7 +543,7 @@ export function SubmissionReviewPage() {
 
     if (!selectedSubmission) return null
 
-    const results = selectedSubmission.results ?? []
+    const results = expandJUnitAssertionResults(selectedSubmission.results ?? [])
     const effectiveScore =
       selectedSubmission.effectiveScore ??
       selectedSubmission.score ??
@@ -1252,7 +1298,9 @@ function FunctionalResultCard({
           </span>
           <div className="min-w-0">
             <h3 className={`truncate text-base font-bold ${passed ? 'text-emerald-700' : 'text-rose-700'}`}>
-              Bộ test #{index + 1} ({pointValue} điểm)
+              {result.isJUnitAssertion
+                ? result.junitAssertionLabel
+                : `Bộ test #${index + 1}`} ({pointValue} điểm)
             </h3>
             <p className="mt-1 text-xs font-semibold text-slate-500">
               {message}
@@ -1272,6 +1320,11 @@ function FunctionalResultCard({
               expectedOutput={expectedOutput}
               actualOutput={actualOutput}
               passed={passed}
+              assertionLabel={result.isJUnitAssertion ? result.junitAssertionLabel : undefined}
+              assertionIndex={result.assertionIndex}
+              totalAssertions={result.totalAssertions}
+              lineNumber={result.lineNumber}
+              fileName={result.junitFileName}
             />
           ) : (
             <div className="mx-auto max-w-none space-y-5 font-mono text-sm leading-6">
