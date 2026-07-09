@@ -325,6 +325,64 @@ export function ExerciseWorkspacePage() {
     compileAndRun,
   } = useLocalExecutor()
 
+  // Resizing states and handlers
+  const [leftWidth, setLeftWidth] = useState(360)
+  const [consoleHeight, setConsoleHeight] = useState(144)
+  const [isDragging, setIsDragging] = useState(false)
+
+  const containerRef = useRef<HTMLDivElement>(null)
+  const rightPanelRef = useRef<HTMLDivElement>(null)
+
+  const handleHorizontalMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+    
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!containerRef.current) return
+      const containerRect = containerRef.current.getBoundingClientRect()
+      const calculatedWidth = moveEvent.clientX - containerRect.left
+      
+      const minWidth = 360
+      const maxWidth = containerRect.width - 400 // min editor width is 400
+      const nextWidth = Math.max(minWidth, Math.min(maxWidth, calculatedWidth))
+      setLeftWidth(nextWidth)
+    }
+
+    const handleMouseUp = () => {
+      setIsDragging(false)
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }
+
+  const handleVerticalMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!rightPanelRef.current) return
+      const rect = rightPanelRef.current.getBoundingClientRect()
+      const computedHeight = rect.bottom - moveEvent.clientY
+      
+      const minHeight = 144
+      const maxHeight = rect.height - 200 // min editor height is 200
+      const nextHeight = Math.max(minHeight, Math.min(maxHeight, computedHeight))
+      setConsoleHeight(nextHeight)
+    }
+
+    const handleMouseUp = () => {
+      setIsDragging(false)
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }
+
   useEffect(() => {
     if (id) {
       fetchExercise(id)
@@ -660,7 +718,11 @@ export function ExerciseWorkspacePage() {
         </div>
       </div>
 
-      <div className="grid flex-1 grid-cols-[360px_minmax(0,1fr)] gap-4 overflow-hidden p-4">
+      <div
+        ref={containerRef}
+        className={`grid flex-1 gap-1 overflow-hidden p-4 ${isDragging ? 'select-none' : ''}`}
+        style={{ gridTemplateColumns: `${leftWidth}px 6px minmax(0, 1fr)` }}
+      >
         <aside className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
           <div className="grid grid-cols-2 border-b border-slate-200 bg-slate-50">
             <button
@@ -697,8 +759,17 @@ export function ExerciseWorkspacePage() {
           </div>
         </aside>
 
-        <section className="flex min-w-0 flex-col gap-4 overflow-hidden">
-          <div className="min-h-[420px] flex-1 overflow-hidden rounded-lg border border-slate-800 bg-[#1e1e1e] shadow-sm">
+        {/* Horizontal Resize Divider */}
+        <div
+          onMouseDown={handleHorizontalMouseDown}
+          className="w-1.5 cursor-col-resize hover:bg-sky-500/50 bg-slate-200/50 transition-all duration-150 rounded-full select-none flex items-center justify-center relative group"
+          title="Kéo để chỉnh độ rộng"
+        >
+          <div className="w-0.5 h-6 bg-slate-400 group-hover:bg-sky-500 rounded-full transition-colors"></div>
+        </div>
+
+        <section ref={rightPanelRef} className="flex min-w-0 flex-col gap-2 overflow-hidden">
+          <div className="min-h-[200px] flex-1 overflow-hidden rounded-lg border border-slate-800 bg-[#1e1e1e] shadow-sm">
             <FileTabs
               files={files}
               activeFileId={activeFileId}
@@ -772,7 +843,16 @@ export function ExerciseWorkspacePage() {
             />
           </div>
 
-          <OutputPanel executionResult={executionResult} running={running} />
+          {/* Vertical Resize Divider */}
+          <div
+            onMouseDown={handleVerticalMouseDown}
+            className="h-1.5 cursor-row-resize hover:bg-sky-500/50 bg-slate-200/50 transition-all duration-150 rounded-full select-none flex items-center justify-center relative group"
+            title="Kéo để chỉnh chiều cao Console"
+          >
+            <div className="w-6 h-0.5 bg-slate-400 group-hover:bg-sky-500 rounded-full transition-colors"></div>
+          </div>
+
+          <OutputPanel executionResult={executionResult} running={running} height={consoleHeight} />
         </section>
       </div>
     </div>
@@ -1174,13 +1254,18 @@ function TestCasesPanel({
 function OutputPanel({
   executionResult,
   running,
+  height,
 }: {
   executionResult: ExecutionResult | null
   running: boolean
+  height: number
 }) {
   if (running) {
     return (
-      <div className="h-36 rounded-xl border border-slate-800 bg-slate-950 p-4 flex flex-col justify-between shadow-inner">
+      <div
+        style={{ height: `${height}px` }}
+        className="rounded-xl border border-slate-800 bg-slate-950 p-4 flex flex-col justify-between shadow-inner animate-pulse"
+      >
         <div className="flex items-center gap-1.5 border-b border-slate-800/60 pb-2">
           <span className="w-2 h-2 rounded-full bg-rose-500/80"></span>
           <span className="w-2 h-2 rounded-full bg-amber-500/80"></span>
@@ -1197,7 +1282,10 @@ function OutputPanel({
 
   if (!executionResult) {
     return (
-      <div className="h-36 rounded-xl border border-slate-800 bg-slate-950 flex flex-col shadow-inner">
+      <div
+        style={{ height: `${height}px` }}
+        className="rounded-xl border border-slate-800 bg-slate-950 flex flex-col shadow-inner"
+      >
         <div className="flex items-center gap-1.5 border-b border-slate-800 px-4 py-2 bg-slate-900/40">
           <span className="w-2 h-2 rounded-full bg-slate-700"></span>
           <span className="w-2 h-2 rounded-full bg-slate-700"></span>
@@ -1214,8 +1302,11 @@ function OutputPanel({
   const hasStyle = !!executionResult.styleResult;
 
   return (
-    <div className={`${hasStyle ? 'h-64' : 'h-44'} overflow-hidden rounded-xl border border-slate-800 bg-slate-950 flex flex-col shadow-inner transition-all duration-300`}>
-      <div className="flex items-center justify-between border-b border-slate-800 px-4 py-2 bg-slate-900/40">
+    <div
+      style={{ height: `${height}px` }}
+      className="overflow-hidden rounded-xl border border-slate-800 bg-slate-950 flex flex-col shadow-inner"
+    >
+      <div className="flex items-center justify-between border-b border-slate-800 px-4 py-2 bg-slate-900/40 select-none">
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-rose-500/80"></span>
           <span className="w-2 h-2 rounded-full bg-amber-500/80"></span>
