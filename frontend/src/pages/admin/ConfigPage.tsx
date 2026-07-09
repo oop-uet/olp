@@ -576,18 +576,25 @@ export function ConfigPage() {
         )}
 
         <div className="mt-5 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setAiEnabled((value) => !value)}
-            className={`inline-flex h-9 items-center rounded-full border px-3 text-xs font-bold transition ${
-              aiEnabled
-                ? 'border-primary bg-primary-50 text-primary'
-                : 'border-gray-200 bg-gray-50 text-gray-500'
-            }`}
-            aria-pressed={aiEnabled}
-          >
-            {aiEnabled ? 'Muốn bật' : 'Đang tắt'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setAiEnabled((value) => !value)}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                aiEnabled ? 'bg-primary' : 'bg-gray-200'
+              }`}
+              aria-pressed={aiEnabled}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  aiEnabled ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+            <span className="text-sm font-semibold text-slate-700 select-none min-w-[2rem]">
+              {aiEnabled ? 'Bật' : 'Tắt'}
+            </span>
+          </div>
 
           <button
             type="button"
