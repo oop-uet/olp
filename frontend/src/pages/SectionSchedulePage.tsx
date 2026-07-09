@@ -361,7 +361,6 @@ export function SectionSchedulePage() {
 
   const { section, weeks, unscheduled, pool, otherPool = [] } = data
   const activePool = poolTab === 'system' ? pool : otherPool
-  const activePoolTitle = poolTab === 'system' ? 'Kho bài tập hệ thống' : 'Bài tập khác'
   const activePoolEmpty = poolTab === 'system'
     ? 'Không còn bài tập nào trong kho.'
     : 'Không còn bài tập riêng nào để chọn.'
@@ -576,7 +575,7 @@ export function SectionSchedulePage() {
               <ExerciseIcon className="h-5 w-5 text-gray-500" />
               <div className="min-w-0 flex-1">
                 <h2 className="text-sm font-semibold text-gray-700">
-                  {activePoolTitle} ({activePool.length})
+                  Kho bài tập
                 </h2>
                 <p className="mt-0.5 text-xs text-gray-500">Bấm + để thêm vào tuần {selectedWeek}</p>
               </div>
