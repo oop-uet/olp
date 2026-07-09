@@ -45,7 +45,6 @@ const menusByRole: Record<UserRole, MenuItem[]> = {
     { label: 'Lớp học phần', path: '/admin/sections', icon: SectionIcon },
     { label: 'Bài tập', path: '/admin/exercises', icon: ExerciseIcon },
     { label: 'Cấu hình', path: '/admin/config', icon: ConfigIcon },
-    { label: 'Biên tập Help', path: '/admin/help', icon: InfoIcon },
   ],
 }
 
@@ -206,6 +205,19 @@ export function TopNav() {
                     </svg>
                     Hướng dẫn
                   </button>
+
+                  {user.role === 'admin' && (
+                    <button
+                      onClick={() => {
+                        setUserMenuOpen(false)
+                        navigate('/admin/help')
+                      }}
+                      className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors font-medium border-t border-slate-100"
+                    >
+                      <InfoIcon className="h-4 w-4 text-slate-400" />
+                      Biên tập Help
+                    </button>
+                  )}
                   
                   <button
                     onClick={() => {
