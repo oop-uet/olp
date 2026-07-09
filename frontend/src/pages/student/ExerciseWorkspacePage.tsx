@@ -8,6 +8,7 @@ import { AntiCheatMonitor } from '../../components/student/AntiCheatMonitor'
 import { useLocalExecutor } from '../../hooks/useLocalExecutor'
 import { useAuthStore } from '../../stores/auth.store'
 import { ExerciseMarkdownContent } from '../../components/exercise/ExerciseDescriptionEditor'
+import { extractJUnitAssertionSummaries, type JUnitAssertionSummary } from '../../utils/junitAssertions'
 
 interface TestCase {
   id: string
@@ -16,6 +17,7 @@ interface TestCase {
   pointValue: number
   type: 'stdio' | 'java_junit'
   testFileName?: string
+  assertionSummaries?: JUnitAssertionSummary[]
 }
 
 // Raw test case shape returned by GET /api/students/exercises/:id
@@ -369,6 +371,10 @@ export function ExerciseWorkspacePage() {
             pointValue: tc.pointValue,
             type: metadata.type,
             testFileName: metadata.testFileName,
+            assertionSummaries:
+              metadata.type === 'java_junit'
+                ? extractJUnitAssertionSummaries(tc.expectedOutput)
+                : undefined,
           }
         }),
       }
@@ -1091,8 +1097,40 @@ function TestCasesPanel({
 
               <div className="space-y-2">
                 {tc.type === 'java_junit' ? (
-                  <div className="rounded-lg border border-slate-100 bg-white p-2.5 font-mono text-[11px] text-slate-600">
-                    📂 JUnit Test: {tc.testFileName ?? 'MyTest.java'}
+                  <div className="rounded-lg border border-slate-100 bg-white p-3 text-[11px] text-slate-600">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-bold text-slate-700">
+                        JUnit công khai: {tc.testFileName ?? 'MyTest.java'}
+                      </span>
+                      <span className="rounded bg-slate-50 px-2 py-0.5 font-mono text-[10px] font-bold text-slate-500">
+                        {tc.assertionSummaries?.length ?? 0} assert
+                      </span>
+                    </div>
+
+                    {tc.assertionSummaries && tc.assertionSummaries.length > 0 ? (
+                      <div className="mt-3 space-y-2">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                          Hệ thống sẽ kiểm tra
+                        </p>
+                        <ol className="space-y-1.5">
+                          {tc.assertionSummaries.map((assertion, assertionIndex) => (
+                            <li
+                              key={`${tc.id}-${assertionIndex}`}
+                              className="rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-2"
+                            >
+                              <span className="mr-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-50 px-1 text-[10px] font-black text-primary">
+                                {assertionIndex + 1}
+                              </span>
+                              <span className="font-medium text-slate-700">{assertion.label}</span>
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    ) : (
+                      <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-slate-500">
+                        Test này dùng JUnit, nhưng chưa trích được dòng assert để hiển thị rút gọn.
+                      </p>
+                    )}
                   </div>
                 ) : tc.input ? (
                   <div className="space-y-1">
