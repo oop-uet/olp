@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { cachedGet } from '../../lib/api'
 import { PageLoader, Spinner } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
-import { formatSectionDisplayName, formatSemesterDisplayName, parseSemesterId } from '../../utils/semester'
+import { formatSectionDisplayName, parseSemesterId } from '../../utils/semester'
 
 interface InstructorInfo {
   id: string
@@ -129,17 +129,10 @@ export function InstructorSectionsPage() {
               Bạn chưa được phân công lớp học phần nào.
             </div>
           ) : (
-            sortedSemesters.map((semester) => (
-              <div key={semester} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                
-                {/* Semester Header: Teal style */}
-                <div className="bg-[#00adb5] text-white px-5 py-3 font-bold text-sm tracking-wide select-none">
-                  {formatSemesterDisplayName(semester, true)}
-                </div>
-
-                {/* Class sections list */}
-                <div className="p-4 space-y-3">
-                  {sectionsBySemester[semester].map((section) => (
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+              <div className="p-4 space-y-3">
+                {sortedSemesters.flatMap((semester) =>
+                  sectionsBySemester[semester].map((section) => (
                     <Link
                       key={section.id}
                       to={`/instructor/classes/${section.id}`}
@@ -147,11 +140,10 @@ export function InstructorSectionsPage() {
                     >
                       {formatSectionDisplayName(section.name)} - Lập trình hướng đối tượng
                     </Link>
-                  ))}
-                </div>
-
+                  ))
+                )}
               </div>
-            ))
+            </div>
           )}
         </div>
 

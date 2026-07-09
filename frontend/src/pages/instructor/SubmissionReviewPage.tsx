@@ -5,7 +5,7 @@ import { PageLoader, Spinner, CheckCircleIcon, XCircleIcon, SubmissionIcon } fro
 import { StyleAnnotatedCodeViewer } from '../../components/submission/StyleAnnotatedCodeViewer'
 import { JUnitFunctionalSummary } from '../../components/submission/JUnitFunctionalSummary'
 import { toast } from '../../stores/toast.store'
-import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
+import { formatSectionDisplayName } from '../../utils/semester'
 import { deduplicateCheckstyleViolations } from '../../utils/checkstyle'
 import {
   buildJUnitAssertionResultDisplays,
@@ -342,7 +342,7 @@ export function SubmissionReviewPage() {
 
   // Map of exerciseId -> title for display
   const exerciseTitleById = new Map(exercises.map((ex) => [ex.id, ex.title]))
-  const selectedSection = sections.find((sec) => sec.id === selectedSectionId)
+
 
   const sortedSubmissions = useMemo(() => {
     if (!sortField) return submissions
@@ -431,19 +431,34 @@ export function SubmissionReviewPage() {
 
   async function fetchExercises() {
     try {
-      const response = await cachedGet('/api/exercises', undefined, { ttlMs: 60_000 })
-      const sortedEx = response.data
-        .map((e: { id: string; title: string }) => ({ id: e.id, title: e.title }))
-        .sort((a: { id: string; title: string }, b: { id: string; title: string }) => {
-          const getWeek = (title: string) => {
-            const match = title.match(/^[Tt]uần\s+(\d+)/)
-            return match ? parseInt(match[1], 10) : Infinity
-          }
-          const weekA = getWeek(a.title)
-          const weekB = getWeek(b.title)
-          if (weekA !== weekB) return weekA - weekB
-          return a.title.localeCompare(b.title, 'vi')
-        })
+      const [exercisesRes, libraryRes] = await Promise.all([
+        cachedGet('/api/exercises', undefined, { ttlMs: 60_000 }),
+        cachedGet('/api/exercises/library').catch(() => ({ data: [] })),
+      ])
+      const exerciseData = Array.isArray(exercisesRes.data)
+        ? exercisesRes.data
+        : exercisesRes.data?.data ?? []
+      const libraryData = Array.isArray(libraryRes.data)
+        ? libraryRes.data
+        : libraryRes.data?.data ?? []
+
+      const exerciseMap = new Map<string, { id: string; title: string }>()
+      ;[...libraryData, ...exerciseData].forEach((e) => {
+        if (e?.id && e?.title) {
+          exerciseMap.set(e.id, { id: e.id, title: e.title })
+        }
+      })
+
+      const sortedEx = [...exerciseMap.values()].sort((a, b) => {
+        const getWeek = (title: string) => {
+          const match = title.match(/^[Tt]uần\s+(\d+)/)
+          return match ? parseInt(match[1], 10) : Infinity
+        }
+        const weekA = getWeek(a.title)
+        const weekB = getWeek(b.title)
+        if (weekA !== weekB) return weekA - weekB
+        return a.title.localeCompare(b.title, 'vi')
+      })
       setExercises(sortedEx)
     } catch {
       // Non-critical filter error
@@ -612,36 +627,10 @@ export function SubmissionReviewPage() {
                 <h1 className="truncate text-xl font-bold text-slate-900">
                   {exerciseTitle}
                 </h1>
-                <p className="text-xs font-semibold text-slate-500 mt-0.5">
-                  Sinh viên:{' '}
-                  {selectedSubmission.student?.id ? (
-                    <Link
-                      to={`/instructor/classes/${selectedSectionId}/students/${selectedSubmission.student.id}/profile`}
-                      className="text-sky-600 hover:text-sky-800 hover:underline font-bold"
-                    >
-                      {studentName} ({studentUsername})
-                    </Link>
-                  ) : (
-                    <span className="text-slate-800 font-bold">{studentName} ({studentUsername})</span>
-                  )}
-                </p>
-                <p className="text-[10px] font-bold text-slate-400 mt-0.5 uppercase tracking-wide">
-                  Lần nộp #{selectedSubmission.attemptNumber} · {formatTimestamp(selectedSubmission.submittedAt)}
-                </p>
               </div>
             </div>
             
             <div className="flex flex-wrap items-center gap-4">
-              <div className="text-right bg-slate-50 border border-slate-100 rounded-lg px-3 py-1.5 flex items-center gap-3">
-                <div className="text-right">
-                  <span className={`text-2xl font-black tracking-tight ${getScoreColor(effectiveScore)}`}>
-                    {effectiveScore.toFixed(1)}%
-                  </span>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">
-                    Test: {functionalScore.toFixed(1)} · Style: {selectedSubmission.styleScore == null ? 'N/A' : selectedSubmission.styleScore.toFixed(1)}
-                  </p>
-                </div>
-              </div>
               
               <button
                 type="button"
@@ -682,11 +671,14 @@ export function SubmissionReviewPage() {
                         to={`/instructor/classes/${selectedSectionId}/students/${selectedSubmission.student.id}/profile`}
                         className="text-sky-500 hover:text-sky-700 hover:underline font-bold"
                       >
-                        {studentName}
+                        {studentName} ({studentUsername})
                       </Link>
                     ) : (
-                      <span className="text-sky-500">{studentName}</span>
+                      <span className="text-sky-500 font-bold">{studentName} ({studentUsername})</span>
                     )}
+                  </p>
+                  <p className="mt-1 text-xs font-bold text-slate-400 uppercase tracking-wide">
+                    Lần nộp #{selectedSubmission.attemptNumber} · {formatTimestamp(selectedSubmission.submittedAt)}
                   </p>
                 </div>
                 <div className="flex items-center justify-between gap-3">
@@ -1245,11 +1237,7 @@ export function SubmissionReviewPage() {
               )}
             </div>
 
-            {selectedSection && (
-              <p className="mb-4 border-b border-slate-200 pb-4 text-sm font-semibold text-slate-500">
-                {formatSemesterDisplayName(selectedSection.semester, true)}
-              </p>
-            )}
+
 
             {!selectedSectionId ? (
               <p className="py-8 text-center text-sm text-slate-400">Chọn một lớp học để xem xếp hạng.</p>

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { PageLoader, SectionIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
-import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
+import { formatSectionDisplayName } from '../../utils/semester'
 
 interface StudentSection {
   id: string
@@ -66,8 +66,7 @@ export function StudentSectionsPage() {
                   </h2>
                 </div>
               </div>
-              <div className="flex items-center justify-between mt-2 pt-3 border-t border-slate-50">
-                <span className="badge-blue font-medium">{formatSemesterDisplayName(section.semester, true)}</span>
+              <div className="flex items-center justify-end mt-2 pt-3 border-t border-slate-50">
                 <span className="text-xs font-semibold text-primary group-hover:translate-x-1 transition-transform duration-200 flex items-center gap-1">
                   Vào học phần →
                 </span>

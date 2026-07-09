@@ -4,7 +4,7 @@ import { api } from '../lib/api'
 import { PageLoader, ExerciseIcon } from '../components/ui'
 import { toast } from '../stores/toast.store'
 import { useAuthStore } from '../stores/auth.store'
-import { formatSectionDisplayName, formatSemesterDisplayName } from '../utils/semester'
+import { formatSectionDisplayName } from '../utils/semester'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -391,9 +391,6 @@ export function SectionSchedulePage() {
           </span>
           <div className="flex flex-wrap items-center gap-2.5">
             <span className="uppercase text-slate-800 text-[17px] font-bold">Phân bài theo tuần</span>
-            <span className="badge-blue text-xs font-bold py-0.5 px-2.5 rounded-full">
-              {formatSemesterDisplayName(section.semester, true)}
-            </span>
           </div>
         </div>
         <p className="text-xs font-semibold text-slate-500">

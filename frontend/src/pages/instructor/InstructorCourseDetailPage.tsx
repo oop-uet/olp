@@ -369,9 +369,6 @@ function WeekPanel({
           <span>{title}</span>
           {deadlineText && <span className="text-[11px] font-bold text-slate-500 normal-case ml-1.5">({deadlineText})</span>}
         </div>
-        <span className="text-[10px] font-semibold text-slate-400 lowercase">
-          {exercises.length} bài tập được gán
-        </span>
       </div>
 
       {/* Exercises Stack */}
