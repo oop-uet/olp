@@ -6,6 +6,7 @@ import { getTestSqlite } from "../test/setup.js";
 import {
   createSubmission,
   calculateScore,
+  getSubmissionById,
   isSubmissionError,
 } from "./submission.service.js";
 
@@ -20,6 +21,8 @@ function getDb() {
 function seedSubmissionTestData() {
   const sqlite = getTestSqlite();
   sqlite.exec(`PRAGMA foreign_keys = OFF;`);
+  sqlite.prepare(`UPDATE system_config SET value = '0' WHERE key = 'style_check_enabled'`).run();
+  sqlite.prepare(`UPDATE system_config SET value = '10' WHERE key = 'style_check_weight_percent'`).run();
 
   const studentId = randomUUID();
   const instructorId = randomUUID();
@@ -328,6 +331,70 @@ describe("createSubmission", () => {
 
     expect(isSubmissionError(result)).toBe(false);
     expect((result as any).score).toBe(100);
+  });
+
+  it("should count missing required Checkstyle result as zero for the style weight", async () => {
+    const { studentId, exerciseId, sectionId, testCaseId1, testCaseId2, testCaseId3 } =
+      seedSubmissionTestData();
+    const db = getDb();
+    const sqlite = getTestSqlite();
+
+    sqlite.prepare(`UPDATE system_config SET value = '1' WHERE key = 'style_check_enabled'`).run();
+    sqlite.prepare(`UPDATE system_config SET value = '10' WHERE key = 'style_check_weight_percent'`).run();
+
+    const result = await createSubmission(
+      {
+        studentId,
+        exerciseId,
+        sectionId,
+        code: "correct code",
+        testResults: [
+          { test_case_id: testCaseId1, actual_output: "1", execution_time_ms: 10, status: "passed" },
+          { test_case_id: testCaseId2, actual_output: "2", execution_time_ms: 10, status: "passed" },
+          { test_case_id: testCaseId3, actual_output: "2\n1", execution_time_ms: 10, status: "passed" },
+        ],
+      },
+      db
+    );
+
+    expect(isSubmissionError(result)).toBe(false);
+    expect((result as any).functionalScore).toBe(100);
+    expect((result as any).styleStatus).toBe("unavailable");
+    expect((result as any).styleScore).toBeNull();
+    expect((result as any).score).toBe(90);
+  });
+
+  it("should recompute effective score for old submissions saved before missing Checkstyle was penalized", async () => {
+    const { studentId, exerciseId, sectionId } = seedSubmissionTestData();
+    const db = getDb();
+    const sqlite = getTestSqlite();
+    const submissionId = randomUUID();
+    const now = new Date().toISOString();
+
+    sqlite.prepare(
+      `INSERT INTO submissions (
+        id, student_id, exercise_id, section_id, code, functional_score, score,
+        style_score, style_status, attempt_number, submitted_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      submissionId,
+      studentId,
+      exerciseId,
+      sectionId,
+      "public class Stack {}",
+      100,
+      100,
+      null,
+      "unavailable",
+      1,
+      now
+    );
+
+    const result = await getSubmissionById(submissionId, db);
+
+    expect(isSubmissionError(result)).toBe(false);
+    expect((result as any).score).toBe(100);
+    expect((result as any).effectiveScore).toBe(90);
   });
 
   it("should not nullify a new submission from historical anti-cheat events", async () => {

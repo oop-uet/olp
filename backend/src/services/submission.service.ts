@@ -129,10 +129,54 @@ async function getStyleSettings(database: Database) {
   };
 }
 
-function combineScores(functionalScore: number, styleScore: number | null, styleWeightPercent: number): number {
-  if (styleScore === null || styleWeightPercent <= 0) return functionalScore;
+function combineScores(
+  functionalScore: number,
+  styleScore: number | null,
+  styleWeightPercent: number,
+  options: { countMissingStyleAsZero?: boolean } = {}
+): number {
+  if (styleWeightPercent <= 0) return functionalScore;
+  if (styleScore === null && !options.countMissingStyleAsZero) return functionalScore;
+  const effectiveStyleScore = styleScore ?? 0;
   const testWeightPercent = 100 - styleWeightPercent;
-  return Math.round((functionalScore * testWeightPercent + styleScore * styleWeightPercent) * 100) / 10000;
+  return Math.round((functionalScore * testWeightPercent + effectiveStyleScore * styleWeightPercent) * 100) / 10000;
+}
+
+function resolveEffectiveSubmissionScore(submission: {
+  manualScore?: number | null;
+  score?: number | null;
+  functionalScore?: number | null;
+  styleScore?: number | null;
+  styleStatus?: string | null;
+  exercise?: { styleCheckEnabled?: number | boolean | null; stylePolicy?: string | null } | null;
+}): number | null {
+  if (submission.manualScore !== null && submission.manualScore !== undefined) {
+    return submission.manualScore;
+  }
+
+  if (submission.functionalScore === null || submission.functionalScore === undefined) {
+    return submission.score ?? null;
+  }
+
+  const exerciseStylePolicy = parseExerciseStylePolicy(submission.exercise);
+  const weightPercent = exerciseStylePolicy.weightPercent ?? DEFAULT_STYLE_WEIGHT_PERCENT;
+  const styleRequired = exerciseStylePolicy.enabled !== false && weightPercent > 0;
+  if (styleRequired && submission.styleStatus === "unavailable") {
+    return combineScores(submission.functionalScore, null, weightPercent, {
+      countMissingStyleAsZero: true,
+    });
+  }
+
+  if (
+    styleRequired &&
+    (submission.styleStatus === "passed" || submission.styleStatus === "failed") &&
+    submission.styleScore !== null &&
+    submission.styleScore !== undefined
+  ) {
+    return combineScores(submission.functionalScore, submission.styleScore, weightPercent);
+  }
+
+  return submission.score ?? submission.functionalScore;
 }
 
 function resolveLocalStyleEvaluation(input: {
@@ -368,7 +412,10 @@ export async function createSubmission(
       : combineScores(
         functionalScore,
         styleEvaluation.status === "unavailable" ? null : styleEvaluation.score,
-        effectiveStyleSettings.weightPercent
+        effectiveStyleSettings.weightPercent,
+        {
+          countMissingStyleAsZero: effectiveStyleSettings.enabled && styleEvaluation.status === "unavailable",
+        }
       );
   const feedback = isAntiCheatZero
     ? "Điểm bị hủy do vượt quá ngưỡng cảnh báo chống gian lận."
@@ -520,6 +567,8 @@ export async function listSubmissions(
         columns: {
           id: true,
           title: true,
+          styleCheckEnabled: true,
+          stylePolicy: true,
         },
       },
       section: {
@@ -588,7 +637,7 @@ export async function getSubmissionById(id: string, database: Database = default
 
   return {
     ...submission,
-    effectiveScore: submission.manualScore ?? submission.score,
+    effectiveScore: resolveEffectiveSubmissionScore(submission),
   };
 }
 
