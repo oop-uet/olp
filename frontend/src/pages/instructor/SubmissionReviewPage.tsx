@@ -5,6 +5,7 @@ import { PageLoader, Spinner, CheckCircleIcon, XCircleIcon, SubmissionIcon } fro
 import { StyleAnnotatedCodeViewer } from '../../components/submission/StyleAnnotatedCodeViewer'
 import { toast } from '../../stores/toast.store'
 import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
+import { deduplicateCheckstyleViolations } from '../../utils/checkstyle'
 
 // --- Types ---
 type StyleStatus = 'passed' | 'failed' | 'unavailable' | 'skipped'
@@ -154,7 +155,13 @@ function buildAllFilesDownload(files: SubmittedSourceFile[]) {
 function parseStyleReport(report?: string | null): ParsedStyleReport | null {
   if (!report) return null
   try {
-    return JSON.parse(report) as ParsedStyleReport
+    const parsed = JSON.parse(report) as ParsedStyleReport
+    const violations = deduplicateCheckstyleViolations(parsed.violations ?? [])
+    return {
+      ...parsed,
+      violations,
+      violationCount: violations.length,
+    }
   } catch {
     return null
   }
@@ -266,7 +273,8 @@ export function SubmissionReviewPage() {
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [detailError, setDetailError] = useState<string | null>(null)
   const [activeSubmittedFile, setActiveSubmittedFile] = useState('Main.java')
-  const [activeTab, setActiveTab] = useState<'source' | 'results' | 'anti-cheat'>('source')
+  const [activeTab, setActiveTab] = useState<'source' | 'results' | 'anti-cheat' | 'style'>('source')
+  const [focusStyleLine, setFocusStyleLine] = useState<number | null>(null)
 
 
   const [sortField, setSortField] = useState<'submittedAt' | 'score' | 'exerciseTitle' | ''>('')
@@ -415,6 +423,7 @@ export function SubmissionReviewPage() {
     const files = parseSubmittedFiles(detail.code)
     setActiveSubmittedFile(files[0]?.name ?? 'Main.java')
     setActiveTab('source')
+    setFocusStyleLine(null)
   }
 
   async function fetchSubmissionDetail(submissionId: string) {
@@ -634,36 +643,7 @@ export function SubmissionReviewPage() {
                   </p>
                 )}
 
-                {/* Checkstyle details */}
-                {(selectedSubmission.styleFeedback || styleViolations.length > 0) && (
-                  <div className="pt-3 border-t border-slate-100 space-y-2">
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Chi tiết Quy tắc Lập trình</p>
-                    {selectedSubmission.styleFeedback && (
-                      <p className="rounded-md border border-slate-200 bg-slate-50 p-2.5 leading-5 text-xs text-slate-600">
-                        {selectedSubmission.styleFeedback}
-                      </p>
-                    )}
-                    {styleViolations.length > 0 && (
-                      <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
-                        {styleViolations.slice(0, 6).map((violation, index) => (
-                          <div key={`${violation.file}-${violation.line}-${index}`} className="rounded-md border border-rose-100 bg-rose-50 p-2 text-xs">
-                            <p className="font-bold text-rose-700">
-                              {violation.file}
-                              {violation.line ? `:${violation.line}` : ''}
-                              {violation.column ? `:${violation.column}` : ''}
-                            </p>
-                            <p className="mt-1 leading-5 text-rose-700">{violation.message}</p>
-                          </div>
-                        ))}
-                        {styleViolationCount > 6 && (
-                          <p className="font-semibold text-slate-500 text-xs">
-                            Còn {styleViolationCount - 6} lỗi Checkstyle khác.
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
+
               </div>
             </div>
 
@@ -727,11 +707,12 @@ export function SubmissionReviewPage() {
                     ['source', 'Mã nguồn'],
                     ['results', `Yêu cầu chức năng (${passedCount}/${results.length})`],
                     ['anti-cheat', 'Vi phạm Fullscreen'],
+                    ['style', 'Quy tắc lập trình'],
                   ].map(([tab, label]) => (
                     <button
                       key={tab}
                       type="button"
-                      onClick={() => setActiveTab(tab as 'source' | 'results' | 'anti-cheat')}
+                      onClick={() => setActiveTab(tab as 'source' | 'results' | 'anti-cheat' | 'style')}
                       className={`border-b-2 py-3 text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                         activeTab === tab
                           ? 'border-primary text-primary'
@@ -742,6 +723,11 @@ export function SubmissionReviewPage() {
                       {tab === 'anti-cheat' && antiCheatLog.length > 0 && (
                         <span className="rounded-full bg-rose-500 px-1.5 py-0.5 text-[9px] font-bold text-white leading-none">
                           {antiCheatLog.length}
+                        </span>
+                      )}
+                      {tab === 'style' && styleViolations.length > 0 && (
+                        <span className="rounded-full bg-rose-500 px-1.5 py-0.5 text-[9px] font-bold text-white leading-none">
+                          {styleViolationCount}
                         </span>
                       )}
                     </button>
@@ -760,6 +746,7 @@ export function SubmissionReviewPage() {
                   code={currentSubmittedFile.content}
                   violations={styleViolations}
                   fontSize={13}
+                  focusLine={focusStyleLine}
                 />
               </div>
             )}
@@ -819,6 +806,94 @@ export function SubmissionReviewPage() {
                         })}
                       </tbody>
                     </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'style' && (
+              <div className="flex-1 bg-slate-50 p-5 overflow-y-auto">
+                {selectedSubmission.styleScore == null ? (
+                  <div className="flex min-h-[320px] flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white p-8 text-center shadow-sm">
+                    <p className="text-sm font-bold text-slate-700">Không có kết quả chấm quy tắc</p>
+                    <p className="mt-1 text-sm text-slate-500">Bài nộp này chưa được chấm quy tắc hoặc không xét quy tắc.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4 max-w-3xl mx-auto">
+                    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                      <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-3">Kết quả Checkstyle</h4>
+                      <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                          <p className="text-xs text-slate-500 font-bold uppercase">Trạng thái</p>
+                          <p className="mt-1 font-bold">
+                            {selectedSubmission.styleStatus === 'passed' ? (
+                              <span className="text-emerald-600 font-bold">Đạt quy tắc</span>
+                            ) : selectedSubmission.styleStatus === 'failed' ? (
+                              <span className="text-rose-600 font-bold">Vi phạm quy tắc</span>
+                            ) : (
+                              <span className="text-slate-500">N/A</span>
+                            )}
+                          </p>
+                        </div>
+                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                          <p className="text-xs text-slate-500 font-bold uppercase">Điểm quy tắc</p>
+                          <p className="mt-1 font-black text-slate-800 text-lg">
+                            {selectedSubmission.styleScore.toFixed(1)}/100
+                          </p>
+                        </div>
+                      </div>
+                      {selectedSubmission.styleFeedback && (
+                        <div className="mt-3">
+                          <p className="text-xs text-slate-500 font-bold uppercase mb-1">Nhận xét quy tắc</p>
+                          <p className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-700">
+                            {selectedSubmission.styleFeedback}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {styleViolations.length > 0 ? (
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Danh sách vi phạm ({styleViolations.length})</h4>
+                        <div className="space-y-2">
+                          {styleViolations.map((violation, index) => (
+                            <button
+                              key={`${violation.file}-${violation.line}-${index}`}
+                              type="button"
+                              onClick={() => {
+                                const matchingFile = submittedFiles.find(f => f.name.toLowerCase() === violation.file.toLowerCase() || f.name.toLowerCase().endsWith('/' + violation.file.toLowerCase()))
+                                if (matchingFile) {
+                                  setActiveSubmittedFile(matchingFile.name)
+                                }
+                                setActiveTab('source')
+                                setFocusStyleLine(violation.line ?? null)
+                              }}
+                              className="block w-full text-left rounded-xl border border-rose-100 bg-rose-50/50 hover:bg-rose-50 p-4 transition-all cursor-pointer shadow-sm group"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="font-bold text-rose-700 text-xs">
+                                    {violation.file}
+                                    {violation.line ? ` : Dòng ${violation.line}` : ''}
+                                    {violation.column ? `, cột ${violation.column}` : ''}
+                                  </p>
+                                  <p className="mt-1 text-sm leading-relaxed text-slate-700 font-medium group-hover:text-rose-950 transition-colors">
+                                    {violation.message}
+                                  </p>
+                                </div>
+                                <span className="text-[10px] bg-rose-200/50 text-rose-800 font-bold px-2 py-0.5 rounded uppercase flex-shrink-0 group-hover:bg-rose-200 transition-all">
+                                  Checkstyle
+                                </span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm text-center">
+                        <p className="text-sm font-bold text-emerald-600">Không phát hiện lỗi Checkstyle nào!</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

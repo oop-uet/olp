@@ -304,13 +304,46 @@ export function applyStylePolicyToViolations(
   const disabled = new Set(policy.disabledRules ?? []);
   const enabled = new Set(policy.enabledRules ?? []);
 
-  return violations
+  const filtered = violations
     .map(enrichViolation)
     .filter((violation) => {
       const ids = violationRuleIds(violation);
       if (enabled.size > 0 && !ids.some((id) => enabled.has(id))) return false;
       return !ids.some((id) => disabled.has(id));
     });
+
+  return deduplicateCheckstyleViolations(filtered);
+}
+
+export function deduplicateCheckstyleViolations(
+  violations: CheckstyleViolation[]
+): CheckstyleViolation[] {
+  const unique = new Map<string, CheckstyleViolation>();
+
+  for (const violation of violations) {
+    const key = [
+      violation.file,
+      violation.line ?? "",
+      violation.column ?? "",
+      normalizeMessageForDedup(violation.message),
+    ].join("|");
+    const existing = unique.get(key);
+
+    if (!existing || violation.message.length < existing.message.length) {
+      unique.set(key, violation);
+    }
+  }
+
+  return [...unique.values()];
+}
+
+function normalizeMessageForDedup(message: string): string {
+  return message
+    .replace(/^[A-Za-z]+(?:Check)?:\s*/, "")
+    .replace(/\s+Empty blocks may only be represented.*$/, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
 }
 
 function normalizeRuleList(value: unknown): string[] {

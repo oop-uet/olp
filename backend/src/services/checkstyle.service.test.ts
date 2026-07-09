@@ -141,6 +141,43 @@ describe("Checkstyle Service - style rule policy", () => {
     expect(evaluation.violations[0].ruleId).toBe("indentation.method_def_modifier");
   });
 
+  it("should deduplicate equivalent whitespace reports at the same location", () => {
+    const violations = applyStylePolicyToViolations(
+      [
+        {
+          file: "CartItem.java",
+          line: 18,
+          column: 9,
+          severity: "error",
+          message: "'if' is not followed by whitespace.",
+          source: "com.puppycrawl.tools.checkstyle.checks.whitespace.WhitespaceAfterCheck",
+        },
+        {
+          file: "CartItem.java",
+          line: 18,
+          column: 9,
+          severity: "error",
+          message: "WhitespaceAround: 'if' is not followed by whitespace. Empty blocks may only be represented as {} when not part of a multi-block statement (4.1.3)",
+          source: "com.puppycrawl.tools.checkstyle.checks.whitespace.WhitespaceAroundCheck",
+        },
+        {
+          file: "CartItem.java",
+          line: 18,
+          column: 11,
+          severity: "error",
+          message: "'(' is followed by whitespace.",
+          source: "com.puppycrawl.tools.checkstyle.checks.whitespace.ParenPadCheck",
+        },
+      ]
+    );
+
+    expect(violations).toHaveLength(2);
+    expect(violations.map((violation) => violation.message)).toEqual([
+      "'if' is not followed by whitespace.",
+      "'(' is followed by whitespace.",
+    ]);
+  });
+
   it("should use the UET basic default policy when no policy is provided", () => {
     const policy = normalizeStylePolicy();
     expect(policy.disabledRules).toContain("javadoc");

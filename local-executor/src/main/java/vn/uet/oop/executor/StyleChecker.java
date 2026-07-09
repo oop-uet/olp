@@ -18,7 +18,10 @@ import java.nio.file.Path;
 import java.nio.file.Files;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 public class StyleChecker {
 
@@ -96,13 +99,14 @@ public class StyleChecker {
             checker.process(filesToCheck);
             checker.destroy();
 
-            int violationCount = violationsList.size();
+            List<JsonObject> uniqueViolations = deduplicateViolations(violationsList);
+            int violationCount = uniqueViolations.size();
             double penaltyPerViolation = 5.0;
             int maxViolations = 20;
             int countedViolations = Math.min(violationCount, maxViolations);
             double score = Math.max(0.0, 100.0 - countedViolations * penaltyPerViolation);
 
-            for (JsonObject v : violationsList) {
+            for (JsonObject v : uniqueViolations) {
                 violationsJson.add(v);
             }
 
@@ -124,6 +128,48 @@ public class StyleChecker {
         }
 
         return result;
+    }
+
+    private static List<JsonObject> deduplicateViolations(List<JsonObject> violations) {
+        Map<String, JsonObject> unique = new LinkedHashMap<>();
+
+        for (JsonObject violation : violations) {
+            String key = violationKey(violation);
+            JsonObject existing = unique.get(key);
+
+            if (existing == null || messageOf(violation).length() < messageOf(existing).length()) {
+                unique.put(key, violation);
+            }
+        }
+
+        return new ArrayList<>(unique.values());
+    }
+
+    private static String violationKey(JsonObject violation) {
+        return propertyOf(violation, "file")
+                + "|" + propertyOf(violation, "line")
+                + "|" + propertyOf(violation, "column")
+                + "|" + normalizeMessageForDedup(messageOf(violation));
+    }
+
+    private static String messageOf(JsonObject violation) {
+        return propertyOf(violation, "message");
+    }
+
+    private static String propertyOf(JsonObject violation, String property) {
+        if (!violation.has(property) || violation.get(property).isJsonNull()) {
+            return "";
+        }
+        return violation.get(property).getAsString();
+    }
+
+    private static String normalizeMessageForDedup(String message) {
+        return message
+                .replaceFirst("^[A-Za-z]+(?:Check)?:\\s*", "")
+                .replaceFirst("\\s+Empty blocks may only be represented.*$", "")
+                .replaceAll("\\s+", " ")
+                .trim()
+                .toLowerCase(Locale.ROOT);
     }
 
     private static Path writeUetCheckstyleConfig(Path workDir) throws IOException {

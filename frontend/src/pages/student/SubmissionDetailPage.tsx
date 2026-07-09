@@ -5,9 +5,10 @@ import { PageLoader, CheckCircleIcon, XCircleIcon } from '../../components/ui'
 import { StyleAnnotatedCodeViewer } from '../../components/submission/StyleAnnotatedCodeViewer'
 import { toast } from '../../stores/toast.store'
 import { useAuthStore } from '../../stores/auth.store'
+import { deduplicateCheckstyleViolations } from '../../utils/checkstyle'
 
 type ResultStatus = 'passed' | 'failed' | 'timeout' | 'error'
-type ReviewTab = 'source' | 'results'
+type ReviewTab = 'source' | 'results' | 'style'
 type StyleStatus = 'passed' | 'failed' | 'unavailable' | 'skipped'
 
 interface ApiTestCaseInfo {
@@ -170,11 +171,20 @@ function normalizeSubmissionDetail(data: SubmissionDetailResponse): SubmissionDe
 
 function parseStyleReport(value?: string | StyleReport | null): StyleReport | null {
   if (!value) return null
-  if (typeof value === 'object') return value
+  if (typeof value === 'object') return normalizeStyleReport(value)
   try {
-    return JSON.parse(value) as StyleReport
+    return normalizeStyleReport(JSON.parse(value) as StyleReport)
   } catch {
     return null
+  }
+}
+
+function normalizeStyleReport(report: StyleReport): StyleReport {
+  const violations = deduplicateCheckstyleViolations(report.violations ?? [])
+  return {
+    ...report,
+    violations,
+    violationCount: violations.length,
   }
 }
 
@@ -480,45 +490,7 @@ export function SubmissionDetailPage() {
                 </div>
               )}
 
-              {/* Checkstyle details */}
-              {(submission.styleFeedback || (submission.styleReport?.violations && submission.styleReport.violations.length > 0)) && (
-                <div className="pt-3 border-t border-slate-100 space-y-2">
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Chi tiết Quy tắc Checkstyle</p>
-                  {submission.styleFeedback && (
-                    <p className="rounded-md border border-slate-200 bg-slate-50 p-2.5 leading-5 text-xs text-slate-600">
-                      {submission.styleFeedback}
-                    </p>
-                  )}
-                  {submission.styleReport?.violations && submission.styleReport.violations.length > 0 && (
-                    <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
-                      {submission.styleReport.violations.map((violation, index) => (
-                        <button
-                          key={`${violation.file}-${violation.line}-${index}`}
-                          type="button"
-                          onClick={() => {
-                            setActiveSubmittedFile(resolveSubmittedFileName(submittedFiles, violation.file))
-                            setActiveTab('source')
-                            setFocusStyleLine(violation.line ?? null)
-                          }}
-                          className="block w-full rounded-md bg-slate-50 p-2 text-left text-xs transition hover:bg-amber-50"
-                        >
-                          <p className="font-bold text-slate-700">
-                            {violation.file}
-                            {violation.line ? `:${violation.line}` : ''}
-                            {violation.column ? `:${violation.column}` : ''}
-                          </p>
-                          {(violation.ruleLabel || violation.ruleId) && (
-                            <p className="mt-1 font-bold text-amber-700">
-                              {violation.ruleLabel ?? violation.ruleId}
-                            </p>
-                          )}
-                          <p className="mt-1 leading-5 text-slate-600">{violation.message}</p>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+
             </div>
           </section>
 
@@ -584,18 +556,24 @@ export function SubmissionDetailPage() {
                 {[
                   ['source', 'Mã nguồn'],
                   ['results', `Yêu cầu chức năng (${review.passedCount}/${review.results.length})`],
+                  ['style', 'Quy tắc lập trình'],
                 ].map(([tab, label]) => (
                   <button
                     key={tab}
                     type="button"
                     onClick={() => setActiveTab(tab as ReviewTab)}
-                    className={`border-b-2 py-3 text-sm font-bold transition-all cursor-pointer ${
+                    className={`border-b-2 py-3 text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                       activeTab === tab
                         ? 'border-primary text-primary'
                         : 'border-transparent text-slate-500 hover:text-slate-700'
                     }`}
                   >
-                    {label}
+                    <span>{label}</span>
+                    {tab === 'style' && submission.styleReport?.violations && submission.styleReport.violations.length > 0 && (
+                      <span className="rounded-full bg-rose-500 px-1.5 py-0.5 text-[9px] font-bold text-white leading-none">
+                        {submission.styleReport.violations.length}
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
@@ -640,7 +618,92 @@ export function SubmissionDetailPage() {
               )}
             </div>
           )}
-        </main>
+
+          {activeTab === 'style' && (
+              <div className="flex-1 bg-slate-50 p-5 overflow-y-auto">
+                {submission.styleScore == null ? (
+                  <div className="flex min-h-[320px] flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white p-8 text-center shadow-sm">
+                    <p className="text-sm font-bold text-slate-700">Không có kết quả chấm quy tắc</p>
+                    <p className="mt-1 text-sm text-slate-500">Bài nộp này chưa được chấm quy tắc hoặc không xét quy tắc.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4 max-w-3xl mx-auto">
+                    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                      <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-3">Kết quả Checkstyle</h4>
+                      <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                          <p className="text-xs text-slate-500 font-bold uppercase">Trạng thái</p>
+                          <p className="mt-1 font-bold">
+                            {submission.styleStatus === 'passed' ? (
+                              <span className="text-emerald-600 font-bold">Đạt quy tắc</span>
+                            ) : submission.styleStatus === 'failed' ? (
+                              <span className="text-rose-600 font-bold">Vi phạm quy tắc</span>
+                            ) : (
+                              <span className="text-slate-500">N/A</span>
+                            )}
+                          </p>
+                        </div>
+                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                          <p className="text-xs text-slate-500 font-bold uppercase">Điểm quy tắc</p>
+                          <p className="mt-1 font-black text-slate-800 text-lg">
+                            {submission.styleScore.toFixed(1)}/100
+                          </p>
+                        </div>
+                      </div>
+                      {submission.styleFeedback && (
+                        <div className="mt-3">
+                          <p className="text-xs text-slate-500 font-bold uppercase mb-1">Nhận xét quy tắc</p>
+                          <p className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-700">
+                            {submission.styleFeedback}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {submission.styleReport?.violations && submission.styleReport.violations.length > 0 ? (
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Danh sách vi phạm ({submission.styleReport.violations.length})</h4>
+                        <div className="space-y-2">
+                          {submission.styleReport.violations.map((violation, index) => (
+                            <button
+                              key={`${violation.file}-${violation.line}-${index}`}
+                              type="button"
+                              onClick={() => {
+                                setActiveSubmittedFile(resolveSubmittedFileName(submittedFiles, violation.file))
+                                setActiveTab('source')
+                                setFocusStyleLine(violation.line ?? null)
+                              }}
+                              className="block w-full text-left rounded-xl border border-rose-100 bg-rose-50/50 hover:bg-rose-50 p-4 transition-all cursor-pointer shadow-sm group"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="font-bold text-rose-700 text-xs">
+                                    {violation.file}
+                                    {violation.line ? ` : Dòng ${violation.line}` : ''}
+                                    {violation.column ? `, cột ${violation.column}` : ''}
+                                  </p>
+                                  <p className="mt-1 text-sm leading-relaxed text-slate-700 font-medium group-hover:text-rose-950 transition-colors">
+                                    {violation.message}
+                                  </p>
+                                </div>
+                                <span className="text-[10px] bg-rose-200/50 text-rose-800 font-bold px-2 py-0.5 rounded uppercase flex-shrink-0 group-hover:bg-rose-200 transition-all">
+                                  Checkstyle
+                                </span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm text-center">
+                        <p className="text-sm font-bold text-emerald-600">Không phát hiện lỗi Checkstyle nào!</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </main>
       </div>
     </div>
   )
