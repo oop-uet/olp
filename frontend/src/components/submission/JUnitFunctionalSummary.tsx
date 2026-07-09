@@ -13,6 +13,7 @@ interface JUnitFunctionalSummaryProps {
   totalAssertions?: number
   lineNumber?: number
   fileName?: string
+  summaryTitle?: string
 }
 
 export function JUnitFunctionalSummary({
@@ -25,6 +26,7 @@ export function JUnitFunctionalSummary({
   totalAssertions,
   lineNumber,
   fileName: explicitFileName,
+  summaryTitle,
 }: JUnitFunctionalSummaryProps) {
   const assertions = assertionLabel
     ? [{ label: assertionLabel, lineNumber: lineNumber ?? 0 }]
@@ -52,7 +54,7 @@ export function JUnitFunctionalSummary({
 
       <div className="rounded-lg border border-slate-200 bg-white p-4">
         <p className="text-xs font-black uppercase tracking-wider text-slate-400">
-          {assertionLabel ? 'Test case từ assertion' : 'Yêu cầu kiểm thử'}
+          {summaryTitle ?? (assertionLabel ? 'Test case từ assertion' : 'Yêu cầu kiểm thử')}
         </p>
 
         {assertions.length > 0 ? (

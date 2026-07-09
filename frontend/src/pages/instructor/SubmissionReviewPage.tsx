@@ -7,7 +7,11 @@ import { JUnitFunctionalSummary } from '../../components/submission/JUnitFunctio
 import { toast } from '../../stores/toast.store'
 import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
 import { deduplicateCheckstyleViolations } from '../../utils/checkstyle'
-import { buildJUnitAssertionResultDisplays, isJavaJUnitTestInput } from '../../utils/junitAssertions'
+import {
+  buildJUnitAssertionResultDisplays,
+  isJavaJUnitTestInput,
+  type JUnitRequirementKind,
+} from '../../utils/junitAssertions'
 
 // --- Types ---
 type StyleStatus = 'passed' | 'failed' | 'unavailable' | 'skipped'
@@ -52,6 +56,7 @@ interface TestCaseResult {
   assertionIndex?: number
   totalAssertions?: number
   lineNumber?: number
+  requirementKind?: JUnitRequirementKind
 }
 
 interface SubmissionDetail {
@@ -271,6 +276,7 @@ function expandJUnitAssertionResults(results: TestCaseResult[]): TestCaseResult[
       assertionIndex: assertionResult.assertionIndex,
       totalAssertions: assertionResult.totalAssertions,
       lineNumber: assertionResult.lineNumber,
+      requirementKind: assertionResult.requirementKind,
     }))
   })
 }
@@ -323,7 +329,7 @@ export function SubmissionReviewPage() {
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [detailError, setDetailError] = useState<string | null>(null)
   const [activeSubmittedFile, setActiveSubmittedFile] = useState('Main.java')
-  const [activeTab, setActiveTab] = useState<'source' | 'results' | 'anti-cheat' | 'style'>('source')
+  const [activeTab, setActiveTab] = useState<'source' | 'results' | 'structure' | 'anti-cheat' | 'style'>('source')
   const [focusStyleLine, setFocusStyleLine] = useState<number | null>(null)
   const [pageSize, setPageSize] = useState(10)
 
@@ -544,6 +550,8 @@ export function SubmissionReviewPage() {
     if (!selectedSubmission) return null
 
     const results = expandJUnitAssertionResults(selectedSubmission.results ?? [])
+    const functionalResults = results.filter((tc) => tc.requirementKind !== 'structure')
+    const structureResults = results.filter((tc) => tc.requirementKind === 'structure')
     const effectiveScore =
       selectedSubmission.effectiveScore ??
       selectedSubmission.score ??
@@ -551,7 +559,9 @@ export function SubmissionReviewPage() {
     const exerciseTitle = selectedSubmission.exercise?.title || exerciseTitleById.get(selectedSubmission.exerciseId) || 'Bài thực hành'
     const studentName = selectedSubmission.student?.fullName || selectedSubmission.student?.username || 'Sinh viên'
     const studentUsername = selectedSubmission.student?.username || ''
-    const passedCount = results.filter((tc) => isPassed(tc.passed)).length
+    const functionalPassedCount = functionalResults.filter((tc) => isPassed(tc.passed)).length
+    const structurePassedCount = structureResults.filter((tc) => isPassed(tc.passed)).length
+    const hasStructureResults = structureResults.length > 0
 
     const submittedFiles = parseSubmittedFiles(selectedSubmission.code)
     const currentSubmittedFile =
@@ -735,10 +745,16 @@ export function SubmissionReviewPage() {
             {/* Checkboxes Row */}
             <div className="border-b border-slate-100 bg-slate-50/50 px-5 py-3.5 flex flex-wrap items-center gap-3 text-xs select-none">
               <span className="font-bold text-slate-500 mr-1">Trạng thái đánh giá:</span>
-              {selectedSubmission.score === 0 && results.some(r => r.status === 'error') ? (
+              {hasStructureResults ? (
+                structurePassedCount === structureResults.length ? (
+                  <span className="badge-green py-1 px-2.5 rounded-full">Cấu trúc đạt (SE)</span>
+                ) : (
+                  <span className="badge-red py-1 px-2.5 rounded-full">Lỗi cấu trúc (SE)</span>
+                )
+              ) : selectedSubmission.score === 0 && results.some(r => r.status === 'error') ? (
                 <span className="badge-red py-1 px-2.5 rounded-full">Lỗi cấu trúc (SE)</span>
               ) : (
-                <span className="badge-green py-1 px-2.5 rounded-full">Cấu trúc đạt (SE)</span>
+                <span className="badge-gray py-1 px-2.5 rounded-full">Không xét cấu trúc (SE)</span>
               )}
               {selectedSubmission.styleStatus === 'failed' ? (
                 <span className="badge-red py-1 px-2.5 rounded-full">Lỗi quy tắc (PE)</span>
@@ -759,14 +775,17 @@ export function SubmissionReviewPage() {
                 <div className="flex gap-6">
                   {[
                     ['source', 'Mã nguồn'],
-                    ['results', `Yêu cầu chức năng (${passedCount}/${results.length})`],
+                    ['results', `Yêu cầu chức năng (${functionalPassedCount}/${functionalResults.length})`],
+                    ...(hasStructureResults
+                      ? [['structure', `Yêu cầu cấu trúc (${structurePassedCount}/${structureResults.length})`]]
+                      : []),
                     ['anti-cheat', 'Vi phạm Fullscreen'],
                     ['style', 'Quy tắc lập trình'],
                   ].map(([tab, label]) => (
                     <button
                       key={tab}
                       type="button"
-                      onClick={() => setActiveTab(tab as 'source' | 'results' | 'anti-cheat' | 'style')}
+                      onClick={() => setActiveTab(tab as 'source' | 'results' | 'structure' | 'anti-cheat' | 'style')}
                       className={`border-b-2 py-3 text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                         activeTab === tab
                           ? 'border-primary text-primary'
@@ -807,13 +826,35 @@ export function SubmissionReviewPage() {
 
             {activeTab === 'results' && (
               <div className="flex-1 bg-slate-50 p-4 overflow-y-auto space-y-4">
-                {results.length === 0 ? (
+                {functionalResults.length === 0 ? (
                   <div className="flex min-h-[320px] items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
-                    <p className="text-sm font-bold text-slate-400">Không có kết quả bộ test</p>
+                    <p className="text-sm font-bold text-slate-400">
+                      {hasStructureResults ? 'Không có yêu cầu chức năng' : 'Không có kết quả bộ test'}
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {results.map((tc, index) => (
+                    {functionalResults.map((tc, index) => (
+                      <FunctionalResultCard
+                        key={tc.id}
+                        result={tc}
+                        index={index}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'structure' && (
+              <div className="flex-1 bg-slate-50 p-4 overflow-y-auto space-y-4">
+                {structureResults.length === 0 ? (
+                  <div className="flex min-h-[320px] items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
+                    <p className="text-sm font-bold text-slate-400">Không có yêu cầu cấu trúc</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {structureResults.map((tc, index) => (
                       <FunctionalResultCard
                         key={tc.id}
                         result={tc}
@@ -1325,6 +1366,7 @@ function FunctionalResultCard({
               totalAssertions={result.totalAssertions}
               lineNumber={result.lineNumber}
               fileName={result.junitFileName}
+              summaryTitle={result.requirementKind === 'structure' ? 'Yêu cầu cấu trúc' : undefined}
             />
           ) : (
             <div className="mx-auto max-w-none space-y-5 font-mono text-sm leading-6">

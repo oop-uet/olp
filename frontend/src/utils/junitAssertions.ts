@@ -1,6 +1,7 @@
 export interface JUnitAssertionSummary {
   assertion: string
   label: string
+  requirementKind: JUnitRequirementKind
   expected?: string
   actual?: string
   condition?: string
@@ -8,11 +9,14 @@ export interface JUnitAssertionSummary {
   lineNumber: number
 }
 
+export type JUnitRequirementKind = 'functional' | 'structure'
+type JUnitAssertionSummaryDraft = Omit<JUnitAssertionSummary, 'requirementKind'>
 export type JUnitAssertionResultStatus = 'passed' | 'failed' | 'timeout' | 'error'
 
 export interface JUnitAssertionResultDisplay {
   id: string
   label: string
+  requirementKind: JUnitRequirementKind
   fileName: string
   passed: boolean
   status: JUnitAssertionResultStatus
@@ -57,7 +61,12 @@ export function extractJUnitAssertionSummaries(
       source.slice(match.index, closeParenIndex + 1),
       getLineNumberAt(source, match.index)
     )
-    if (summary) summaries.push(summary)
+    if (summary) {
+      summaries.push({
+        ...summary,
+        requirementKind: classifyJUnitRequirement(summary),
+      })
+    }
     ASSERT_CALL_PATTERN.lastIndex = closeParenIndex + 1
   }
 
@@ -101,6 +110,7 @@ export function buildJUnitAssertionResultDisplays({
     return {
       id: `${id}:assertion:${index + 1}`,
       label: assertion.label,
+      requirementKind: assertion.requirementKind,
       fileName,
       passed: assertionPassed,
       status: assertionPassed ? 'passed' : status,
@@ -118,7 +128,7 @@ function buildSummary(
   rawArgs: string[],
   raw: string,
   lineNumber: number
-): JUnitAssertionSummary | null {
+): JUnitAssertionSummaryDraft | null {
   const args = dropOptionalMessage(assertion, rawArgs).map(compactExpression)
 
   switch (assertion) {
@@ -161,7 +171,7 @@ function comparisonSummary(
   raw: string,
   lineNumber: number,
   relation: string
-): JUnitAssertionSummary | null {
+): JUnitAssertionSummaryDraft | null {
   if (args.length < 2) return null
 
   const [expected, actual] = args
@@ -183,7 +193,7 @@ function booleanConditionSummary(
   raw: string,
   lineNumber: number,
   expectedValue: boolean
-): JUnitAssertionSummary | null {
+): JUnitAssertionSummaryDraft | null {
   if (args.length < 1) return null
   const condition = args[0]
   const readableCondition = describeKnownBooleanCondition(condition, expectedValue)
@@ -204,7 +214,7 @@ function nullConditionSummary(
   raw: string,
   lineNumber: number,
   expectsNull: boolean
-): JUnitAssertionSummary | null {
+): JUnitAssertionSummaryDraft | null {
   if (args.length < 1) return null
   const condition = args[0]
   const readableCondition = humanizeExpression(condition)
@@ -219,7 +229,7 @@ function nullConditionSummary(
   }
 }
 
-function throwsSummary(args: string[], raw: string, lineNumber: number): JUnitAssertionSummary | null {
+function throwsSummary(args: string[], raw: string, lineNumber: number): JUnitAssertionSummaryDraft | null {
   if (args.length < 2) return null
   const [expected, executable] = args
   const readableExpected = humanizeExpression(expected)
@@ -254,6 +264,33 @@ function describeKnownBooleanCondition(condition: string, expectedValue: boolean
   }
 
   return null
+}
+
+function classifyJUnitRequirement(summary: JUnitAssertionSummaryDraft): JUnitRequirementKind {
+  const inspectedExpression = [
+    summary.raw,
+    summary.condition,
+    summary.expected,
+    summary.actual,
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  if (
+    /\bModifier\.is(?:Private|Public|Protected|Static|Final|Abstract)\s*\(/.test(inspectedExpression) ||
+    /\.class\.get(?:Declared)?(?:Field|Fields|Method|Methods|Constructor|Constructors)\s*\(/.test(inspectedExpression) ||
+    /\.class\.getModifiers\s*\(/.test(inspectedExpression) ||
+    /\.class\.getSuperclass\s*\(/.test(inspectedExpression) ||
+    /\.class\.getInterfaces\s*\(/.test(inspectedExpression) ||
+    /\.class\.is(?:Interface|Enum|Annotation|Record|AssignableFrom)\s*\(/.test(inspectedExpression) ||
+    /\.class\.isAnnotationPresent\s*\(/.test(inspectedExpression) ||
+    /\.class\.getAnnotation\s*\(/.test(inspectedExpression) ||
+    /\bClass\.forName\s*\(/.test(inspectedExpression)
+  ) {
+    return 'structure'
+  }
+
+  return 'functional'
 }
 
 function humanizeExpression(expression: string): string {

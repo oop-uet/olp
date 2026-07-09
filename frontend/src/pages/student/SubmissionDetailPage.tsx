@@ -10,10 +10,11 @@ import { deduplicateCheckstyleViolations } from '../../utils/checkstyle'
 import {
   buildJUnitAssertionResultDisplays,
   isJavaJUnitTestInput,
+  type JUnitRequirementKind,
 } from '../../utils/junitAssertions'
 
 type ResultStatus = 'passed' | 'failed' | 'timeout' | 'error'
-type ReviewTab = 'source' | 'results' | 'style'
+type ReviewTab = 'source' | 'results' | 'structure' | 'style'
 type StyleStatus = 'passed' | 'failed' | 'unavailable' | 'skipped'
 
 interface ApiTestCaseInfo {
@@ -55,6 +56,7 @@ interface TestCaseResult {
   assertionIndex?: number
   totalAssertions?: number
   lineNumber?: number
+  requirementKind?: JUnitRequirementKind
 }
 
 interface SubmissionDetail {
@@ -217,6 +219,7 @@ function expandJUnitAssertionResults(results: TestCaseResult[]): TestCaseResult[
       assertionIndex: assertionResult.assertionIndex,
       totalAssertions: assertionResult.totalAssertions,
       lineNumber: assertionResult.lineNumber,
+      requirementKind: assertionResult.requirementKind,
     }))
   })
 }
@@ -385,16 +388,33 @@ export function SubmissionDetailPage() {
 
   const review = useMemo(() => {
     const results = expandJUnitAssertionResults(submission?.testCaseResults ?? [])
+    const functionalResults = results.filter((tc) => tc.requirementKind !== 'structure')
+    const structureResults = results.filter((tc) => tc.requirementKind === 'structure')
+
     if (submission && isSubmissionNullified(submission)) {
       return {
         results: results.map((tc) => ({ ...tc, passed: false, status: 'failed' as ResultStatus })),
+        functionalResults: functionalResults.map((tc) => ({ ...tc, passed: false, status: 'failed' as ResultStatus })),
+        structureResults: structureResults.map((tc) => ({ ...tc, passed: false, status: 'failed' as ResultStatus })),
         passedCount: 0,
-        rawPassedCount: results.filter((tc) => tc.passed).length,
+        functionalPassedCount: 0,
+        structurePassedCount: 0,
+        rawPassedCount: functionalResults.filter((tc) => tc.passed).length,
       }
     }
 
     const passedCount = results.filter((tc) => tc.passed).length
-    return { results, passedCount, rawPassedCount: passedCount }
+    const functionalPassedCount = functionalResults.filter((tc) => tc.passed).length
+    const structurePassedCount = structureResults.filter((tc) => tc.passed).length
+    return {
+      results,
+      functionalResults,
+      structureResults,
+      passedCount,
+      functionalPassedCount,
+      structurePassedCount,
+      rawPassedCount: functionalPassedCount,
+    }
   }, [submission])
 
   if (loading) {
@@ -418,7 +438,8 @@ export function SubmissionDetailPage() {
   const submittedFiles = parseSubmittedFiles(submission.code)
   const currentSubmittedFile =
     submittedFiles.find((file) => file.name === activeSubmittedFile) ?? submittedFiles[0]
-  const hasPublicResults = review.results.length > 0
+  const hasFunctionalResults = review.functionalResults.length > 0
+  const hasStructureResults = review.structureResults.length > 0
   const functionalScore = submission.functionalScore ?? submission.score
   const submissionStatus = getSubmissionStatus(submission)
   const nullified = isSubmissionNullified(submission)
@@ -583,10 +604,16 @@ export function SubmissionDetailPage() {
           {/* Checkboxes Row */}
           <div className="border-b border-slate-100 bg-slate-50/50 px-5 py-3.5 flex flex-wrap items-center gap-3 text-xs select-none">
             <span className="font-bold text-slate-500 mr-1">Trạng thái đánh giá:</span>
-            {submission.score === 0 && review.results.some(r => r.status === 'error') ? (
+            {hasStructureResults ? (
+              review.structurePassedCount === review.structureResults.length ? (
+                <span className="badge-green py-1 px-2.5 rounded-full">Cấu trúc đạt (SE)</span>
+              ) : (
+                <span className="badge-red py-1 px-2.5 rounded-full">Lỗi cấu trúc (SE)</span>
+              )
+            ) : submission.score === 0 && review.results.some(r => r.status === 'error') ? (
               <span className="badge-red py-1 px-2.5 rounded-full">Lỗi cấu trúc (SE)</span>
             ) : (
-              <span className="badge-green py-1 px-2.5 rounded-full">Cấu trúc đạt (SE)</span>
+              <span className="badge-gray py-1 px-2.5 rounded-full">Không xét cấu trúc (SE)</span>
             )}
             {submission.styleStatus === 'failed' ? (
               <span className="badge-red py-1 px-2.5 rounded-full">Lỗi quy tắc (PE)</span>
@@ -607,7 +634,10 @@ export function SubmissionDetailPage() {
               <div className="flex gap-6">
                 {[
                   ['source', 'Mã nguồn'],
-                  ['results', `Yêu cầu chức năng (${review.passedCount}/${review.results.length})`],
+                  ['results', `Yêu cầu chức năng (${review.functionalPassedCount}/${review.functionalResults.length})`],
+                  ...(hasStructureResults
+                    ? [['structure', `Yêu cầu cấu trúc (${review.structurePassedCount}/${review.structureResults.length})`]]
+                    : []),
                   ['style', 'Quy tắc lập trình'],
                 ].map(([tab, label]) => (
                   <button
@@ -648,16 +678,36 @@ export function SubmissionDetailPage() {
 
           {activeTab === 'results' && (
             <div className="flex-1 bg-slate-50 p-4 overflow-y-auto space-y-4">
-              {!hasPublicResults ? (
-                <EmptyResults />
+              {!hasFunctionalResults ? (
+                <EmptyResults label={hasStructureResults ? 'Không có yêu cầu chức năng.' : undefined} />
               ) : (
                 <div className="space-y-4">
                   {nullified && (
                     <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
-                      Bài nộp đã bị hủy điểm, nên {review.rawPassedCount}/{review.results.length} test public chạy đúng không được tính vào điểm.
+                      Bài nộp đã bị hủy điểm, nên {review.rawPassedCount}/{review.functionalResults.length} test public chạy đúng không được tính vào điểm.
                     </div>
                   )}
-                  {review.results.map((tc, index) => (
+                  {review.functionalResults.map((tc, index) => (
+                    <FunctionalResultCard
+                      key={tc.id}
+                      result={tc}
+                      index={index}
+                      nullified={nullified}
+                      isInstructor={isInstructorView}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'structure' && (
+            <div className="flex-1 bg-slate-50 p-4 overflow-y-auto space-y-4">
+              {!hasStructureResults ? (
+                <EmptyResults label="Không có yêu cầu cấu trúc." />
+              ) : (
+                <div className="space-y-4">
+                  {review.structureResults.map((tc, index) => (
                     <FunctionalResultCard
                       key={tc.id}
                       result={tc}
@@ -729,11 +779,11 @@ export function SubmissionDetailPage() {
   )
 }
 
-function EmptyResults() {
+function EmptyResults({ label = 'Không có test case công khai' }: { label?: string }) {
   return (
     <div className="flex min-h-[320px] items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
       <div>
-        <p className="text-sm font-bold text-slate-700">Không có test case công khai</p>
+        <p className="text-sm font-bold text-slate-700">{label}</p>
         <p className="mt-1 text-sm text-slate-500">
           Bài nộp có thể chỉ được chấm bằng test ẩn hoặc bị ghi nhận 0 điểm do phiên làm bài.
         </p>
@@ -818,6 +868,7 @@ function FunctionalResultCard({
               totalAssertions={result.totalAssertions}
               lineNumber={result.lineNumber}
               fileName={result.junitFileName}
+              summaryTitle={result.requirementKind === 'structure' ? 'Yêu cầu cấu trúc' : undefined}
             />
           ) : (
             <div className="mx-auto max-w-none space-y-5 font-mono text-sm leading-6">

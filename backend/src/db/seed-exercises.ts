@@ -1,16 +1,10 @@
 import "dotenv/config";
-import { inArray, eq } from "drizzle-orm";
 import crypto from "node:crypto";
 import { db } from "./index.js";
 import {
-  anticheatEvents,
   classSections,
   exerciseAssignments,
   exercises,
-  projectGroupMembers,
-  projectGroups,
-  submissionResults,
-  submissions,
   testCases,
 } from "./schema.js";
 import { ensureDatabaseCompatibility } from "./compat.js";
@@ -1756,48 +1750,10 @@ public class HashtagIndexTest {
   },
 ];
 
-async function replaceExerciseLibrary() {
-  const oldLibraryExercises = await db
-    .select({ id: exercises.id })
-    .from(exercises)
-    .where(eq(exercises.isLibrary, 1));
-
-  if (oldLibraryExercises.length === 0) {
-    return;
-  }
-
-  const oldIds = oldLibraryExercises.map((exercise) => exercise.id);
-  const oldSubmissions = await db
-    .select({ id: submissions.id })
-    .from(submissions)
-    .where(inArray(submissions.exerciseId, oldIds));
-  const oldSubmissionIds = oldSubmissions.map((submission) => submission.id);
-  const oldProjectGroups = await db
-    .select({ id: projectGroups.id })
-    .from(projectGroups)
-    .where(inArray(projectGroups.exerciseId, oldIds));
-  const oldProjectGroupIds = oldProjectGroups.map((group) => group.id);
-
-  if (oldSubmissionIds.length > 0) {
-    await db.delete(submissionResults).where(inArray(submissionResults.submissionId, oldSubmissionIds));
-  }
-  if (oldProjectGroupIds.length > 0) {
-    await db.delete(projectGroupMembers).where(inArray(projectGroupMembers.groupId, oldProjectGroupIds));
-  }
-
-  await db.delete(anticheatEvents).where(inArray(anticheatEvents.exerciseId, oldIds));
-  await db.delete(projectGroups).where(inArray(projectGroups.exerciseId, oldIds));
-  await db.delete(submissions).where(inArray(submissions.exerciseId, oldIds));
-  await db.delete(exerciseAssignments).where(inArray(exerciseAssignments.exerciseId, oldIds));
-  await db.delete(testCases).where(inArray(testCases.exerciseId, oldIds));
-  await db.delete(exercises).where(eq(exercises.isLibrary, 1));
-}
-
 async function seedExercises() {
   console.log("Seeding OOP practice exercise library...");
 
   await ensureDatabaseCompatibility(db);
-  await replaceExerciseLibrary();
 
   const now = new Date().toISOString();
   let testCaseCount = 0;
@@ -1884,11 +1840,7 @@ async function seedExercises() {
         .onConflictDoUpdate({
           target: [exerciseAssignments.exerciseId, exerciseAssignments.sectionId],
           set: {
-            deadline: null,
             isAssessment: isDefaultAssessment(exercise.title),
-            isVisible: 0,
-            allowSubmission: 1,
-            maxSubmissions: null,
             week: weekFromTitle(exercise.title),
           },
         });

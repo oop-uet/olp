@@ -93,6 +93,32 @@ describe('extractJUnitAssertionSummaries', () => {
       'Thuộc tính amount của lớp WaterTank phải là private',
       'Thuộc tính amount của lớp WaterTank không được là static',
     ])
+    expect(result.map((item) => item.requirementKind)).toEqual([
+      'structure',
+      'structure',
+      'structure',
+    ])
+  })
+
+  it('classifies reflection and inheritance checks as structure requirements', () => {
+    const source = `
+      public class ElectricCarTest {
+        @Test
+        public void classShape() {
+          assertEquals(Vehicle.class, ElectricCar.class.getSuperclass());
+          assertTrue(Runnable.class.isAssignableFrom(ElectricCar.class));
+          assertEquals("EV-01", new ElectricCar("EV-01").getLicensePlate());
+        }
+      }
+    `
+
+    const result = extractJUnitAssertionSummaries(source)
+
+    expect(result.map((item) => item.requirementKind)).toEqual([
+      'structure',
+      'structure',
+      'functional',
+    ])
   })
 
   it('limits the number of displayed assertions', () => {
@@ -131,5 +157,10 @@ describe('extractJUnitAssertionSummaries', () => {
     ])
     expect(result.map((item) => item.passed)).toEqual([true, false, false])
     expect(result.map((item) => item.pointValue)).toEqual([4.3, 4.3, 4.3])
+    expect(result.map((item) => item.requirementKind)).toEqual([
+      'functional',
+      'functional',
+      'functional',
+    ])
   })
 })
