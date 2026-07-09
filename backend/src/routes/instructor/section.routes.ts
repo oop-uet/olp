@@ -697,7 +697,12 @@ async function getStudentProfileHandler(req: Request, res: Response) {
       .innerJoin(users, eq(sectionEnrollments.studentId, users.id))
       .where(eq(sectionEnrollments.sectionId, sectionId));
 
-    const enrollment = enrollmentRows.find((row) => row.userId === studentUserId);
+    const enrollment = enrollmentRows.find(
+      (row) =>
+        row.userId === studentUserId ||
+        row.username === studentUserId ||
+        row.studentExternalId === studentUserId
+    );
     if (!enrollment) {
       res.status(404).json({ error: { code: "NOT_FOUND", message: "Sinh viên không thuộc lớp này." } });
       return;
@@ -732,8 +737,8 @@ async function getStudentProfileHandler(req: Request, res: Response) {
       .orderBy(desc(submissions.submittedAt));
 
     const statsRows = buildStudentStatistics(enrollmentRows, assigned, allSectionSubmissions);
-    const summary = statsRows.find((row) => row.userId === studentUserId)!;
-    const studentSubmissions = allSectionSubmissions.filter((sub) => sub.studentId === studentUserId);
+    const summary = statsRows.find((row) => row.userId === enrollment.userId)!;
+    const studentSubmissions = allSectionSubmissions.filter((sub) => sub.studentId === enrollment.userId);
 
     const progress = assigned.map((exercise) => {
       const related = studentSubmissions.filter((sub) => sub.exerciseId === exercise.exerciseId);
