@@ -11,7 +11,7 @@ import {
 const router = Router();
 
 const updateAiConfigSchema = z.object({
-  provider: z.enum(["openai", "anthropic", "gemini"]).optional(),
+  provider: z.enum(["openai", "anthropic", "gemini", "groq", "openrouter"]).optional(),
   model: z.string().min(3).max(120).optional(),
   apiKey: z.string().max(300).optional(),
   enabled: z.boolean().optional(),

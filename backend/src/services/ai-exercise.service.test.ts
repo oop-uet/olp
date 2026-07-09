@@ -88,6 +88,8 @@ describe("AI Exercise Service", () => {
       "openai",
       "anthropic",
       "gemini",
+      "groq",
+      "openrouter",
     ]);
   });
 
@@ -177,6 +179,39 @@ describe("AI Exercise Service", () => {
     });
     expect(fetchMock).toHaveBeenCalledWith(
       "https://generativelanguage.googleapis.com/v1beta/models?key=AIza-test-key"
+    );
+  });
+
+  it("tests a Groq API key through the selected provider", async () => {
+    const db = getDb();
+    await updateAiConfig(
+      { provider: "groq", apiKey: "gsk_test_key" },
+      ADMIN_ID,
+      db as never
+    );
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await testAiConfig(ADMIN_ID, db as never);
+
+    expect(isAiServiceError(result)).toBe(false);
+    expect(result).toMatchObject({
+      provider: "groq",
+      model: "openai/gpt-oss-20b",
+      enabled: true,
+      lastCheckStatus: "ok",
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.groq.com/openai/v1/models",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer gsk_test_key",
+        }),
+      })
     );
   });
 
@@ -338,6 +373,114 @@ describe("AI Exercise Service", () => {
         method: "POST",
         headers: expect.objectContaining({
           "Content-Type": "application/json",
+        }),
+      })
+    );
+  });
+
+  it("generates an exercise draft through Groq structured chat output", async () => {
+    const db = getDb();
+    await updateAiConfig(
+      {
+        provider: "groq",
+        model: "openai/gpt-oss-20b",
+        apiKey: "gsk_test_key",
+      },
+      ADMIN_ID,
+      db as never
+    );
+
+    const draft = createDraft();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: JSON.stringify(draft) } }],
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await testAiConfig(ADMIN_ID, db as never);
+    const result = await generateExerciseDraft(
+      {
+        topic: "phiếu mượn sách",
+        difficulty: "medium",
+        test_count: 2,
+        oop_tags: ["classes and objects", "encapsulation"],
+        lecture_context: "",
+        additional_requirements: "",
+      },
+      db as never
+    );
+
+    expect(isAiServiceError(result)).toBe(false);
+    expect(result).toMatchObject({ draft });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "https://api.groq.com/openai/v1/chat/completions",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Authorization: "Bearer gsk_test_key",
+        }),
+      })
+    );
+  });
+
+  it("generates an exercise draft through OpenRouter free router", async () => {
+    const db = getDb();
+    await updateAiConfig(
+      {
+        provider: "openrouter",
+        model: "openrouter/free",
+        apiKey: "sk-or-v1-test-key",
+      },
+      ADMIN_ID,
+      db as never
+    );
+
+    const draft = createDraft();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: "OK" } }],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: JSON.stringify(draft) } }],
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await testAiConfig(ADMIN_ID, db as never);
+    const result = await generateExerciseDraft(
+      {
+        topic: "phiếu mượn sách",
+        difficulty: "medium",
+        test_count: 2,
+        oop_tags: ["classes and objects", "encapsulation"],
+        lecture_context: "",
+        additional_requirements: "",
+      },
+      db as never
+    );
+
+    expect(isAiServiceError(result)).toBe(false);
+    expect(result).toMatchObject({ draft });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "https://openrouter.ai/api/v1/chat/completions",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Authorization: "Bearer sk-or-v1-test-key",
         }),
       })
     );

@@ -3,10 +3,11 @@ import { api } from '../../lib/api'
 import { toast } from '../../stores/toast.store'
 
 type Difficulty = 'easy' | 'medium' | 'hard'
+type AiProvider = 'openai' | 'anthropic' | 'gemini' | 'groq' | 'openrouter'
 
 interface AiStatus {
   enabled: boolean
-  provider: 'openai' | 'anthropic' | 'gemini'
+  provider: AiProvider
   model: string
   reason: string | null
 }

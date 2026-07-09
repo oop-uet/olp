@@ -25,10 +25,12 @@ interface ConfigParam {
   options?: Array<{ value: string; label: string }>
 }
 
+type AiProvider = 'openai' | 'anthropic' | 'gemini' | 'groq' | 'openrouter'
+
 interface AiConfigStatus {
-  provider: 'openai' | 'anthropic' | 'gemini'
+  provider: AiProvider
   providers: Array<{
-    value: 'openai' | 'anthropic' | 'gemini'
+    value: AiProvider
     label: string
     defaultModel: string
     keyPlaceholder: string

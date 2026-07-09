@@ -5,7 +5,7 @@ import { db as defaultDb } from "../db/index.js";
 import { systemConfig } from "../db/schema.js";
 
 type Database = typeof defaultDb;
-type AiProvider = "openai" | "anthropic" | "gemini";
+type AiProvider = "openai" | "anthropic" | "gemini" | "groq" | "openrouter";
 
 const CONFIG_KEYS = {
   provider: "ai_generation_provider",
@@ -23,11 +23,13 @@ const DEFAULT_MODELS: Record<AiProvider, string> = {
   openai: "gpt-4o-mini",
   anthropic: "claude-sonnet-4-5",
   gemini: "gemini-2.5-flash",
+  groq: "openai/gpt-oss-20b",
+  openrouter: "openrouter/free",
 };
 const ENCRYPTION_PREFIX = "v1";
 
 const DEFAULT_CONFIGS: Array<{ key: string; value: string; validRange: string }> = [
-  { key: CONFIG_KEYS.provider, value: DEFAULT_PROVIDER, validRange: "enum:openai,anthropic,gemini" },
+  { key: CONFIG_KEYS.provider, value: DEFAULT_PROVIDER, validRange: "enum:openai,anthropic,gemini,groq,openrouter" },
   { key: CONFIG_KEYS.model, value: DEFAULT_MODELS.openai, validRange: "text" },
   { key: CONFIG_KEYS.enabled, value: "0", validRange: "0-1" },
   { key: CONFIG_KEYS.encryptedApiKey, value: "", validRange: "secret" },
@@ -530,6 +532,32 @@ function buildGeminiRequest(input: AiGenerateExerciseInput) {
   };
 }
 
+function buildOpenAiCompatibleChatRequest(model: string, input: AiGenerateExerciseInput) {
+  return {
+    model,
+    messages: [
+      {
+        role: "system",
+        content: getGenerationInstructions(),
+      },
+      {
+        role: "user",
+        content: buildPrompt(input),
+      },
+    ],
+    temperature: 0.35,
+    max_tokens: 7000,
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "oop_exercise_template",
+        strict: true,
+        schema: exerciseJsonSchema,
+      },
+    },
+  };
+}
+
 function getGenerationInstructions(): string {
   return [
     "Bạn là trợ lý ra đề lập trình Java OOP cho hệ thống UET OASIS.",
@@ -642,7 +670,13 @@ const exerciseJsonSchema = {
 };
 
 function isSupportedProvider(value: string): value is AiProvider {
-  return value === "openai" || value === "anthropic" || value === "gemini";
+  return (
+    value === "openai" ||
+    value === "anthropic" ||
+    value === "gemini" ||
+    value === "groq" ||
+    value === "openrouter"
+  );
 }
 
 function parseProvider(value: string | undefined): AiProvider {
@@ -668,6 +702,18 @@ function getProviderOptions() {
       label: "Google Gemini",
       defaultModel: DEFAULT_MODELS.gemini,
       keyPlaceholder: "AIza...",
+    },
+    {
+      value: "groq" as const,
+      label: "Groq",
+      defaultModel: DEFAULT_MODELS.groq,
+      keyPlaceholder: "gsk_...",
+    },
+    {
+      value: "openrouter" as const,
+      label: "OpenRouter",
+      defaultModel: DEFAULT_MODELS.openrouter,
+      keyPlaceholder: "sk-or-v1-...",
     },
   ];
 }
@@ -700,7 +746,27 @@ async function testProviderKey(
             messages: [{ role: "user", content: "Reply OK" }],
           }),
         })
-        : await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`);
+        : provider === "gemini"
+          ? await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`)
+          : provider === "groq"
+            ? await fetch("https://api.groq.com/openai/v1/models", {
+              headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+              },
+            })
+            : await fetch("https://openrouter.ai/api/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                model,
+                messages: [{ role: "user", content: "Reply OK" }],
+                max_tokens: 8,
+              }),
+            });
 
   if (response.ok) return { ok: true };
   return { ok: false, message: await readProviderError(response, provider) };
@@ -752,6 +818,30 @@ async function generateWithProvider(
     }
     const toolInput = extractAnthropicToolInput((await response.json()) as Record<string, unknown>);
     return JSON.stringify(toolInput);
+  }
+
+  if (provider === "groq" || provider === "openrouter") {
+    const endpoint =
+      provider === "groq"
+        ? "https://api.groq.com/openai/v1/chat/completions"
+        : "https://openrouter.ai/api/v1/chat/completions";
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(buildOpenAiCompatibleChatRequest(model, input)),
+    });
+    if (!response.ok) {
+      return {
+        error: {
+          code: "AI_REQUEST_FAILED",
+          message: await readProviderError(response, provider),
+        },
+      };
+    }
+    return extractChatCompletionText((await response.json()) as Record<string, unknown>) || "";
   }
 
   const response = await fetch(
@@ -814,6 +904,21 @@ function extractAnthropicToolInput(payload: Record<string, unknown>): unknown {
     if (typed.type === "tool_use" && typed.input && typeof typed.input === "object") {
       return typed.input;
     }
+  }
+
+  return null;
+}
+
+function extractChatCompletionText(payload: Record<string, unknown>): string | null {
+  const choices = payload.choices;
+  if (!Array.isArray(choices)) return null;
+
+  for (const choice of choices) {
+    if (!choice || typeof choice !== "object") continue;
+    const message = (choice as { message?: unknown }).message;
+    if (!message || typeof message !== "object") continue;
+    const content = (message as { content?: unknown }).content;
+    if (typeof content === "string") return content;
   }
 
   return null;
