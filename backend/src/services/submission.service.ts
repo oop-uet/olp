@@ -492,6 +492,19 @@ export async function listSubmissions(
       : undefined;
 
   const results = await database.query.submissions.findMany({
+    columns: {
+      id: true,
+      studentId: true,
+      exerciseId: true,
+      sectionId: true,
+      functionalScore: true,
+      score: true,
+      manualScore: true,
+      styleScore: true,
+      styleStatus: true,
+      attemptNumber: true,
+      submittedAt: true,
+    },
     where: whereClause,
     orderBy: [desc(submissions.submittedAt)],
     with: {

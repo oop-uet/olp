@@ -393,7 +393,12 @@ export function SubmissionReviewPage() {
   // Fetch submissions after the section filter is known, so the first load stays scoped.
   useEffect(() => {
     if (!sectionsLoaded) return
-    if (sections.length > 0 && !selectedSectionId) return
+    if (sections.length === 0) {
+      setSubmissions([])
+      setLoadingList(false)
+      return
+    }
+    if (!selectedSectionId) return
     fetchSubmissions()
   }, [sectionsLoaded, sections.length, selectedExerciseId, selectedSectionId])
 

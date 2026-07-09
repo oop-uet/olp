@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { api } from '../../lib/api'
+import { cachedGet } from '../../lib/api'
 import { PageLoader } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 
@@ -8,7 +8,7 @@ export function InstructorManageClassRedirect() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    api.get('/api/instructor/sections')
+    cachedGet('/api/instructor/sections')
       .then((res) => {
         const sections = res.data ?? []
         if (sections.length > 0) {

@@ -45,6 +45,8 @@ export interface SectionInstructorSummary {
 }
 
 type Database = typeof defaultDb;
+const readySectionInstructorDatabases = new WeakSet<object>();
+const pendingSectionInstructorSetup = new WeakMap<object, Promise<void>>();
 
 // ─── Service ─────────────────────────────────────────────────────────────────
 
@@ -492,6 +494,27 @@ async function validateInstructorIds(instructorIds: string[], database: Database
 }
 
 async function ensureSectionInstructorsReady(database: Database = defaultDb) {
+  const databaseKey = database as object;
+  if (readySectionInstructorDatabases.has(databaseKey)) return;
+
+  const pendingSetup = pendingSectionInstructorSetup.get(databaseKey);
+  if (pendingSetup) {
+    await pendingSetup;
+    return;
+  }
+
+  const setup = ensureSectionInstructorsReadyOnce(database)
+    .then(() => {
+      readySectionInstructorDatabases.add(databaseKey);
+    })
+    .finally(() => {
+      pendingSectionInstructorSetup.delete(databaseKey);
+    });
+  pendingSectionInstructorSetup.set(databaseKey, setup);
+  await setup;
+}
+
+async function ensureSectionInstructorsReadyOnce(database: Database = defaultDb) {
   const sqlite = (database as any).session?.client;
   if (!sqlite) return;
 
@@ -607,5 +630,42 @@ async function attachInstructorLists<T extends { id: string; instructorId?: stri
   sections: T[],
   database: Database = defaultDb
 ) {
-  return Promise.all(sections.map((section) => attachInstructorList(section, database)));
+  if (sections.length === 0) return [];
+
+  await ensureSectionInstructorsReady(database);
+  const sectionIds = sections.map((section) => section.id);
+  const rows = await database
+    .select({
+      sectionId: sectionInstructors.sectionId,
+      id: users.id,
+      username: users.username,
+      fullName: users.fullName,
+      email: users.email,
+      isPrimary: sectionInstructors.isPrimary,
+    })
+    .from(sectionInstructors)
+    .innerJoin(users, eq(sectionInstructors.instructorId, users.id))
+    .where(inArray(sectionInstructors.sectionId, sectionIds));
+
+  const instructorsBySection = new Map<string, SectionInstructorSummary[]>();
+  for (const row of rows as any[]) {
+    const instructors = instructorsBySection.get(row.sectionId) ?? [];
+    instructors.push({
+      id: row.id,
+      username: row.username,
+      fullName: row.fullName ?? null,
+      email: row.email,
+      isPrimary: Boolean(row.isPrimary),
+    });
+    instructorsBySection.set(row.sectionId, instructors);
+  }
+
+  return sections.map((section) => {
+    const instructors = instructorsBySection.get(section.id) ?? [];
+    return {
+      ...section,
+      instructors,
+      instructor: section.instructor ?? instructors.find((instructor) => instructor.isPrimary) ?? null,
+    };
+  });
 }
