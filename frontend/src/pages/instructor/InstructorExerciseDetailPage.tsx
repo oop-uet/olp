@@ -535,7 +535,7 @@ export function InstructorExerciseDetailPage() {
                         <th className="px-4 py-3 text-left text-slate-500 font-black">Lớp</th>
                         <th
                           onClick={() => toggleStatSort('bestScore')}
-                          className="px-4 py-3 text-right cursor-pointer hover:bg-slate-100 transition-colors text-slate-500 font-black w-36"
+                          className="px-4 py-3 text-center cursor-pointer hover:bg-slate-100 transition-colors text-slate-500 font-black w-36"
                         >
                           Điểm cao nhất {statSortField === 'bestScore' ? (statSortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                         </th>
@@ -568,7 +568,7 @@ export function InstructorExerciseDetailPage() {
                             <td className="px-4 py-2.5 text-slate-500 font-medium">
                               {formatSectionDisplayName(sectionDetail.section.name)}
                             </td>
-                            <td className="px-4 py-2.5 text-right font-bold text-slate-900">
+                            <td className="px-4 py-2.5 text-center font-bold text-slate-900">
                               {student.bestScore === null ? '—' : formatScore(student.bestScore)}
                             </td>
                           </tr>
