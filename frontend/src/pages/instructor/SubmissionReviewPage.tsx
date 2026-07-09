@@ -1170,13 +1170,12 @@ export function SubmissionReviewPage() {
                           </button>
                         </td>
                         <td className="border-b border-slate-200 px-4 py-4">
-                          <button
-                            type="button"
-                            onClick={() => handleSelectSubmission(sub.id)}
+                          <Link
+                            to={selectedSectionId ? `/instructor/exercises/${sub.exerciseId}?section_id=${selectedSectionId}` : `/instructor/exercises/${sub.exerciseId}`}
                             className="font-medium text-sky-500 hover:underline"
                           >
                             {exerciseTitle}
-                          </button>
+                          </Link>
                         </td>
                         <td className="whitespace-nowrap border-b border-slate-200 px-4 py-4 text-slate-600">
                           {formatTableTimestamp(sub.submittedAt)}
