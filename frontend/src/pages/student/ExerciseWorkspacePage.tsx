@@ -665,7 +665,7 @@ export function ExerciseWorkspacePage() {
       : `Lượt nộp tiếp theo: ${exercise.attemptCount + 1}/${exercise.maxSubmissions}`
 
   const workspace = (
-    <div className="-m-6 flex min-h-[calc(100vh-8.25rem)] flex-col bg-slate-100">
+    <div className="-m-6 flex h-[calc(100vh-8.25rem)] flex-col bg-slate-100 overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-5 py-3 shadow-sm">
         <div className="flex min-w-0 items-center gap-3">
           <Link
