@@ -305,6 +305,7 @@ export function SubmissionReviewPage() {
 
   // Sidebar leaderboard & sections state
   const [sections, setSections] = useState<SectionOption[]>([])
+  const [sectionsLoaded, setSectionsLoaded] = useState(false)
   const [selectedSectionId, setSelectedSectionId] = useState('')
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false)
@@ -389,10 +390,12 @@ export function SubmissionReviewPage() {
     fetchSections()
   }, [])
 
-  // Fetch submissions when exercise filter changes
+  // Fetch submissions after the section filter is known, so the first load stays scoped.
   useEffect(() => {
+    if (!sectionsLoaded) return
+    if (sections.length > 0 && !selectedSectionId) return
     fetchSubmissions()
-  }, [selectedExerciseId])
+  }, [sectionsLoaded, sections.length, selectedExerciseId, selectedSectionId])
 
   // Load specific submission if submission_id is present in URL
   const selectedSubmissionId = searchParams.get('submission_id')
@@ -404,7 +407,7 @@ export function SubmissionReviewPage() {
 
   useEffect(() => {
     setCurrentPage(0)
-  }, [selectedExerciseId])
+  }, [selectedExerciseId, selectedSectionId])
 
   useEffect(() => {
     if (currentPage >= totalPages) {
@@ -424,9 +427,19 @@ export function SubmissionReviewPage() {
   async function fetchExercises() {
     try {
       const response = await cachedGet('/api/exercises', undefined, { ttlMs: 60_000 })
-      setExercises(
-        response.data.map((e: { id: string; title: string }) => ({ id: e.id, title: e.title }))
-      )
+      const sortedEx = response.data
+        .map((e: { id: string; title: string }) => ({ id: e.id, title: e.title }))
+        .sort((a: { id: string; title: string }, b: { id: string; title: string }) => {
+          const getWeek = (title: string) => {
+            const match = title.match(/^[Tt]uần\s+(\d+)/)
+            return match ? parseInt(match[1], 10) : Infinity
+          }
+          const weekA = getWeek(a.title)
+          const weekB = getWeek(b.title)
+          if (weekA !== weekB) return weekA - weekB
+          return a.title.localeCompare(b.title, 'vi')
+        })
+      setExercises(sortedEx)
     } catch {
       // Non-critical filter error
     }
@@ -441,6 +454,8 @@ export function SubmissionReviewPage() {
       }
     } catch {
       // Non-critical sections error
+    } finally {
+      setSectionsLoaded(true)
     }
   }
 
@@ -464,6 +479,9 @@ export function SubmissionReviewPage() {
       const params: Record<string, string> = {}
       if (selectedExerciseId) {
         params.exercise_id = selectedExerciseId
+      }
+      if (selectedSectionId) {
+        params.section_id = selectedSectionId
       }
       const response = await cachedGet('/api/submissions', { params }, { ttlMs: 15_000 })
       setSubmissions(response.data)
@@ -1201,20 +1219,6 @@ export function SubmissionReviewPage() {
 
               {dropdownOpen && (
                 <div className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto rounded border border-slate-200 bg-white shadow-lg">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedSectionId('')
-                      setDropdownOpen(false)
-                    }}
-                    className={`flex w-full items-center px-4 py-2.5 text-left text-xs font-semibold border-b border-slate-50 last:border-b-0 transition-colors cursor-pointer ${
-                      selectedSectionId === ''
-                        ? 'bg-sky-50 text-sky-600 font-bold'
-                        : 'text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    Chọn lớp
-                  </button>
                   {sections.map((sec) => (
                     <button
                       key={sec.id}

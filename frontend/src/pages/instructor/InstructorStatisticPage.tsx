@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api } from '../../lib/api'
+import { cachedGet } from '../../lib/api'
 import { PageLoader, Spinner } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { normalizePreviewSectionName } from '../../utils/semester'
@@ -98,7 +98,7 @@ export function InstructorStatisticPage() {
   async function fetchSections() {
     try {
       setLoadingSections(true)
-      const response = await api.get('/api/instructor/sections')
+      const response = await cachedGet('/api/instructor/sections')
       const list: SectionOption[] = response.data ?? []
       setSections(list)
       if (list.length > 0) setSelectedSectionId(list[0].id)
@@ -113,7 +113,7 @@ export function InstructorStatisticPage() {
     setLoadingStats(true)
     setCurrentPage(1)
     try {
-      const response = await api.get(`/api/instructor/sections/${sectionId}/stats`)
+      const response = await cachedGet(`/api/instructor/sections/${sectionId}/stats`, undefined, { ttlMs: 30_000 })
       setStats({
         totalStudents: response.data.totalStudents ?? 0,
         exercises: response.data.exercises ?? [],
@@ -408,16 +408,31 @@ function MetricCard({ label, value }: { label: string; value: string }) {
 }
 
 function ExerciseSummary({ exercises, totalStudents }: { exercises: ExerciseStat[]; totalStudents: number }) {
+  const sortedExercises = useMemo(() => {
+    return [...exercises].sort((a, b) => {
+      const getWeek = (title: string) => {
+        const match = title.match(/^[Tt]uần\s+(\d+)/)
+        return match ? parseInt(match[1], 10) : Infinity
+      }
+      const weekA = getWeek(a.title)
+      const weekB = getWeek(b.title)
+      if (weekA !== weekB) {
+        return weekA - weekB
+      }
+      return a.title.localeCompare(b.title, 'vi')
+    })
+  }, [exercises])
+
   return (
     <aside className="overflow-hidden rounded-lg border border-slate-200 bg-white">
       <div className="border-b border-slate-200 bg-gradient-to-r from-teal-600 to-cyan-500 px-4 py-3 text-white">
         <h2 className="text-sm font-black uppercase tracking-wide">Theo bài tập</h2>
       </div>
       <div className="max-h-[560px] divide-y divide-slate-100 overflow-y-auto">
-        {exercises.length === 0 ? (
+        {sortedExercises.length === 0 ? (
           <p className="p-5 text-center text-sm text-slate-400">Chưa có bài tập.</p>
         ) : (
-          exercises.map((exercise) => {
+          sortedExercises.map((exercise) => {
             const badge = getDifficultyBadge(exercise.difficulty)
             const rate = totalStudents > 0 ? (exercise.completedCount / totalStudents) * 100 : 0
             return (

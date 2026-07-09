@@ -149,7 +149,17 @@ export function PlagiarismPage() {
           exerciseMap.set(e.id, { id: e.id, title: e.title })
         }
       })
-      setExercises([...exerciseMap.values()])
+      const sortedEx = [...exerciseMap.values()].sort((a, b) => {
+        const getWeek = (title: string) => {
+          const match = title.match(/^[Tt]uần\s+(\d+)/)
+          return match ? parseInt(match[1], 10) : Infinity
+        }
+        const weekA = getWeek(a.title)
+        const weekB = getWeek(b.title)
+        if (weekA !== weekB) return weekA - weekB
+        return a.title.localeCompare(b.title, 'vi')
+      })
+      setExercises(sortedEx)
       setSections(
         (sectionData as SectionOption[]).map((s) => ({
           id: s.id,
