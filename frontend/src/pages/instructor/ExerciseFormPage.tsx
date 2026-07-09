@@ -63,6 +63,7 @@ interface ExerciseTemplateFile {
   difficulty?: Difficulty
   oop_tags?: string[]
   starter_code?: string
+  is_library?: boolean
   test_cases?: Partial<TestCaseForm>[]
   exercise?: {
     title?: string
@@ -70,6 +71,7 @@ interface ExerciseTemplateFile {
     difficulty?: Difficulty
     oop_tags?: string[]
     starter_code?: string
+    is_library?: boolean
   }
   style_check_enabled?: boolean
   style_policy?: StylePolicyForm
@@ -93,6 +95,17 @@ export const EMPTY_TEST_CASE: TestCaseForm = {
   point_value: 10,
 }
 
+function parseOopTags(tags: string[] | string | undefined | null): string[] {
+  if (!tags) return []
+  if (Array.isArray(tags)) return tags
+  try {
+    const parsed = JSON.parse(tags)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
 export const SAMPLE_TEMPLATE: ExerciseTemplateFile & {
   authoring_notes: string[]
 } = {
@@ -103,6 +116,7 @@ export const SAMPLE_TEMPLATE: ExerciseTemplateFile & {
     'Viết lớp Student và StudentManagement theo yêu cầu. Mô tả rõ các lớp, thuộc tính, constructor, getter/setter và hành vi cần kiểm tra.',
   difficulty: 'medium',
   oop_tags: ['classes and objects', 'encapsulation'],
+  is_library: false,
   style_check_enabled: true,
   style_policy: {
     enabled: true,
@@ -260,8 +274,8 @@ export function ExerciseFormPage() {
       setTitle(ex.title)
       setDescription(ex.description)
       setDifficulty(ex.difficulty)
-      setSelectedTags(ex.oop_tags || [])
-      setStarterCode(ex.starter_code || '')
+      setSelectedTags(parseOopTags(ex.oopTags ?? ex.oop_tags))
+      setStarterCode(ex.starterCode ?? ex.starter_code ?? '')
       const loadedStylePolicy = parseStylePolicy(ex.stylePolicy ?? ex.style_policy)
       setStyleCheckEnabled(
         ex.styleCheckEnabled === 0 || ex.style_check_enabled === false
@@ -278,12 +292,14 @@ export function ExerciseFormPage() {
       const loadedTestCases = testCasesRes.data
       if (loadedTestCases.length > 0) {
         setTestCases(
-          loadedTestCases.map((tc: TestCaseForm) => ({
-            input_data: tc.input_data || '',
-            expected_output: tc.expected_output || '',
-            is_visible: Boolean(tc.is_visible ?? true),
-            point_value: tc.point_value || 10,
-            time_limit_seconds: tc.time_limit_seconds,
+          loadedTestCases.map((tc: Record<string, unknown>) => ({
+            input_data: String(tc.inputData ?? tc.input_data ?? ''),
+            expected_output: String(tc.expectedOutput ?? tc.expected_output ?? ''),
+            is_visible: tc.isVisible === undefined && tc.is_visible === undefined
+              ? true
+              : tc.isVisible === 1 || tc.isVisible === true || tc.is_visible === 1 || tc.is_visible === true,
+            point_value: Number(tc.pointValue ?? tc.point_value ?? 10),
+            time_limit_seconds: (tc.timeLimitSeconds ?? tc.time_limit_seconds) as number | undefined,
           }))
         )
       }
@@ -387,6 +403,7 @@ export function ExerciseFormPage() {
       difficulty: difficulty || 'easy',
       oop_tags: selectedTags.length > 0 ? selectedTags : ['classes and objects'],
       starter_code: starterCode,
+      is_library: false,
       style_check_enabled: styleCheckEnabled,
       style_policy: buildStylePolicy(),
       test_cases: testCases.map((tc) => ({
@@ -421,6 +438,7 @@ export function ExerciseFormPage() {
 
   function normalizeTemplate(raw: ExerciseTemplateFile): Required<Pick<ExerciseTemplateFile, 'title' | 'description' | 'difficulty' | 'oop_tags'>> & {
     starter_code: string
+    is_library: boolean
     style_check_enabled: boolean
     style_policy: StylePolicyForm
     test_cases: TestCaseForm[]
@@ -429,8 +447,9 @@ export function ExerciseFormPage() {
     const normalizedTitle = raw.title ?? exercise.title ?? ''
     const normalizedDescription = raw.description ?? exercise.description ?? ''
     const normalizedDifficulty = raw.difficulty ?? exercise.difficulty
-    const normalizedTags = raw.oop_tags ?? exercise.oop_tags ?? []
+    const normalizedTags = parseOopTags(raw.oop_tags ?? exercise.oop_tags ?? [])
     const normalizedStarterCode = raw.starter_code ?? exercise.starter_code ?? ''
+    const normalizedIsLibrary = raw.is_library ?? exercise.is_library ?? false
     const normalizedTestCases = Array.isArray(raw.test_cases) ? raw.test_cases : []
     const normalizedStylePolicy = parseStylePolicy(raw.style_policy)
 
@@ -474,6 +493,7 @@ export function ExerciseFormPage() {
       difficulty: normalizedDifficulty,
       oop_tags: normalizedTags.map((tag) => String(tag).trim()).filter(Boolean).slice(0, 5),
       starter_code: normalizedStarterCode,
+      is_library: Boolean(normalizedIsLibrary),
       style_check_enabled: raw.style_check_enabled === undefined
         ? normalizedStylePolicy.enabled !== false
         : Boolean(raw.style_check_enabled),

@@ -266,7 +266,9 @@ export function AdminExerciseFormPage() {
             inputData: (tc.inputData ?? tc.input_data ?? '') as string,
             expectedOutput: (tc.expectedOutput ?? tc.expected_output ?? '') as string,
             isVisible:
-              tc.isVisible === 1 || tc.isVisible === true || tc.is_visible === true,
+              tc.isVisible === undefined && tc.is_visible === undefined
+                ? true
+                : tc.isVisible === 1 || tc.isVisible === true || tc.is_visible === 1 || tc.is_visible === true,
             pointValue: (tc.pointValue ?? tc.point_value ?? 10) as number,
             timeLimitSeconds: (tc.timeLimitSeconds ?? tc.time_limit_seconds) as number | undefined,
           }))
