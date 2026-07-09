@@ -22,6 +22,7 @@ interface ScheduleExercise {
   title: string
   difficulty: Difficulty
   oopTags: string[]
+  creatorUsername: string | null
   isAssessment: boolean
   week: number | null
   deadline: string | null
@@ -38,6 +39,8 @@ interface PoolExercise {
   title: string
   difficulty: Difficulty
   oopTags: string[]
+  creatorUsername: string | null
+  isLibrary: boolean
 }
 
 interface ScheduleData {
@@ -45,6 +48,7 @@ interface ScheduleData {
   weeks: ScheduleWeek[]
   unscheduled: ScheduleExercise[]
   pool: PoolExercise[]
+  otherPool: PoolExercise[]
 }
 
 const DEFAULT_TOTAL_WEEKS = 10
@@ -61,6 +65,15 @@ function DifficultyBadge({ difficulty }: { difficulty: string }) {
   const badge =
     DIFFICULTY_BADGE[difficulty as Difficulty] ?? { className: 'badge-gray', label: difficulty }
   return <span className={badge.className}>{badge.label}</span>
+}
+
+function CreatorBadge({ username }: { username?: string | null }) {
+  if (!username) return null
+  return (
+    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+      @{username}
+    </span>
+  )
 }
 
 /** Convert a stored ISO date into a `YYYY-MM-DDTHH:mm` value for datetime-local. */
@@ -131,6 +144,7 @@ export function SectionSchedulePage() {
   const [visibleWeekCount, setVisibleWeekCount] = useState(DEFAULT_TOTAL_WEEKS)
   const [selectedWeek, setSelectedWeek] = useState(1)
   const [autoAssigning, setAutoAssigning] = useState(false)
+  const [poolTab, setPoolTab] = useState<'system' | 'other'>('system')
 
   const fetchSchedule = useCallback(async () => {
     if (!id) return
@@ -213,6 +227,10 @@ export function SectionSchedulePage() {
 
     const candidates = [
       ...data.pool.map((exercise) => ({
+        exerciseId: exercise.id,
+        title: exercise.title,
+      })),
+      ...(data.otherPool ?? []).map((exercise) => ({
         exerciseId: exercise.id,
         title: exercise.title,
       })),
@@ -341,7 +359,12 @@ export function SectionSchedulePage() {
     )
   }
 
-  const { section, weeks, unscheduled, pool } = data
+  const { section, weeks, unscheduled, pool, otherPool = [] } = data
+  const activePool = poolTab === 'system' ? pool : otherPool
+  const activePoolTitle = poolTab === 'system' ? 'Kho bài tập hệ thống' : 'Bài tập khác'
+  const activePoolEmpty = poolTab === 'system'
+    ? 'Không còn bài tập nào trong kho.'
+    : 'Không còn bài tập riêng nào để chọn.'
 
   // Ensure configured weeks are present even if backend omits empty ones.
   const weekMap = new Map<number, ScheduleWeek>()
@@ -422,6 +445,7 @@ export function SectionSchedulePage() {
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
                       <span className="truncate font-medium text-gray-800">{ex.title}</span>
                       <DifficultyBadge difficulty={ex.difficulty} />
+                      <CreatorBadge username={ex.creatorUsername} />
                       {ex.isAssessment && <span className="badge-blue">Đánh giá</span>}
                     </div>
                     <button
@@ -515,6 +539,7 @@ export function SectionSchedulePage() {
                           <span className="text-slate-300 font-mono text-[10px] select-none">☰</span>
                           <span className="truncate font-bold text-slate-700 text-xs">{ex.title}</span>
                           <DifficultyBadge difficulty={ex.difficulty} />
+                          <CreatorBadge username={ex.creatorUsername} />
                           {ex.isAssessment && <span className="badge-blue text-[9px] font-extrabold normal-case">Đánh giá</span>}
                         </div>
                         <button
@@ -549,20 +574,44 @@ export function SectionSchedulePage() {
           >
             <div className="flex items-center gap-2 border-b border-gray-200 px-4 py-3">
               <ExerciseIcon className="h-5 w-5 text-gray-500" />
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <h2 className="text-sm font-semibold text-gray-700">
-                  Kho bài tập hệ thống ({pool.length})
+                  {activePoolTitle} ({activePool.length})
                 </h2>
                 <p className="mt-0.5 text-xs text-gray-500">Bấm + để thêm vào tuần {selectedWeek}</p>
               </div>
             </div>
+            <div className="flex gap-2 border-b border-gray-100 px-4 py-3">
+              <button
+                type="button"
+                onClick={() => setPoolTab('system')}
+                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${
+                  poolTab === 'system'
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-600 hover:bg-primary-50 hover:text-primary'
+                }`}
+              >
+                Hệ thống ({pool.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setPoolTab('other')}
+                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${
+                  poolTab === 'other'
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-600 hover:bg-primary-50 hover:text-primary'
+                }`}
+              >
+                Bài tập khác ({otherPool.length})
+              </button>
+            </div>
             <div className="space-y-2 p-4 lg:max-h-[calc(100vh-14rem)] lg:overflow-y-auto">
-              {pool.length === 0 ? (
+              {activePool.length === 0 ? (
                 <p className="py-8 text-center text-sm text-gray-500">
-                  Không còn bài tập nào trong kho.
+                  {activePoolEmpty}
                 </p>
               ) : (
-                pool.map((ex) => (
+                activePool.map((ex) => (
                   <div
                     key={ex.id}
                     draggable
@@ -583,6 +632,7 @@ export function SectionSchedulePage() {
                           <span className="block font-bold text-slate-700 text-xs leading-snug group-hover:text-primary transition-colors">
                             {ex.title}
                           </span>
+                          <CreatorBadge username={ex.creatorUsername} />
                         </div>
                       </div>
                       <DifficultyBadge difficulty={ex.difficulty} />

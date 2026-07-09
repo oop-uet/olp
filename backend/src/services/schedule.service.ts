@@ -1,11 +1,12 @@
 import crypto from "node:crypto";
-import { eq, and, or } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db as defaultDb } from "../db/index.js";
 import {
   classSections,
   exercises,
   exerciseAssignments,
   sectionWeeks,
+  users,
 } from "../db/schema.js";
 import { userCanAccessSection } from "./section.service.js";
 
@@ -40,6 +41,30 @@ function parseOopTags(raw: string | null | undefined): string[] {
   }
 }
 
+async function ensureSectionWeeksReady(database: Database = defaultDb) {
+  const sqlite = database.session?.client;
+  if (!sqlite) return;
+
+  const statements = [
+    `CREATE TABLE IF NOT EXISTS section_weeks (
+      id TEXT PRIMARY KEY NOT NULL,
+      section_id TEXT NOT NULL REFERENCES class_sections(id),
+      week INTEGER NOT NULL,
+      deadline TEXT
+    )`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS section_weeks_section_week_unique
+      ON section_weeks (section_id, week)`,
+  ];
+
+  for (const statement of statements) {
+    if (typeof sqlite.exec === "function") {
+      sqlite.exec(statement);
+    } else if (typeof sqlite.execute === "function") {
+      await sqlite.execute(statement);
+    }
+  }
+}
+
 /**
  * Verify a section exists and that the requester (instructor) owns it.
  * Admins bypass the ownership check.
@@ -68,6 +93,7 @@ export interface ScheduleExercise {
   title: string;
   difficulty: string;
   oopTags: string[];
+  creatorUsername: string | null;
   isAssessment: boolean;
   isVisible: boolean;
   allowSubmission: boolean;
@@ -86,12 +112,17 @@ export interface SectionSchedule {
   section: { id: string; name: string; semester: string };
   weeks: ScheduleWeek[];
   unscheduled: ScheduleExercise[];
-  pool: Array<{
+  pool: SchedulePoolExercise[];
+  otherPool: SchedulePoolExercise[];
+}
+
+export interface SchedulePoolExercise {
     id: string;
     title: string;
     difficulty: string;
     oopTags: string[];
-  }>;
+    creatorUsername: string | null;
+    isLibrary: boolean;
 }
 
 /**
@@ -106,6 +137,7 @@ export async function getSectionSchedule(
 ): Promise<SectionSchedule | ScheduleError> {
   const loaded = await loadSectionForUser(sectionId, userId, role, database);
   if (isScheduleError(loaded)) return loaded;
+  await ensureSectionWeeksReady(database);
   const section = loaded.section;
 
   // Assigned exercises for this section.
@@ -122,9 +154,11 @@ export async function getSectionSchedule(
       title: exercises.title,
       difficulty: exercises.difficulty,
       oopTags: exercises.oopTags,
+      creatorUsername: users.username,
     })
     .from(exerciseAssignments)
     .innerJoin(exercises, eq(exerciseAssignments.exerciseId, exercises.id))
+    .leftJoin(users, eq(exercises.createdBy, users.id))
     .where(eq(exerciseAssignments.sectionId, sectionId));
 
   // Per-week deadlines.
@@ -138,6 +172,7 @@ export async function getSectionSchedule(
     title: a.title,
     difficulty: a.difficulty,
     oopTags: parseOopTags(a.oopTags),
+    creatorUsername: a.creatorUsername ?? null,
     isAssessment: Boolean(a.isAssessment),
     isVisible: Boolean(a.isVisible),
     allowSubmission: Boolean(a.allowSubmission),
@@ -172,29 +207,40 @@ export async function getSectionSchedule(
     .filter((a: any) => !a.week || a.week < 1)
     .map(toScheduleExercise);
 
-  // Pool: all unassigned system-library exercises plus the instructor's own
-  // unassigned exercises. Assigned items live only in the week list.
-  const poolSource =
-    role === "admin"
-      ? await database.query.exercises.findMany()
-      : await database.query.exercises.findMany({
-          where: or(eq(exercises.isLibrary, 1), eq(exercises.createdBy, userId)),
-        });
+  // Pool: unassigned system-library exercises and a separate "other" pool of
+  // private exercises created by instructors/admins across the system.
+  const poolSource = await database
+    .select({
+      id: exercises.id,
+      title: exercises.title,
+      difficulty: exercises.difficulty,
+      oopTags: exercises.oopTags,
+      isLibrary: exercises.isLibrary,
+      creatorUsername: users.username,
+    })
+    .from(exercises)
+    .leftJoin(users, eq(exercises.createdBy, users.id));
 
-  const pool = poolSource
-    .filter((e: any) => !assignedExerciseIds.has(String(e.id)))
-    .map((e: any) => ({
+  const availablePool = (poolSource as any[])
+    .filter((e) => !assignedExerciseIds.has(String(e.id)))
+    .map((e): SchedulePoolExercise => ({
       id: e.id,
       title: e.title,
       difficulty: e.difficulty,
       oopTags: parseOopTags(e.oopTags),
+      creatorUsername: e.creatorUsername ?? null,
+      isLibrary: Boolean(e.isLibrary),
     }));
+
+  const pool = availablePool.filter((exercise) => exercise.isLibrary);
+  const otherPool = availablePool.filter((exercise) => !exercise.isLibrary);
 
   return {
     section: { id: section.id, name: section.name, semester: section.semester },
     weeks,
     unscheduled,
     pool,
+    otherPool,
   };
 }
 
@@ -212,6 +258,7 @@ export async function assignExerciseToWeek(
 ): Promise<{ success: true } | ScheduleError> {
   const loaded = await loadSectionForUser(sectionId, userId, role, database);
   if (isScheduleError(loaded)) return loaded;
+  await ensureSectionWeeksReady(database);
 
   if (!isValidScheduleWeek(week)) {
     return { error: { code: "VALIDATION_ERROR", message: "Tuần không hợp lệ." } };
@@ -273,6 +320,7 @@ export async function removeAssignment(
 ): Promise<{ success: true } | ScheduleError> {
   const loaded = await loadSectionForUser(sectionId, userId, role, database);
   if (isScheduleError(loaded)) return loaded;
+  await ensureSectionWeeksReady(database);
 
   await database
     .delete(exerciseAssignments)

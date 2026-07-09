@@ -12,6 +12,10 @@ export interface Exercise {
   difficulty: 'easy' | 'medium' | 'hard'
   oop_tags: string[]
   starter_code: string
+  creator?: {
+    id: string
+    username: string
+  } | null
   created_at: string
   updated_at: string
 }
@@ -36,6 +40,15 @@ function parseOopTags(tags: unknown): string[] {
     }
   }
   return []
+}
+
+function CreatorBadge({ username }: { username?: string | null }) {
+  if (!username) return null
+  return (
+    <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+      @{username}
+    </span>
+  )
 }
 
 export function ExerciseManagerPage() {
@@ -231,13 +244,16 @@ export function ExerciseManagerPage() {
                               {index + 1 + (currentPage - 1) * pageSize}
                             </td>
                             <td className="table-td font-medium text-gray-900">
-                              <button
-                                type="button"
-                                onClick={() => navigate(`/instructor/exercises/${exercise.id}`)}
-                                className="text-left font-bold text-sky-600 hover:underline"
-                              >
-                                {exercise.title}
-                              </button>
+                              <div className="flex flex-col items-start gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(`/instructor/exercises/${exercise.id}`)}
+                                  className="text-left font-bold text-sky-600 hover:underline"
+                                >
+                                  {exercise.title}
+                                </button>
+                                <CreatorBadge username={exercise.creator?.username} />
+                              </div>
                             </td>
                             <td className="table-td">
                               <span className={badge.className}>{badge.label}</span>

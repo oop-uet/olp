@@ -128,14 +128,30 @@ export async function listExercises(
 
   if (role === "admin") {
     return database.query.exercises.findMany({
-      with: { testCases: true },
+      with: {
+        creator: {
+          columns: {
+            id: true,
+            username: true,
+          },
+        },
+        testCases: true,
+      },
     });
   }
 
   // Instructors see only their own exercises
   return database.query.exercises.findMany({
     where: eq(exercises.createdBy, userId),
-    with: { testCases: true },
+    with: {
+      creator: {
+        columns: {
+          id: true,
+          username: true,
+        },
+      },
+      testCases: true,
+    },
   });
 }
 
@@ -644,7 +660,15 @@ export async function browseLibrary(database = defaultDb) {
 
   return database.query.exercises.findMany({
     where: eq(exercises.isLibrary, 1),
-    with: { testCases: true },
+    with: {
+      creator: {
+        columns: {
+          id: true,
+          username: true,
+        },
+      },
+      testCases: true,
+    },
   });
 }
 
