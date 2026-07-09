@@ -487,15 +487,6 @@ function Legend({ color, label }: { color: string; label: string }) {
   )
 }
 
-function formatMonthLabel(val: string) {
-  const [year, month] = val.split('-')
-  const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ]
-  const mIdx = Number(month) - 1
-  return `${monthNames[mIdx]} ${year}`
-}
 
 function SubmissionScatterChart({
   submissions,
@@ -504,16 +495,29 @@ function SubmissionScatterChart({
   submissions: SubmissionRow[]
   exerciseColorMap: Map<string, string>
 }) {
-  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
     if (submissions.length > 0) {
       const latestDate = new Date(submissions[0].submittedAt)
-      return `${latestDate.getFullYear()}-${String(latestDate.getMonth() + 1).padStart(2, '0')}`
+      return latestDate.toISOString().split('T')[0]
     }
     const now = new Date()
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    return now.toISOString().split('T')[0]
   })
 
   const [hoveredPoint, setHoveredPoint] = useState<{ sub: SubmissionRow; x: number; y: number } | null>(null)
+
+  const selectedMonth = useMemo(() => {
+    const parts = selectedDate.split('-')
+    return `${parts[0]}-${parts[1]}`
+  }, [selectedDate])
+
+  const formattedDate = useMemo(() => {
+    const parts = selectedDate.split('-')
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`
+    }
+    return selectedDate
+  }, [selectedDate])
 
   const filteredByMonth = useMemo(() => {
     const [year, month] = selectedMonth.split('-').map(Number)
@@ -601,16 +605,16 @@ function SubmissionScatterChart({
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-100 pb-4">
         <div className="relative inline-flex items-center">
           <input
-            type="month"
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
           />
           <button className="flex items-center gap-2 rounded border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 cursor-pointer select-none">
             <svg className="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-            <span>{formatMonthLabel(selectedMonth)}</span>
+            <span>{formattedDate}</span>
           </button>
         </div>
 
@@ -619,7 +623,7 @@ function SubmissionScatterChart({
         </h3>
 
         <div className="text-xs font-bold text-slate-500 select-none">
-          {filteredByMonth.length} lượt nộp trong tháng
+          {filteredByMonth.length} lượt nộp trong tháng {selectedMonth.split('-')[1]}/{selectedMonth.split('-')[0]}
         </div>
       </div>
 
