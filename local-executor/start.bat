@@ -59,7 +59,7 @@ echo   OOP Local Executor
 echo   Port: %PORT%
 echo   Java: !JAVA_CMD!
 echo   JAVA_HOME: !JAVA_HOME!
-for /f "tokens=*" %%v in ('"!JAVA_CMD!" -version 2^>^&1 ^| findstr /i "version"') do echo   JDK:  %%v
+call :print_java_version
 echo ============================================
 echo.
 echo Starting server... Press Ctrl+C to stop.
@@ -145,9 +145,14 @@ set JAVA_VER=
 set JAVA_MAJOR=
 if not exist "%CANDIDATE_JAVA%" exit /b 1
 
-for /f "tokens=3" %%g in ('"%CANDIDATE_JAVA%" -version 2^>^&1 ^| findstr /i "version"') do (
+set VERSION_TMP=%TEMP%\oop-local-executor-java-version-%RANDOM%-%RANDOM%.txt
+"%CANDIDATE_JAVA%" -version > "%VERSION_TMP%" 2>&1
+if not exist "%VERSION_TMP%" exit /b 1
+
+for /f "tokens=3" %%g in ('findstr /i "version" "%VERSION_TMP%"') do (
     set JAVA_VER=%%g
 )
+del "%VERSION_TMP%" >nul 2>&1
 set JAVA_VER=!JAVA_VER:"=!
 
 for /f "tokens=1,2 delims=." %%a in ("!JAVA_VER!") do (
@@ -165,3 +170,10 @@ if !JAVA_MAJOR! GEQ %MIN_JAVA_MAJOR% (
 )
 
 exit /b 1
+
+:print_java_version
+set VERSION_TMP=%TEMP%\oop-local-executor-java-version-%RANDOM%-%RANDOM%.txt
+"!JAVA_CMD!" -version > "%VERSION_TMP%" 2>&1
+for /f "tokens=*" %%v in ('findstr /i "version" "%VERSION_TMP%"') do echo   JDK:  %%v
+del "%VERSION_TMP%" >nul 2>&1
+exit /b 0

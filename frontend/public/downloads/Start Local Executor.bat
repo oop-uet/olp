@@ -126,13 +126,14 @@ set JAVA_VER=
 set JAVA_MAJOR=
 if not exist "%CANDIDATE_JAVA%" exit /b 1
 
-"%CANDIDATE_JAVA%" -version > java_version.tmp 2>&1
-if not exist java_version.tmp exit /b 1
+set VERSION_TMP=%TEMP%\oop-local-executor-java-version-%RANDOM%-%RANDOM%.txt
+"%CANDIDATE_JAVA%" -version > "%VERSION_TMP%" 2>&1
+if not exist "%VERSION_TMP%" exit /b 1
 
-for /f "tokens=3" %%g in ('findstr /i "version" java_version.tmp') do (
+for /f "tokens=3" %%g in ('findstr /i "version" "%VERSION_TMP%"') do (
   set JAVA_VER=%%g
 )
-del java_version.tmp
+del "%VERSION_TMP%" >nul 2>&1
 
 if not defined JAVA_VER exit /b 1
 set JAVA_VER=!JAVA_VER:"=!
