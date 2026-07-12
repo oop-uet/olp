@@ -1,14 +1,22 @@
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { db as defaultDb } from "../db/index.js";
-import { submissions, exercises } from "../db/schema.js";
+import { submissions, exercises, classSections } from "../db/schema.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface PlagiarismPair {
   studentAId: string;
+  studentAUsername: string;
   studentAName: string;
+  studentASectionName: string | null;
+  studentASectionSemester: string | null;
+  studentASubmittedAt: string;
   studentBId: string;
+  studentBUsername: string;
   studentBName: string;
+  studentBSectionName: string | null;
+  studentBSectionSemester: string | null;
+  studentBSubmittedAt: string;
   submissionAId: string;
   submissionBId: string;
   similarity: number; // 0..1, rounded to 4 decimals
@@ -34,6 +42,8 @@ type Database = any;
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const THRESHOLD = 0.35;
+const MIN_THRESHOLD = 0.01;
+const MAX_THRESHOLD = 1;
 const SHINGLE_K = 5;
 const SHINGLE_K_FALLBACK = 3;
 
@@ -114,9 +124,19 @@ function round4(value: number): number {
 
 interface StudentEntry {
   studentId: string;
+  studentUsername: string;
   studentName: string;
   submissionId: string;
+  submittedAt: string;
+  sectionName: string | null;
+  sectionSemester: string | null;
   tokens: string[];
+}
+
+export interface PlagiarismOptions {
+  sectionId?: string;
+  semester?: string;
+  threshold?: number;
 }
 
 // ─── Service ─────────────────────────────────────────────────────────────────
@@ -133,9 +153,11 @@ interface StudentEntry {
  */
 export async function checkExercisePlagiarism(
   exerciseId: string,
-  sectionId: string | undefined,
+  options: PlagiarismOptions = {},
   database: Database = defaultDb
 ): Promise<PlagiarismError | PlagiarismReport> {
+  const threshold = normalizeThreshold(options.threshold);
+
   // 1. Verify exercise exists.
   const exercise = await database.query.exercises.findFirst({
     where: eq(exercises.id, exerciseId),
@@ -149,11 +171,30 @@ export async function checkExercisePlagiarism(
 
   // 2. Load submissions for the exercise (filter by section if provided),
   //    including the student info for naming.
-  const whereClause = sectionId
-    ? and(
-        eq(submissions.exerciseId, exerciseId),
-        eq(submissions.sectionId, sectionId)
-      )
+  let scopedSectionIds: string[] | null = null;
+  if (options.sectionId) {
+    scopedSectionIds = [options.sectionId];
+  } else if (options.semester?.trim()) {
+    const sectionRows = await database
+      .select({ id: classSections.id })
+      .from(classSections)
+      .where(eq(classSections.semester, options.semester.trim()));
+    const sectionIds = sectionRows.map((section: { id: string }) => section.id);
+
+    if (sectionIds.length === 0) {
+      return {
+        exerciseId,
+        totalSubmissions: 0,
+        comparedPairs: 0,
+        threshold,
+        pairs: [],
+      };
+    }
+    scopedSectionIds = sectionIds;
+  }
+
+  const whereClause = scopedSectionIds
+    ? and(eq(submissions.exerciseId, exerciseId), inArray(submissions.sectionId, scopedSectionIds as string[]))
     : eq(submissions.exerciseId, exerciseId);
 
   const rows = await database.query.submissions.findMany({
@@ -165,6 +206,12 @@ export async function checkExercisePlagiarism(
           id: true,
           username: true,
           fullName: true,
+        },
+      },
+      section: {
+        columns: {
+          name: true,
+          semester: true,
         },
       },
     },
@@ -196,8 +243,12 @@ export async function checkExercisePlagiarism(
     const tokens = normalized.length > 0 ? normalized.split(" ").filter(Boolean) : [];
     entries.push({
       studentId: row.studentId,
+      studentUsername: row.student?.username || row.studentId,
       studentName: row.student?.fullName || row.student?.username || "Sinh viên",
       submissionId: row.id,
+      submittedAt: row.submittedAt,
+      sectionName: row.section?.name ?? null,
+      sectionSemester: row.section?.semester ?? null,
       tokens,
     });
   }
@@ -223,12 +274,20 @@ export async function checkExercisePlagiarism(
       const setB = shingles(b.tokens, k);
       const similarity = jaccard(setA, setB);
 
-      if (similarity >= THRESHOLD) {
+      if (similarity >= threshold) {
         pairs.push({
           studentAId: a.studentId,
+          studentAUsername: a.studentUsername,
           studentAName: a.studentName,
+          studentASectionName: a.sectionName,
+          studentASectionSemester: a.sectionSemester,
+          studentASubmittedAt: a.submittedAt,
           studentBId: b.studentId,
+          studentBUsername: b.studentUsername,
           studentBName: b.studentName,
+          studentBSectionName: b.sectionName,
+          studentBSectionSemester: b.sectionSemester,
+          studentBSubmittedAt: b.submittedAt,
           submissionAId: a.submissionId,
           submissionBId: b.submissionId,
           similarity: round4(similarity),
@@ -244,7 +303,14 @@ export async function checkExercisePlagiarism(
     exerciseId,
     totalSubmissions: entries.length,
     comparedPairs,
-    threshold: THRESHOLD,
+    threshold,
     pairs,
   };
+}
+
+function normalizeThreshold(value: number | undefined): number {
+  if (value === undefined || !Number.isFinite(value)) return THRESHOLD;
+  const normalized = value > 1 ? value / 100 : value;
+  if (normalized < MIN_THRESHOLD || normalized > MAX_THRESHOLD) return THRESHOLD;
+  return round4(normalized);
 }

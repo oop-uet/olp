@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { Fragment, useEffect, useState, useMemo } from 'react'
 import { AxiosError } from 'axios'
 import { api, cachedGet } from '../../lib/api'
 import { toast } from '../../stores/toast.store'
@@ -20,9 +20,17 @@ interface SectionOption {
 
 interface PlagiarismPair {
   studentAId: string
+  studentAUsername?: string
   studentAName: string
+  studentASectionName?: string | null
+  studentASectionSemester?: string | null
+  studentASubmittedAt?: string
   studentBId: string
+  studentBUsername?: string
   studentBName: string
+  studentBSectionName?: string | null
+  studentBSectionSemester?: string | null
+  studentBSubmittedAt?: string
   submissionAId: string
   submissionBId: string
   similarity: number
@@ -57,6 +65,30 @@ interface SourceCheckSettings {
   }
 }
 
+interface SimilarSubmission {
+  pair: PlagiarismPair
+  studentId: string
+  studentCode: string
+  studentName: string
+  submissionId: string
+  submittedAt: string
+  sectionName: string
+  sectionSemester: string
+  similarity: number
+}
+
+interface StudentSimilarityRow {
+  studentId: string
+  studentCode: string
+  studentName: string
+  submissionId: string
+  submittedAt: string
+  sectionName: string
+  sectionSemester: string
+  maxSimilarity: number
+  matches: SimilarSubmission[]
+}
+
 // --- Helpers ---
 
 function similarityBadgeClass(similarity: number): string {
@@ -69,6 +101,77 @@ function formatPercent(similarity: number): string {
   return `${(similarity * 100).toFixed(1)}%`
 }
 
+function formatTimestamp(value?: string): string {
+  if (!value) return 'Chưa rõ'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+}
+
+function getPairStudent(pair: PlagiarismPair, side: 'A' | 'B') {
+  if (side === 'A') {
+    return {
+      studentId: pair.studentAId,
+      studentCode: pair.studentAUsername || pair.studentAId,
+      studentName: pair.studentAName,
+      submissionId: pair.submissionAId,
+      submittedAt: pair.studentASubmittedAt || '',
+      sectionName: pair.studentASectionName || 'Chưa rõ lớp',
+      sectionSemester: pair.studentASectionSemester || '',
+    }
+  }
+
+  return {
+    studentId: pair.studentBId,
+    studentCode: pair.studentBUsername || pair.studentBId,
+    studentName: pair.studentBName,
+    submissionId: pair.submissionBId,
+    submittedAt: pair.studentBSubmittedAt || '',
+    sectionName: pair.studentBSectionName || 'Chưa rõ lớp',
+    sectionSemester: pair.studentBSectionSemester || '',
+  }
+}
+
+function buildStudentSimilarityRows(pairs: PlagiarismPair[]): StudentSimilarityRow[] {
+  const rows = new Map<string, StudentSimilarityRow>()
+
+  function ensureRow(student: ReturnType<typeof getPairStudent>) {
+    const existing = rows.get(student.studentId)
+    if (existing) return existing
+    const row: StudentSimilarityRow = {
+      ...student,
+      maxSimilarity: 0,
+      matches: [],
+    }
+    rows.set(student.studentId, row)
+    return row
+  }
+
+  for (const pair of pairs) {
+    const studentA = getPairStudent(pair, 'A')
+    const studentB = getPairStudent(pair, 'B')
+    const rowA = ensureRow(studentA)
+    const rowB = ensureRow(studentB)
+
+    rowA.maxSimilarity = Math.max(rowA.maxSimilarity, pair.similarity)
+    rowB.maxSimilarity = Math.max(rowB.maxSimilarity, pair.similarity)
+    rowA.matches.push({ ...studentB, pair, similarity: pair.similarity })
+    rowB.matches.push({ ...studentA, pair, similarity: pair.similarity })
+  }
+
+  return [...rows.values()].map((row) => ({
+    ...row,
+    matches: [...row.matches].sort((a, b) => b.similarity - a.similarity),
+  }))
+}
+
 export function PlagiarismPage() {
   const [exercises, setExercises] = useState<ExerciseOption[]>([])
   const [sections, setSections] = useState<SectionOption[]>([])
@@ -76,10 +179,13 @@ export function PlagiarismPage() {
   const [loadingOptions, setLoadingOptions] = useState(true)
 
   const [selectedExerciseId, setSelectedExerciseId] = useState('')
+  const [selectedSemester, setSelectedSemester] = useState('')
   const [selectedSectionId, setSelectedSectionId] = useState('')
+  const [thresholdPercent, setThresholdPercent] = useState('70')
 
   const [checking, setChecking] = useState(false)
   const [report, setReport] = useState<PlagiarismReport | null>(null)
+  const [expandedStudentIds, setExpandedStudentIds] = useState<Set<string>>(() => new Set())
 
   const [search, setSearch] = useState('')
   const [sortField, setSortField] = useState<'similarity' | ''>('')
@@ -87,36 +193,60 @@ export function PlagiarismPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
 
-  const filteredPairs = useMemo(() => {
-    const raw = report?.pairs ?? []
+  const semesters = useMemo(
+    () => [...new Set(sections.map((section) => section.semester).filter(Boolean))].sort((a, b) => b.localeCompare(a, 'vi')),
+    [sections]
+  )
+
+  const visibleSections = useMemo(
+    () =>
+      selectedSemester
+        ? sections.filter((section) => section.semester === selectedSemester)
+        : sections,
+    [sections, selectedSemester]
+  )
+
+  const studentRows = useMemo(
+    () => buildStudentSimilarityRows(report?.pairs ?? []),
+    [report?.pairs]
+  )
+
+  const filteredRows = useMemo(() => {
+    const raw = studentRows
     if (!search.trim()) return raw
     const q = search.toLowerCase()
-    return raw.filter(
-      (p) =>
-        p.studentAName.toLowerCase().includes(q) ||
-        p.studentAId.toLowerCase().includes(q) ||
-        p.studentBName.toLowerCase().includes(q) ||
-        p.studentBId.toLowerCase().includes(q)
-    )
-  }, [report?.pairs, search])
+    return raw.filter((row) => {
+      const selfMatches =
+        row.studentName.toLowerCase().includes(q) ||
+        row.studentCode.toLowerCase().includes(q) ||
+        row.submissionId.toLowerCase().includes(q)
+      const relatedMatches = row.matches.some(
+        (match) =>
+          match.studentName.toLowerCase().includes(q) ||
+          match.studentCode.toLowerCase().includes(q) ||
+          match.submissionId.toLowerCase().includes(q)
+      )
+      return selfMatches || relatedMatches
+    })
+  }, [studentRows, search])
 
-  const sortedPairs = useMemo(() => {
-    if (!sortField) return filteredPairs
-    return [...filteredPairs].sort((a, b) => {
-      const valA = a[sortField] ?? 0
-      const valB = b[sortField] ?? 0
+  const sortedRows = useMemo(() => {
+    if (!sortField) return filteredRows
+    return [...filteredRows].sort((a, b) => {
+      const valA = a.maxSimilarity
+      const valB = b.maxSimilarity
       if (valA < valB) return sortOrder === 'asc' ? -1 : 1
       if (valA > valB) return sortOrder === 'asc' ? 1 : -1
       return 0
     })
-  }, [filteredPairs, sortField, sortOrder])
+  }, [filteredRows, sortField, sortOrder])
 
-  const paginatedPairs = useMemo(() => {
+  const paginatedRows = useMemo(() => {
     const startIndex = (currentPage - 1) * pageSize
-    return sortedPairs.slice(startIndex, startIndex + pageSize)
-  }, [sortedPairs, currentPage, pageSize])
+    return sortedRows.slice(startIndex, startIndex + pageSize)
+  }, [sortedRows, currentPage, pageSize])
 
-  const totalPages = Math.ceil(sortedPairs.length / pageSize)
+  const totalPages = Math.ceil(sortedRows.length / pageSize)
 
   const toggleSort = (field: 'similarity') => {
     setCurrentPage(1)
@@ -184,7 +314,9 @@ export function PlagiarismPage() {
         }))
       )
       if (settingsRes.data) {
-        setSourceCheckSettings(settingsRes.data as SourceCheckSettings)
+        const settings = settingsRes.data as SourceCheckSettings
+        setSourceCheckSettings(settings)
+        setThresholdPercent(String(settings.threshold))
       }
     } catch {
       toast.error('Không thể tải danh sách bài tập. Vui lòng thử lại.')
@@ -198,13 +330,21 @@ export function PlagiarismPage() {
       toast.warning('Vui lòng chọn một bài tập để kiểm tra.')
       return
     }
+    const threshold = Number(thresholdPercent)
+    if (!Number.isFinite(threshold) || threshold < 1 || threshold > 100) {
+      toast.warning('Ngưỡng tương đồng phải nằm trong khoảng 1 đến 100%.')
+      return
+    }
 
     setChecking(true)
     setReport(null)
     setCurrentPage(1)
+    setExpandedStudentIds(new Set())
     try {
       const params: Record<string, string> = {}
       if (selectedSectionId) params.section_id = selectedSectionId
+      else if (selectedSemester) params.semester = selectedSemester
+      params.threshold = thresholdPercent
 
       const response = await api.get(
         `/api/exercises/${selectedExerciseId}/plagiarism`,
@@ -246,6 +386,30 @@ export function PlagiarismPage() {
   function closeModal() {
     setModalOpen(false)
     setComparison(null)
+  }
+
+  function handleSemesterChange(value: string) {
+    setSelectedSemester(value)
+    setSelectedSectionId((current) => {
+      if (!value) return current
+      const section = sections.find((item) => item.id === current)
+      return section?.semester === value ? current : ''
+    })
+  }
+
+  function handleSectionChange(value: string) {
+    setSelectedSectionId(value)
+    const section = sections.find((item) => item.id === value)
+    if (section) setSelectedSemester(section.semester)
+  }
+
+  function toggleExpandedStudent(studentId: string) {
+    setExpandedStudentIds((current) => {
+      const next = new Set(current)
+      if (next.has(studentId)) next.delete(studentId)
+      else next.add(studentId)
+      return next
+    })
   }
 
   if (loadingOptions) {
@@ -296,7 +460,7 @@ export function PlagiarismPage() {
               Chọn bài tập và lớp học phần để chạy kiểm tra thủ công ngay trên backend hiện tại.
             </p>
           </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <div>
             <label htmlFor="exercise-select" className="label text-slate-600">
               Bài tập thực hành
@@ -317,22 +481,59 @@ export function PlagiarismPage() {
           </div>
 
           <div>
+            <label htmlFor="semester-select" className="label text-slate-600">
+              Học kỳ
+            </label>
+            <select
+              id="semester-select"
+              value={selectedSemester}
+              onChange={(e) => handleSemesterChange(e.target.value)}
+              className="input py-2 px-3 text-xs font-semibold"
+            >
+              <option value="">Tất cả học kỳ</option>
+              {semesters.map((semester) => (
+                <option key={semester} value={semester}>
+                  {semester}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
             <label htmlFor="section-select" className="label text-slate-600">
               Lớp học phần (Tùy chọn)
             </label>
             <select
               id="section-select"
               value={selectedSectionId}
-              onChange={(e) => setSelectedSectionId(e.target.value)}
+              onChange={(e) => handleSectionChange(e.target.value)}
               className="input py-2 px-3 text-xs font-semibold"
             >
               <option value="">Tất cả các lớp</option>
-              {sections.map((s) => (
+              {visibleSections.map((s) => (
                 <option key={s.id} value={s.id}>
                   {normalizePreviewSectionName(s.name, s.semester)}
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label htmlFor="threshold-input" className="label text-slate-600">
+              Ngưỡng tương đồng
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                id="threshold-input"
+                type="number"
+                min={1}
+                max={100}
+                value={thresholdPercent}
+                onChange={(e) => setThresholdPercent(e.target.value)}
+                className="input py-2 px-3 text-xs font-semibold"
+              />
+              <span className="text-xs font-bold text-slate-500">%</span>
+            </div>
           </div>
         </div>
 
@@ -447,9 +648,9 @@ export function PlagiarismPage() {
               </div>
 
               <div className="overflow-x-auto">
-                {filteredPairs.length === 0 ? (
+                {filteredRows.length === 0 ? (
                   <p className="text-center text-slate-500 py-8 text-xs font-medium">
-                    Không tìm thấy cặp bài nộp nào khớp với từ khóa tìm kiếm.
+                    Không tìm thấy sinh viên nào khớp với từ khóa tìm kiếm.
                   </p>
                 ) : (
                   <>
@@ -457,56 +658,110 @@ export function PlagiarismPage() {
                       <thead>
                         <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-bold uppercase">
                           <th className="px-5 py-3 w-16 text-center">#</th>
-                          <th className="px-5 py-3 text-left">Sinh viên A</th>
-                          <th className="px-5 py-3 text-left">Sinh viên B</th>
+                          <th className="px-5 py-3 text-left">MSSV</th>
+                          <th className="px-5 py-3 text-left">Họ tên</th>
+                          <th className="px-5 py-3 text-left">ID bài nộp</th>
+                          <th className="px-5 py-3 text-left">Thời gian nộp</th>
+                          <th className="px-5 py-3 text-left">Lớp học phần</th>
                           <th
                             onClick={() => toggleSort('similarity')}
-                            className="px-5 py-3 text-center w-48 cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-500"
+                            className="px-5 py-3 text-center w-40 cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-500"
                           >
-                            Mức độ tương đồng {sortField === 'similarity' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                            Similarity (%) {sortField === 'similarity' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                           </th>
-                          <th className="px-5 py-3 text-right w-36">Thao tác</th>
+                          <th className="px-5 py-3 text-center w-24">Chi tiết</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 text-xs text-slate-700 bg-white">
-                        {paginatedPairs.map((pair: PlagiarismPair, index: number) => (
-                          <tr
-                            key={`${pair.submissionAId}-${pair.submissionBId}`}
-                            className="hover:bg-slate-50/50 transition-colors"
-                          >
-                            <td className="px-5 py-3 text-slate-400 font-bold text-center">
-                              {index + 1 + (currentPage - 1) * pageSize}
-                            </td>
-                            <td className="px-5 py-3 font-semibold text-slate-800">
-                              {pair.studentAName} ({pair.studentAId})
-                            </td>
-                            <td className="px-5 py-3 font-semibold text-slate-800">
-                              {pair.studentBName} ({pair.studentBId})
-                            </td>
-                            <td className="px-5 py-3 text-center">
-                              <span className={similarityBadgeClass(pair.similarity)}>
-                                {formatPercent(pair.similarity)}
-                              </span>
-                            </td>
-                            <td className="px-5 py-3 text-right">
-                              <button
-                                onClick={() => handleViewComparison(pair)}
-                                className="btn-secondary btn-sm font-bold text-primary hover:text-primary-700"
-                              >
-                                So sánh mã
-                              </button>
-                            </td>
-                          </tr>
+                        {paginatedRows.map((row: StudentSimilarityRow, index: number) => (
+                          <Fragment key={row.studentId}>
+                            <tr
+                              className="hover:bg-slate-50/50 transition-colors"
+                            >
+                              <td className="px-5 py-3 text-slate-400 font-bold text-center">
+                                {index + 1 + (currentPage - 1) * pageSize}
+                              </td>
+                              <td className="px-5 py-3 font-semibold text-sky-600">{row.studentCode}</td>
+                              <td className="px-5 py-3 font-semibold text-slate-800">{row.studentName}</td>
+                              <td className="px-5 py-3 font-mono text-sky-600">{row.submissionId}</td>
+                              <td className="px-5 py-3 text-slate-600">{formatTimestamp(row.submittedAt)}</td>
+                              <td className="px-5 py-3 text-slate-600">{normalizePreviewSectionName(row.sectionName, row.sectionSemester)}</td>
+                              <td className="px-5 py-3 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => row.matches[0] && handleViewComparison(row.matches[0].pair)}
+                                  className={`${similarityBadgeClass(row.maxSimilarity)} cursor-pointer transition hover:scale-105`}
+                                  title="Xem so sánh chi tiết với bài tương tự nhất"
+                                >
+                                  {formatPercent(row.maxSimilarity)}
+                                </button>
+                              </td>
+                              <td className="px-5 py-3 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleExpandedStudent(row.studentId)}
+                                  className={`inline-flex h-6 w-6 items-center justify-center rounded-full border text-sm font-black transition ${
+                                    expandedStudentIds.has(row.studentId)
+                                      ? 'border-rose-200 bg-rose-50 text-rose-600'
+                                      : 'border-emerald-200 bg-emerald-50 text-emerald-600'
+                                  }`}
+                                  title={expandedStudentIds.has(row.studentId) ? 'Ẩn chi tiết' : 'Xem các bài tương tự'}
+                                >
+                                  {expandedStudentIds.has(row.studentId) ? '−' : '+'}
+                                </button>
+                              </td>
+                            </tr>
+                            {expandedStudentIds.has(row.studentId) && (
+                              <tr key={`${row.studentId}-details`} className="bg-slate-50/70">
+                                <td colSpan={8} className="px-8 py-3">
+                                  <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                                    <table className="min-w-full divide-y divide-slate-100">
+                                      <thead>
+                                        <tr className="bg-white text-[11px] font-black uppercase text-slate-500">
+                                          <th className="px-4 py-2 text-left">Similarity (%)</th>
+                                          <th className="px-4 py-2 text-left">Bài nộp</th>
+                                          <th className="px-4 py-2 text-left">MSSV</th>
+                                          <th className="px-4 py-2 text-left">Họ tên</th>
+                                          <th className="px-4 py-2 text-left">Thời gian nộp</th>
+                                          <th className="px-4 py-2 text-left">Lớp học phần</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-slate-100 text-xs">
+                                        {row.matches.map((match) => (
+                                          <tr key={`${row.studentId}-${match.submissionId}`} className="hover:bg-slate-50">
+                                            <td className="px-4 py-2">
+                                              <button
+                                                type="button"
+                                                onClick={() => handleViewComparison(match.pair)}
+                                                className="font-bold text-sky-600 hover:text-sky-800 hover:underline"
+                                              >
+                                                {formatPercent(match.similarity)}
+                                              </button>
+                                            </td>
+                                            <td className="px-4 py-2 font-mono text-sky-600">{match.submissionId}</td>
+                                            <td className="px-4 py-2 font-semibold text-sky-600">{match.studentCode}</td>
+                                            <td className="px-4 py-2 font-semibold text-slate-800">{match.studentName}</td>
+                                            <td className="px-4 py-2 text-slate-600">{formatTimestamp(match.submittedAt)}</td>
+                                            <td className="px-4 py-2 text-slate-600">{normalizePreviewSectionName(match.sectionName, match.sectionSemester)}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
                         ))}
                       </tbody>
                     </table>
 
-                    {sortedPairs.length > 0 && (
+                    {sortedRows.length > 0 && (
                       <div className="flex justify-between items-center text-xs text-slate-500 p-4 border-t border-slate-100 bg-white flex-wrap gap-3 animate-fade-in">
                         <div>
-                          Hiển thị {Math.min(sortedPairs.length, (currentPage - 1) * pageSize + 1)} đến{' '}
-                          {Math.min(sortedPairs.length, currentPage * pageSize)} trong tổng số{' '}
-                          {sortedPairs.length} cặp trùng lặp
+                          Hiển thị {Math.min(sortedRows.length, (currentPage - 1) * pageSize + 1)} đến{' '}
+                          {Math.min(sortedRows.length, currentPage * pageSize)} trong tổng số{' '}
+                          {sortedRows.length} sinh viên có bài tương tự
                         </div>
                         
                         <div className="flex items-center gap-4">

@@ -228,8 +228,20 @@ router.get("/:id/plagiarism", async (req: Request, res: Response) => {
       typeof req.query.section_id === "string" && req.query.section_id.length > 0
         ? req.query.section_id
         : undefined;
+    const semester =
+      typeof req.query.semester === "string" && req.query.semester.length > 0
+        ? req.query.semester
+        : undefined;
+    const threshold =
+      typeof req.query.threshold === "string" && req.query.threshold.length > 0
+        ? Number(req.query.threshold)
+        : undefined;
 
-    const result = await checkExercisePlagiarism(req.params.id, sectionId);
+    const result = await checkExercisePlagiarism(req.params.id, {
+      sectionId,
+      semester,
+      threshold,
+    });
 
     if (isPlagiarismError(result)) {
       const statusCode = result.error.code === "NOT_FOUND" ? 404 : 400;
