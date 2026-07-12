@@ -340,18 +340,48 @@ export function SubmissionReviewPage() {
 
   const selectedExerciseId = searchParams.get('exercise_id') || ''
 
-  // Map of exerciseId -> title for display
-  const exerciseTitleById = new Map(exercises.map((ex) => [ex.id, ex.title]))
+  const [filterId, setFilterId] = useState('')
+  const [filterStudent, setFilterStudent] = useState('')
+  const [filterExercise, setFilterExercise] = useState('')
+  const [filterScore, setFilterScore] = useState('')
+  const [filterResult, setFilterResult] = useState('')
 
+  useEffect(() => {
+    setCurrentPage(0)
+  }, [filterId, filterStudent, filterExercise, filterScore, filterResult])
+
+  // Map of exerciseId -> title for display
+  const exerciseTitleById = useMemo(() => new Map(exercises.map((ex) => [ex.id, ex.title])), [exercises])
+
+
+  const filteredSubmissions = useMemo(() => {
+    return submissions.filter((sub) => {
+      const matchId = !filterId || sub.id.toLowerCase().includes(filterId.toLowerCase())
+      
+      const studentName = (sub.student?.fullName || sub.student?.username || '').toLowerCase()
+      const matchStudent = !filterStudent || studentName.includes(filterStudent.toLowerCase())
+      
+      const exerciseTitle = (sub.exercise?.title || exerciseTitleById.get(sub.exerciseId) || '').toLowerCase()
+      const matchExercise = !filterExercise || exerciseTitle.includes(filterExercise.toLowerCase())
+      
+      const scoreStr = sub.score !== null && sub.score !== undefined ? sub.score.toString() : ''
+      const matchScore = !filterScore || scoreStr.includes(filterScore)
+      
+      const result = getSubmissionResult(sub.score ?? 0)
+      const matchResult = !filterResult || result.label.toLowerCase().includes(filterResult.toLowerCase())
+      
+      return matchId && matchStudent && matchExercise && matchScore && matchResult
+    })
+  }, [submissions, filterId, filterStudent, filterExercise, filterScore, filterResult, exerciseTitleById])
 
   const sortedSubmissions = useMemo(() => {
-    if (!sortField) return submissions
-    return [...submissions].sort((a, b) => {
+    if (!sortField) return filteredSubmissions
+    return [...filteredSubmissions].sort((a, b) => {
       let valA: any = ''
       let valB: any = ''
       if (sortField === 'exerciseTitle') {
-        valA = exerciseTitleById.get(a.exerciseId) || ''
-        valB = exerciseTitleById.get(b.exerciseId) || ''
+        valA = a.exercise?.title || exerciseTitleById.get(a.exerciseId) || ''
+        valB = b.exercise?.title || exerciseTitleById.get(b.exerciseId) || ''
       } else if (sortField === 'score') {
         valA = a.score ?? 0
         valB = b.score ?? 0
@@ -366,7 +396,7 @@ export function SubmissionReviewPage() {
       if (valA > valB) return sortOrder === 'asc' ? 1 : -1
       return 0
     })
-  }, [submissions, sortField, sortOrder, exerciseTitleById])
+  }, [filteredSubmissions, sortField, sortOrder, exerciseTitleById])
 
   const totalPages = Math.max(1, Math.ceil(sortedSubmissions.length / pageSize))
   const pageItems = useMemo(
@@ -1138,6 +1168,58 @@ export function SubmissionReviewPage() {
                       Điểm {sortField === 'score' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                     </th>
                     <th className="border-b-2 border-slate-300 px-4 py-5 w-36">Kết quả</th>
+                  </tr>
+                  <tr className="bg-slate-50/50">
+                    <td className="border-b border-slate-200 px-4 py-2 text-center">
+                    </td>
+                    <td className="border-b border-slate-200 px-4 py-2">
+                      <input
+                        type="text"
+                        value={filterId}
+                        onChange={(e) => setFilterId(e.target.value)}
+                        placeholder="Tìm ID..."
+                        className="w-full rounded border border-slate-200 px-2 py-1 text-xs focus:border-sky-500 focus:outline-none"
+                      />
+                    </td>
+                    <td className="border-b border-slate-200 px-4 py-2">
+                      <input
+                        type="text"
+                        value={filterStudent}
+                        onChange={(e) => setFilterStudent(e.target.value)}
+                        placeholder="Tìm sinh viên..."
+                        className="w-full rounded border border-slate-200 px-2 py-1 text-xs focus:border-sky-500 focus:outline-none"
+                      />
+                    </td>
+                    <td className="border-b border-slate-200 px-4 py-2">
+                      <input
+                        type="text"
+                        value={filterExercise}
+                        onChange={(e) => setFilterExercise(e.target.value)}
+                        placeholder="Tìm bài tập..."
+                        className="w-full rounded border border-slate-200 px-2 py-1 text-xs focus:border-sky-500 focus:outline-none"
+                      />
+                    </td>
+                    <td className="border-b border-slate-200 px-4 py-2">
+                      <div className="h-6 w-full rounded bg-slate-100/80 border border-slate-100"></div>
+                    </td>
+                    <td className="border-b border-slate-200 px-4 py-2">
+                      <input
+                        type="text"
+                        value={filterScore}
+                        onChange={(e) => setFilterScore(e.target.value)}
+                        placeholder="Điểm..."
+                        className="w-full rounded border border-slate-200 px-2 py-1 text-xs focus:border-sky-500 focus:outline-none"
+                      />
+                    </td>
+                    <td className="border-b border-slate-200 px-4 py-2">
+                      <input
+                        type="text"
+                        value={filterResult}
+                        onChange={(e) => setFilterResult(e.target.value)}
+                        placeholder="Tìm kết quả..."
+                        className="w-full rounded border border-slate-200 px-2 py-1 text-xs focus:border-sky-500 focus:outline-none"
+                      />
+                    </td>
                   </tr>
                 </thead>
                 <tbody>
