@@ -5,6 +5,7 @@ import * as schema from "../db/schema.js";
 import { getTestSqlite } from "../test/setup.js";
 import {
   checkExercisePlagiarism,
+  extractComparableCode,
   isPlagiarismError,
   normalizeCode,
   shingles,
@@ -75,6 +76,29 @@ describe("plagiarism.service", () => {
   it("normalizes comments and whitespace before token comparison", () => {
     expect(normalizeCode("int a = 1; // comment\n  int b = 2;")).toBe("int a = 1; int b = 2;");
     expect([...shingles(["a", "b", "c"], 5)]).toEqual(["a b c"]);
+  });
+
+  it("extracts Java files from structured editor submissions before removing comments", () => {
+    const structured = JSON.stringify({
+      format: "oop-java-files",
+      version: 1,
+      files: [
+        {
+          name: "LibraryRegistry.java",
+          content: `public class LibraryRegistry {
+  public String findByEmailDomain(String domain) {
+    // TODO
+    return "uet.vnu.edu.vn";
+  }
+}`,
+        },
+      ],
+    });
+
+    const comparable = extractComparableCode(structured);
+    expect(comparable).toContain("LibraryRegistry.java");
+    expect(comparable).toContain("return \"uet.vnu.edu.vn\";");
+    expect(normalizeCode(comparable)).toContain("return \"uet.vnu.edu.vn\";");
   });
 
   it("detects suspiciously similar submissions for the same exercise", async () => {
@@ -156,6 +180,92 @@ public class Main {
     expect(isPlagiarismError(highThreshold)).toBe(false);
     expect((lowThreshold as any).pairs).toHaveLength(1);
     expect((highThreshold as any).pairs).toHaveLength(0);
+  });
+
+  it("does not score different structured submissions as identical because of TODO comments", async () => {
+    const db = getDb();
+    const { exerciseId, sectionId } = seedExerciseAndSection();
+    const studentA = seedUser("student", "Student A");
+    const studentB = seedUser("student", "Student B");
+
+    const makeSubmissionCode = (registryContent: string) =>
+      JSON.stringify({
+        format: "oop-java-files",
+        version: 1,
+        files: [
+          {
+            name: "LibraryMember.java",
+            content: `public class LibraryMember {
+  private String fullName;
+  private String email;
+  private boolean active;
+
+  public LibraryMember(String fullName, String email) {
+    this.fullName = fullName;
+    this.email = email;
+    this.active = true;
+  }
+
+  public String getProfile() {
+    return fullName + " - " + email + " - " + active;
+  }
+}`,
+          },
+          {
+            name: "LibraryRegistry.java",
+            content: registryContent,
+          },
+        ],
+      });
+
+    seedSubmission({
+      studentId: studentA,
+      exerciseId,
+      sectionId,
+      code: makeSubmissionCode(`public class LibraryRegistry {
+  private LibraryMember[] members = new LibraryMember[10];
+  private int memberCount = 0;
+
+  public String findByEmailDomain(String domain) {
+    // TODO
+    int foundDomainIndex = 0;
+    for (int i = 0; i < memberCount; i++) {
+      if (members[i].getEmail() == domain) {
+        foundDomainIndex = i;
+      }
+    }
+    return members[foundDomainIndex].getProfile();
+  }
+}`),
+    });
+
+    seedSubmission({
+      studentId: studentB,
+      exerciseId,
+      sectionId,
+      code: makeSubmissionCode(`public class LibraryRegistry {
+  private LibraryMember[] members = new LibraryMember[10];
+  private int memberCount = 0;
+
+  public String findByEmailDomain(String domain) {
+    // TODO
+    String profiles = "";
+    for (int i = 0; i < memberCount; i++) {
+      String emailDomain = members[i].getEmail().split("@")[1];
+      if (emailDomain.equals(domain)) {
+        String profile = members[i].getProfile();
+        profiles = profile + "\\n";
+      }
+    }
+    return profiles;
+  }
+}`),
+    });
+
+    const report = await checkExercisePlagiarism(exerciseId, { sectionId, threshold: 1 }, db);
+
+    expect(isPlagiarismError(report)).toBe(false);
+    expect((report as any).pairs).toHaveLength(0);
   });
 
   it("returns not found for missing exercise", async () => {

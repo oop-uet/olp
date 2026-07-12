@@ -79,6 +79,29 @@ export function normalizeCode(code: string): string {
     .trim();
 }
 
+export function extractComparableCode(code: string): string {
+  if (!code) return "";
+
+  try {
+    const parsed = JSON.parse(code) as {
+      format?: string;
+      files?: Array<{ name?: string; content?: string }>;
+    };
+
+    if (parsed.format === "oop-java-files" && Array.isArray(parsed.files)) {
+      return parsed.files
+        .filter((file) => typeof file.content === "string")
+        .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""))
+        .map((file) => `// FILE: ${file.name ?? "Unknown.java"}\n${file.content}`)
+        .join("\n\n");
+    }
+  } catch {
+    // Legacy submissions are stored as raw Java source.
+  }
+
+  return code;
+}
+
 /**
  * Build a set of k-gram shingles (k consecutive tokens joined by a space)
  * from a list of word tokens. If there are fewer than k tokens, the whole
@@ -239,7 +262,7 @@ export async function checkExercisePlagiarism(
   // 4. Build token lists per representative submission.
   const entries: StudentEntry[] = [];
   for (const row of bestByStudent.values()) {
-    const normalized = normalizeCode(row.code ?? "");
+    const normalized = normalizeCode(extractComparableCode(row.code ?? ""));
     const tokens = normalized.length > 0 ? normalized.split(" ").filter(Boolean) : [];
     entries.push({
       studentId: row.studentId,
