@@ -126,9 +126,15 @@ set JAVA_VER=
 set JAVA_MAJOR=
 if not exist "%CANDIDATE_JAVA%" exit /b 1
 
-for /f "usebackq tokens=3" %%g in (`^""CANDIDATE_JAVA%" -version 2^>^&1 ^| findstr /i "version"^"`) do (
+"%CANDIDATE_JAVA%" -version > java_version.tmp 2>&1
+if not exist java_version.tmp exit /b 1
+
+for /f "tokens=3" %%g in ('findstr /i "version" java_version.tmp') do (
   set JAVA_VER=%%g
 )
+del java_version.tmp
+
+if not defined JAVA_VER exit /b 1
 set JAVA_VER=!JAVA_VER:"=!
 
 for /f "tokens=1,2 delims=." %%a in ("!JAVA_VER!") do (
