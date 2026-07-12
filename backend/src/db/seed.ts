@@ -177,6 +177,27 @@ async function seed() {
       updatedBy: null,
     },
     {
+      key: "source_check_weekly_day",
+      value: "6",
+      validRange: "0-6",
+      updatedAt: now,
+      updatedBy: null,
+    },
+    {
+      key: "source_check_weekly_hour",
+      value: "22",
+      validRange: "0-23",
+      updatedAt: now,
+      updatedBy: null,
+    },
+    {
+      key: "source_check_weekly_minute",
+      value: "0",
+      validRange: "0-59",
+      updatedAt: now,
+      updatedBy: null,
+    },
+    {
       key: "style_check_enabled",
       value: "1",
       validRange: "0-1",

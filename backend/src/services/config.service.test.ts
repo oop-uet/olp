@@ -40,14 +40,17 @@ describe('Config Service', () => {
       const db = getDb();
       const configs = await getConfig(db);
 
-      expect(configs).toHaveLength(8);
+      expect(configs).toHaveLength(11);
       expect(configs.map((c) => c.key).sort()).toEqual([
         'max_submissions',
         'source_check_enabled',
         'source_check_max_runtime_minutes',
         'source_check_provider',
         'source_check_similarity_threshold',
+        'source_check_weekly_day',
         'source_check_weekly_enabled',
+        'source_check_weekly_hour',
+        'source_check_weekly_minute',
         'time_limit',
         'warning_threshold',
       ]);
@@ -194,6 +197,30 @@ describe('Config Service', () => {
 
       expect(isConfigError(result)).toBe(false);
       expect(result).toHaveProperty('value', '1');
+    });
+
+    it('should accept valid source check weekly schedule values', async () => {
+      const db = getDb();
+
+      const dayResult = await updateConfig('source_check_weekly_day', '0', ADMIN_ID, db);
+      const hourResult = await updateConfig('source_check_weekly_hour', '6', ADMIN_ID, db);
+      const minuteResult = await updateConfig('source_check_weekly_minute', '30', ADMIN_ID, db);
+
+      expect(isConfigError(dayResult)).toBe(false);
+      expect(isConfigError(hourResult)).toBe(false);
+      expect(isConfigError(minuteResult)).toBe(false);
+    });
+
+    it('should reject invalid source check weekly schedule values', async () => {
+      const db = getDb();
+
+      const dayResult = await updateConfig('source_check_weekly_day', '7', ADMIN_ID, db);
+      const hourResult = await updateConfig('source_check_weekly_hour', '24', ADMIN_ID, db);
+      const minuteResult = await updateConfig('source_check_weekly_minute', '60', ADMIN_ID, db);
+
+      expect(isConfigError(dayResult)).toBe(true);
+      expect(isConfigError(hourResult)).toBe(true);
+      expect(isConfigError(minuteResult)).toBe(true);
     });
 
     it('should return NOT_FOUND error for non-existent key', async () => {

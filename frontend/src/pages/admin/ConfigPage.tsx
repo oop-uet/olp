@@ -108,6 +108,40 @@ const CONFIG_PARAMS: Record<string, Omit<ConfigParam, 'key' | 'currentValue'>> =
     unit: '%',
     kind: 'number',
   },
+  source_check_weekly_day: {
+    label: 'Ngày chạy kiểm tra mã nguồn',
+    description:
+      'Ngày trong tuần để workflow GitHub Actions quét mã nguồn định kỳ theo giờ Việt Nam.',
+    unit: '',
+    kind: 'select',
+    options: [
+      { value: '1', label: 'Thứ hai' },
+      { value: '2', label: 'Thứ ba' },
+      { value: '3', label: 'Thứ tư' },
+      { value: '4', label: 'Thứ năm' },
+      { value: '5', label: 'Thứ sáu' },
+      { value: '6', label: 'Thứ bảy' },
+      { value: '0', label: 'Chủ nhật' },
+    ],
+  },
+  source_check_weekly_hour: {
+    label: 'Giờ chạy kiểm tra mã nguồn',
+    description:
+      'Giờ bắt đầu workflow theo múi giờ Việt Nam. Ví dụ 22 nghĩa là 22:00.',
+    min: 0,
+    max: 23,
+    unit: 'giờ Việt Nam',
+    kind: 'number',
+  },
+  source_check_weekly_minute: {
+    label: 'Phút chạy kiểm tra mã nguồn',
+    description:
+      'Phút bắt đầu workflow. Nên chọn bội số của 5 để khớp nhịp đánh thức của GitHub Actions.',
+    min: 0,
+    max: 59,
+    unit: 'phút',
+    kind: 'number',
+  },
   source_check_max_runtime_minutes: {
     label: 'Giới hạn thời gian mỗi lượt quét',
     description:

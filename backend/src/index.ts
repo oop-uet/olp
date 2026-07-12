@@ -24,6 +24,7 @@ import studentExerciseRoutes from './routes/student/exercise.routes.js';
 import studentSectionRoutes from './routes/student/section.routes.js';
 import instructorAnticheatRoutes from './routes/instructor/anticheat.routes.js';
 import leaderboardRoutes from './routes/instructor/leaderboard.routes.js';
+import sourceCheckRoutes from './routes/source-check.routes.js';
 import { authMiddleware } from './middleware/auth.middleware.js';
 import { requireRole } from './middleware/role.guard.js';
 import { migrate } from 'drizzle-orm/libsql/migrator';
@@ -57,6 +58,7 @@ app.use('/api/admin/exercises', authMiddleware(), requireRole('admin'), adminExe
 app.use('/api/admin/config', authMiddleware(), requireRole('admin'), configRoutes);
 app.use('/api/admin/ai-config', authMiddleware(), requireRole('admin'), aiConfigRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/source-check', sourceCheckRoutes);
 
 // Instructor - Sections (assigned classes + detail)
 app.use('/api/instructor/sections', authMiddleware(), requireRole('instructor'), instructorSectionRoutes);

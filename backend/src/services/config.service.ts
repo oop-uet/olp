@@ -34,6 +34,9 @@ const DEFAULT_CONFIGS = [
   { key: 'source_check_similarity_threshold', value: '70', validRange: '40-95' },
   { key: 'source_check_max_runtime_minutes', value: '20', validRange: '5-120' },
   { key: 'source_check_provider', value: 'jplag', validRange: 'enum:jplag,pmd_cpd,dolos' },
+  { key: 'source_check_weekly_day', value: '6', validRange: '0-6' },
+  { key: 'source_check_weekly_hour', value: '22', validRange: '0-23' },
+  { key: 'source_check_weekly_minute', value: '0', validRange: '0-59' },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

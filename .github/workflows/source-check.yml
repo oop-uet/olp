@@ -26,8 +26,10 @@ on:
         default: "70"
         type: string
   schedule:
-    # Saturday 22:00 Asia/Ho_Chi_Minh. GitHub Actions cron is UTC.
-    - cron: "0 15 * * 6"
+    # Wake up every 5 minutes; the script reads the admin-configured
+    # Asia/Ho_Chi_Minh schedule from /api/source-check/settings and exits
+    # immediately when the configured day/time is not due.
+    - cron: "*/5 * * * *"
 
 permissions:
   contents: read

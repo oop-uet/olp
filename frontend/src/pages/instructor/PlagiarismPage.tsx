@@ -43,6 +43,20 @@ interface SubmissionDetail {
   submittedAt: string
 }
 
+interface SourceCheckSettings {
+  enabled: boolean
+  weeklyEnabled: boolean
+  provider: string
+  threshold: number
+  maxRuntimeMinutes: number
+  schedule: {
+    timezone: string
+    dayLabel: string
+    timeLabel: string
+    cron: string
+  }
+}
+
 // --- Helpers ---
 
 function similarityBadgeClass(similarity: number): string {
@@ -58,6 +72,7 @@ function formatPercent(similarity: number): string {
 export function PlagiarismPage() {
   const [exercises, setExercises] = useState<ExerciseOption[]>([])
   const [sections, setSections] = useState<SectionOption[]>([])
+  const [sourceCheckSettings, setSourceCheckSettings] = useState<SourceCheckSettings | null>(null)
   const [loadingOptions, setLoadingOptions] = useState(true)
 
   const [selectedExerciseId, setSelectedExerciseId] = useState('')
@@ -129,10 +144,11 @@ export function PlagiarismPage() {
   async function fetchOptions() {
     setLoadingOptions(true)
     try {
-      const [exercisesRes, libraryRes, sectionsRes] = await Promise.all([
+      const [exercisesRes, libraryRes, sectionsRes, settingsRes] = await Promise.all([
         cachedGet('/api/exercises', undefined, { ttlMs: 60_000 }),
         cachedGet('/api/exercises/library').catch(() => ({ data: [] })),
         cachedGet('/api/instructor/sections').catch(() => ({ data: [] })),
+        cachedGet('/api/source-check/settings', undefined, { ttlMs: 60_000 }).catch(() => ({ data: null })),
       ])
       const exerciseData = Array.isArray(exercisesRes.data)
         ? exercisesRes.data
@@ -167,6 +183,9 @@ export function PlagiarismPage() {
           semester: s.semester,
         }))
       )
+      if (settingsRes.data) {
+        setSourceCheckSettings(settingsRes.data as SourceCheckSettings)
+      }
     } catch {
       toast.error('Không thể tải danh sách bài tập. Vui lòng thử lại.')
     } finally {
@@ -338,16 +357,32 @@ export function PlagiarismPage() {
           <h2 className="text-base font-black text-slate-900">GitHub Actions cuối tuần</h2>
           <div className="mt-4 space-y-3 text-sm text-slate-600">
             <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-              <p className="font-bold text-slate-800">Lịch mặc định</p>
-              <p>Thứ bảy 22:00 giờ Việt Nam, workflow cron `0 15 * * 6`.</p>
+              <p className="font-bold text-slate-800">
+                {sourceCheckSettings ? 'Lịch đang cấu hình' : 'Lịch mặc định'}
+              </p>
+              <p>
+                {sourceCheckSettings
+                  ? `${sourceCheckSettings.schedule.dayLabel} ${sourceCheckSettings.schedule.timeLabel} giờ Việt Nam, workflow cron \`${sourceCheckSettings.schedule.cron}\`.`
+                  : 'Thứ bảy 22:00 giờ Việt Nam, workflow cron `0 15 * * 6`.'}
+              </p>
             </div>
             <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
               <p className="font-bold text-slate-800">Provider mặc định</p>
-              <p>JPlag, ngưỡng theo cấu hình admin.</p>
+              <p>
+                {sourceCheckSettings
+                  ? `${sourceCheckSettings.provider.toUpperCase()}, ngưỡng ${sourceCheckSettings.threshold}%, giới hạn ${sourceCheckSettings.maxRuntimeMinutes} phút.`
+                  : 'JPlag, ngưỡng theo cấu hình admin.'}
+              </p>
             </div>
             <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
               <p className="font-bold text-slate-800">Trạng thái tích hợp</p>
-              <p>Workflow scaffold đã sẵn sàng; backend job queue sẽ nối ở bước triển khai tiếp theo.</p>
+              <p>
+                {sourceCheckSettings
+                  ? sourceCheckSettings.enabled && sourceCheckSettings.weeklyEnabled
+                    ? 'Workflow định kỳ đang bật theo cấu hình admin.'
+                    : 'Workflow định kỳ đang tắt trong cấu hình admin.'
+                  : 'Workflow scaffold đã sẵn sàng; backend job queue sẽ nối ở bước triển khai tiếp theo.'}
+              </p>
             </div>
           </div>
         </div>

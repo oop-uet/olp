@@ -20,7 +20,7 @@ PROVIDER="${SOURCE_CHECK_PROVIDER:-jplag}"
 THRESHOLD="${SOURCE_CHECK_THRESHOLD:-70}"
 
 log "Source Check Coordinator"
-log "event=$EVENT_NAME provider=$PROVIDER threshold=$THRESHOLD"
+log "event=$EVENT_NAME"
 
 SETTINGS_RESPONSE="$OUTPUT_DIR/settings.json"
 HTTP_CODE="$(
@@ -40,10 +40,39 @@ if grep -q '"enabled"[[:space:]]*:[[:space:]]*false' "$SETTINGS_RESPONSE"; then
   exit 0
 fi
 
+read_setting() {
+  node -e '
+    const fs = require("fs");
+    const data = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+    const value = process.argv[2].split(".").reduce((cursor, key) => cursor == null ? undefined : cursor[key], data);
+    process.stdout.write(value == null ? "" : String(value));
+  ' "$SETTINGS_RESPONSE" "$1"
+}
+
 if [[ "$EVENT_NAME" == "schedule" ]] && grep -q '"weeklyEnabled"[[:space:]]*:[[:space:]]*false' "$SETTINGS_RESPONSE"; then
   log "Weekly source checking is disabled by administrator. Exiting."
   exit 0
 fi
 
+if [[ "$EVENT_NAME" == "schedule" ]]; then
+  CONFIG_DAY="$(read_setting schedule.day)"
+  CONFIG_HOUR="$(read_setting schedule.hour)"
+  CONFIG_MINUTE="$(read_setting schedule.minute)"
+  CONFIG_LABEL="$(read_setting schedule.dayLabel) $(read_setting schedule.timeLabel) Asia/Ho_Chi_Minh"
+  CURRENT_DAY="$(TZ=Asia/Ho_Chi_Minh date +%w)"
+  CURRENT_HOUR="$(TZ=Asia/Ho_Chi_Minh date +%H)"
+  CURRENT_MINUTE="$(TZ=Asia/Ho_Chi_Minh date +%M)"
+  MINUTE_DELTA=$((10#$CURRENT_MINUTE - 10#$CONFIG_MINUTE))
+
+  if [[ "$CURRENT_DAY" != "$CONFIG_DAY" || "$((10#$CURRENT_HOUR))" != "$CONFIG_HOUR" || "$MINUTE_DELTA" -lt 0 || "$MINUTE_DELTA" -gt 4 ]]; then
+    log "Not due yet. Configured weekly run: $CONFIG_LABEL. Current Vietnam time: day=$CURRENT_DAY ${CURRENT_HOUR}:${CURRENT_MINUTE}."
+    exit 0
+  fi
+
+  PROVIDER="$(read_setting provider)"
+  THRESHOLD="$(read_setting threshold)"
+fi
+
+log "provider=$PROVIDER threshold=$THRESHOLD"
 log "Backend settings are enabled. Job queue integration is the next backend step."
 log "Expected follow-up endpoints: /api/source-check/jobs/due and /api/source-check/jobs/:id/complete."
