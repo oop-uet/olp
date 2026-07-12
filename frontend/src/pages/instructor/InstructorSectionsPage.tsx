@@ -129,10 +129,17 @@ export function InstructorSectionsPage() {
               Bạn chưa được phân công lớp học phần nào.
             </div>
           ) : (
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-              <div className="p-4 space-y-3">
-                {sortedSemesters.flatMap((semester) =>
-                  sectionsBySemester[semester].map((section) => (
+            sortedSemesters.map((semester) => (
+              <div key={semester} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                
+                {/* Semester Header: Teal style */}
+                <div className="bg-[#00adb5] text-white px-5 py-3 font-bold text-sm tracking-wide select-none">
+                  Học kỳ {semester}
+                </div>
+
+                {/* Class sections list */}
+                <div className="p-4 space-y-3">
+                  {sectionsBySemester[semester].map((section) => (
                     <Link
                       key={section.id}
                       to={`/instructor/classes/${section.id}`}
@@ -140,10 +147,11 @@ export function InstructorSectionsPage() {
                     >
                       {formatSectionDisplayName(section.name)} - Lập trình hướng đối tượng
                     </Link>
-                  ))
-                )}
+                  ))}
+                </div>
+
               </div>
-            </div>
+            ))
           )}
         </div>
 
