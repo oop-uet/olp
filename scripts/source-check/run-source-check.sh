@@ -18,6 +18,8 @@ API_URL="${SOURCE_CHECK_API_URL%/}"
 EVENT_NAME="${SOURCE_CHECK_EVENT_NAME:-schedule}"
 PROVIDER="${SOURCE_CHECK_PROVIDER:-jplag}"
 THRESHOLD="${SOURCE_CHECK_THRESHOLD:-70}"
+STARTED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+export SOURCE_CHECK_STARTED_AT="$STARTED_AT"
 
 log "Source Check Coordinator"
 log "event=$EVENT_NAME"
@@ -74,5 +76,71 @@ if [[ "$EVENT_NAME" == "schedule" ]]; then
 fi
 
 log "provider=$PROVIDER threshold=$THRESHOLD"
-log "Backend settings are enabled. Job queue integration is the next backend step."
-log "Expected follow-up endpoints: /api/source-check/jobs/due and /api/source-check/jobs/:id/complete."
+
+if [[ -z "${SOURCE_CHECK_EXERCISE_ID:-}" ]]; then
+  log "No exercise_id was provided. Scheduled job discovery is not configured yet, so no scan was started."
+  exit 0
+fi
+
+REQUEST_BODY="$OUTPUT_DIR/request.json"
+REPORT_RESPONSE="$OUTPUT_DIR/report.json"
+SUMMARY_FILE="$OUTPUT_DIR/summary.md"
+
+node > "$REQUEST_BODY" <<'NODE'
+const payload = {
+  exercise_id: process.env.SOURCE_CHECK_EXERCISE_ID || undefined,
+  section_id: process.env.SOURCE_CHECK_SECTION_ID || undefined,
+  semester: process.env.SOURCE_CHECK_SEMESTER || undefined,
+  provider: process.env.SOURCE_CHECK_PROVIDER || "jplag",
+  threshold: process.env.SOURCE_CHECK_THRESHOLD || "70",
+  artifact_url: process.env.SOURCE_CHECK_ARTIFACT_URL || undefined,
+  workflow_run_id: process.env.SOURCE_CHECK_WORKFLOW_RUN_ID || undefined,
+  triggered_by: process.env.SOURCE_CHECK_TRIGGERED_BY || undefined,
+  started_at: process.env.SOURCE_CHECK_STARTED_AT || undefined,
+};
+
+for (const key of Object.keys(payload)) {
+  if (payload[key] === undefined || payload[key] === "") delete payload[key];
+}
+
+process.stdout.write(JSON.stringify(payload, null, 2));
+NODE
+
+log "Starting backend source check run for exercise_id=${SOURCE_CHECK_EXERCISE_ID}."
+HTTP_CODE="$(
+  curl -sS -o "$REPORT_RESPONSE" -w "%{http_code}" \
+    -X POST \
+    -H "Authorization: Bearer ${SOURCE_CHECK_API_TOKEN}" \
+    -H "Content-Type: application/json" \
+    --data-binary "@$REQUEST_BODY" \
+    "${API_URL}/api/source-check/run" || true
+)"
+
+if [[ "$HTTP_CODE" != "201" ]]; then
+  log "Source check run failed or report could not be saved (HTTP $HTTP_CODE)."
+  cat "$REPORT_RESPONSE" | tee -a "$OUTPUT_DIR/run.log"
+  exit 1
+fi
+
+node - "$REPORT_RESPONSE" > "$SUMMARY_FILE" <<'NODE'
+const fs = require("fs");
+const file = process.argv[2];
+const data = JSON.parse(fs.readFileSync(file, "utf8"));
+const report = data.report || {};
+const percent = Number(data.threshold || report.threshold || 0) * 100;
+const lines = [
+  "# Source Check Report",
+  "",
+  `- Report ID: ${data.id}`,
+  `- Status: ${data.status}`,
+  `- Provider: ${data.provider}`,
+  `- Threshold: ${Number.isFinite(percent) ? percent.toFixed(0) : "?"}%`,
+  `- Total submissions: ${data.totalSubmissions ?? report.totalSubmissions ?? 0}`,
+  `- Compared pairs: ${data.comparedPairs ?? report.comparedPairs ?? 0}`,
+  `- Suspicious pairs: ${data.pairCount ?? report.pairs?.length ?? 0}`,
+  `- Finished at: ${data.finishedAt}`,
+];
+process.stdout.write(`${lines.join("\n")}\n`);
+NODE
+
+cat "$SUMMARY_FILE" | tee -a "$OUTPUT_DIR/run.log"

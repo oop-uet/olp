@@ -70,6 +70,32 @@ interface SourceCheckSettings {
   }
 }
 
+interface SavedSourceCheckReport {
+  id: string
+  exerciseId: string
+  exerciseTitle?: string | null
+  sectionId?: string | null
+  sectionName?: string | null
+  sectionSemester?: string | null
+  semester?: string | null
+  provider: string
+  threshold: number
+  status: 'completed' | 'failed'
+  totalSubmissions: number
+  comparedPairs: number
+  pairCount: number
+  artifactUrl?: string | null
+  workflowRunId?: string | null
+  triggeredBy?: string | null
+  startedAt?: string | null
+  finishedAt: string
+  createdAt: string
+}
+
+interface SavedSourceCheckReportDetail extends SavedSourceCheckReport {
+  report: PlagiarismReport
+}
+
 interface SimilarSubmission {
   pair: PlagiarismPair
   studentId: string
@@ -258,6 +284,8 @@ export function PlagiarismPage() {
   const [exercises, setExercises] = useState<ExerciseOption[]>([])
   const [sections, setSections] = useState<SectionOption[]>([])
   const [sourceCheckSettings, setSourceCheckSettings] = useState<SourceCheckSettings | null>(null)
+  const [savedReports, setSavedReports] = useState<SavedSourceCheckReport[]>([])
+  const [loadingReports, setLoadingReports] = useState(false)
   const [loadingOptions, setLoadingOptions] = useState(true)
 
   const [selectedExerciseId, setSelectedExerciseId] = useState('')
@@ -266,6 +294,7 @@ export function PlagiarismPage() {
   const [thresholdPercent, setThresholdPercent] = useState('70')
 
   const [checking, setChecking] = useState(false)
+  const [loadingSavedReportId, setLoadingSavedReportId] = useState('')
   const [report, setReport] = useState<PlagiarismReport | null>(null)
   const [expandedStudentIds, setExpandedStudentIds] = useState<Set<string>>(() => new Set())
 
@@ -369,11 +398,12 @@ export function PlagiarismPage() {
   async function fetchOptions() {
     setLoadingOptions(true)
     try {
-      const [exercisesRes, libraryRes, sectionsRes, settingsRes] = await Promise.all([
+      const [exercisesRes, libraryRes, sectionsRes, settingsRes, reportsRes] = await Promise.all([
         cachedGet('/api/exercises', undefined, { ttlMs: 60_000 }),
         cachedGet('/api/exercises/library').catch(() => ({ data: [] })),
         cachedGet('/api/instructor/sections').catch(() => ({ data: [] })),
         cachedGet('/api/source-check/settings', undefined, { ttlMs: 60_000 }).catch(() => ({ data: null })),
+        cachedGet('/api/source-check/reports', { params: { limit: 6 } }, { ttlMs: 30_000 }).catch(() => ({ data: { data: [] } })),
       ])
       const exerciseData = Array.isArray(exercisesRes.data)
         ? exercisesRes.data
@@ -413,6 +443,10 @@ export function PlagiarismPage() {
         setSourceCheckSettings(settings)
         setThresholdPercent(String(settings.threshold))
       }
+      const reportData = Array.isArray(reportsRes.data)
+        ? reportsRes.data
+        : reportsRes.data?.data ?? []
+      setSavedReports(reportData as SavedSourceCheckReport[])
     } catch {
       toast.error('Không thể tải danh sách bài tập. Vui lòng thử lại.')
     } finally {
@@ -453,6 +487,34 @@ export function PlagiarismPage() {
       toast.error(message)
     } finally {
       setChecking(false)
+    }
+  }
+
+  async function refreshSavedReports() {
+    setLoadingReports(true)
+    try {
+      const response = await api.get('/api/source-check/reports', { params: { limit: 6 } })
+      const data = Array.isArray(response.data) ? response.data : response.data?.data ?? []
+      setSavedReports(data)
+    } catch {
+      toast.error('Không thể tải danh sách report đã lưu.')
+    } finally {
+      setLoadingReports(false)
+    }
+  }
+
+  async function handleOpenSavedReport(reportId: string) {
+    setLoadingSavedReportId(reportId)
+    try {
+      const response = await api.get<SavedSourceCheckReportDetail>(`/api/source-check/reports/${reportId}`)
+      setReport(response.data.report)
+      setCurrentPage(1)
+      setExpandedStudentIds(new Set())
+      toast.success('Đã mở report kiểm tra mã nguồn.')
+    } catch {
+      toast.error('Không thể mở report đã lưu.')
+    } finally {
+      setLoadingSavedReportId('')
     }
   }
 
@@ -520,165 +582,209 @@ export function PlagiarismPage() {
         <p className="text-xs text-white/70 mt-1 font-semibold">Phát hiện gian lận và đối chiếu độ tương đồng mã nguồn giữa các sinh viên</p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="card border border-slate-100 bg-white p-5 shadow-sm">
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Engine khuyến nghị</p>
-          <h2 className="mt-2 text-lg font-black text-slate-900">JPlag cho Java OOP</h2>
-          <p className="mt-2 text-sm leading-relaxed text-slate-600">
-            Chạy trong GitHub Actions, so sánh theo từng bài/lớp, xuất report để giảng viên rà soát cặp nghi vấn.
-          </p>
-        </div>
-
-        <div className="card border border-slate-100 bg-white p-5 shadow-sm">
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Quét nhanh hiện có</p>
-          <h2 className="mt-2 text-lg font-black text-slate-900">So khớp nội bộ</h2>
-          <p className="mt-2 text-sm leading-relaxed text-slate-600">
-            Dùng endpoint hiện tại để kiểm tra tức thời. Phù hợp thử nhanh, không thay thế batch JPlag cuối tuần.
-          </p>
-        </div>
-
-        <div className="card border border-slate-100 bg-white p-5 shadow-sm">
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Điều phối tài nguyên</p>
-          <h2 className="mt-2 text-lg font-black text-slate-900">Admin bật/tắt</h2>
-          <p className="mt-2 text-sm leading-relaxed text-slate-600">
-            Quản trị viên có thể tắt kiểm tra mã nguồn hoặc tắt lịch cuối tuần trong cấu hình hệ thống.
-          </p>
-        </div>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.8fr)]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(340px,0.8fr)]">
         {/* Controls Form */}
-        <div className="card p-5 bg-white border border-slate-100 shadow-sm space-y-4">
-          <div>
-            <h2 className="text-base font-black text-slate-900">Quét nhanh theo bài tập</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Chọn bài tập và lớp học phần để chạy kiểm tra thủ công ngay trên backend hiện tại.
-            </p>
-          </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <div>
-            <label htmlFor="exercise-select" className="label text-slate-600">
-              Bài tập thực hành
-            </label>
-            <select
-              id="exercise-select"
-              value={selectedExerciseId}
-              onChange={(e) => setSelectedExerciseId(e.target.value)}
-              className="input py-2 px-3 text-xs font-semibold"
+        <div className="card overflow-hidden border border-slate-100 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+            <div>
+              <h2 className="text-lg font-black text-slate-900">Quét nhanh theo bài tập</h2>
+              <p className="mt-1 text-xs font-semibold text-slate-400">
+                {report
+                  ? `${report.totalSubmissions} bài nộp, ${report.pairs.length} cặp vượt ngưỡng`
+                  : 'Chưa có report trong phiên hiện tại'}
+              </p>
+            </div>
+            <button
+              onClick={handleCheck}
+              disabled={checking || !selectedExerciseId}
+              className="btn-primary px-4 py-2 text-xs font-bold"
             >
-              <option value="">-- Chọn bài tập --</option>
-              {exercises.map((ex) => (
-                <option key={ex.id} value={ex.id}>
-                  {ex.title}
-                </option>
-              ))}
-            </select>
+              {checking ? (
+                <>
+                  <Spinner /> Đang quét...
+                </>
+              ) : (
+                'Bắt đầu kiểm tra'
+              )}
+            </button>
           </div>
-
-          <div>
-            <label htmlFor="semester-select" className="label text-slate-600">
-              Học kỳ
-            </label>
-            <select
-              id="semester-select"
-              value={selectedSemester}
-              onChange={(e) => handleSemesterChange(e.target.value)}
-              className="input py-2 px-3 text-xs font-semibold"
-            >
-              <option value="">Tất cả học kỳ</option>
-              {semesters.map((semester) => (
-                <option key={semester} value={semester}>
-                  {semester}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="section-select" className="label text-slate-600">
-              Lớp học phần (Tùy chọn)
-            </label>
-            <select
-              id="section-select"
-              value={selectedSectionId}
-              onChange={(e) => handleSectionChange(e.target.value)}
-              className="input py-2 px-3 text-xs font-semibold"
-            >
-              <option value="">Tất cả các lớp</option>
-              {visibleSections.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {normalizePreviewSectionName(s.name, s.semester)}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="threshold-input" className="label text-slate-600">
-              Ngưỡng tương đồng
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                id="threshold-input"
-                type="number"
-                min={1}
-                max={100}
-                value={thresholdPercent}
-                onChange={(e) => setThresholdPercent(e.target.value)}
+          <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2 xl:grid-cols-4">
+            <div>
+              <label htmlFor="exercise-select" className="label text-slate-600">
+                Bài tập
+              </label>
+              <select
+                id="exercise-select"
+                value={selectedExerciseId}
+                onChange={(e) => setSelectedExerciseId(e.target.value)}
                 className="input py-2 px-3 text-xs font-semibold"
-              />
-              <span className="text-xs font-bold text-slate-500">%</span>
+              >
+                <option value="">Chọn bài tập</option>
+                {exercises.map((ex) => (
+                  <option key={ex.id} value={ex.id}>
+                    {ex.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="semester-select" className="label text-slate-600">
+                Học kỳ
+              </label>
+              <select
+                id="semester-select"
+                value={selectedSemester}
+                onChange={(e) => handleSemesterChange(e.target.value)}
+                className="input py-2 px-3 text-xs font-semibold"
+              >
+                <option value="">Tất cả học kỳ</option>
+                {semesters.map((semester) => (
+                  <option key={semester} value={semester}>
+                    {semester}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="section-select" className="label text-slate-600">
+                Lớp học phần
+              </label>
+              <select
+                id="section-select"
+                value={selectedSectionId}
+                onChange={(e) => handleSectionChange(e.target.value)}
+                className="input py-2 px-3 text-xs font-semibold"
+              >
+                <option value="">Tất cả lớp trong học kỳ</option>
+                {visibleSections.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {normalizePreviewSectionName(s.name, s.semester)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="threshold-input" className="label text-slate-600">
+                Ngưỡng
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  id="threshold-input"
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={thresholdPercent}
+                  onChange={(e) => setThresholdPercent(e.target.value)}
+                  className="input py-2 px-3 text-xs font-semibold"
+                />
+                <span className="text-xs font-bold text-slate-500">%</span>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="flex justify-end pt-2 border-t border-slate-50">
-          <button
-            onClick={handleCheck}
-            disabled={checking || !selectedExerciseId}
-            className="btn-primary px-4 py-2 text-xs font-bold"
-          >
-            {checking ? (
-              <>
-                <Spinner /> Đang quét trùng lặp...
-              </>
-            ) : (
-              'Bắt đầu kiểm tra'
-            )}
-          </button>
-        </div>
-      </div>
+        <div className="space-y-4">
+          <div className="card border border-slate-100 bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-base font-black text-slate-900">GitHub Actions</h2>
+              <span
+                className={`rounded-full px-2.5 py-1 text-[11px] font-black ${
+                  sourceCheckSettings?.enabled && sourceCheckSettings.weeklyEnabled
+                    ? 'bg-emerald-50 text-emerald-700'
+                    : 'bg-slate-100 text-slate-500'
+                }`}
+              >
+                {sourceCheckSettings?.enabled && sourceCheckSettings.weeklyEnabled ? 'Đang bật' : 'Đang tắt'}
+              </span>
+            </div>
+            <div className="mt-4 grid gap-3 text-sm text-slate-600">
+              <div className="rounded-lg bg-slate-50 p-3">
+                <p className="text-xs font-black uppercase tracking-wide text-slate-400">Lịch</p>
+                <p className="mt-1 font-bold text-slate-800">
+                  {sourceCheckSettings
+                    ? `${sourceCheckSettings.schedule.dayLabel} ${sourceCheckSettings.schedule.timeLabel}`
+                    : 'Thứ bảy 22:00'}
+                </p>
+                <p className="mt-1 text-xs font-semibold text-slate-500">
+                  Cron GitHub:{' '}
+                  {sourceCheckSettings ? sourceCheckSettings.schedule.cron : '0 15 * * 6'}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg bg-slate-50 p-3">
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-400">Provider</p>
+                  <p className="mt-1 font-bold text-slate-800">
+                    {sourceCheckSettings?.provider?.toUpperCase() || 'JPLAG'}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-slate-50 p-3">
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-400">Ngưỡng</p>
+                  <p className="mt-1 font-bold text-slate-800">
+                    {sourceCheckSettings?.threshold ?? 70}%
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
 
-        <div className="card border border-slate-100 bg-white p-5 shadow-sm">
-          <h2 className="text-base font-black text-slate-900">GitHub Actions cuối tuần</h2>
-          <div className="mt-4 space-y-3 text-sm text-slate-600">
-            <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-              <p className="font-bold text-slate-800">
-                {sourceCheckSettings ? 'Lịch đang cấu hình' : 'Lịch mặc định'}
-              </p>
-              <p>
-                {sourceCheckSettings
-                  ? `${sourceCheckSettings.schedule.dayLabel} ${sourceCheckSettings.schedule.timeLabel} giờ Việt Nam, workflow cron \`${sourceCheckSettings.schedule.cron}\`.`
-                  : 'Thứ bảy 22:00 giờ Việt Nam, workflow cron `0 15 * * 6`.'}
-              </p>
+          <div className="card overflow-hidden border border-slate-100 bg-white shadow-sm">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+              <h2 className="text-base font-black text-slate-900">Report đã lưu</h2>
+              <button
+                type="button"
+                onClick={refreshSavedReports}
+                disabled={loadingReports}
+                className="btn btn-secondary btn-sm"
+              >
+                {loadingReports ? <Spinner /> : 'Làm mới'}
+              </button>
             </div>
-            <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-              <p className="font-bold text-slate-800">Provider mặc định</p>
-              <p>
-                {sourceCheckSettings
-                  ? `${sourceCheckSettings.provider.toUpperCase()}, ngưỡng ${sourceCheckSettings.threshold}%, giới hạn ${sourceCheckSettings.maxRuntimeMinutes} phút.`
-                  : 'JPlag, ngưỡng theo cấu hình admin.'}
-              </p>
-            </div>
-            <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-              <p className="font-bold text-slate-800">Trạng thái tích hợp</p>
-              <p>
-                {sourceCheckSettings
-                  ? sourceCheckSettings.enabled && sourceCheckSettings.weeklyEnabled
-                    ? 'Workflow định kỳ đang bật theo cấu hình admin.'
-                    : 'Workflow định kỳ đang tắt trong cấu hình admin.'
-                  : 'Workflow scaffold đã sẵn sàng; backend job queue sẽ nối ở bước triển khai tiếp theo.'}
-              </p>
+            <div className="max-h-80 overflow-y-auto p-3">
+              {savedReports.length === 0 ? (
+                <div className="rounded-lg bg-slate-50 p-4 text-sm font-semibold text-slate-500">
+                  Chưa có report từ GitHub Actions.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {savedReports.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleOpenSavedReport(item.id)}
+                      className="w-full rounded-lg border border-slate-100 bg-white p-3 text-left transition hover:border-primary-200 hover:bg-primary-50/40"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-slate-900">
+                            {item.exerciseTitle || item.exerciseId}
+                          </p>
+                          <p className="mt-1 text-xs font-semibold text-slate-500">
+                            {item.sectionName
+                              ? normalizePreviewSectionName(item.sectionName, item.sectionSemester || '')
+                              : item.semester || 'Tất cả lớp'}
+                          </p>
+                        </div>
+                        <span className={similarityBadgeClass(item.threshold)}>
+                          {(item.threshold * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-500">
+                        <span>{formatTimestamp(item.finishedAt)}</span>
+                        <span>·</span>
+                        <span>{item.totalSubmissions} bài</span>
+                        <span>·</span>
+                        <span className={item.pairCount > 0 ? 'text-rose-600' : 'text-emerald-600'}>
+                          {item.pairCount} cặp
+                        </span>
+                        {loadingSavedReportId === item.id && <Spinner className="h-3 w-3" />}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -288,6 +288,30 @@ export const systemConfig = sqliteTable("system_config", {
   updatedBy: text("updated_by").references(() => users.id),
 });
 
+// ─── Source Check Reports ───────────────────────────────────────────────────
+
+export const sourceCheckReports = sqliteTable("source_check_reports", {
+  id: text("id").primaryKey(),
+  exerciseId: text("exercise_id")
+    .notNull()
+    .references(() => exercises.id),
+  sectionId: text("section_id").references(() => classSections.id),
+  semester: text("semester"),
+  provider: text("provider").notNull(),
+  threshold: real("threshold").notNull(),
+  status: text("status", { enum: ["completed", "failed"] }).notNull(),
+  totalSubmissions: integer("total_submissions").notNull().default(0),
+  comparedPairs: integer("compared_pairs").notNull().default(0),
+  pairCount: integer("pair_count").notNull().default(0),
+  reportJson: text("report_json").notNull(),
+  artifactUrl: text("artifact_url"),
+  workflowRunId: text("workflow_run_id"),
+  triggeredBy: text("triggered_by"),
+  startedAt: text("started_at"),
+  finishedAt: text("finished_at").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
 // ─── Help / Guide Content ────────────────────────────────────────────────────
 
 export const helpSections = sqliteTable("help_sections", {
@@ -462,6 +486,17 @@ export const systemConfigRelations = relations(systemConfig, ({ one }) => ({
   }),
 }));
 
+export const sourceCheckReportsRelations = relations(sourceCheckReports, ({ one }) => ({
+  exercise: one(exercises, {
+    fields: [sourceCheckReports.exerciseId],
+    references: [exercises.id],
+  }),
+  section: one(classSections, {
+    fields: [sourceCheckReports.sectionId],
+    references: [classSections.id],
+  }),
+}));
+
 export const helpSectionsRelations = relations(helpSections, ({ many }) => ({
   items: many(helpItems),
 }));
@@ -512,6 +547,9 @@ export type NewAnticheatEvent = InferInsertModel<typeof anticheatEvents>;
 
 export type SystemConfig = InferSelectModel<typeof systemConfig>;
 export type NewSystemConfig = InferInsertModel<typeof systemConfig>;
+
+export type SourceCheckReport = InferSelectModel<typeof sourceCheckReports>;
+export type NewSourceCheckReport = InferInsertModel<typeof sourceCheckReports>;
 
 export type HelpSection = InferSelectModel<typeof helpSections>;
 export type NewHelpSection = InferInsertModel<typeof helpSections>;

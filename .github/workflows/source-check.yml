@@ -11,6 +11,10 @@ on:
         description: Section ID to check. Leave empty for all configured sections.
         required: false
         type: string
+      semester:
+        description: Semester to check when section_id is empty.
+        required: false
+        type: string
       provider:
         description: Source check provider
         required: false
@@ -49,8 +53,12 @@ jobs:
       SOURCE_CHECK_EVENT_NAME: ${{ github.event_name }}
       SOURCE_CHECK_EXERCISE_ID: ${{ inputs.exercise_id }}
       SOURCE_CHECK_SECTION_ID: ${{ inputs.section_id }}
+      SOURCE_CHECK_SEMESTER: ${{ inputs.semester }}
       SOURCE_CHECK_PROVIDER: ${{ inputs.provider || 'jplag' }}
       SOURCE_CHECK_THRESHOLD: ${{ inputs.threshold || '70' }}
+      SOURCE_CHECK_WORKFLOW_RUN_ID: ${{ github.run_id }}
+      SOURCE_CHECK_TRIGGERED_BY: ${{ github.actor }}
+      SOURCE_CHECK_ARTIFACT_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6

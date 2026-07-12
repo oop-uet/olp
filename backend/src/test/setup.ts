@@ -177,6 +177,26 @@ beforeAll(() => {
       updated_at TEXT DEFAULT (datetime('now')),
       updated_by TEXT REFERENCES users(id)
     );
+
+    CREATE TABLE IF NOT EXISTS source_check_reports (
+      id TEXT PRIMARY KEY,
+      exercise_id TEXT NOT NULL REFERENCES exercises(id),
+      section_id TEXT REFERENCES class_sections(id),
+      semester TEXT,
+      provider TEXT NOT NULL,
+      threshold REAL NOT NULL,
+      status TEXT NOT NULL CHECK(status IN ('completed', 'failed')),
+      total_submissions INTEGER NOT NULL DEFAULT 0,
+      compared_pairs INTEGER NOT NULL DEFAULT 0,
+      pair_count INTEGER NOT NULL DEFAULT 0,
+      report_json TEXT NOT NULL,
+      artifact_url TEXT,
+      workflow_run_id TEXT,
+      triggered_by TEXT,
+      started_at TEXT,
+      finished_at TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
   `);
 
   // Seed default system configuration
@@ -205,6 +225,7 @@ afterEach(() => {
   // Clean user-created data between tests but preserve system_config defaults
   sqlite.exec(`
     DELETE FROM anticheat_events;
+    DELETE FROM source_check_reports;
     DELETE FROM submission_results;
     DELETE FROM project_group_members;
     DELETE FROM project_groups;
