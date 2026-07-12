@@ -1404,7 +1404,7 @@ function OutputPanel({
               )}
             </p>
             {executionResult.styleResult.violations.length > 0 ? (
-              <div className="space-y-1.5 font-mono text-[10px] max-h-24 overflow-y-auto pr-1">
+              <div className="space-y-1.5 font-mono text-[10px] pr-1">
                 {executionResult.styleResult.violations.map((violation, i) => (
                   <div key={i} className="bg-slate-900/35 border border-slate-800/40 p-2 rounded-lg leading-relaxed text-slate-300">
                     <span className="text-sky-300 font-bold">{violation.file}:{violation.line}:{violation.column}</span>
