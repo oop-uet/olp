@@ -51,6 +51,11 @@ interface SubmissionDetail {
   submittedAt: string
 }
 
+interface SubmittedSourceFile {
+  name: string
+  content: string
+}
+
 interface SourceCheckSettings {
   enabled: boolean
   weeklyEnabled: boolean
@@ -172,6 +177,83 @@ function buildStudentSimilarityRows(pairs: PlagiarismPair[]): StudentSimilarityR
   }))
 }
 
+function parseSubmittedFiles(code: string): SubmittedSourceFile[] {
+  try {
+    const parsed = JSON.parse(code) as {
+      format?: string
+      files?: Array<{ name?: string; content?: string }>
+    }
+
+    if (parsed.format === 'oop-java-files' && Array.isArray(parsed.files)) {
+      const files = parsed.files
+        .filter((file) => file.name && typeof file.content === 'string')
+        .map((file) => ({ name: file.name as string, content: file.content as string }))
+
+      if (files.length > 0) return files
+    }
+  } catch {
+    // Legacy submissions are stored as raw Java source.
+  }
+
+  return [{ name: 'Main.java', content: code }]
+}
+
+function getFileByName(files: SubmittedSourceFile[], fileName: string) {
+  return files.find((file) => file.name === fileName) ?? null
+}
+
+function fileLineCount(content: string) {
+  if (!content) return 0
+  return content.split('\n').length
+}
+
+function SourceCodePanel({
+  title,
+  subtitle,
+  file,
+}: {
+  title: string
+  subtitle: string
+  file: SubmittedSourceFile | null
+}) {
+  const lines = file?.content.split('\n') ?? []
+
+  return (
+    <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="border-b border-slate-100 px-4 py-3">
+        <p className="truncate text-sm font-black text-slate-900">{title}</p>
+        <p className="mt-1 truncate text-xs font-semibold text-slate-500">{subtitle}</p>
+      </div>
+
+      <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950 px-4 py-2">
+        <span className="font-mono text-xs font-bold text-sky-300">{file?.name ?? 'Không có file này'}</span>
+        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+          {file ? `${fileLineCount(file.content)} dòng` : 'Missing'}
+        </span>
+      </div>
+
+      {file ? (
+        <div className="min-h-0 flex-1 overflow-auto bg-slate-950 p-0 font-mono text-[12px] leading-6 text-slate-200">
+          {lines.map((line, index) => (
+            <div key={`${file.name}-${index}`} className="grid min-w-max grid-cols-[3.5rem,minmax(0,1fr)]">
+              <span className="select-none border-r border-slate-800 bg-slate-900/80 pr-3 text-right text-slate-500">
+                {index + 1}
+              </span>
+              <code className="whitespace-pre px-4">{line || ' '}</code>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="flex min-h-0 flex-1 items-center justify-center bg-slate-50 p-8 text-center">
+          <p className="text-sm font-semibold text-slate-500">
+            Bài nộp này không có file đang chọn.
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function PlagiarismPage() {
   const [exercises, setExercises] = useState<ExerciseOption[]>([])
   const [sections, setSections] = useState<SectionOption[]>([])
@@ -266,10 +348,23 @@ export function PlagiarismPage() {
     submissionA: SubmissionDetail
     submissionB: SubmissionDetail
   } | null>(null)
+  const [activeComparisonFile, setActiveComparisonFile] = useState('')
 
   useEffect(() => {
     fetchOptions()
   }, [])
+
+  useEffect(() => {
+    if (!comparison) {
+      setActiveComparisonFile('')
+      return
+    }
+
+    const filesA = parseSubmittedFiles(comparison.submissionA.code)
+    const filesB = parseSubmittedFiles(comparison.submissionB.code)
+    const fileNames = [...new Set([...filesA, ...filesB].map((file) => file.name))]
+    setActiveComparisonFile((current) => (current && fileNames.includes(current) ? current : fileNames[0] ?? 'Main.java'))
+  }, [comparison])
 
   async function fetchOptions() {
     setLoadingOptions(true)
@@ -829,7 +924,7 @@ export function PlagiarismPage() {
       {/* Comparison Modal details */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="flex h-[85vh] w-full max-w-6xl flex-col rounded-xl bg-white shadow-xl overflow-hidden animate-fade-in border border-slate-100">
+          <div className="flex h-[92vh] w-full max-w-[96vw] flex-col overflow-hidden rounded-xl border border-slate-100 bg-white shadow-xl animate-fade-in">
             {/* Modal header */}
             <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-5 py-3.5 border-l-4 border-primary">
               <h2 className="font-bold text-xs uppercase tracking-wide text-slate-700 flex items-center gap-2">
@@ -850,36 +945,85 @@ export function PlagiarismPage() {
             </div>
 
             {/* Modal body */}
-            <div className="flex-1 overflow-hidden p-5 bg-slate-50">
+            <div className="min-h-0 flex-1 overflow-hidden bg-slate-50 p-5">
               {loadingModal ? (
                 <div className="flex h-full items-center justify-center gap-2 text-slate-400 text-sm font-semibold">
                   <Spinner />
                   <span>Đang phân tích và nạp mã nguồn...</span>
                 </div>
               ) : comparison ? (
-                <div className="grid h-full grid-cols-1 gap-4 md:grid-cols-2 overflow-hidden">
-                  
-                  {/* Student A code panel */}
-                  <div className="flex h-full flex-col overflow-hidden bg-white border border-slate-200 rounded-lg p-3">
-                    <p className="text-xs font-bold text-slate-700 border-b border-slate-100 pb-2">
-                      Sinh viên A: <span className="text-primary">{comparison.pair.studentAName} ({comparison.pair.studentAId})</span>
-                    </p>
-                    <pre className="flex-1 overflow-auto rounded-lg bg-slate-900 p-4 text-[11px] font-mono leading-relaxed text-slate-200">
-                      <code>{comparison.submissionA.code}</code>
-                    </pre>
-                  </div>
+                (() => {
+                  const filesA = parseSubmittedFiles(comparison.submissionA.code)
+                  const filesB = parseSubmittedFiles(comparison.submissionB.code)
+                  const fileNames = [...new Set([...filesA, ...filesB].map((file) => file.name))]
+                  const selectedFileName = activeComparisonFile || fileNames[0] || 'Main.java'
+                  const fileA = getFileByName(filesA, selectedFileName)
+                  const fileB = getFileByName(filesB, selectedFileName)
 
-                  {/* Student B code panel */}
-                  <div className="flex h-full flex-col overflow-hidden bg-white border border-slate-200 rounded-lg p-3">
-                    <p className="text-xs font-bold text-slate-700 border-b border-slate-100 pb-2">
-                      Sinh viên B: <span className="text-primary">{comparison.pair.studentBName} ({comparison.pair.studentBId})</span>
-                    </p>
-                    <pre className="flex-1 overflow-auto rounded-lg bg-slate-900 p-4 text-[11px] font-mono leading-relaxed text-slate-200">
-                      <code>{comparison.submissionB.code}</code>
-                    </pre>
-                  </div>
+                  return (
+                    <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
+                      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+                        <div className="rounded-lg border border-slate-200 bg-white p-3">
+                          <p className="text-xs font-black uppercase tracking-wide text-slate-400">Sinh viên 1</p>
+                          <p className="mt-1 truncate text-sm font-black text-primary">
+                            {comparison.pair.studentAName}
+                          </p>
+                          <p className="mt-1 text-xs font-semibold text-slate-500">
+                            MSSV: {comparison.pair.studentAUsername || comparison.pair.studentAId} · Bài nộp: {comparison.pair.submissionAId}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-slate-200 bg-white p-3">
+                          <p className="text-xs font-black uppercase tracking-wide text-slate-400">Sinh viên 2</p>
+                          <p className="mt-1 truncate text-sm font-black text-primary">
+                            {comparison.pair.studentBName}
+                          </p>
+                          <p className="mt-1 text-xs font-semibold text-slate-500">
+                            MSSV: {comparison.pair.studentBUsername || comparison.pair.studentBId} · Bài nộp: {comparison.pair.submissionBId}
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-center rounded-lg border border-rose-100 bg-rose-50 px-5 py-3 text-center">
+                          <div>
+                            <p className="text-xs font-black uppercase tracking-wide text-rose-400">Similarity</p>
+                            <p className="mt-1 text-3xl font-black text-rose-600">
+                              {formatPercent(comparison.pair.similarity)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
 
-                </div>
+                      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                        <span className="mr-1 text-xs font-black uppercase tracking-wide text-slate-400">File</span>
+                        {fileNames.map((fileName) => (
+                          <button
+                            key={fileName}
+                            type="button"
+                            onClick={() => setActiveComparisonFile(fileName)}
+                            className={`rounded-md border px-3 py-1.5 font-mono text-xs font-bold transition ${
+                              selectedFileName === fileName
+                                ? 'border-primary bg-primary-50 text-primary'
+                                : 'border-slate-200 bg-white text-slate-500 hover:border-primary-200 hover:text-primary'
+                            }`}
+                          >
+                            {fileName}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-2">
+                        <SourceCodePanel
+                          title={`${comparison.pair.studentAName} (${comparison.pair.studentAUsername || comparison.pair.studentAId})`}
+                          subtitle={`Bài nộp ${comparison.pair.submissionAId} · ${formatTimestamp(comparison.pair.studentASubmittedAt)}`}
+                          file={fileA}
+                        />
+                        <SourceCodePanel
+                          title={`${comparison.pair.studentBName} (${comparison.pair.studentBUsername || comparison.pair.studentBId})`}
+                          subtitle={`Bài nộp ${comparison.pair.submissionBId} · ${formatTimestamp(comparison.pair.studentBSubmittedAt)}`}
+                          file={fileB}
+                        />
+                      </div>
+                    </div>
+                  )
+                })()
               ) : null}
             </div>
           </div>
