@@ -63,6 +63,43 @@ export interface ExerciseError {
 
 type Database = typeof defaultDb;
 
+const PROJECT_DESCRIPTION_MAX_LENGTH = 12000;
+const REGULAR_DESCRIPTION_MAX_LENGTH = 5000;
+
+function normalizeProjectMarker(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function parseOopTagsValue(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map(String);
+  if (typeof value !== "string") return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+function isProjectExercise(title: string | undefined, tags: string[] | undefined): boolean {
+  const normalizedTitle = normalizeProjectMarker(title ?? "");
+  if (
+    normalizedTitle.includes("bai tap lon") ||
+    normalizedTitle.includes("btl") ||
+    normalizedTitle.includes("project")
+  ) {
+    return true;
+  }
+
+  return (tags ?? []).some((tag) => {
+    const normalizedTag = normalizeProjectMarker(tag);
+    return normalizedTag === "project" || normalizedTag === "btl" || normalizedTag === "bai tap lon";
+  });
+}
+
 function defaultExerciseStylePolicy(): StyleRulePolicy {
   return {
     enabled: true,
@@ -375,12 +412,17 @@ export async function createExercise(
     };
   }
 
+  const projectExercise = isProjectExercise(input.title, input.oop_tags);
+  const descriptionMaxLength = projectExercise
+    ? PROJECT_DESCRIPTION_MAX_LENGTH
+    : REGULAR_DESCRIPTION_MAX_LENGTH;
+
   // Validate description length
-  if (input.description.length > 5000) {
+  if (input.description.length > descriptionMaxLength) {
     return {
       error: {
         code: "VALIDATION_ERROR",
-        message: "Description must be at most 5000 characters.",
+        message: `Description must be at most ${descriptionMaxLength} characters.`,
       },
     };
   }
@@ -395,8 +437,17 @@ export async function createExercise(
     };
   }
 
-  // Validate at least 1 test case
-  if (!input.test_cases || input.test_cases.length < 1) {
+  if (input.test_cases && input.test_cases.length > 50) {
+    return {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Must provide at most 50 test cases.",
+      },
+    };
+  }
+
+  // Project assignments are submitted as GitHub URLs and do not use executor test cases.
+  if (!projectExercise && (!input.test_cases || input.test_cases.length < 1)) {
     return {
       error: {
         code: "VALIDATION_ERROR",
@@ -428,7 +479,7 @@ export async function createExercise(
     .returning();
 
   // Insert test cases
-  const testCaseValues = input.test_cases.map((tc) => ({
+  const testCaseValues = (input.test_cases ?? []).map((tc) => ({
     id: crypto.randomUUID(),
     exerciseId,
     inputData: tc.input_data,
@@ -439,7 +490,9 @@ export async function createExercise(
     createdAt: now,
   }));
 
-  await database.insert(testCases).values(testCaseValues);
+  if (testCaseValues.length > 0) {
+    await database.insert(testCases).values(testCaseValues);
+  }
 
   return {
     ...exercise,
@@ -494,12 +547,19 @@ export async function updateExercise(
     };
   }
 
+  const nextTitle = input.title ?? existing.title;
+  const nextTags = input.oop_tags ?? parseOopTagsValue(existing.oopTags);
+  const projectExercise = isProjectExercise(nextTitle, nextTags);
+  const descriptionMaxLength = projectExercise
+    ? PROJECT_DESCRIPTION_MAX_LENGTH
+    : REGULAR_DESCRIPTION_MAX_LENGTH;
+
   // Validate description length if provided
-  if (input.description !== undefined && input.description.length > 5000) {
+  if (input.description !== undefined && input.description.length > descriptionMaxLength) {
     return {
       error: {
         code: "VALIDATION_ERROR",
-        message: "Description must be at most 5000 characters.",
+        message: `Description must be at most ${descriptionMaxLength} characters.`,
       },
     };
   }
@@ -517,11 +577,13 @@ export async function updateExercise(
   }
 
   if (input.test_cases !== undefined) {
-    if (input.test_cases.length < 1 || input.test_cases.length > 50) {
+    if (input.test_cases.length > 50 || (!projectExercise && input.test_cases.length < 1)) {
       return {
         error: {
           code: "VALIDATION_ERROR",
-          message: "Must provide between 1 and 50 test cases.",
+          message: projectExercise
+            ? "Must provide at most 50 test cases."
+            : "Must provide between 1 and 50 test cases.",
         },
       };
     }
@@ -565,8 +627,7 @@ export async function updateExercise(
     }
 
     await database.delete(testCases).where(eq(testCases.exerciseId, id));
-    await database.insert(testCases).values(
-      input.test_cases.map((tc) => ({
+    const testCaseRows = input.test_cases.map((tc) => ({
         id: crypto.randomUUID(),
         exerciseId: id,
         inputData: tc.input_data,
@@ -575,8 +636,10 @@ export async function updateExercise(
         pointValue: tc.point_value ?? 1,
         timeLimitSeconds: tc.time_limit_seconds ?? null,
         createdAt: now,
-      }))
-    );
+      }));
+    if (testCaseRows.length > 0) {
+      await database.insert(testCases).values(testCaseRows);
+    }
   }
 
   return {

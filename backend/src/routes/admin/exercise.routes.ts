@@ -35,28 +35,59 @@ const stylePolicySchema = z.object({
   max_penalized_violations: z.number().int().min(1).max(100).optional(),
 }).passthrough();
 
+function normalizeProjectMarker(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function isProjectExercisePayload(data: { title?: string; oop_tags?: string[] }): boolean {
+  const normalizedTitle = normalizeProjectMarker(data.title ?? "");
+  if (
+    normalizedTitle.includes("bai tap lon") ||
+    normalizedTitle.includes("btl") ||
+    normalizedTitle.includes("project")
+  ) {
+    return true;
+  }
+
+  return (data.oop_tags ?? []).some((tag) => {
+    const normalizedTag = normalizeProjectMarker(tag);
+    return normalizedTag === "project" || normalizedTag === "btl" || normalizedTag === "bai tap lon";
+  });
+}
+
 const createExerciseSchema = z.object({
   title: z.string().min(1).max(200),
-  description: z.string().min(1).max(5000),
+  description: z.string().min(1).max(12000),
   difficulty: z.enum(["easy", "medium", "hard"]),
   oop_tags: z.array(z.string().min(1)).min(1).max(5),
   starter_code: z.string().optional(),
   is_library: z.boolean().optional().default(false),
   style_check_enabled: z.boolean().optional().default(true),
   style_policy: stylePolicySchema.optional(),
-  test_cases: z.array(testCaseSchema).min(1, "At least one test case is required"),
+  test_cases: z.array(testCaseSchema).max(50).default([]),
+}).superRefine((data, ctx) => {
+  if (!isProjectExercisePayload(data) && data.test_cases.length < 1) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["test_cases"],
+      message: "At least one test case is required",
+    });
+  }
 });
 
 const updateExerciseSchema = z.object({
   title: z.string().min(1).max(200).optional(),
-  description: z.string().min(1).max(5000).optional(),
+  description: z.string().min(1).max(12000).optional(),
   difficulty: z.enum(["easy", "medium", "hard"]).optional(),
   oop_tags: z.array(z.string().min(1)).min(1).max(5).optional(),
   starter_code: z.string().optional(),
   is_library: z.boolean().optional(),
   style_check_enabled: z.boolean().optional(),
   style_policy: stylePolicySchema.optional(),
-  test_cases: z.array(testCaseSchema).min(1, "At least one test case is required").optional(),
+  test_cases: z.array(testCaseSchema).max(50).optional(),
 });
 
 /**

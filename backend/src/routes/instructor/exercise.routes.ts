@@ -48,6 +48,29 @@ const stylePolicySchema = z.object({
   max_penalized_violations: z.number().int().min(1).max(100).optional(),
 }).passthrough();
 
+function normalizeProjectMarker(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function isProjectExercisePayload(data: { title?: string; oop_tags?: string[] }): boolean {
+  const normalizedTitle = normalizeProjectMarker(data.title ?? "");
+  if (
+    normalizedTitle.includes("bai tap lon") ||
+    normalizedTitle.includes("btl") ||
+    normalizedTitle.includes("project")
+  ) {
+    return true;
+  }
+
+  return (data.oop_tags ?? []).some((tag) => {
+    const normalizedTag = normalizeProjectMarker(tag);
+    return normalizedTag === "project" || normalizedTag === "btl" || normalizedTag === "bai tap lon";
+  });
+}
+
 export const createExerciseSchema = z.object({
   title: z
     .string()
@@ -56,7 +79,7 @@ export const createExerciseSchema = z.object({
   description: z
     .string()
     .min(1, "Description is required")
-    .max(5000, "Description must be at most 5000 characters"),
+    .max(12000, "Description must be at most 12000 characters"),
   difficulty: z.enum(["easy", "medium", "hard"], {
     errorMap: () => ({ message: "Difficulty must be one of: easy, medium, hard" }),
   }),
@@ -70,7 +93,16 @@ export const createExerciseSchema = z.object({
   style_policy: stylePolicySchema.optional(),
   test_cases: z
     .array(testCaseSchema)
-    .min(1, "At least one test case is required"),
+    .max(50, "At most 50 test cases allowed")
+    .default([]),
+}).superRefine((data, ctx) => {
+  if (!isProjectExercisePayload(data) && data.test_cases.length < 1) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["test_cases"],
+      message: "At least one test case is required",
+    });
+  }
 });
 
 export const updateExerciseSchema = z.object({
@@ -82,7 +114,7 @@ export const updateExerciseSchema = z.object({
   description: z
     .string()
     .min(1, "Description is required")
-    .max(5000, "Description must be at most 5000 characters")
+    .max(12000, "Description must be at most 12000 characters")
     .optional(),
   difficulty: z
     .enum(["easy", "medium", "hard"], {
@@ -98,7 +130,7 @@ export const updateExerciseSchema = z.object({
   is_library: z.boolean().optional(),
   style_check_enabled: z.boolean().optional(),
   style_policy: stylePolicySchema.optional(),
-  test_cases: z.array(testCaseSchema).min(1, "At least one test case is required").optional(),
+  test_cases: z.array(testCaseSchema).max(50, "At most 50 test cases allowed").optional(),
 });
 
 export const assignExerciseSchema = z.object({

@@ -8,6 +8,11 @@ import { ExerciseAiGenerator } from '../../components/exercise/ExerciseAiGenerat
 
 const DIFFICULTY_OPTIONS = ['easy', 'medium', 'hard'] as const
 type Difficulty = (typeof DIFFICULTY_OPTIONS)[number]
+type ExerciseKind = 'coding' | 'project'
+
+const REGULAR_DESCRIPTION_MAX_LENGTH = 5000
+const PROJECT_DESCRIPTION_MAX_LENGTH = 12000
+const PROJECT_TAGS = ['project', 'oop-design', 'teamwork']
 
 const DIFFICULTY_LABELS: Record<Difficulty, string> = {
   easy: 'Dễ',
@@ -23,6 +28,9 @@ const OOP_TAG_OPTIONS = [
   'encapsulation',
   'interfaces',
   'exception handling',
+  'project',
+  'oop-design',
+  'teamwork',
 ]
 
 const DEFAULT_STYLE_DISABLED_RULES = ['javadoc', 'line_length']
@@ -104,6 +112,56 @@ function parseOopTags(tags: string[] | string | undefined | null): string[] {
   } catch {
     return []
   }
+}
+
+function normalizeProjectMarker(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
+function isProjectExerciseDraft(title: string, tags: string[]): boolean {
+  const normalizedTitle = normalizeProjectMarker(title)
+  if (
+    normalizedTitle.includes('bai tap lon') ||
+    normalizedTitle.includes('btl') ||
+    normalizedTitle.includes('project')
+  ) {
+    return true
+  }
+
+  return tags.some((tag) => {
+    const normalizedTag = normalizeProjectMarker(tag)
+    return normalizedTag === 'project' || normalizedTag === 'btl' || normalizedTag === 'bai tap lon'
+  })
+}
+
+function ensureProjectTitle(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) return 'Bài tập lớn - Tên đề tài'
+  return isProjectExerciseDraft(trimmed, []) ? trimmed : `Bài tập lớn - ${trimmed}`
+}
+
+function stripProjectTitlePrefix(value: string): string {
+  const stripped = value
+    .replace(/^\s*(bài tập lớn|btl|project)\s*[-:]\s*/i, '')
+    .trim()
+  return stripped || value
+}
+
+function mergeProjectTags(tags: string[]): string[] {
+  const merged = [...PROJECT_TAGS, ...tags]
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+  return Array.from(new Set(merged)).slice(0, 5)
+}
+
+function removeProjectTags(tags: string[]): string[] {
+  return tags.filter((tag) => {
+    const normalizedTag = normalizeProjectMarker(tag)
+    return normalizedTag !== 'project' && normalizedTag !== 'btl' && normalizedTag !== 'bai tap lon'
+  })
 }
 
 export const SAMPLE_TEMPLATE: ExerciseTemplateFile & {
@@ -239,6 +297,7 @@ export function ExerciseFormPage() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [difficulty, setDifficulty] = useState<Difficulty | ''>('')
+  const [exerciseKind, setExerciseKind] = useState<ExerciseKind>('coding')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [starterCode, setStarterCode] = useState('')
   const [styleCheckEnabled, setStyleCheckEnabled] = useState(true)
@@ -256,6 +315,8 @@ export function ExerciseFormPage() {
   const [errors, setErrors] = useState<FormErrors>({})
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const isProjectExercise = exerciseKind === 'project'
+  const descriptionMaxLength = isProjectExercise ? PROJECT_DESCRIPTION_MAX_LENGTH : REGULAR_DESCRIPTION_MAX_LENGTH
 
   useEffect(() => {
     if (isEditing && id) {
@@ -271,10 +332,12 @@ export function ExerciseFormPage() {
         api.get(`/api/exercises/${exerciseId}/testcases`),
       ])
       const ex = exerciseRes.data
+      const loadedTags = parseOopTags(ex.oopTags ?? ex.oop_tags)
       setTitle(ex.title)
       setDescription(ex.description)
       setDifficulty(ex.difficulty)
-      setSelectedTags(parseOopTags(ex.oopTags ?? ex.oop_tags))
+      setSelectedTags(loadedTags)
+      setExerciseKind(isProjectExerciseDraft(ex.title ?? '', loadedTags) ? 'project' : 'coding')
       setStarterCode(ex.starterCode ?? ex.starter_code ?? '')
       const loadedStylePolicy = parseStylePolicy(ex.stylePolicy ?? ex.style_policy)
       setStyleCheckEnabled(
@@ -321,8 +384,8 @@ export function ExerciseFormPage() {
 
     if (!description.trim()) {
       newErrors.description = 'Mô tả là bắt buộc'
-    } else if (description.length > 5000) {
-      newErrors.description = 'Mô tả tối đa 5000 ký tự'
+    } else if (description.length > descriptionMaxLength) {
+      newErrors.description = `Mô tả tối đa ${descriptionMaxLength} ký tự`
     }
 
     if (!difficulty) {
@@ -335,13 +398,30 @@ export function ExerciseFormPage() {
       newErrors.tags = 'Tối đa 5 thẻ'
     }
 
-    const validTestCases = testCases.filter((tc) => tc.expected_output.trim() !== '')
-    if (validTestCases.length < 1) {
-      newErrors.testCases = 'Cần ít nhất 1 bộ test có kết quả mong đợi'
+    if (!isProjectExercise) {
+      const validTestCases = testCases.filter((tc) => tc.expected_output.trim() !== '')
+      if (validTestCases.length < 1) {
+        newErrors.testCases = 'Cần ít nhất 1 bộ test có kết quả mong đợi'
+      }
     }
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
+  }
+
+  function handleExerciseKindChange(kind: ExerciseKind) {
+    setExerciseKind(kind)
+    setErrors({})
+
+    if (kind === 'project') {
+      setTitle((value) => ensureProjectTitle(value))
+      setDifficulty('hard')
+      setSelectedTags((tags) => mergeProjectTags(tags))
+      setStyleCheckEnabled(false)
+    } else {
+      setTitle((value) => stripProjectTitlePrefix(value))
+      setSelectedTags((tags) => removeProjectTags(tags))
+    }
   }
 
   function handleTagToggle(tag: string) {
@@ -395,18 +475,19 @@ export function ExerciseFormPage() {
   }
 
   function buildTemplateFromForm(): ExerciseTemplateFile {
+    const projectTags = isProjectExercise ? mergeProjectTags(selectedTags) : selectedTags
     return {
       format: TEMPLATE_FORMAT,
       version: 1,
-      title: title.trim() || 'Tên bài tập',
+      title: isProjectExercise ? ensureProjectTitle(title) : title.trim() || 'Tên bài tập',
       description: description.trim() || 'Mô tả yêu cầu bài tập.',
       difficulty: difficulty || 'easy',
-      oop_tags: selectedTags.length > 0 ? selectedTags : ['classes and objects'],
-      starter_code: starterCode,
+      oop_tags: projectTags.length > 0 ? projectTags : ['classes and objects'],
+      starter_code: isProjectExercise ? '' : starterCode,
       is_library: false,
-      style_check_enabled: styleCheckEnabled,
-      style_policy: buildStylePolicy(),
-      test_cases: testCases.map((tc) => ({
+      style_check_enabled: isProjectExercise ? false : styleCheckEnabled,
+      style_policy: { ...buildStylePolicy(), enabled: isProjectExercise ? false : styleCheckEnabled },
+      test_cases: isProjectExercise ? [] : testCases.map((tc) => ({
         input_data: tc.input_data,
         expected_output: tc.expected_output,
         is_visible: tc.is_visible,
@@ -442,6 +523,7 @@ export function ExerciseFormPage() {
     style_check_enabled: boolean
     style_policy: StylePolicyForm
     test_cases: TestCaseForm[]
+    exercise_kind: ExerciseKind
   } {
     const exercise = raw.exercise ?? {}
     const normalizedTitle = raw.title ?? exercise.title ?? ''
@@ -452,6 +534,9 @@ export function ExerciseFormPage() {
     const normalizedIsLibrary = raw.is_library ?? exercise.is_library ?? false
     const normalizedTestCases = Array.isArray(raw.test_cases) ? raw.test_cases : []
     const normalizedStylePolicy = parseStylePolicy(raw.style_policy)
+    const normalizedKind: ExerciseKind = isProjectExerciseDraft(normalizedTitle, normalizedTags)
+      ? 'project'
+      : 'coding'
 
     if (!normalizedTitle.trim()) throw new Error('Template thiếu title.')
     if (!normalizedDescription.trim()) throw new Error('Template thiếu description.')
@@ -461,7 +546,9 @@ export function ExerciseFormPage() {
     if (!Array.isArray(normalizedTags) || normalizedTags.length < 1 || normalizedTags.length > 5) {
       throw new Error('oop_tags cần từ 1 đến 5 thẻ.')
     }
-    if (normalizedTestCases.length < 1) throw new Error('Template cần ít nhất 1 test case.')
+    if (normalizedKind === 'coding' && normalizedTestCases.length < 1) {
+      throw new Error('Template cần ít nhất 1 test case.')
+    }
     if (normalizedTestCases.length > 50) throw new Error('Tối đa 50 test case.')
 
     const mappedTestCases = normalizedTestCases.map((tc, index) => {
@@ -499,18 +586,20 @@ export function ExerciseFormPage() {
         : Boolean(raw.style_check_enabled),
       style_policy: normalizedStylePolicy,
       test_cases: mappedTestCases,
+      exercise_kind: normalizedKind,
     }
   }
 
   function applyTemplate(raw: unknown) {
     try {
       const normalized = normalizeTemplate(raw as ExerciseTemplateFile)
-      setTitle(normalized.title)
+      setTitle(normalized.exercise_kind === 'project' ? ensureProjectTitle(normalized.title) : normalized.title)
       setDescription(normalized.description)
       setDifficulty(normalized.difficulty)
-      setSelectedTags(normalized.oop_tags)
-      setStarterCode(normalized.starter_code)
-      setStyleCheckEnabled(normalized.style_check_enabled)
+      setExerciseKind(normalized.exercise_kind)
+      setSelectedTags(normalized.exercise_kind === 'project' ? mergeProjectTags(normalized.oop_tags) : normalized.oop_tags)
+      setStarterCode(normalized.exercise_kind === 'project' ? '' : normalized.starter_code)
+      setStyleCheckEnabled(normalized.exercise_kind === 'project' ? false : normalized.style_check_enabled)
       setStyleDisabledRules(normalized.style_policy.disabledRules ?? DEFAULT_STYLE_DISABLED_RULES)
       setStyleWeightPercent(Number.isFinite(normalized.style_policy.weightPercent) ? normalized.style_policy.weightPercent ?? 10 : 10)
       setStylePenaltyPerViolation(
@@ -519,7 +608,7 @@ export function ExerciseFormPage() {
           : 5
       )
       setStyleMaxViolations(Number.isFinite(normalized.style_policy.maxViolations) ? normalized.style_policy.maxViolations ?? 20 : 20)
-      setTestCases(normalized.test_cases)
+      setTestCases(normalized.test_cases.length > 0 ? normalized.test_cases : [EMPTY_TEST_CASE])
       setTemplateError(null)
       setErrors({})
       toast.success('Đã nhập template vào form.')
@@ -578,23 +667,29 @@ export function ExerciseFormPage() {
 
     setSubmitting(true)
     try {
+      const payloadTitle = isProjectExercise ? ensureProjectTitle(title) : title.trim()
+      const payloadTags = isProjectExercise ? mergeProjectTags(selectedTags) : selectedTags
+      const payloadStylePolicy = {
+        ...buildStylePolicy(),
+        enabled: isProjectExercise ? false : styleCheckEnabled,
+      }
       const payload = {
-        title: title.trim(),
+        title: payloadTitle,
         description: description.trim(),
         difficulty,
-        oop_tags: selectedTags,
-        starter_code: starterCode,
-        style_check_enabled: styleCheckEnabled,
-        style_policy: buildStylePolicy(),
-        test_cases: testCases.filter((tc) => tc.expected_output.trim() !== ''),
+        oop_tags: payloadTags,
+        starter_code: isProjectExercise ? '' : starterCode,
+        style_check_enabled: isProjectExercise ? false : styleCheckEnabled,
+        style_policy: payloadStylePolicy,
+        test_cases: isProjectExercise ? [] : testCases.filter((tc) => tc.expected_output.trim() !== ''),
       }
 
       if (isEditing && id) {
         await api.put(`/api/exercises/${id}`, payload)
-        toast.success('Đã cập nhật bài tập.')
+        toast.success(isProjectExercise ? 'Đã cập nhật bài tập lớn.' : 'Đã cập nhật bài tập.')
       } else {
         await api.post('/api/exercises', payload)
-        toast.success('Đã tạo bài tập.')
+        toast.success(isProjectExercise ? 'Đã tạo bài tập lớn.' : 'Đã tạo bài tập.')
       }
 
       navigate('/instructor/exercises')
@@ -695,6 +790,45 @@ export function ExerciseFormPage() {
           )}
         </section>
 
+        <section className="rounded-xl border border-slate-200 bg-white p-4">
+          <label className="label">Loại bài tập</label>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => handleExerciseKindChange('coding')}
+              className={`rounded-lg border p-4 text-left transition-colors ${
+                exerciseKind === 'coding'
+                  ? 'border-primary bg-primary-50 text-primary-800'
+                  : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-primary-200'
+              }`}
+            >
+              <span className="block text-sm font-bold">Bài tập lập trình</span>
+              <span className="mt-1 block text-xs font-medium text-slate-500">
+                Có editor, mã khởi tạo, Checkstyle và bộ test tự động.
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleExerciseKindChange('project')}
+              className={`rounded-lg border p-4 text-left transition-colors ${
+                exerciseKind === 'project'
+                  ? 'border-primary bg-primary-50 text-primary-800'
+                  : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-primary-200'
+              }`}
+            >
+              <span className="block text-sm font-bold">Bài tập lớn</span>
+              <span className="mt-1 block text-xs font-medium text-slate-500">
+                Sinh viên lập nhóm, nhập thành viên và nộp URL GitHub.
+              </span>
+            </button>
+          </div>
+          {isProjectExercise && (
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+              Bài tập lớn không dùng starter code, Checkstyle hoặc test case trên executor. Nội dung chi tiết nên đặt trong mô tả và có thể chèn ảnh/biểu đồ lớp.
+            </div>
+          )}
+        </section>
+
         {/* Title */}
         <div>
           <label htmlFor="title" className="label">
@@ -724,11 +858,11 @@ export function ExerciseFormPage() {
             value={description}
             onChange={setDescription}
             error={errors.description}
-            maxLength={5000}
+            maxLength={descriptionMaxLength}
           />
           <div className="mt-1 flex justify-between">
             {errors.description && <p className="text-xs text-danger-600">{errors.description}</p>}
-            <p className="ml-auto text-xs text-gray-400">{description.length}/5000</p>
+            <p className="ml-auto text-xs text-gray-400">{description.length}/{descriptionMaxLength}</p>
           </div>
         </div>
 
@@ -781,23 +915,36 @@ export function ExerciseFormPage() {
           {errors.tags && <p className="mt-1 text-xs text-danger-600">{errors.tags}</p>}
         </div>
 
-        {/* Starter Code */}
-        <div>
-          <label htmlFor="starter-code" className="label">
-            Mã khởi tạo (template)
-          </label>
-          <textarea
-            id="starter-code"
-            value={starterCode}
-            onChange={(e) => setStarterCode(e.target.value)}
-            rows={8}
-            className="input font-mono"
-            placeholder="// Mã khởi tạo cho sinh viên..."
-          />
-        </div>
+        {isProjectExercise ? (
+          <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-emerald-900">
+              Luồng nộp bài tập lớn
+            </h2>
+            <p className="mt-2 text-sm font-medium text-emerald-800">
+              Sau khi giao bài cho lớp, sinh viên sẽ thấy trang Bài tập lớn riêng để thêm thành viên nhóm,
+              nhập tên nhóm và nộp URL GitHub. Giảng viên có thể theo dõi danh sách nhóm, thống kê, lịch sử
+              và thảo luận ở trang chi tiết BTL.
+            </p>
+          </section>
+        ) : (
+          <>
+            {/* Starter Code */}
+            <div>
+              <label htmlFor="starter-code" className="label">
+                Mã khởi tạo (template)
+              </label>
+              <textarea
+                id="starter-code"
+                value={starterCode}
+                onChange={(e) => setStarterCode(e.target.value)}
+                rows={8}
+                className="input font-mono"
+                placeholder="// Mã khởi tạo cho sinh viên..."
+              />
+            </div>
 
-        {/* Style Policy */}
-        <section className="rounded-lg border border-slate-200 bg-slate-50">
+            {/* Style Policy */}
+            <section className="rounded-lg border border-slate-200 bg-slate-50">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
             <div>
               <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">
@@ -996,6 +1143,8 @@ export function ExerciseFormPage() {
             ))}
           </div>
         </div>
+          </>
+        )}
 
         {/* Submit */}
         <div className="flex items-center gap-3 border-t border-gray-200 pt-6">
