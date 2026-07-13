@@ -139,6 +139,16 @@ export function ExerciseMarkdownContent({ value }: { value: string }) {
       return
     }
 
+    if (line.endsWith(':') && !line.includes('://')) {
+      flushBullets()
+      blocks.push(
+        <p key={index} className="text-sm font-black leading-7 text-slate-900">
+          {renderInlineMarkdown(line)}
+        </p>
+      )
+      return
+    }
+
     if (/^[-*]\s+/.test(line)) {
       bulletItems.push(renderInlineMarkdown(line.replace(/^[-*]\s+/, '')))
       return

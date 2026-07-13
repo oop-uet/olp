@@ -6,6 +6,12 @@ import { PageLoader } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { ExerciseDescriptionEditor } from '../../components/exercise/ExerciseDescriptionEditor'
 import { ExerciseAiGenerator } from '../../components/exercise/ExerciseAiGenerator'
+import {
+  DEFAULT_PROJECT_SUBMISSION_REQUIREMENTS,
+  extractProjectSubmissionRequirements,
+  mergeProjectDescriptionAndRequirements,
+  stripProjectSubmissionNotes,
+} from '../../utils/projectDescription'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -185,6 +191,8 @@ interface ExerciseTemplateFile {
   oop_tags?: string[]
   starter_code?: string
   is_library?: boolean
+  submission_requirements?: string
+  project_submission_requirements?: string
   style_check_enabled?: boolean
   style_policy?: StylePolicyForm
   test_cases?: Array<{
@@ -266,6 +274,7 @@ export function AdminExerciseFormPage() {
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [projectSubmissionRequirements, setProjectSubmissionRequirements] = useState(DEFAULT_PROJECT_SUBMISSION_REQUIREMENTS)
   const [difficulty, setDifficulty] = useState<Difficulty>('easy')
   const [exerciseKind, setExerciseKind] = useState<ExerciseKind>('coding')
   const [tagsInput, setTagsInput] = useState('')
@@ -299,8 +308,11 @@ export function AdminExerciseFormPage() {
       const response = await api.get(`/api/admin/exercises/${exerciseId}`)
       const ex = response.data
       const loadedTags = parseOopTags(ex.oopTags ?? ex.oop_tags)
+      const loadedDescription = String(ex.description ?? '')
+      const loadedSubmissionRequirements = extractProjectSubmissionRequirements(loadedDescription)
       setTitle(ex.title ?? '')
-      setDescription(ex.description ?? '')
+      setDescription(stripProjectSubmissionNotes(loadedDescription))
+      setProjectSubmissionRequirements(loadedSubmissionRequirements || DEFAULT_PROJECT_SUBMISSION_REQUIREMENTS)
       setDifficulty((ex.difficulty as Difficulty) ?? 'easy')
       setTagsInput(loadedTags.join(', '))
       setExerciseKind(isProjectExerciseDraft(ex.title ?? '', loadedTags) ? 'project' : 'coding')
@@ -356,6 +368,15 @@ export function AdminExerciseFormPage() {
       newErrors.description = `Mô tả tối đa ${descriptionMaxLength} ký tự`
     }
 
+    if (isProjectExercise && !projectSubmissionRequirements.trim()) {
+      newErrors.description = 'Yêu cầu nộp bài là bắt buộc với Bài tập lớn'
+    } else if (
+      isProjectExercise &&
+      mergeProjectDescriptionAndRequirements(description, projectSubmissionRequirements).length > descriptionMaxLength
+    ) {
+      newErrors.description = `Mô tả và yêu cầu nộp bài tối đa ${descriptionMaxLength} ký tự`
+    }
+
     if (!difficulty) {
       newErrors.difficulty = 'Độ khó là bắt buộc'
     }
@@ -388,6 +409,8 @@ export function AdminExerciseFormPage() {
       setTagsInput((value) => mergeProjectTags(splitTags(value)).join(', '))
       setIsLibrary(true)
       setStyleCheckEnabled(false)
+      setDescription((value) => stripProjectSubmissionNotes(value))
+      setProjectSubmissionRequirements((value) => value.trim() || DEFAULT_PROJECT_SUBMISSION_REQUIREMENTS)
     } else {
       setTitle((value) => stripProjectTitlePrefix(value))
       setTagsInput((value) => removeProjectTags(splitTags(value)).join(', '))
@@ -442,6 +465,7 @@ export function AdminExerciseFormPage() {
       version: 1,
       title: isProjectExercise ? ensureProjectTitle(title) : title.trim() || 'Tên bài tập',
       description: description.trim() || 'Mô tả yêu cầu bài tập.',
+      ...(isProjectExercise ? { submission_requirements: projectSubmissionRequirements.trim() } : {}),
       difficulty,
       oop_tags: tags.length > 0 ? tags : ['classes and objects'],
       starter_code: isProjectExercise ? '' : starterCode,
@@ -494,6 +518,14 @@ export function AdminExerciseFormPage() {
     const normalizedKind: ExerciseKind = isProjectExerciseDraft(normalizedTitle, normalizedTags)
       ? 'project'
       : 'coding'
+    const rawSubmissionRequirements =
+      typeof raw.submission_requirements === 'string'
+        ? raw.submission_requirements
+        : typeof raw.project_submission_requirements === 'string'
+          ? raw.project_submission_requirements
+          : ''
+    const normalizedSubmissionRequirements =
+      rawSubmissionRequirements.trim() || extractProjectSubmissionRequirements(normalizedDescription)
 
     if (!normalizedTitle) throw new Error('Template thiếu title.')
     if (!normalizedDescription) throw new Error('Template thiếu description.')
@@ -517,6 +549,7 @@ export function AdminExerciseFormPage() {
       tags: normalizedTags.map((tag) => String(tag).trim()).filter(Boolean).slice(0, 5),
       starterCode: String(raw.starter_code ?? ''),
       isLibrary: Boolean(raw.is_library ?? true),
+      submissionRequirements: normalizedSubmissionRequirements,
       styleCheckEnabled: raw.style_check_enabled === undefined
         ? normalizedStylePolicy.enabled !== false
         : Boolean(raw.style_check_enabled),
@@ -551,7 +584,12 @@ export function AdminExerciseFormPage() {
     try {
       const normalized = normalizeTemplate(raw as ExerciseTemplateFile)
       setTitle(normalized.exerciseKind === 'project' ? ensureProjectTitle(normalized.title) : normalized.title)
-      setDescription(normalized.description)
+      setDescription(stripProjectSubmissionNotes(normalized.description))
+      setProjectSubmissionRequirements(
+        normalized.exerciseKind === 'project'
+          ? normalized.submissionRequirements || DEFAULT_PROJECT_SUBMISSION_REQUIREMENTS
+          : DEFAULT_PROJECT_SUBMISSION_REQUIREMENTS
+      )
       setDifficulty(normalized.difficulty)
       setExerciseKind(normalized.exerciseKind)
       setTagsInput(normalized.exerciseKind === 'project' ? mergeProjectTags(normalized.tags).join(', ') : normalized.tags.join(', '))
@@ -626,11 +664,14 @@ export function AdminExerciseFormPage() {
             point_value: tc.pointValue,
             time_limit_seconds: tc.timeLimitSeconds,
           }))
+      const payloadDescription = isProjectExercise
+        ? mergeProjectDescriptionAndRequirements(description, projectSubmissionRequirements)
+        : description.trim()
 
       if (isEditing && id) {
         await api.put(`/api/admin/exercises/${id}`, {
           title: payloadTitle,
-          description: description.trim(),
+          description: payloadDescription,
           difficulty,
           oop_tags: tags,
           starter_code: isProjectExercise ? '' : starterCode,
@@ -643,7 +684,7 @@ export function AdminExerciseFormPage() {
       } else {
         await api.post('/api/admin/exercises', {
           title: payloadTitle,
-          description: description.trim(),
+          description: payloadDescription,
           difficulty,
           oop_tags: tags,
           starter_code: isProjectExercise ? '' : starterCode || undefined,
@@ -850,6 +891,25 @@ export function AdminExerciseFormPage() {
             <p className="ml-auto text-xs text-gray-400">{description.length}/{descriptionMaxLength}</p>
           </div>
         </div>
+
+        {isProjectExercise && (
+          <div>
+            <label htmlFor="project-submission-requirements" className="label">
+              Yêu cầu nộp bài <span className="text-danger-500">*</span>
+            </label>
+            <textarea
+              id="project-submission-requirements"
+              value={projectSubmissionRequirements}
+              onChange={(event) => setProjectSubmissionRequirements(event.target.value)}
+              rows={5}
+              className="input font-mono text-sm leading-6"
+              placeholder={DEFAULT_PROJECT_SUBMISSION_REQUIREMENTS}
+            />
+            <p className="mt-1 text-xs font-medium text-slate-500">
+              Dùng cặp dấu `...` để nhấn mạnh tài khoản, thư mục hoặc file, ví dụ `oasis-uet`, `.idea`, `target`, `out`.
+            </p>
+          </div>
+        )}
 
         {/* Difficulty */}
         <div>

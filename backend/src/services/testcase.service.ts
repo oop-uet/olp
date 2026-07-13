@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { eq, count } from "drizzle-orm";
 import { db as defaultDb } from "../db/index.js";
-import { testCases, exercises } from "../db/schema.js";
+import { testCases, exercises, submissionResults } from "../db/schema.js";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -233,6 +233,8 @@ export async function updateTestCase(
     return existing;
   }
 
+  await database.delete(submissionResults).where(eq(submissionResults.testCaseId, id));
+
   const [updated] = await database
     .update(testCases)
     .set(updateData)
@@ -260,6 +262,7 @@ export async function deleteTestCase(id: string, database: Database = defaultDb)
     };
   }
 
+  await database.delete(submissionResults).where(eq(submissionResults.testCaseId, id));
   await database.delete(testCases).where(eq(testCases.id, id));
 
   return { success: true };

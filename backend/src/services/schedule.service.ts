@@ -427,6 +427,7 @@ export interface AssignmentSettingsInput {
   isVisible?: boolean;
   allowSubmission?: boolean;
   maxSubmissions?: number | null;
+  isAssessment?: boolean;
 }
 
 /**
@@ -447,6 +448,7 @@ export async function updateAssignmentSettings(
   isVisible: boolean;
   allowSubmission: boolean;
   maxSubmissions: number | null;
+  isAssessment: boolean;
 } | ScheduleError> {
   const loaded = await loadSectionForUser(sectionId, userId, role, database);
   if (isScheduleError(loaded)) return loaded;
@@ -469,6 +471,9 @@ export async function updateAssignmentSettings(
   }
   if (typeof input.allowSubmission === "boolean") {
     update.allowSubmission = input.allowSubmission ? 1 : 0;
+  }
+  if (typeof input.isAssessment === "boolean") {
+    update.isAssessment = input.isAssessment ? 1 : 0;
   }
   if ("maxSubmissions" in input) {
     const maxSubmissions = input.maxSubmissions;
@@ -498,6 +503,7 @@ export async function updateAssignmentSettings(
       isVisible: Boolean(existing.isVisible),
       allowSubmission: Boolean(existing.allowSubmission),
       maxSubmissions: existing.maxSubmissions ?? null,
+      isAssessment: Boolean(existing.isAssessment),
     };
   }
 
@@ -514,6 +520,7 @@ export async function updateAssignmentSettings(
     isVisible: Boolean(next.isVisible),
     allowSubmission: Boolean(next.allowSubmission),
     maxSubmissions: next.maxSubmissions ?? null,
+    isAssessment: Boolean(next.isAssessment),
   };
 }
 

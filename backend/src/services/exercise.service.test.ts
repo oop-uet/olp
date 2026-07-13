@@ -226,6 +226,31 @@ describe("Exercise Service", () => {
       expect((result as any).error.code).toBe("FORBIDDEN");
     });
 
+    it("should allow an instructor to update an exercise assigned to their section", async () => {
+      const db = getDb();
+      const creatorId = seedUser();
+      const instructorId = seedUser();
+      const sectionId = seedSection(instructorId);
+      const created = await createExercise(validInput(), creatorId, db);
+      const exerciseId = (created as any).id;
+
+      getTestSqlite().exec(`
+        INSERT INTO exercise_assignments (id, exercise_id, section_id, assigned_at)
+        VALUES ('${randomUUID()}', '${exerciseId}', '${sectionId}', datetime('now'))
+      `);
+
+      const result = await updateExercise(
+        exerciseId,
+        { title: "Updated By Section Instructor" },
+        instructorId,
+        "instructor",
+        db
+      );
+
+      expect(isExerciseError(result)).toBe(false);
+      expect((result as any).title).toBe("Updated By Section Instructor");
+    });
+
     it("should allow admin to update any exercise", async () => {
       const db = getDb();
       const userId = seedUser();
@@ -284,6 +309,66 @@ describe("Exercise Service", () => {
       const loaded = await getExerciseById(exerciseId, db);
       expect((loaded as any).testCases).toHaveLength(2);
       expect((loaded as any).testCases.map((tc: any) => tc.pointValue)).toEqual([40, 60]);
+    });
+
+    it("should delete old submission results when replacing test cases after submissions exist", async () => {
+      const db = getDb();
+      const instructorId = seedUser();
+      const studentId = seedUser("student");
+      const sectionId = seedSection(instructorId);
+      const created = await createExercise(validInput(), instructorId, db);
+      const exerciseId = (created as any).id;
+      const oldTestCaseId = (created as any).testCases[0].id;
+      const submissionId = randomUUID();
+      const resultId = randomUUID();
+
+      getTestSqlite().exec(`
+        INSERT INTO submissions (id, student_id, exercise_id, section_id, code, score, attempt_number, submitted_at)
+        VALUES ('${submissionId}', '${studentId}', '${exerciseId}', '${sectionId}', 'code', 100, 1, datetime('now'));
+        INSERT INTO submission_results (id, submission_id, test_case_id, passed, actual_output, status)
+        VALUES ('${resultId}', '${submissionId}', '${oldTestCaseId}', 1, '2', 'passed');
+      `);
+
+      const result = await updateExercise(
+        exerciseId,
+        {
+          test_cases: [
+            {
+              input_data: "__OOP_JAVA_TEST__\nNewTest.java",
+              expected_output: "public class NewTest {}",
+              is_visible: true,
+              point_value: 100,
+              time_limit_seconds: 10,
+            },
+          ],
+        },
+        instructorId,
+        "instructor",
+        db
+      );
+
+      expect(isExerciseError(result)).toBe(false);
+
+      const oldResult = getTestSqlite()
+        .prepare("SELECT * FROM submission_results WHERE id = ?")
+        .get(resultId) as any;
+      expect(oldResult).toBeUndefined();
+
+      const oldTestCase = getTestSqlite()
+        .prepare("SELECT * FROM test_cases WHERE id = ?")
+        .get(oldTestCaseId) as any;
+      expect(oldTestCase).toBeUndefined();
+
+      const oldSubmission = getTestSqlite()
+        .prepare("SELECT score FROM submissions WHERE id = ?")
+        .get(submissionId) as any;
+      expect(oldSubmission.score).toBe(100);
+
+      const activeTestCases = getTestSqlite()
+        .prepare("SELECT * FROM test_cases WHERE exercise_id = ?")
+        .all(exerciseId) as any[];
+      expect(activeTestCases).toHaveLength(1);
+      expect(activeTestCases[0].expected_output).toBe("public class NewTest {}");
     });
 
     it("should return NOT_FOUND for non-existent exercise", async () => {

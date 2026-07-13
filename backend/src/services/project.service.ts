@@ -164,6 +164,15 @@ export async function saveStudentProjectGroup(
   const workspace = await getStudentProjectWorkspace(studentId, sectionId, exerciseId, database);
   if (isProjectError(workspace)) return workspace;
 
+  if (!workspace.exercise.allowSubmission) {
+    return {
+      error: {
+        code: "SUBMISSION_CLOSED",
+        message: "Bài tập lớn hiện đã tắt nhận bài nộp.",
+      },
+    };
+  }
+
   const currentStudent = workspace.currentStudent;
   const existingGroup = workspace.myGroup;
   if (

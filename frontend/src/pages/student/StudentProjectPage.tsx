@@ -5,7 +5,7 @@ import { PageLoader, Spinner } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
 import { ExerciseMarkdownContent } from '../../components/exercise/ExerciseDescriptionEditor'
-import { stripProjectSubmissionNotes } from '../../utils/projectDescription'
+import { extractProjectSubmissionRequirements, stripProjectSubmissionNotes } from '../../utils/projectDescription'
 
 type TabKey = 'description' | 'submission' | 'groups' | 'discussion'
 
@@ -143,6 +143,10 @@ export function StudentProjectPage() {
       (member) => member.studentExternalId === data.currentStudent.studentExternalId && member.isLeader
     )
   }, [data])
+  const submissionRequirements = useMemo(
+    () => extractProjectSubmissionRequirements(data?.exercise.description ?? ''),
+    [data?.exercise.description]
+  )
 
   function addMemberRow() {
     setMemberRows((prev) => [
@@ -324,6 +328,7 @@ export function StudentProjectPage() {
             repositoryUrl={repositoryUrl}
             memberRows={memberRows}
             studentByExternalId={studentByExternalId}
+            submissionRequirements={submissionRequirements}
             saving={saving}
             canEdit={canEditSubmission}
             onGroupName={setGroupName}
@@ -358,6 +363,7 @@ function SubmissionTab({
   repositoryUrl,
   memberRows,
   studentByExternalId,
+  submissionRequirements,
   saving,
   canEdit,
   onGroupName,
@@ -374,6 +380,7 @@ function SubmissionTab({
   repositoryUrl: string
   memberRows: MemberDraft[]
   studentByExternalId: Map<string, ProjectStudent>
+  submissionRequirements: string
   saving: boolean
   canEdit: boolean
   onGroupName: (value: string) => void
@@ -391,6 +398,12 @@ function SubmissionTab({
       {!canEdit && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
           Chỉ trưởng nhóm được cập nhật URL bài nộp và phần trăm đóng góp. Bạn vẫn có thể xem thông tin nhóm ở tab Danh sách nhóm.
+        </div>
+      )}
+
+      {!data.exercise.allowSubmission && (
+        <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">
+          Bài tập lớn hiện đã tắt nhận bài nộp. Bạn có thể xem thông tin nhóm nhưng không thể lưu URL mới.
         </div>
       )}
 
@@ -498,18 +511,18 @@ function SubmissionTab({
         </div>
       </div>
 
-      <div className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
-        <p className="font-black text-danger-600">Chú ý:</p>
-        <ol className="mt-1 list-decimal space-y-1 pl-5">
-          <li>Repository phải để private và đã gửi invite collaborator cho tài khoản oasis-uet.</li>
-          <li>
-            Không đẩy thư mục <InlineCode>.idea</InlineCode>, <InlineCode>target</InlineCode>, <InlineCode>out</InlineCode> lên repository.
-          </li>
-          <li>Khi bấm Lưu bài nộp, hệ thống sẽ tự nhận invitation và kiểm tra quyền truy cập repository.</li>
-        </ol>
-      </div>
+      {submissionRequirements && (
+        <div className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
+          <ExerciseMarkdownContent value={submissionRequirements} />
+        </div>
+      )}
 
-      <button type="submit" disabled={saving || !data.exercise.allowSubmission || !canEdit} className="btn-primary">
+      <button
+        type="submit"
+        disabled={saving || !data.exercise.allowSubmission || !canEdit}
+        className="btn-primary"
+        title={!data.exercise.allowSubmission ? 'Bài tập lớn hiện đã tắt nhận bài nộp' : undefined}
+      >
         {saving ? <><Spinner /> Đang kiểm tra...</> : 'Lưu bài nộp'}
       </button>
     </form>
@@ -586,14 +599,6 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <div className="px-3 py-2 font-semibold text-slate-600">{label}:</div>
       <div className="px-3 py-2 font-bold text-slate-800">{value}</div>
     </div>
-  )
-}
-
-function InlineCode({ children }: { children: string }) {
-  return (
-    <code className="rounded border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-xs font-bold text-slate-700">
-      {children}
-    </code>
   )
 }
 

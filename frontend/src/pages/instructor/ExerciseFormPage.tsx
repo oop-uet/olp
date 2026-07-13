@@ -5,6 +5,12 @@ import { PageLoader } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { ExerciseDescriptionEditor } from '../../components/exercise/ExerciseDescriptionEditor'
 import { ExerciseAiGenerator } from '../../components/exercise/ExerciseAiGenerator'
+import {
+  DEFAULT_PROJECT_SUBMISSION_REQUIREMENTS,
+  extractProjectSubmissionRequirements,
+  mergeProjectDescriptionAndRequirements,
+  stripProjectSubmissionNotes,
+} from '../../utils/projectDescription'
 
 const DIFFICULTY_OPTIONS = ['easy', 'medium', 'hard'] as const
 type Difficulty = (typeof DIFFICULTY_OPTIONS)[number]
@@ -83,6 +89,8 @@ interface ExerciseTemplateFile {
   }
   style_check_enabled?: boolean
   style_policy?: StylePolicyForm
+  submission_requirements?: string
+  project_submission_requirements?: string
 }
 
 const TEMPLATE_FORMAT = 'uet-oasis-oop-exercise-template'
@@ -296,6 +304,7 @@ export function ExerciseFormPage() {
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [projectSubmissionRequirements, setProjectSubmissionRequirements] = useState(DEFAULT_PROJECT_SUBMISSION_REQUIREMENTS)
   const [difficulty, setDifficulty] = useState<Difficulty | ''>('')
   const [exerciseKind, setExerciseKind] = useState<ExerciseKind>('coding')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
@@ -333,8 +342,11 @@ export function ExerciseFormPage() {
       ])
       const ex = exerciseRes.data
       const loadedTags = parseOopTags(ex.oopTags ?? ex.oop_tags)
+      const loadedDescription = String(ex.description ?? '')
+      const loadedSubmissionRequirements = extractProjectSubmissionRequirements(loadedDescription)
       setTitle(ex.title)
-      setDescription(ex.description)
+      setDescription(stripProjectSubmissionNotes(loadedDescription))
+      setProjectSubmissionRequirements(loadedSubmissionRequirements || DEFAULT_PROJECT_SUBMISSION_REQUIREMENTS)
       setDifficulty(ex.difficulty)
       setSelectedTags(loadedTags)
       setExerciseKind(isProjectExerciseDraft(ex.title ?? '', loadedTags) ? 'project' : 'coding')
@@ -388,6 +400,15 @@ export function ExerciseFormPage() {
       newErrors.description = `Mô tả tối đa ${descriptionMaxLength} ký tự`
     }
 
+    if (isProjectExercise && !projectSubmissionRequirements.trim()) {
+      newErrors.description = 'Yêu cầu nộp bài là bắt buộc với Bài tập lớn'
+    } else if (
+      isProjectExercise &&
+      mergeProjectDescriptionAndRequirements(description, projectSubmissionRequirements).length > descriptionMaxLength
+    ) {
+      newErrors.description = `Mô tả và yêu cầu nộp bài tối đa ${descriptionMaxLength} ký tự`
+    }
+
     if (!difficulty) {
       newErrors.difficulty = 'Độ khó là bắt buộc'
     }
@@ -418,6 +439,8 @@ export function ExerciseFormPage() {
       setDifficulty('hard')
       setSelectedTags((tags) => mergeProjectTags(tags))
       setStyleCheckEnabled(false)
+      setDescription((value) => stripProjectSubmissionNotes(value))
+      setProjectSubmissionRequirements((value) => value.trim() || DEFAULT_PROJECT_SUBMISSION_REQUIREMENTS)
     } else {
       setTitle((value) => stripProjectTitlePrefix(value))
       setSelectedTags((tags) => removeProjectTags(tags))
@@ -481,6 +504,7 @@ export function ExerciseFormPage() {
       version: 1,
       title: isProjectExercise ? ensureProjectTitle(title) : title.trim() || 'Tên bài tập',
       description: description.trim() || 'Mô tả yêu cầu bài tập.',
+      ...(isProjectExercise ? { submission_requirements: projectSubmissionRequirements.trim() } : {}),
       difficulty: difficulty || 'easy',
       oop_tags: projectTags.length > 0 ? projectTags : ['classes and objects'],
       starter_code: isProjectExercise ? '' : starterCode,
@@ -524,6 +548,7 @@ export function ExerciseFormPage() {
     style_policy: StylePolicyForm
     test_cases: TestCaseForm[]
     exercise_kind: ExerciseKind
+    submission_requirements: string
   } {
     const exercise = raw.exercise ?? {}
     const normalizedTitle = raw.title ?? exercise.title ?? ''
@@ -537,6 +562,14 @@ export function ExerciseFormPage() {
     const normalizedKind: ExerciseKind = isProjectExerciseDraft(normalizedTitle, normalizedTags)
       ? 'project'
       : 'coding'
+    const rawSubmissionRequirements =
+      typeof raw.submission_requirements === 'string'
+        ? raw.submission_requirements
+        : typeof raw.project_submission_requirements === 'string'
+          ? raw.project_submission_requirements
+          : ''
+    const normalizedSubmissionRequirements =
+      rawSubmissionRequirements.trim() || extractProjectSubmissionRequirements(normalizedDescription)
 
     if (!normalizedTitle.trim()) throw new Error('Template thiếu title.')
     if (!normalizedDescription.trim()) throw new Error('Template thiếu description.')
@@ -587,6 +620,7 @@ export function ExerciseFormPage() {
       style_policy: normalizedStylePolicy,
       test_cases: mappedTestCases,
       exercise_kind: normalizedKind,
+      submission_requirements: normalizedSubmissionRequirements,
     }
   }
 
@@ -594,7 +628,12 @@ export function ExerciseFormPage() {
     try {
       const normalized = normalizeTemplate(raw as ExerciseTemplateFile)
       setTitle(normalized.exercise_kind === 'project' ? ensureProjectTitle(normalized.title) : normalized.title)
-      setDescription(normalized.description)
+      setDescription(stripProjectSubmissionNotes(normalized.description))
+      setProjectSubmissionRequirements(
+        normalized.exercise_kind === 'project'
+          ? normalized.submission_requirements || DEFAULT_PROJECT_SUBMISSION_REQUIREMENTS
+          : DEFAULT_PROJECT_SUBMISSION_REQUIREMENTS
+      )
       setDifficulty(normalized.difficulty)
       setExerciseKind(normalized.exercise_kind)
       setSelectedTags(normalized.exercise_kind === 'project' ? mergeProjectTags(normalized.oop_tags) : normalized.oop_tags)
@@ -675,7 +714,9 @@ export function ExerciseFormPage() {
       }
       const payload = {
         title: payloadTitle,
-        description: description.trim(),
+        description: isProjectExercise
+          ? mergeProjectDescriptionAndRequirements(description, projectSubmissionRequirements)
+          : description.trim(),
         difficulty,
         oop_tags: payloadTags,
         starter_code: isProjectExercise ? '' : starterCode,
@@ -865,6 +906,25 @@ export function ExerciseFormPage() {
             <p className="ml-auto text-xs text-gray-400">{description.length}/{descriptionMaxLength}</p>
           </div>
         </div>
+
+        {isProjectExercise && (
+          <div>
+            <label htmlFor="project-submission-requirements" className="label">
+              Yêu cầu nộp bài <span className="text-danger-500">*</span>
+            </label>
+            <textarea
+              id="project-submission-requirements"
+              value={projectSubmissionRequirements}
+              onChange={(event) => setProjectSubmissionRequirements(event.target.value)}
+              rows={5}
+              className="input font-mono text-sm leading-6"
+              placeholder={DEFAULT_PROJECT_SUBMISSION_REQUIREMENTS}
+            />
+            <p className="mt-1 text-xs font-medium text-slate-500">
+              Dùng cặp dấu `...` để nhấn mạnh tài khoản, thư mục hoặc file, ví dụ `oasis-uet`, `.idea`, `target`, `out`.
+            </p>
+          </div>
+        )}
 
         {/* Difficulty */}
         <div>

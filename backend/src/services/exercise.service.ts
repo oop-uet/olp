@@ -150,6 +150,71 @@ async function ensureExerciseStyleColumns(database = defaultDb) {
   }
 }
 
+async function canUpdateExercise(
+  exercise: { id: string; createdBy: string | null },
+  userId: string,
+  role: string,
+  database = defaultDb
+) {
+  if (role === "admin" || exercise.createdBy === userId) return true;
+
+  const directSections = await database
+    .select({ id: exerciseAssignments.id })
+    .from(exerciseAssignments)
+    .innerJoin(classSections, eq(exerciseAssignments.sectionId, classSections.id))
+    .where(and(eq(exerciseAssignments.exerciseId, exercise.id), eq(classSections.instructorId, userId)))
+    .limit(1);
+  if (directSections.length > 0) return true;
+
+  const assignedSections = await database
+    .select({ id: exerciseAssignments.id })
+    .from(exerciseAssignments)
+    .innerJoin(sectionInstructors, eq(exerciseAssignments.sectionId, sectionInstructors.sectionId))
+    .where(and(eq(exerciseAssignments.exerciseId, exercise.id), eq(sectionInstructors.instructorId, userId)))
+    .limit(1);
+
+  return assignedSections.length > 0;
+}
+
+async function replaceTestCases(
+  exerciseId: string,
+  inputTestCases: TestCaseInput[],
+  database = defaultDb
+) {
+  const now = new Date().toISOString();
+
+  const existingTestCases = await database.query.testCases.findMany({
+    where: eq(testCases.exerciseId, exerciseId),
+  });
+  const testCaseIds = existingTestCases.map((tc) => tc.id);
+
+  if (testCaseIds.length > 0) {
+    await database
+      .delete(submissionResults)
+      .where(inArray(submissionResults.testCaseId, testCaseIds));
+    await database
+      .delete(testCases)
+      .where(inArray(testCases.id, testCaseIds));
+  }
+
+  const testCaseRows = inputTestCases.map((tc) => ({
+    id: crypto.randomUUID(),
+    exerciseId,
+    inputData: tc.input_data,
+    expectedOutput: tc.expected_output,
+    isVisible: tc.is_visible ? 1 : 0,
+    pointValue: tc.point_value ?? 1,
+    timeLimitSeconds: tc.time_limit_seconds ?? null,
+    createdAt: now,
+  }));
+
+  if (testCaseRows.length > 0) {
+    await database.insert(testCases).values(testCaseRows);
+  }
+
+  return testCaseRows;
+}
+
 // ─── Service ─────────────────────────────────────────────────────────────────
 
 /**
@@ -200,7 +265,9 @@ export async function getExerciseById(id: string, database = defaultDb) {
 
   const exercise = await database.query.exercises.findFirst({
     where: eq(exercises.id, id),
-    with: { testCases: true },
+    with: {
+      testCases: true,
+    },
   });
 
   if (!exercise) {
@@ -232,7 +299,9 @@ export async function getInstructorExerciseOverview(
 
   const exercise = await database.query.exercises.findFirst({
     where: eq(exercises.id, id),
-    with: { testCases: true },
+    with: {
+      testCases: true,
+    },
   });
 
   if (!exercise) {
@@ -527,12 +596,11 @@ export async function updateExercise(
     };
   }
 
-  // Only the creator or admin can update
-  if (role !== "admin" && existing.createdBy !== userId) {
+  if (!(await canUpdateExercise(existing, userId, role, database))) {
     return {
       error: {
         code: "FORBIDDEN",
-        message: "You do not have permission to update this exercise.",
+        message: "Bạn chỉ có thể cập nhật bài tập do mình tạo hoặc bài tập đã giao cho lớp mình phụ trách.",
       },
     };
   }
@@ -612,34 +680,7 @@ export async function updateExercise(
     .returning();
 
   if (input.test_cases !== undefined) {
-    const now = new Date().toISOString();
-    
-    // Find all existing test cases for this exercise
-    const existingTestCases = await database.query.testCases.findMany({
-      where: eq(testCases.exerciseId, id),
-    });
-    const tcIds = existingTestCases.map((tc) => tc.id);
-    if (tcIds.length > 0) {
-      // Delete associated submission results first
-      await database
-        .delete(submissionResults)
-        .where(inArray(submissionResults.testCaseId, tcIds));
-    }
-
-    await database.delete(testCases).where(eq(testCases.exerciseId, id));
-    const testCaseRows = input.test_cases.map((tc) => ({
-        id: crypto.randomUUID(),
-        exerciseId: id,
-        inputData: tc.input_data,
-        expectedOutput: tc.expected_output,
-        isVisible: tc.is_visible ? 1 : 0,
-        pointValue: tc.point_value ?? 1,
-        timeLimitSeconds: tc.time_limit_seconds ?? null,
-        createdAt: now,
-      }));
-    if (testCaseRows.length > 0) {
-      await database.insert(testCases).values(testCaseRows);
-    }
+    await replaceTestCases(id, input.test_cases, database);
   }
 
   return {
@@ -648,12 +689,12 @@ export async function updateExercise(
       input.test_cases === undefined
         ? undefined
         : input.test_cases.map((tc) => ({
-          inputData: tc.input_data,
-          expectedOutput: tc.expected_output,
-          isVisible: tc.is_visible ? 1 : 0,
-          pointValue: tc.point_value ?? 1,
-          timeLimitSeconds: tc.time_limit_seconds ?? null,
-        })),
+            inputData: tc.input_data,
+            expectedOutput: tc.expected_output,
+            isVisible: tc.is_visible ? 1 : 0,
+            pointValue: tc.point_value ?? 1,
+            timeLimitSeconds: tc.time_limit_seconds ?? null,
+          })),
   };
 }
 

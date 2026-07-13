@@ -338,7 +338,7 @@ describe("TestCase Service", () => {
       }
     });
 
-    it("should NOT modify existing submission results when updating", async () => {
+    it("should delete existing submission results when updating a test case", async () => {
       const db = getDb();
       const sqlite = getTestSqlite();
       const tcId = seedTestCase(exerciseId);
@@ -372,12 +372,12 @@ describe("TestCase Service", () => {
         db
       );
 
-      // Verify submission results and submission score are unchanged
+      // Old per-test details are removed so they do not point to the updated JUnit,
+      // while the submission score snapshot remains unchanged.
       const submissionResult = sqlite
         .prepare("SELECT * FROM submission_results WHERE id = ?")
         .get(resultId) as any;
-      expect(submissionResult.passed).toBe(1);
-      expect(submissionResult.status).toBe("passed");
+      expect(submissionResult).toBeUndefined();
 
       const submission = sqlite
         .prepare("SELECT * FROM submissions WHERE id = ?")

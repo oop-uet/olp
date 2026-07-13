@@ -31,7 +31,7 @@ function statusFor(code: string): number {
  *   POST   /:id/schedule/unassign    { exercise_id }
  *   PUT    /:id/schedule/deadline    { week, deadline }
  *   PUT    /:id/schedule/visibility  { exercise_id, is_visible }
- *   PUT    /:id/schedule/settings    { exercise_id, is_visible?, allow_submission?, max_submissions? }
+ *   PUT    /:id/schedule/settings    { exercise_id, is_visible?, allow_submission?, max_submissions?, is_assessment? }
  */
 export function registerScheduleRoutes(router: Router): void {
   router.get("/:id/schedule", async (req: Request, res: Response) => {
@@ -135,7 +135,7 @@ export function registerScheduleRoutes(router: Router): void {
   router.put("/:id/schedule/settings", async (req: Request, res: Response) => {
     try {
       const { userId, role } = req.user!;
-      const { exercise_id, is_visible, allow_submission, max_submissions } = req.body;
+      const { exercise_id, is_visible, allow_submission, max_submissions, is_assessment } = req.body;
       if (!exercise_id) {
         res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "exercise_id là bắt buộc." } });
         return;
@@ -147,6 +147,7 @@ export function registerScheduleRoutes(router: Router): void {
         {
           ...(typeof is_visible === "boolean" ? { isVisible: is_visible } : {}),
           ...(typeof allow_submission === "boolean" ? { allowSubmission: allow_submission } : {}),
+          ...(typeof is_assessment === "boolean" ? { isAssessment: is_assessment } : {}),
           ...("max_submissions" in req.body
             ? { maxSubmissions: max_submissions === null ? null : Number(max_submissions) }
             : {}),
