@@ -6,7 +6,7 @@ import { toast } from '../../stores/toast.store'
 import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
 import { ExerciseMarkdownContent } from '../../components/exercise/ExerciseDescriptionEditor'
 
-type Tab = 'description' | 'testcases' | 'history' | 'stats'
+type Tab = 'description' | 'groups' | 'testcases' | 'history' | 'stats'
 
 interface Exercise {
   id: string
@@ -73,6 +73,23 @@ interface OverviewResponse {
   stats: SectionStat[]
 }
 
+interface ProjectMember {
+  id: string
+  studentExternalId: string
+  studentName: string
+  isLeader: boolean
+  contributionPercent: number
+}
+
+interface ProjectGroup {
+  id: string
+  name: string
+  repositoryUrl: string | null
+  score: number | null
+  status: 'draft' | 'submitted' | 'graded'
+  members: ProjectMember[]
+}
+
 const JAVA_TEST_MARKER = '__OOP_JAVA_TEST__'
 
 const DIFFICULTY: Record<string, { label: string; className: string }> = {
@@ -91,6 +108,24 @@ function parseTags(exercise: Exercise): string[] {
   } catch {
     return []
   }
+}
+
+function normalizeProjectMarker(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
+
+function isProjectExercise(exercise: Exercise) {
+  const normalizedTitle = normalizeProjectMarker(exercise.title)
+  if (normalizedTitle.includes('bai tap lon') || normalizedTitle.includes('btl') || normalizedTitle.includes('project')) {
+    return true
+  }
+  return parseTags(exercise).some((tag) => {
+    const normalizedTag = normalizeProjectMarker(tag)
+    return normalizedTag === 'project' || normalizedTag === 'btl' || normalizedTag === 'bai tap lon'
+  })
 }
 
 function formatDateTime(value: string) {
@@ -176,6 +211,8 @@ export function InstructorExerciseDetailPage() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>('description')
   const [search, setSearch] = useState('')
+  const [projectGroups, setProjectGroups] = useState<ProjectGroup[]>([])
+  const [loadingProjectGroups, setLoadingProjectGroups] = useState(false)
 
   // Selected Section statistics states
   const [sectionDetail, setSectionDetail] = useState<any | null>(null)
@@ -197,6 +234,22 @@ export function InstructorExerciseDetailPage() {
       setSectionDetail(null)
     }
   }, [sectionId])
+
+  const projectExercise = useMemo(() => (data ? isProjectExercise(data.exercise) : false), [data])
+
+  useEffect(() => {
+    if (projectExercise && sectionId && id) {
+      fetchProjectGroups()
+    } else {
+      setProjectGroups([])
+    }
+  }, [projectExercise, sectionId, id])
+
+  useEffect(() => {
+    if (projectExercise && (activeTab === 'testcases' || activeTab === 'history')) {
+      setActiveTab('description')
+    }
+  }, [projectExercise, activeTab])
 
   async function fetchOverview() {
     if (!id) return
@@ -220,6 +273,19 @@ export function InstructorExerciseDetailPage() {
       toast.error('Không thể tải thông tin chi tiết lớp học.')
     } finally {
       setLoadingSectionDetail(false)
+    }
+  }
+
+  async function fetchProjectGroups() {
+    if (!sectionId || !id) return
+    setLoadingProjectGroups(true)
+    try {
+      const response = await api.get(`/api/instructor/sections/${sectionId}/projects/${id}`)
+      setProjectGroups(response.data.groups ?? [])
+    } catch {
+      toast.error('Không thể tải danh sách nhóm BTL.')
+    } finally {
+      setLoadingProjectGroups(false)
     }
   }
 
@@ -338,8 +404,14 @@ export function InstructorExerciseDetailPage() {
                 <h1 className="truncate text-2xl font-bold tracking-tight text-slate-900">{exercise.title}</h1>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <span className={difficulty.className}>{difficulty.label}</span>
-                  <span className="text-xs font-semibold text-slate-400">{testCases.length} test case</span>
-                  <span className="text-xs font-semibold text-slate-400">{data.submissions.length} lượt nộp</span>
+                  {projectExercise ? (
+                    sectionId && <span className="text-xs font-semibold text-slate-400">{projectGroups.length} nhóm BTL</span>
+                  ) : (
+                    <>
+                      <span className="text-xs font-semibold text-slate-400">{testCases.length} test case</span>
+                      <span className="text-xs font-semibold text-slate-400">{data.submissions.length} lượt nộp</span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -366,12 +438,20 @@ export function InstructorExerciseDetailPage() {
           <TabButton active={activeTab === 'description'} onClick={() => setActiveTab('description')}>
             Mô tả
           </TabButton>
-          <TabButton active={activeTab === 'testcases'} onClick={() => setActiveTab('testcases')}>
-            Test cases ({testCases.length})
-          </TabButton>
-          <TabButton active={activeTab === 'history'} onClick={() => setActiveTab('history')}>
-            Lịch sử ({data.submissions.length})
-          </TabButton>
+          {projectExercise ? (
+            <TabButton active={activeTab === 'groups'} onClick={() => setActiveTab('groups')}>
+              Danh sách nhóm
+            </TabButton>
+          ) : (
+            <>
+              <TabButton active={activeTab === 'testcases'} onClick={() => setActiveTab('testcases')}>
+                Test cases ({testCases.length})
+              </TabButton>
+              <TabButton active={activeTab === 'history'} onClick={() => setActiveTab('history')}>
+                Lịch sử ({data.submissions.length})
+              </TabButton>
+            </>
+          )}
           <TabButton active={activeTab === 'stats'} onClick={() => setActiveTab('stats')}>
             Thống kê
           </TabButton>
@@ -384,39 +464,53 @@ export function InstructorExerciseDetailPage() {
           <div className="grid gap-5 p-5 xl:grid-cols-[minmax(0,1fr)_380px]">
             <ExerciseMarkdownContent value={exercise.description} />
             <aside className="space-y-3">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Mã nguồn mẫu</p>
-                {starterFiles.length > 0 ? (
-                  <div className="mt-3 space-y-3">
-                    {starterFiles.map((file) => (
-                      <div key={file.name} className="overflow-hidden rounded-lg border border-slate-800 bg-slate-950">
-                        <div className="border-b border-slate-800 px-3 py-2 font-mono text-xs font-bold text-sky-100">
-                          {file.name}
+              {!projectExercise && (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Mã nguồn mẫu</p>
+                  {starterFiles.length > 0 ? (
+                    <div className="mt-3 space-y-3">
+                      {starterFiles.map((file) => (
+                        <div key={file.name} className="overflow-hidden rounded-lg border border-slate-800 bg-slate-950">
+                          <div className="border-b border-slate-800 px-3 py-2 font-mono text-xs font-bold text-sky-100">
+                            {file.name}
+                          </div>
+                          <pre className="max-h-[320px] overflow-auto p-4 font-mono text-xs leading-6 text-slate-100">
+                            {file.content}
+                          </pre>
                         </div>
-                        <pre className="max-h-[320px] overflow-auto p-4 font-mono text-xs leading-6 text-slate-100">
-                          {file.content}
-                        </pre>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <pre className="mt-3 max-h-[420px] overflow-auto rounded-lg bg-slate-950 p-4 font-mono text-xs leading-6 text-slate-100">
-                    {exercise.starterCode || 'Bài tập này chưa có mã nguồn mẫu.'}
-                  </pre>
-                )}
-              </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <pre className="mt-3 max-h-[420px] overflow-auto rounded-lg bg-slate-950 p-4 font-mono text-xs leading-6 text-slate-100">
+                      {exercise.starterCode || 'Bài tập này chưa có mã nguồn mẫu.'}
+                    </pre>
+                  )}
+                </div>
+              )}
               <Link to={`/instructor/exercises/${exercise.id}/edit`} className="btn-secondary w-full">
                 Sửa đề bài
               </Link>
-              <Link to={`/instructor/exercises/${exercise.id}/testcases`} className="btn-primary w-full">
-                Soạn bộ test
-              </Link>
+              {!projectExercise && (
+                <Link to={`/instructor/exercises/${exercise.id}/testcases`} className="btn-primary w-full">
+                  Soạn bộ test
+                </Link>
+              )}
             </aside>
           </div>
         </div>
       )}
 
-      {activeTab === 'testcases' && (
+      {activeTab === 'groups' && projectExercise && (
+        <ProjectGroupsTab
+          sectionId={sectionId}
+          exerciseId={exercise.id}
+          stats={stats}
+          groups={projectGroups}
+          loading={loadingProjectGroups}
+        />
+      )}
+
+      {activeTab === 'testcases' && !projectExercise && (
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
           <SectionHeader
             title="Chi tiết test cases"
@@ -458,7 +552,7 @@ export function InstructorExerciseDetailPage() {
         </div>
       )}
 
-      {activeTab === 'history' && (
+      {activeTab === 'history' && !projectExercise && (
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
           <SectionHeader
             title="Danh sách các bài nộp"
@@ -736,6 +830,139 @@ export function InstructorExerciseDetailPage() {
   )
 }
 
+function ProjectGroupsTab({
+  sectionId,
+  exerciseId,
+  stats,
+  groups,
+  loading,
+}: {
+  sectionId: string | null
+  exerciseId: string
+  stats: SectionStat[]
+  groups: ProjectGroup[]
+  loading: boolean
+}) {
+  if (!sectionId) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <SectionHeader title="Chọn lớp để xem danh sách nhóm BTL" />
+        <div className="overflow-x-auto p-5">
+          <table className="min-w-full">
+            <thead>
+              <tr>
+                <th className="table-th">Lớp</th>
+                <th className="table-th text-right">Sinh viên</th>
+                <th className="table-th text-right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stats.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="px-6 py-10 text-center text-sm font-semibold text-slate-400">
+                    BTL chưa được gán vào lớp bạn phụ trách.
+                  </td>
+                </tr>
+              ) : (
+                stats.map((row) => (
+                  <tr key={row.sectionId} className="hover:bg-slate-50">
+                    <td className="table-td">
+                      <div className="font-bold text-slate-800">{formatSectionDisplayName(row.sectionName)}</div>
+                      <div className="text-xs text-slate-400">{formatSemesterDisplayName(row.semester)}</div>
+                    </td>
+                    <td className="table-td text-right">{row.studentCount}</td>
+                    <td className="table-td text-right">
+                      <Link
+                        to={`/instructor/exercises/${exerciseId}?section_id=${row.sectionId}`}
+                        className="btn-secondary btn-sm"
+                      >
+                        Xem nhóm
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <SectionHeader
+        title="Danh sách nhóm BTL"
+        action={
+          <Link to={`/instructor/classes/${sectionId}/projects/${exerciseId}`} className="btn-primary btn-sm">
+            Mở trang quản lý BTL
+          </Link>
+        }
+      />
+      <div className="overflow-x-auto p-5">
+        {loading ? (
+          <div className="py-12 text-center text-sm font-semibold text-slate-400">Đang tải danh sách nhóm...</div>
+        ) : (
+          <table className="min-w-full">
+            <thead>
+              <tr>
+                <th className="table-th w-16">#</th>
+                <th className="table-th">Tên nhóm</th>
+                <th className="table-th">MSSV</th>
+                <th className="table-th">Thành viên</th>
+                <th className="table-th">URL bài nộp</th>
+                <th className="table-th text-right">Điểm</th>
+              </tr>
+            </thead>
+            <tbody>
+              {groups.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-10 text-center text-sm font-semibold text-slate-400">
+                    Chưa có nhóm BTL nào.
+                  </td>
+                </tr>
+              ) : (
+                groups.map((group, index) => (
+                  <tr key={group.id} className="hover:bg-slate-50">
+                    <td className="table-td font-bold text-slate-400">{index + 1}</td>
+                    <td className="table-td font-bold text-slate-800">{group.name}</td>
+                    <td className="table-td font-semibold text-sky-700">
+                      {group.members.map((member) => member.studentExternalId).join(', ')}
+                    </td>
+                    <td className="table-td">
+                      <div className="space-y-1">
+                        {group.members.map((member) => (
+                          <div key={member.id} className="font-semibold text-slate-700">
+                            {member.studentName}
+                            {member.isLeader && <span className="ml-1 text-xs text-primary">(trưởng nhóm)</span>}
+                            <span className="ml-1 text-xs text-slate-400">{member.contributionPercent}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="table-td">
+                      {group.repositoryUrl ? (
+                        <a href={group.repositoryUrl} target="_blank" rel="noreferrer" className="font-bold text-sky-600 hover:underline">
+                          {group.repositoryUrl}
+                        </a>
+                      ) : (
+                        <span className="text-slate-400">Chưa nộp</span>
+                      )}
+                    </td>
+                    <td className="table-td text-right font-bold text-primary">
+                      {group.score == null ? 'Chưa chấm' : `${formatProjectScore(group.score)}/10`}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function StatTile({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
@@ -743,6 +970,13 @@ function StatTile({ label, value }: { label: string; value: number }) {
       <p className="mt-1 text-2xl font-bold text-primary">{value}</p>
     </div>
   )
+}
+
+function formatProjectScore(value: number) {
+  return value.toLocaleString('vi-VN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })
 }
 
 function SectionHeader({ title, action }: { title: string; action?: ReactNode }) {
