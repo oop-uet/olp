@@ -5,6 +5,7 @@ import { PageLoader, ExerciseIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
 import { ExerciseMarkdownContent } from '../../components/exercise/ExerciseDescriptionEditor'
+import { stripProjectSubmissionNotes } from '../../utils/projectDescription'
 
 type Tab = 'description' | 'groups' | 'testcases' | 'history' | 'stats'
 
@@ -462,7 +463,7 @@ export function InstructorExerciseDetailPage() {
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
           <SectionHeader title="Đề bài" />
           <div className="grid gap-5 p-5 xl:grid-cols-[minmax(0,1fr)_380px]">
-            <ExerciseMarkdownContent value={exercise.description} />
+            <ExerciseMarkdownContent value={projectExercise ? stripProjectSubmissionNotes(exercise.description) : exercise.description} />
             <aside className="space-y-3">
               {!projectExercise && (
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">

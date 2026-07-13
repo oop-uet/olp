@@ -4,6 +4,8 @@ import { api } from '../../lib/api'
 import { PageLoader, Spinner } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
+import { ExerciseMarkdownContent } from '../../components/exercise/ExerciseDescriptionEditor'
+import { stripProjectSubmissionNotes } from '../../utils/projectDescription'
 
 type TabKey = 'description' | 'groups' | 'stats' | 'history' | 'discussion' | 'grading'
 
@@ -127,12 +129,6 @@ export function ProjectAssignmentPage() {
       return `${group.name} ${group.repositoryUrl || ''} ${memberText}`.toLowerCase().includes(q)
     })
   }, [data, search])
-
-  const ungroupedStudents = useMemo(() => {
-    if (!data) return []
-    const grouped = new Set(data.groups.flatMap((group) => group.members.map((member) => member.studentExternalId)))
-    return data.students.filter((student) => !grouped.has(student.studentExternalId))
-  }, [data])
 
   function openCreateForm() {
     const members: GroupFormState['members'] = {}
@@ -312,7 +308,7 @@ export function ProjectAssignmentPage() {
       </div>
 
       <div className="border border-slate-300 bg-white p-6 shadow-sm">
-        {activeTab === 'description' && <DescriptionTab data={data} ungroupedCount={ungroupedStudents.length} />}
+        {activeTab === 'description' && <DescriptionTab data={data} />}
         {activeTab === 'groups' && (
           <GroupsTab
             groups={filteredGroups}
@@ -465,26 +461,11 @@ export function ProjectAssignmentPage() {
   )
 }
 
-function DescriptionTab({ data, ungroupedCount }: { data: ProjectWorkspace; ungroupedCount: number }) {
+function DescriptionTab({ data }: { data: ProjectWorkspace }) {
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_280px]">
-      <div className="prose max-w-none prose-slate">
-        <h2>Đề bài</h2>
-        <p className="whitespace-pre-line">{data.exercise.description}</p>
-        <h3>Yêu cầu nộp bài</h3>
-        <ul>
-          <li>Nộp URL repository GitHub của nhóm.</li>
-          <li>Không đẩy thư mục `.idea`, `target`, `out` hoặc file build lên repository.</li>
-          <li>Repository phải để private và thêm tài khoản oasis-uet vào danh sách collaborator.</li>
-        </ul>
-      </div>
-      <div className="space-y-1 text-sm">
-        <InfoRow label="Mức độ" value={difficultyLabel(data.exercise.difficulty)} />
-        <InfoRow label="Tổng số nhóm" value={String(data.stats.totalGroups)} />
-        <InfoRow label="Đã nộp URL" value={String(data.stats.submittedGroups)} />
-        <InfoRow label="Đã chấm điểm" value={String(data.stats.gradedGroups)} />
-        <InfoRow label="Chưa có nhóm" value={String(ungroupedCount)} />
-      </div>
+    <div className="max-w-5xl">
+      <h2 className="mb-4 text-base font-black uppercase tracking-wide text-slate-800">Đề bài</h2>
+      <ExerciseMarkdownContent value={stripProjectSubmissionNotes(data.exercise.description)} />
     </div>
   )
 }
@@ -758,15 +739,6 @@ function GradingTab({
   )
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="grid grid-cols-2 border-b border-slate-200 bg-slate-50">
-      <div className="px-3 py-2 font-semibold text-slate-600">{label}:</div>
-      <div className="px-3 py-2 font-bold text-slate-800">{value}</div>
-    </div>
-  )
-}
-
 function downloadExcelTable(fileName: string, sheetName: string, rows: string[][]) {
   const htmlRows = rows
     .map(
@@ -826,12 +798,6 @@ function formatProjectScore(value: number) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   })
-}
-
-function difficultyLabel(difficulty: ProjectWorkspace['exercise']['difficulty']) {
-  if (difficulty === 'hard') return 'Khó'
-  if (difficulty === 'medium') return 'Trung bình'
-  return 'Dễ'
 }
 
 function formatDateTime(value: string) {

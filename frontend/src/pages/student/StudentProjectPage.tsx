@@ -4,6 +4,8 @@ import { api } from '../../lib/api'
 import { PageLoader, Spinner } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
+import { ExerciseMarkdownContent } from '../../components/exercise/ExerciseDescriptionEditor'
+import { stripProjectSubmissionNotes } from '../../utils/projectDescription'
 
 type TabKey = 'description' | 'submission' | 'groups' | 'discussion'
 
@@ -331,7 +333,6 @@ export function StudentProjectPage() {
             onMemberExternalId={updateMemberExternalId}
             onChooseLeader={chooseLeader}
             onContribution={updateContribution}
-            onValidateRepositoryUrl={() => validateRepositoryUrl(true)}
             onSubmit={saveSubmission}
           />
         )}
@@ -344,17 +345,9 @@ export function StudentProjectPage() {
 
 function DescriptionTab({ data }: { data: StudentProjectWorkspace }) {
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_280px]">
-      <div className="prose max-w-none prose-slate">
-        <h2>Đề bài</h2>
-        <div className="whitespace-pre-line text-sm leading-7 text-slate-700">{data.exercise.description}</div>
-      </div>
-      <div className="space-y-1 text-sm">
-        <InfoRow label="Mức độ" value={difficultyLabel[data.exercise.difficulty]} />
-        <InfoRow label="Tổng số nhóm" value={String(data.stats.totalGroups)} />
-        <InfoRow label="Nhóm đã nộp" value={String(data.stats.submittedGroups)} />
-        <InfoRow label="Nhóm đã chấm" value={String(data.stats.gradedGroups)} />
-      </div>
+    <div className="max-w-5xl">
+      <h2 className="mb-4 text-base font-black uppercase tracking-wide text-slate-800">Đề bài</h2>
+      <ExerciseMarkdownContent value={stripProjectSubmissionNotes(data.exercise.description)} />
     </div>
   )
 }
@@ -374,7 +367,6 @@ function SubmissionTab({
   onMemberExternalId,
   onChooseLeader,
   onContribution,
-  onValidateRepositoryUrl,
   onSubmit,
 }: {
   data: StudentProjectWorkspace
@@ -391,7 +383,6 @@ function SubmissionTab({
   onMemberExternalId: (rowId: string, value: string) => void
   onChooseLeader: (rowId: string) => void
   onContribution: (rowId: string, value: number) => void
-  onValidateRepositoryUrl: () => void
   onSubmit: (event: React.FormEvent) => void
 }) {
   const myGroup = data.myGroup
@@ -496,35 +487,30 @@ function SubmissionTab({
         </div>
         <div>
           <label className="label">URL GitHub bài tập lớn</label>
-          <div className="flex gap-2">
-            <input
-              value={repositoryUrl}
-              onChange={(event) => onRepositoryUrl(event.target.value)}
-              className="input"
-              placeholder="https://github.com/owner/repository"
-              required
-              disabled={!canEdit}
-            />
-            <button type="button" onClick={onValidateRepositoryUrl} disabled={!canEdit} className="btn-secondary whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-60">
-              Kiểm tra
-            </button>
-          </div>
+          <input
+            value={repositoryUrl}
+            onChange={(event) => onRepositoryUrl(event.target.value)}
+            className="input"
+            placeholder="https://github.com/owner/repository"
+            required
+            disabled={!canEdit}
+          />
         </div>
       </div>
 
       <div className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
         <p className="font-black text-danger-600">Chú ý:</p>
         <ol className="mt-1 list-decimal space-y-1 pl-5">
-          <li>Cần đăng nhập GitHub và đảm bảo URL repository truy cập được với tài khoản oasis-uet.</li>
+          <li>Repository phải để private và đã gửi invite collaborator cho tài khoản oasis-uet.</li>
           <li>
             Không đẩy thư mục <InlineCode>.idea</InlineCode>, <InlineCode>target</InlineCode>, <InlineCode>out</InlineCode> lên repository.
           </li>
-          <li>Repository để private, thêm tài khoản oasis-uet làm collaborator.</li>
+          <li>Khi bấm Lưu bài nộp, hệ thống sẽ tự nhận invitation và kiểm tra quyền truy cập repository.</li>
         </ol>
       </div>
 
       <button type="submit" disabled={saving || !data.exercise.allowSubmission || !canEdit} className="btn-primary">
-        {saving ? <><Spinner /> Đang lưu...</> : 'Lưu bài nộp'}
+        {saving ? <><Spinner /> Đang kiểm tra...</> : 'Lưu bài nộp'}
       </button>
     </form>
   )
