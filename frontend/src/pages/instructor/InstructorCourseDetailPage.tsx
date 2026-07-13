@@ -399,7 +399,7 @@ function WeekPanel({
                       to={`/instructor/classes/${sectionId}/projects/${ex.exerciseId}`}
                       className="rounded bg-primary-50 px-2 py-1 text-[10px] font-bold uppercase text-primary hover:bg-primary-100"
                     >
-                      Quản lý BTL
+                      BTL
                     </Link>
                   )}
                 </div>

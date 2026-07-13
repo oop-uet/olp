@@ -37,6 +37,20 @@ interface ProjectGroup {
   members: ProjectMember[]
 }
 
+interface ProjectStudentScore {
+  studentExternalId: string
+  studentName: string
+  username: string
+  groupId: string | null
+  groupName: string | null
+  repositoryUrl: string | null
+  isLeader: boolean
+  contributionPercent: number
+  groupScore: number | null
+  personalScore: number | null
+  status: 'draft' | 'submitted' | 'graded' | 'ungrouped'
+}
+
 interface ProjectWorkspace {
   section: { id: string; name: string; semester: string }
   exercise: {
@@ -48,6 +62,7 @@ interface ProjectWorkspace {
   }
   groups: ProjectGroup[]
   students: ProjectStudent[]
+  studentScores: ProjectStudentScore[]
   stats: {
     totalGroups: number
     totalStudents: number
@@ -68,11 +83,11 @@ interface GroupFormState {
 
 const tabs: Array<{ key: TabKey; label: string }> = [
   { key: 'description', label: 'Mô tả' },
-  { key: 'groups', label: 'Danh sách nhóm BTL' },
+  { key: 'groups', label: 'Danh sách nhóm' },
   { key: 'stats', label: 'Thống kê' },
   { key: 'history', label: 'Lịch sử' },
   { key: 'discussion', label: 'Thảo luận' },
-  { key: 'grading', label: 'Chấm điểm' },
+  { key: 'grading', label: 'Chấm điểm nhóm' },
 ]
 
 export function ProjectAssignmentPage() {
@@ -191,10 +206,11 @@ export function ProjectAssignmentPage() {
 
   async function gradeGroup(group: ProjectGroup, score: number, feedback: string) {
     if (!sectionId || !exerciseId) return
+    const normalizedScore = Math.min(10, Math.max(0, Number.isFinite(score) ? score : 0))
     setGradingGroupId(group.id)
     try {
       await api.patch(`/api/instructor/sections/${sectionId}/projects/${exerciseId}/groups/${group.id}/grade`, {
-        score,
+        score: normalizedScore,
         feedback,
       })
       toast.success('Đã lưu điểm nhóm.')
@@ -228,6 +244,29 @@ export function ProjectAssignmentPage() {
     link.download = `${formatSectionDisplayName(data.section.name)}-${data.exercise.title}-groups.csv`
     link.click()
     URL.revokeObjectURL(url)
+  }
+
+  function exportStudentStatsExcel(workspace: ProjectWorkspace) {
+    const rows = [
+      ['STT', 'MSSV', 'Họ tên', 'Nhóm', 'Vai trò', 'Đóng góp (%)', 'Điểm nhóm', 'Điểm cá nhân', 'URL bài nộp', 'Trạng thái'],
+      ...workspace.studentScores.map((student, index) => [
+        String(index + 1),
+        student.studentExternalId,
+        student.studentName,
+        student.groupName || 'Chưa có nhóm',
+        student.isLeader ? 'Trưởng nhóm' : student.groupName ? 'Thành viên' : '',
+        String(student.contributionPercent),
+        student.groupScore == null ? '' : String(student.groupScore),
+        student.personalScore == null ? '' : String(student.personalScore),
+        student.repositoryUrl || '',
+        projectStatusLabel(student.status),
+      ]),
+    ]
+    downloadExcelTable(
+      `${formatSectionDisplayName(workspace.section.name)}-${workspace.exercise.title}-thong-ke-btl.xls`,
+      'Thong ke BTL',
+      rows
+    )
   }
 
   if (loading) return <PageLoader label="Đang tải bài tập lớn..." />
@@ -285,7 +324,7 @@ export function ProjectAssignmentPage() {
             onExport={exportCsv}
           />
         )}
-        {activeTab === 'stats' && <StatsTab data={data} />}
+        {activeTab === 'stats' && <StatsTab data={data} onExport={() => exportStudentStatsExcel(data)} />}
         {activeTab === 'history' && <HistoryTab data={data} />}
         {activeTab === 'discussion' && <DiscussionTab />}
         {activeTab === 'grading' && (
@@ -529,7 +568,7 @@ function ProjectGroupTable({
                   )}
                 </td>
                 <td className="px-4 py-4 align-top">
-                  {group.score == null ? <span className="text-slate-400">Chưa chấm</span> : <strong>{group.score}/100</strong>}
+                  {group.score == null ? <span className="text-slate-400">Chưa chấm</span> : <strong>{group.score}/10</strong>}
                 </td>
                 <td className="px-4 py-4 text-right align-top">
                   <button onClick={() => onEdit(group)} className="mr-3 text-sm font-semibold text-primary hover:text-primary-700">Sửa</button>
@@ -544,7 +583,7 @@ function ProjectGroupTable({
   )
 }
 
-function StatsTab({ data }: { data: ProjectWorkspace }) {
+function StatsTab({ data, onExport }: { data: ProjectWorkspace; onExport: () => void }) {
   const rows = [
     ['Tổng số sinh viên', data.stats.totalStudents],
     ['Sinh viên đã có nhóm', data.stats.studentsInGroups],
@@ -554,13 +593,61 @@ function StatsTab({ data }: { data: ProjectWorkspace }) {
     ['Điểm trung bình', data.stats.averageScore],
   ]
   return (
-    <div className="grid gap-4 md:grid-cols-3">
-      {rows.map(([label, value]) => (
-        <div key={label} className="rounded-lg border border-slate-200 bg-slate-50 p-5">
-          <div className="text-sm font-semibold text-slate-500">{label}</div>
-          <div className="mt-2 text-3xl font-bold text-slate-900">{value}</div>
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="grid flex-1 gap-4 md:grid-cols-3">
+          {rows.map(([label, value]) => (
+            <div key={label} className="rounded-lg border border-slate-200 bg-slate-50 p-5">
+              <div className="text-sm font-semibold text-slate-500">{label}</div>
+              <div className="mt-2 text-3xl font-bold text-slate-900">{value}</div>
+            </div>
+          ))}
         </div>
-      ))}
+        <button onClick={onExport} className="btn-primary whitespace-nowrap">Xuất Excel</button>
+      </div>
+
+      <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+        Điểm cá nhân = min(10, điểm nhóm × % đóng góp × số thành viên / 100). BTL được thống kê riêng và không cộng vào tổng điểm bài tập thực hành.
+      </div>
+
+      <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <table className="min-w-full divide-y divide-slate-200 text-sm">
+          <thead className="bg-slate-50">
+            <tr className="text-left text-slate-700">
+              <th className="px-4 py-3">STT</th>
+              <th className="px-4 py-3">MSSV</th>
+              <th className="px-4 py-3">Họ tên</th>
+              <th className="px-4 py-3">Nhóm</th>
+              <th className="px-4 py-3">Vai trò</th>
+              <th className="px-4 py-3">Đóng góp</th>
+              <th className="px-4 py-3">Điểm nhóm</th>
+              <th className="px-4 py-3">Điểm cá nhân</th>
+              <th className="px-4 py-3">Trạng thái</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 bg-white">
+            {data.studentScores.map((student, index) => (
+              <tr key={student.studentExternalId}>
+                <td className="px-4 py-3">{index + 1}</td>
+                <td className="px-4 py-3 font-semibold text-sky-700">{student.studentExternalId}</td>
+                <td className="px-4 py-3 font-semibold text-slate-800">{student.studentName}</td>
+                <td className="px-4 py-3">{student.groupName || <span className="text-slate-400">Chưa có nhóm</span>}</td>
+                <td className="px-4 py-3">{student.isLeader ? 'Trưởng nhóm' : student.groupName ? 'Thành viên' : '—'}</td>
+                <td className="px-4 py-3">{student.groupName ? `${student.contributionPercent}%` : '—'}</td>
+                <td className="px-4 py-3">{student.groupScore == null ? '—' : `${student.groupScore}/10`}</td>
+                <td className="px-4 py-3">
+                  {student.personalScore == null ? (
+                    <span className="text-slate-400">Chưa có điểm</span>
+                  ) : (
+                    <strong className="text-primary">{student.personalScore}/10</strong>
+                  )}
+                </td>
+                <td className="px-4 py-3">{projectStatusLabel(student.status)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
@@ -583,7 +670,7 @@ function HistoryTab({ data }: { data: ProjectWorkspace }) {
               <td className="px-4 py-3 text-slate-600">{formatDateTime(item.at)}</td>
               <td className="px-4 py-3 font-semibold text-slate-800">{item.groupName}</td>
               <td className="px-4 py-3">{item.action}</td>
-              <td className="px-4 py-3">{item.score == null ? '—' : `${item.score}/100`}</td>
+              <td className="px-4 py-3">{item.score == null ? '—' : `${item.score}/10`}</td>
             </tr>
           ))}
         </tbody>
@@ -639,13 +726,14 @@ function GradingTab({
               <input
                 type="number"
                 min={0}
-                max={100}
+                max={10}
+                step={0.1}
                 value={draft.score}
                 onChange={(event) =>
                   setDrafts((prev) => ({ ...prev, [group.id]: { ...draft, score: event.target.value } }))
                 }
                 className="input"
-                placeholder="Điểm"
+                placeholder="Điểm /10"
               />
               <input
                 value={draft.feedback}
@@ -677,6 +765,52 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <div className="px-3 py-2 font-bold text-slate-800">{value}</div>
     </div>
   )
+}
+
+function downloadExcelTable(fileName: string, sheetName: string, rows: string[][]) {
+  const htmlRows = rows
+    .map(
+      (row) =>
+        `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`
+    )
+    .join('')
+  const html = `
+    <html>
+      <head>
+        <meta charset="UTF-8" />
+        <style>
+          table { border-collapse: collapse; }
+          td { border: 1px solid #d1d5db; padding: 6px; mso-number-format:"\\@"; }
+        </style>
+      </head>
+      <body>
+        <table><caption>${escapeHtml(sheetName)}</caption>${htmlRows}</table>
+      </body>
+    </html>
+  `
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
+function projectStatusLabel(status: ProjectStudentScore['status']) {
+  if (status === 'graded') return 'Đã chấm'
+  if (status === 'submitted') return 'Đã nộp URL'
+  if (status === 'draft') return 'Chưa nộp URL'
+  return 'Chưa có nhóm'
 }
 
 function difficultyLabel(difficulty: ProjectWorkspace['exercise']['difficulty']) {

@@ -65,12 +65,14 @@ export async function getProjectWorkspace(
     gradedGroups.length === 0
       ? 0
       : gradedGroups.reduce((sum, group) => sum + (group.score ?? 0), 0) / gradedGroups.length;
+  const studentScores = buildProjectStudentScores(students, groups);
 
   return {
     section: assignment.section,
     exercise: assignment.exercise,
     groups,
     students,
+    studentScores,
     stats: {
       totalGroups: groups.length,
       totalStudents: students.length,
@@ -160,6 +162,15 @@ export async function saveStudentProjectGroup(
 
   const currentStudent = workspace.currentStudent;
   const existingGroup = workspace.myGroup;
+  if (
+    existingGroup &&
+    !existingGroup.members.some(
+      (member) => member.studentExternalId === currentStudent.studentExternalId && member.isLeader
+    )
+  ) {
+    return { error: { code: "FORBIDDEN", message: "Chỉ trưởng nhóm được cập nhật thông tin BTL." } };
+  }
+
   const normalizedInput = {
     ...input,
     members: ensureCurrentStudentMember(input.members ?? [], currentStudent.studentExternalId),
@@ -253,9 +264,10 @@ export async function gradeProjectGroup(
   database: Database = defaultDb
 ) {
   await ensureProjectTablesReady(database);
-  if (!Number.isFinite(input.score) || input.score < 0 || input.score > 100) {
-    return { error: { code: "VALIDATION_ERROR", message: "Điểm phải nằm trong khoảng 0-100." } };
+  if (!Number.isFinite(input.score) || input.score < 0) {
+    return { error: { code: "VALIDATION_ERROR", message: "Điểm phải lớn hơn hoặc bằng 0." } };
   }
+  const normalizedScore = Math.min(10, Number(input.score.toFixed(2)));
 
   const existing = await database.query.projectGroups.findFirst({
     where: and(eq(projectGroups.id, groupId), eq(projectGroups.sectionId, sectionId)),
@@ -268,7 +280,7 @@ export async function gradeProjectGroup(
   await database
     .update(projectGroups)
     .set({
-      score: input.score,
+      score: normalizedScore,
       feedback: input.feedback?.trim() || null,
       status: "graded",
       gradedAt: now,
@@ -490,6 +502,65 @@ async function replaceGroupMembers(
 function normalizeContribution(value?: number) {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.min(100, Math.round(value ?? 0)));
+}
+
+function buildProjectStudentScores(
+  students: Awaited<ReturnType<typeof listSectionStudents>>,
+  groups: Awaited<ReturnType<typeof listProjectGroups>>
+) {
+  const membershipByStudent = new Map<
+    string,
+    {
+      group: Awaited<ReturnType<typeof getProjectGroup>>;
+      member: Awaited<ReturnType<typeof getProjectGroup>>["members"][number];
+    }
+  >();
+
+  for (const group of groups) {
+    for (const member of group.members) {
+      membershipByStudent.set(member.studentExternalId, { group, member });
+    }
+  }
+
+  return students.map((student) => {
+    const membership = membershipByStudent.get(student.studentExternalId);
+    if (!membership) {
+      return {
+        studentExternalId: student.studentExternalId,
+        studentName: student.fullName,
+        username: student.username,
+        groupId: null,
+        groupName: null,
+        repositoryUrl: null,
+        isLeader: false,
+        contributionPercent: 0,
+        groupScore: null,
+        personalScore: null,
+        status: "ungrouped",
+      };
+    }
+
+    const { group, member } = membership;
+    const memberCount = Math.max(1, group.members.length);
+    const rawPersonalScore =
+      group.score == null
+        ? null
+        : group.score * (member.contributionPercent / 100) * memberCount;
+
+    return {
+      studentExternalId: student.studentExternalId,
+      studentName: student.fullName,
+      username: student.username,
+      groupId: group.id,
+      groupName: group.name,
+      repositoryUrl: group.repositoryUrl,
+      isLeader: member.isLeader,
+      contributionPercent: member.contributionPercent,
+      groupScore: group.score,
+      personalScore: rawPersonalScore == null ? null : Math.min(10, Number(rawPersonalScore.toFixed(2))),
+      status: group.status,
+    };
+  });
 }
 
 async function ensureProjectTablesReady(database: Database = defaultDb) {

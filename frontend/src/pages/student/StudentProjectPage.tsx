@@ -70,7 +70,7 @@ interface MemberDraft {
 const tabs: Array<{ key: TabKey; label: string }> = [
   { key: 'description', label: 'Mô tả' },
   { key: 'submission', label: 'Bài nộp' },
-  { key: 'groups', label: 'Danh sách nhóm BTL' },
+  { key: 'groups', label: 'Danh sách nhóm' },
   { key: 'discussion', label: 'Thảo luận' },
 ]
 
@@ -135,6 +135,12 @@ export function StudentProjectPage() {
     () => new Map((data?.students ?? []).map((student) => [student.studentExternalId, student])),
     [data?.students]
   )
+  const canEditSubmission = useMemo(() => {
+    if (!data?.myGroup) return true
+    return data.myGroup.members.some(
+      (member) => member.studentExternalId === data.currentStudent.studentExternalId && member.isLeader
+    )
+  }, [data])
 
   function addMemberRow() {
     setMemberRows((prev) => [
@@ -317,6 +323,7 @@ export function StudentProjectPage() {
             memberRows={memberRows}
             studentByExternalId={studentByExternalId}
             saving={saving}
+            canEdit={canEditSubmission}
             onGroupName={setGroupName}
             onRepositoryUrl={setRepositoryUrl}
             onAddMember={addMemberRow}
@@ -365,6 +372,7 @@ function SubmissionTab({
   memberRows,
   studentByExternalId,
   saving,
+  canEdit,
   onGroupName,
   onRepositoryUrl,
   onAddMember,
@@ -381,6 +389,7 @@ function SubmissionTab({
   memberRows: MemberDraft[]
   studentByExternalId: Map<string, ProjectStudent>
   saving: boolean
+  canEdit: boolean
   onGroupName: (value: string) => void
   onRepositoryUrl: (value: string) => void
   onAddMember: () => void
@@ -394,15 +403,21 @@ function SubmissionTab({
   const myGroup = data.myGroup
   return (
     <form onSubmit={onSubmit} className="space-y-6">
+      {!canEdit && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+          Chỉ trưởng nhóm được cập nhật URL bài nộp và phần trăm đóng góp. Bạn vẫn có thể xem thông tin nhóm ở tab Danh sách nhóm.
+        </div>
+      )}
+
       {myGroup?.status === 'graded' && (
         <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4">
-          <p className="font-bold text-emerald-800">Nhóm đã được chấm: {myGroup.score}/100</p>
+          <p className="font-bold text-emerald-800">Nhóm đã được chấm: {myGroup.score}/10</p>
           {myGroup.feedback && <p className="mt-1 text-sm text-emerald-700">{myGroup.feedback}</p>}
         </div>
       )}
 
       <div className="space-y-3">
-        <button type="button" onClick={onAddMember} className="btn-secondary">
+        <button type="button" onClick={onAddMember} disabled={!canEdit} className="btn-secondary disabled:cursor-not-allowed disabled:opacity-60">
           + Thêm thành viên
         </button>
       <div className="rounded-lg border border-slate-200">
@@ -427,6 +442,7 @@ function SubmissionTab({
                     <button
                       type="button"
                       onClick={() => onRemoveMember(row.id)}
+                      disabled={!canEdit}
                       className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-rose-100 text-sm font-black text-rose-600 hover:bg-rose-200"
                       title="Xóa thành viên"
                     >
@@ -437,6 +453,7 @@ function SubmissionTab({
                     <input
                       value={row.studentExternalId}
                       onChange={(event) => onMemberExternalId(row.id, event.target.value)}
+                      disabled={!canEdit}
                       className={`input h-10 ${hasLookupError ? 'border-rose-300 bg-rose-50' : ''}`}
                       placeholder="Nhập MSSV"
                     />
@@ -456,6 +473,7 @@ function SubmissionTab({
                       name="project-leader"
                       checked={row.isLeader}
                       onChange={() => onChooseLeader(row.id)}
+                      disabled={!canEdit}
                     />
                   </td>
                   <td className="px-4 py-2">
@@ -465,6 +483,7 @@ function SubmissionTab({
                       max={100}
                       value={row.contributionPercent ?? (index === 0 ? 100 : 0)}
                       onChange={(event) => onContribution(row.id, Number(event.target.value))}
+                      disabled={!canEdit}
                       className="input h-9 w-24"
                     />
                   </td>
@@ -479,7 +498,7 @@ function SubmissionTab({
       <div className="grid gap-4">
         <div>
           <label className="label">Tên nhóm</label>
-          <input value={groupName} onChange={(event) => onGroupName(event.target.value)} className="input" required />
+          <input value={groupName} onChange={(event) => onGroupName(event.target.value)} className="input" required disabled={!canEdit} />
         </div>
         <div>
           <label className="label">URL GitHub bài tập lớn</label>
@@ -490,8 +509,9 @@ function SubmissionTab({
               className="input"
               placeholder="https://github.com/owner/repository"
               required
+              disabled={!canEdit}
             />
-            <button type="button" onClick={onValidateRepositoryUrl} className="btn-secondary whitespace-nowrap">
+            <button type="button" onClick={onValidateRepositoryUrl} disabled={!canEdit} className="btn-secondary whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-60">
               Kiểm tra
             </button>
           </div>
@@ -507,7 +527,7 @@ function SubmissionTab({
         </ol>
       </div>
 
-      <button type="submit" disabled={saving || !data.exercise.allowSubmission} className="btn-primary">
+      <button type="submit" disabled={saving || !data.exercise.allowSubmission || !canEdit} className="btn-primary">
         {saving ? <><Spinner /> Đang lưu...</> : 'Lưu bài nộp'}
       </button>
     </form>
@@ -558,7 +578,7 @@ function GroupsTab({ groups }: { groups: ProjectGroup[] }) {
                   )}
                 </td>
                 <td className="px-4 py-4">
-                  {group.score == null ? <span className="text-slate-400">Chưa chấm</span> : <strong>{group.score}/100</strong>}
+                  {group.score == null ? <span className="text-slate-400">Chưa chấm</span> : <strong>{group.score}/10</strong>}
                 </td>
               </tr>
             ))

@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db as defaultDb } from "../db/index.js";
-import { submissions, sectionEnrollments, users, exerciseAssignments } from "../db/schema.js";
+import { submissions, sectionEnrollments, users, exerciseAssignments, exercises } from "../db/schema.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -181,14 +181,47 @@ export async function getLeaderboard(
 
   // Get total exercises assigned to this section to calculate max possible score
   const assignments = await database
-    .select()
+    .select({
+      title: exercises.title,
+      oopTags: exercises.oopTags,
+    })
     .from(exerciseAssignments)
+    .innerJoin(exercises, eq(exerciseAssignments.exerciseId, exercises.id))
     .where(eq(exerciseAssignments.sectionId, sectionId));
-  const maxPossibleScore = assignments.length * 100;
+  const maxPossibleScore = assignments.filter((assignment) => !isProjectExercise(assignment.title, assignment.oopTags)).length * 100;
 
   const leaderboard = computeLeaderboard(studentInfos, sectionSubmissions);
 
   return { leaderboard, maxPossibleScore };
+}
+
+function normalizeProjectMarker(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function isProjectExercise(title: string | undefined, tags: string | null | undefined): boolean {
+  const normalizedTitle = normalizeProjectMarker(title ?? "");
+  if (
+    normalizedTitle.includes("bai tap lon") ||
+    normalizedTitle.includes("btl") ||
+    normalizedTitle.includes("project")
+  ) {
+    return true;
+  }
+
+  try {
+    const parsed = JSON.parse(tags ?? "[]");
+    if (!Array.isArray(parsed)) return false;
+    return parsed.some((tag) => {
+      const normalizedTag = normalizeProjectMarker(String(tag));
+      return normalizedTag === "project" || normalizedTag === "btl" || normalizedTag === "bai tap lon";
+    });
+  } catch {
+    return false;
+  }
 }
 
 /**
