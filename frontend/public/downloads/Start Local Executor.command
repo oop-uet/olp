@@ -12,6 +12,14 @@ find_java() {
     return 0
   fi
 
+  if command -v java >/dev/null 2>&1; then
+    while IFS= read -r candidate; do
+      if try_java "$candidate"; then
+        return 0
+      fi
+    done < <(which -a java 2>/dev/null)
+  fi
+
   local candidates=(
     "$HOME/.jdks"/*
     "$HOME/Library/Java/JavaVirtualMachines"/*/Contents/Home
@@ -33,12 +41,30 @@ find_java() {
     fi
   done
 
-  if command -v java >/dev/null 2>&1; then
-    while IFS= read -r candidate; do
-      if try_java "$candidate"; then
-        return 0
-      fi
-    done < <(which -a java 2>/dev/null)
+  return 1
+}
+
+detect_java_home() {
+  local direct_home runtime_home mac_home
+
+  direct_home="$(cd "$(dirname "$JAVA_CMD")/.." && pwd)"
+  if [ "$direct_home" != "/usr" ] && [ -x "$direct_home/bin/javac" ]; then
+    echo "$direct_home"
+    return 0
+  fi
+
+  if [ -x /usr/libexec/java_home ]; then
+    mac_home="$(/usr/libexec/java_home -v 17 2>/dev/null || true)"
+    if [ -n "$mac_home" ] && [ -x "$mac_home/bin/javac" ]; then
+      echo "$mac_home"
+      return 0
+    fi
+  fi
+
+  runtime_home="$("$JAVA_CMD" -XshowSettings:properties -version 2>&1 | awk -F'= ' '/java.home =/ {print $2; exit}')"
+  if [ -n "$runtime_home" ] && [ -x "$runtime_home/bin/javac" ]; then
+    echo "$runtime_home"
+    return 0
   fi
 
   return 1
@@ -95,17 +121,21 @@ if ! find_java; then
   exit 1
 fi
 
-export JAVA_HOME="$(cd "$(dirname "$JAVA_CMD")/.." && pwd)"
+if DETECTED_JAVA_HOME="$(detect_java_home)"; then
+  export JAVA_HOME="$DETECTED_JAVA_HOME"
+else
+  unset JAVA_HOME
+fi
 
 echo "Dang khoi dong Local Executor tai ws://127.0.0.1:9876"
 echo "Giu cua so nay mo trong luc lam bai."
 echo "Nhan Ctrl+C de dung."
 echo ""
 echo "Dang dung Java: $JAVA_CMD"
-echo "JAVA_HOME tam thoi: $JAVA_HOME"
+echo "JAVA_HOME tam thoi: ${JAVA_HOME:-khong dat}"
 echo ""
 
-"$JAVA_CMD" -jar "$JAR_NAME"
+"$JAVA_CMD" -jar "$(pwd)/$JAR_NAME"
 
 echo ""
 read -r -p "Local Executor da dung. Nhan Enter de dong cua so..."
