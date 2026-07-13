@@ -61,7 +61,8 @@ interface StudentProjectWorkspace {
 }
 
 interface MemberDraft {
-  selected: boolean
+  id: string
+  studentExternalId: string
   isLeader: boolean
   contributionPercent: number
 }
@@ -87,7 +88,7 @@ export function StudentProjectPage() {
   const [saving, setSaving] = useState(false)
   const [groupName, setGroupName] = useState('')
   const [repositoryUrl, setRepositoryUrl] = useState('')
-  const [members, setMembers] = useState<Record<string, MemberDraft>>({})
+  const [memberRows, setMemberRows] = useState<MemberDraft[]>([])
 
   useEffect(() => {
     fetchWorkspace()
@@ -108,69 +109,79 @@ export function StudentProjectPage() {
   }
 
   function hydrateForm(workspace: StudentProjectWorkspace) {
-    const nextMembers: Record<string, MemberDraft> = {}
     const myGroup = workspace.myGroup
-    for (const student of workspace.students) {
-      const existing = myGroup?.members.find((member) => member.studentExternalId === student.studentExternalId)
-      const isCurrent = student.studentExternalId === workspace.currentStudent.studentExternalId
-      nextMembers[student.studentExternalId] = {
-        selected: Boolean(existing) || isCurrent,
-        isLeader: Boolean(existing?.isLeader) || (!myGroup && isCurrent),
-        contributionPercent: existing?.contributionPercent ?? (isCurrent ? 100 : 0),
-      }
-    }
+    const rows: MemberDraft[] =
+      myGroup?.members.length
+        ? myGroup.members.map((member, index) => ({
+            id: `${member.studentExternalId}-${index}`,
+            studentExternalId: member.studentExternalId,
+            isLeader: member.isLeader,
+            contributionPercent: member.contributionPercent,
+          }))
+        : [
+            {
+              id: `${workspace.currentStudent.studentExternalId}-self`,
+              studentExternalId: workspace.currentStudent.studentExternalId,
+              isLeader: true,
+              contributionPercent: 100,
+            },
+          ]
     setGroupName(myGroup?.name ?? '')
     setRepositoryUrl(myGroup?.repositoryUrl ?? '')
-    setMembers(nextMembers)
+    setMemberRows(rows)
   }
 
-  const selectedMembers = useMemo(
-    () =>
-      Object.entries(members)
-        .filter(([, member]) => member.selected)
-        .map(([studentExternalId, member]) => ({ studentExternalId, ...member })),
-    [members]
+  const studentByExternalId = useMemo(
+    () => new Map((data?.students ?? []).map((student) => [student.studentExternalId, student])),
+    [data?.students]
   )
 
-  function toggleMember(student: ProjectStudent, selected: boolean) {
-    if (!data) return
-    if (student.studentExternalId === data.currentStudent.studentExternalId && !selected) {
-      toast.warning('Nhóm của bạn phải có chính bạn là thành viên.')
-      return
-    }
-
-    setMembers((prev) => ({
+  function addMemberRow() {
+    setMemberRows((prev) => [
       ...prev,
-      [student.studentExternalId]: {
-        ...(prev[student.studentExternalId] ?? { isLeader: false, contributionPercent: 0 }),
-        selected,
+      {
+        id: `row-${Date.now()}-${prev.length}`,
+        studentExternalId: '',
+        isLeader: prev.length === 0,
+        contributionPercent: 0,
       },
-    }))
+    ])
   }
 
-  function chooseLeader(studentExternalId: string) {
-    setMembers((prev) =>
-      Object.fromEntries(
-        Object.entries(prev).map(([key, value]) => [
-          key,
-          {
-            ...value,
-            selected: key === studentExternalId ? true : value.selected,
-            isLeader: key === studentExternalId,
-          },
-        ])
-      )
+  function removeMemberRow(rowId: string) {
+    setMemberRows((prev) => {
+      const removed = prev.find((row) => row.id === rowId)
+      if (data && removed?.studentExternalId.trim() === data.currentStudent.studentExternalId) {
+        toast.warning('Nhóm của bạn phải có chính bạn là thành viên.')
+        return prev
+      }
+      const next = prev.filter((row) => row.id !== rowId)
+      if (!next.some((row) => row.isLeader) && next.length > 0) {
+        next[0] = { ...next[0], isLeader: true }
+      }
+      return next
+    })
+  }
+
+  function updateMemberExternalId(rowId: string, studentExternalId: string) {
+    setMemberRows((prev) =>
+      prev.map((row) => (row.id === rowId ? { ...row, studentExternalId } : row))
     )
   }
 
-  function updateContribution(studentExternalId: string, contributionPercent: number) {
-    setMembers((prev) => ({
-      ...prev,
-      [studentExternalId]: {
-        ...(prev[studentExternalId] ?? { selected: true, isLeader: false }),
-        contributionPercent,
-      },
-    }))
+  function chooseLeader(rowId: string) {
+    setMemberRows((prev) =>
+      prev.map((row) => ({
+        ...row,
+        isLeader: row.id === rowId,
+      }))
+    )
+  }
+
+  function updateContribution(rowId: string, contributionPercent: number) {
+    setMemberRows((prev) =>
+      prev.map((row) => (row.id === rowId ? { ...row, contributionPercent } : row))
+    )
   }
 
   function validateRepositoryUrl(showToast = true) {
@@ -198,13 +209,34 @@ export function StudentProjectPage() {
       toast.warning('URL GitHub chưa hợp lệ.')
       return
     }
+    const filledRows = memberRows
+      .map((row) => ({ ...row, studentExternalId: row.studentExternalId.trim() }))
+      .filter((row) => row.studentExternalId)
+    if (filledRows.length === 0) {
+      toast.warning('Vui lòng nhập ít nhất một MSSV thành viên.')
+      return
+    }
+    const invalidRow = filledRows.find((row) => !studentByExternalId.has(row.studentExternalId))
+    if (invalidRow) {
+      toast.warning(`MSSV ${invalidRow.studentExternalId} không thuộc lớp này.`)
+      return
+    }
+    const uniqueIds = new Set(filledRows.map((row) => row.studentExternalId))
+    if (uniqueIds.size !== filledRows.length) {
+      toast.warning('Danh sách thành viên bị trùng MSSV.')
+      return
+    }
+    if (!filledRows.some((row) => row.isLeader)) {
+      toast.warning('Vui lòng chọn trưởng nhóm.')
+      return
+    }
 
     setSaving(true)
     try {
       await api.put(`/api/students/sections/${sectionId}/projects/${exerciseId}/my-group`, {
         name: groupName,
         repository_url: repositoryUrl,
-        members: selectedMembers.map((member) => ({
+        members: filledRows.map((member) => ({
           student_external_id: member.studentExternalId,
           is_leader: member.isLeader,
           contribution_percent: member.contributionPercent,
@@ -282,11 +314,14 @@ export function StudentProjectPage() {
             data={data}
             groupName={groupName}
             repositoryUrl={repositoryUrl}
-            members={members}
+            memberRows={memberRows}
+            studentByExternalId={studentByExternalId}
             saving={saving}
             onGroupName={setGroupName}
             onRepositoryUrl={setRepositoryUrl}
-            onToggleMember={toggleMember}
+            onAddMember={addMemberRow}
+            onRemoveMember={removeMemberRow}
+            onMemberExternalId={updateMemberExternalId}
             onChooseLeader={chooseLeader}
             onContribution={updateContribution}
             onValidateRepositoryUrl={() => validateRepositoryUrl(true)}
@@ -327,11 +362,14 @@ function SubmissionTab({
   data,
   groupName,
   repositoryUrl,
-  members,
+  memberRows,
+  studentByExternalId,
   saving,
   onGroupName,
   onRepositoryUrl,
-  onToggleMember,
+  onAddMember,
+  onRemoveMember,
+  onMemberExternalId,
   onChooseLeader,
   onContribution,
   onValidateRepositoryUrl,
@@ -340,13 +378,16 @@ function SubmissionTab({
   data: StudentProjectWorkspace
   groupName: string
   repositoryUrl: string
-  members: Record<string, MemberDraft>
+  memberRows: MemberDraft[]
+  studentByExternalId: Map<string, ProjectStudent>
   saving: boolean
   onGroupName: (value: string) => void
   onRepositoryUrl: (value: string) => void
-  onToggleMember: (student: ProjectStudent, selected: boolean) => void
-  onChooseLeader: (studentExternalId: string) => void
-  onContribution: (studentExternalId: string, value: number) => void
+  onAddMember: () => void
+  onRemoveMember: (rowId: string) => void
+  onMemberExternalId: (rowId: string, value: string) => void
+  onChooseLeader: (rowId: string) => void
+  onContribution: (rowId: string, value: number) => void
   onValidateRepositoryUrl: () => void
   onSubmit: (event: React.FormEvent) => void
 }) {
@@ -360,6 +401,10 @@ function SubmissionTab({
         </div>
       )}
 
+      <div className="space-y-3">
+        <button type="button" onClick={onAddMember} className="btn-secondary">
+          + Thêm thành viên
+        </button>
       <div className="rounded-lg border border-slate-200">
         <table className="min-w-full divide-y divide-slate-200 text-sm">
           <thead className="bg-slate-50">
@@ -372,25 +417,45 @@ function SubmissionTab({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {data.students.map((student, index) => {
-              const row = members[student.studentExternalId]
+            {memberRows.map((row, index) => {
+              const studentId = row.studentExternalId.trim()
+              const student = studentByExternalId.get(studentId)
+              const hasLookupError = studentId.length > 0 && !student
               return (
-                <tr key={student.userId}>
+                <tr key={row.id}>
+                  <td className="px-4 py-2">
+                    <button
+                      type="button"
+                      onClick={() => onRemoveMember(row.id)}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-rose-100 text-sm font-black text-rose-600 hover:bg-rose-200"
+                      title="Xóa thành viên"
+                    >
+                      -
+                    </button>
+                  </td>
                   <td className="px-4 py-2">
                     <input
-                      type="checkbox"
-                      checked={row?.selected ?? false}
-                      onChange={(event) => onToggleMember(student, event.target.checked)}
+                      value={row.studentExternalId}
+                      onChange={(event) => onMemberExternalId(row.id, event.target.value)}
+                      className={`input h-10 ${hasLookupError ? 'border-rose-300 bg-rose-50' : ''}`}
+                      placeholder="Nhập MSSV"
                     />
                   </td>
-                  <td className="px-4 py-2 font-semibold text-sky-600">{student.studentExternalId}</td>
-                  <td className="px-4 py-2 text-slate-700">{student.fullName}</td>
+                  <td className="px-4 py-2">
+                    {student ? (
+                      <span className="font-semibold text-sky-600">{student.fullName}</span>
+                    ) : hasLookupError ? (
+                      <span className="font-semibold text-rose-600">Không tìm thấy trong lớp</span>
+                    ) : (
+                      <span className="text-slate-400">Nhập MSSV để hiển thị tên</span>
+                    )}
+                  </td>
                   <td className="px-4 py-2">
                     <input
                       type="radio"
                       name="project-leader"
-                      checked={row?.isLeader ?? false}
-                      onChange={() => onChooseLeader(student.studentExternalId)}
+                      checked={row.isLeader}
+                      onChange={() => onChooseLeader(row.id)}
                     />
                   </td>
                   <td className="px-4 py-2">
@@ -398,8 +463,8 @@ function SubmissionTab({
                       type="number"
                       min={0}
                       max={100}
-                      value={row?.contributionPercent ?? (index === 0 ? 100 : 0)}
-                      onChange={(event) => onContribution(student.studentExternalId, Number(event.target.value))}
+                      value={row.contributionPercent ?? (index === 0 ? 100 : 0)}
+                      onChange={(event) => onContribution(row.id, Number(event.target.value))}
                       className="input h-9 w-24"
                     />
                   </td>
@@ -408,6 +473,7 @@ function SubmissionTab({
             })}
           </tbody>
         </table>
+      </div>
       </div>
 
       <div className="grid gap-4">
