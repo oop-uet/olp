@@ -348,12 +348,6 @@ function DescriptionTab({ data }: { data: StudentProjectWorkspace }) {
       <div className="prose max-w-none prose-slate">
         <h2>Đề bài</h2>
         <div className="whitespace-pre-line text-sm leading-7 text-slate-700">{data.exercise.description}</div>
-        <h3>Chú ý khi nộp bài</h3>
-        <ul>
-          <li>Repository phải để private và thêm tài khoản oasis-uet làm collaborator.</li>
-          <li>Không đẩy thư mục `.idea`, `target`, `out` hoặc file build lên repository.</li>
-          <li>Nhóm cần commit thường xuyên; repository chỉ có một commit cuối kỳ sẽ không được chấp nhận.</li>
-        </ul>
       </div>
       <div className="space-y-1 text-sm">
         <InfoRow label="Mức độ" value={difficultyLabel[data.exercise.difficulty]} />
@@ -522,7 +516,9 @@ function SubmissionTab({
         <p className="font-black text-danger-600">Chú ý:</p>
         <ol className="mt-1 list-decimal space-y-1 pl-5">
           <li>Cần đăng nhập GitHub và đảm bảo URL repository truy cập được với tài khoản oasis-uet.</li>
-          <li>Không đẩy thư mục `.idea`, `target`, `out` lên repository.</li>
+          <li>
+            Không đẩy thư mục <InlineCode>.idea</InlineCode>, <InlineCode>target</InlineCode>, <InlineCode>out</InlineCode> lên repository.
+          </li>
           <li>Repository để private, thêm tài khoản oasis-uet làm collaborator.</li>
         </ol>
       </div>
@@ -604,6 +600,14 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <div className="px-3 py-2 font-semibold text-slate-600">{label}:</div>
       <div className="px-3 py-2 font-bold text-slate-800">{value}</div>
     </div>
+  )
+}
+
+function InlineCode({ children }: { children: string }) {
+  return (
+    <code className="rounded border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-xs font-bold text-slate-700">
+      {children}
+    </code>
   )
 }
 
