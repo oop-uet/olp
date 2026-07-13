@@ -509,16 +509,22 @@ function GroupsTab(props: {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <button onClick={props.onExport} className="btn-secondary">Xuất File Excel</button>
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 text-sm text-slate-600">
-            Search:
-            <input value={props.search} onChange={(event) => props.onSearch(event.target.value)} className="input h-9 w-64" />
-          </label>
-          <button onClick={props.onCreate} className="btn-primary">Tạo nhóm</button>
+        <div className="flex flex-1 gap-2 max-w-md">
+          <input
+            value={props.search}
+            onChange={(event) => props.onSearch(event.target.value)}
+            className="input"
+            placeholder="Tìm kiếm nhóm, thành viên, MSSV..."
+          />
+        </div>
+        <div className="flex gap-2">
+          <button onClick={props.onExport} className="btn-secondary">Xuất Excel</button>
+          <button onClick={props.onCreate} className="btn-primary">Tạo nhóm mới</button>
         </div>
       </div>
-      <ProjectGroupTable groups={props.groups} onEdit={props.onEdit} onDelete={props.onDelete} />
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <ProjectGroupTable groups={props.groups} onEdit={props.onEdit} onDelete={props.onDelete} />
+      </div>
     </div>
   )
 }
@@ -533,61 +539,63 @@ function ProjectGroupTable({
   onDelete: (groupId: string) => void
 }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-slate-300 text-sm">
-        <thead>
-          <tr className="text-left text-slate-900">
-            <th className="px-4 py-3">STT</th>
-            <th className="px-4 py-3">Tên nhóm</th>
-            <th className="px-4 py-3">MSSV</th>
-            <th className="px-4 py-3">Thành viên</th>
-            <th className="px-4 py-3">URL bài nộp</th>
-            <th className="px-4 py-3">Điểm</th>
-            <th className="px-4 py-3 text-right">Thao tác</th>
+    <table className="min-w-full border-separate border-spacing-0 text-left">
+      <thead>
+        <tr>
+          <th className="table-th text-center w-16">STT</th>
+          <th className="table-th">Tên nhóm</th>
+          <th className="table-th">MSSV</th>
+          <th className="table-th">Thành viên</th>
+          <th className="table-th">URL bài nộp</th>
+          <th className="table-th">Điểm</th>
+          <th className="table-th text-right">Thao tác</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-slate-100 bg-white">
+        {groups.length === 0 ? (
+          <tr>
+            <td colSpan={7} className="table-td text-center text-slate-500 py-8 font-medium">Chưa có dữ liệu nhóm.</td>
           </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-200">
-          {groups.length === 0 ? (
-            <tr>
-              <td colSpan={7} className="px-4 py-8 text-center text-slate-500">Chưa có dữ liệu nhóm.</td>
+        ) : (
+          groups.map((group, index) => (
+            <tr key={group.id} className="hover:bg-slate-50/60 transition-colors">
+              <td className="table-td text-center text-slate-500 font-bold align-top">{index + 1}</td>
+              <td className="table-td font-semibold text-slate-900 align-top">{group.name}</td>
+              <td className="table-td font-semibold text-sky-600 align-top">
+                {group.members.map((member) => member.studentExternalId).join(', ')}
+              </td>
+              <td className="table-td align-top">
+                {group.members.map((member) => (
+                  <div key={member.id} className="font-semibold text-sky-600 leading-relaxed">
+                    {member.studentName} ({member.contributionPercent}%){member.isLeader ? ' · Trưởng nhóm' : ''}
+                  </div>
+                ))}
+              </td>
+              <td className="table-td align-top">
+                {group.repositoryUrl ? (
+                  <a href={group.repositoryUrl} target="_blank" rel="noreferrer" className="font-semibold text-sky-600 hover:underline">
+                    {group.repositoryUrl}
+                  </a>
+                ) : (
+                  <span className="text-slate-400 italic">Chưa nộp</span>
+                )}
+              </td>
+              <td className="table-td align-top font-semibold text-slate-600">
+                {group.score == null ? (
+                  <span className="text-slate-400 font-normal italic">Chưa chấm</span>
+                ) : (
+                  <strong className="text-primary">{formatProjectScore(group.score)}/10</strong>
+                )}
+              </td>
+              <td className="table-td text-right align-top">
+                <button onClick={() => onEdit(group)} className="mr-3 text-sm font-semibold text-primary hover:text-primary-700">Sửa</button>
+                <button onClick={() => onDelete(group.id)} className="text-sm font-semibold text-danger-600 hover:text-danger-700">Xóa nhóm</button>
+              </td>
             </tr>
-          ) : (
-            groups.map((group, index) => (
-              <tr key={group.id} className={index % 2 ? 'bg-slate-50/70' : 'bg-white'}>
-                <td className="px-4 py-4 align-top">{index + 1}</td>
-                <td className="px-4 py-4 align-top font-semibold text-slate-800">{group.name}</td>
-                <td className="px-4 py-4 align-top font-semibold text-sky-600">
-                  {group.members.map((member) => member.studentExternalId).join(', ')}
-                </td>
-                <td className="px-4 py-4 align-top">
-                  {group.members.map((member) => (
-                    <div key={member.id} className="font-semibold text-sky-600">
-                      {member.studentName} ({member.contributionPercent}%){member.isLeader ? ' · Trưởng nhóm' : ''}
-                    </div>
-                  ))}
-                </td>
-                <td className="px-4 py-4 align-top">
-                  {group.repositoryUrl ? (
-                    <a href={group.repositoryUrl} target="_blank" rel="noreferrer" className="font-semibold text-sky-600 hover:underline">
-                      {group.repositoryUrl}
-                    </a>
-                  ) : (
-                    <span className="text-slate-400">Chưa nộp</span>
-                  )}
-                </td>
-                <td className="px-4 py-4 align-top">
-                  {group.score == null ? <span className="text-slate-400">Chưa chấm</span> : <strong>{formatProjectScore(group.score)}/10</strong>}
-                </td>
-                <td className="px-4 py-4 text-right align-top">
-                  <button onClick={() => onEdit(group)} className="mr-3 text-sm font-semibold text-primary hover:text-primary-700">Sửa</button>
-                  <button onClick={() => onDelete(group.id)} className="text-sm font-semibold text-danger-600 hover:text-danger-700">Xóa nhóm</button>
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
+          ))
+        )}
+      </tbody>
+    </table>
   )
 }
 
@@ -600,87 +608,130 @@ function StatsTab({ data, onExport }: { data: ProjectWorkspace; onExport: () => 
     ['Nhóm đã chấm điểm', data.stats.gradedGroups],
     ['Điểm trung bình', data.stats.averageScore],
   ]
+
+  const [currentPage, setCurrentPage] = useState(0)
+  const pageSize = 15
+  const totalPages = Math.ceil(data.studentScores.length / pageSize)
+
+  const paginatedStudents = useMemo(() => {
+    return data.studentScores.slice(currentPage * pageSize, (currentPage + 1) * pageSize)
+  }, [data.studentScores, currentPage, pageSize])
+
+  useEffect(() => {
+    setCurrentPage(0)
+  }, [data.studentScores.length])
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="grid flex-1 gap-4 md:grid-cols-3">
           {rows.map(([label, value]) => (
-            <div key={label} className="rounded-lg border border-slate-200 bg-slate-50 p-5">
-              <div className="text-sm font-semibold text-slate-500">{label}</div>
-              <div className="mt-2 text-3xl font-bold text-slate-900">{value}</div>
+            <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-500">{label}</div>
+              <div className="mt-2 text-3xl font-black text-slate-900">{value}</div>
             </div>
           ))}
         </div>
         <button onClick={onExport} className="btn-primary whitespace-nowrap">Xuất Excel</button>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-        Điểm cá nhân = min(10, điểm nhóm × % đóng góp × số thành viên / 100). BTL được thống kê riêng và không cộng vào tổng điểm bài tập thực hành.
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs font-semibold text-amber-800 leading-relaxed">
+        💡 Điểm cá nhân = min(10, điểm nhóm × % đóng góp × số thành viên / 100). BTL được thống kê riêng và không cộng vào tổng điểm bài tập thực hành.
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200">
-        <table className="min-w-full divide-y divide-slate-200 text-sm">
-          <thead className="bg-slate-50">
-            <tr className="text-left text-slate-700">
-              <th className="px-4 py-3">STT</th>
-              <th className="px-4 py-3">MSSV</th>
-              <th className="px-4 py-3">Họ tên</th>
-              <th className="px-4 py-3">Nhóm</th>
-              <th className="px-4 py-3">Vai trò</th>
-              <th className="px-4 py-3">Đóng góp</th>
-              <th className="px-4 py-3">Điểm nhóm</th>
-              <th className="px-4 py-3">Điểm cá nhân</th>
-              <th className="px-4 py-3">Trạng thái</th>
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <table className="min-w-full border-separate border-spacing-0 text-left">
+          <thead>
+            <tr>
+              <th className="table-th text-center w-16">STT</th>
+              <th className="table-th">MSSV</th>
+              <th className="table-th">Họ tên</th>
+              <th className="table-th">Nhóm</th>
+              <th className="table-th">Vai trò</th>
+              <th className="table-th">Đóng góp</th>
+              <th className="table-th">Điểm nhóm</th>
+              <th className="table-th">Điểm cá nhân</th>
+              <th className="table-th">Trạng thái</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white">
-            {data.studentScores.map((student, index) => (
-              <tr key={student.studentExternalId}>
-                <td className="px-4 py-3">{index + 1}</td>
-                <td className="px-4 py-3 font-semibold text-sky-700">{student.studentExternalId}</td>
-                <td className="px-4 py-3 font-semibold text-slate-800">{student.studentName}</td>
-                <td className="px-4 py-3">{student.groupName || <span className="text-slate-400">Chưa có nhóm</span>}</td>
-                <td className="px-4 py-3">{student.isLeader ? 'Trưởng nhóm' : student.groupName ? 'Thành viên' : '—'}</td>
-                <td className="px-4 py-3">{student.groupName ? `${student.contributionPercent}%` : '—'}</td>
-                <td className="px-4 py-3">{student.groupScore == null ? '—' : `${formatProjectScore(student.groupScore)}/10`}</td>
-                <td className="px-4 py-3">
+            {paginatedStudents.map((student, index) => (
+              <tr key={student.studentExternalId} className="hover:bg-slate-50/60 transition-colors">
+                <td className="table-td text-center text-slate-500 font-bold">
+                  {index + 1 + currentPage * pageSize}
+                </td>
+                <td className="table-td font-semibold text-sky-700">{student.studentExternalId}</td>
+                <td className="table-td font-semibold text-slate-800">{student.studentName}</td>
+                <td className="table-td font-medium text-slate-700">{student.groupName || <span className="text-slate-400 font-normal italic">Chưa có nhóm</span>}</td>
+                <td className="table-td text-slate-600 font-medium">{student.isLeader ? 'Trưởng nhóm' : student.groupName ? 'Thành viên' : '—'}</td>
+                <td className="table-td text-slate-600 font-semibold">{student.groupName ? `${student.contributionPercent}%` : '—'}</td>
+                <td className="table-td text-slate-600 font-semibold">{student.groupScore == null ? '—' : `${formatProjectScore(student.groupScore)}/10`}</td>
+                <td className="table-td">
                   {student.personalScore == null ? (
-                    <span className="text-slate-400">Chưa có điểm</span>
+                    <span className="text-slate-400 font-medium">Chưa có điểm</span>
                   ) : (
-                    <strong className="text-primary">{formatProjectScore(student.personalScore)}/10</strong>
+                    <strong className="text-primary font-bold">{formatProjectScore(student.personalScore)}/10</strong>
                   )}
                 </td>
-                <td className="px-4 py-3">{projectStatusLabel(student.status)}</td>
+                <td className="table-td font-medium">{projectStatusLabel(student.status)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between border-t border-slate-100 pt-4">
+          <button
+            onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+            disabled={currentPage === 0}
+            className="btn-secondary btn-sm"
+          >
+            Trước
+          </button>
+          <span className="text-xs font-semibold text-slate-500">
+            Trang {currentPage + 1} / {totalPages}
+          </span>
+          <button
+            onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+            disabled={currentPage === totalPages - 1}
+            className="btn-secondary btn-sm"
+          >
+            Sau
+          </button>
+        </div>
+      )}
     </div>
   )
 }
 
 function HistoryTab({ data }: { data: ProjectWorkspace }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-slate-200 text-sm">
-        <thead className="bg-slate-50">
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <table className="min-w-full border-separate border-spacing-0 text-left">
+        <thead>
           <tr>
-            <th className="px-4 py-3 text-left">Thời gian</th>
-            <th className="px-4 py-3 text-left">Nhóm</th>
-            <th className="px-4 py-3 text-left">Hoạt động</th>
-            <th className="px-4 py-3 text-left">Điểm</th>
+            <th className="table-th">Thời gian</th>
+            <th className="table-th">Nhóm</th>
+            <th className="table-th">Hoạt động</th>
+            <th className="table-th">Điểm</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
-          {data.history.map((item) => (
-            <tr key={`${item.id}-${item.at}`}>
-              <td className="px-4 py-3 text-slate-600">{formatDateTime(item.at)}</td>
-              <td className="px-4 py-3 font-semibold text-slate-800">{item.groupName}</td>
-              <td className="px-4 py-3">{item.action}</td>
-              <td className="px-4 py-3">{item.score == null ? '—' : `${formatProjectScore(item.score)}/10`}</td>
+          {data.history.length === 0 ? (
+            <tr>
+              <td colSpan={4} className="table-td text-center text-slate-500 py-8 font-medium">Chưa có lịch sử hoạt động.</td>
             </tr>
-          ))}
+          ) : (
+            data.history.map((item) => (
+              <tr key={`${item.id}-${item.at}`} className="hover:bg-slate-50/60 transition-colors">
+                <td className="table-td text-slate-600 font-medium">{formatDateTime(item.at)}</td>
+                <td className="table-td font-semibold text-slate-800">{item.groupName}</td>
+                <td className="table-td text-slate-700 font-medium">{item.action}</td>
+                <td className="table-td font-semibold text-slate-600">{item.score == null ? '—' : `${formatProjectScore(item.score)}/10`}</td>
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
     </div>
@@ -719,17 +770,22 @@ function GradingTab({
   }, [groups])
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {groups.length === 0 ? (
-        <p className="py-8 text-center text-slate-500">Chưa có nhóm để chấm điểm.</p>
+        <p className="py-8 text-center text-slate-500 font-medium">Chưa có nhóm để chấm điểm.</p>
       ) : (
         groups.map((group) => {
           const draft = drafts[group.id] ?? { score: '', feedback: '' }
           return (
-            <div key={group.id} className="grid gap-3 rounded-lg border border-slate-200 p-4 md:grid-cols-[1fr_120px_1fr_auto] md:items-center">
+            <div
+              key={group.id}
+              className="grid gap-4 rounded-xl border border-slate-200 bg-white p-5 md:grid-cols-[1.5fr_120px_2.5fr_auto] md:items-center hover:shadow-md transition-shadow"
+            >
               <div>
-                <div className="font-bold text-slate-900">{group.name}</div>
-                <div className="text-xs text-slate-500">{group.members.map((member) => member.studentName).join(', ') || 'Chưa có thành viên'}</div>
+                <div className="font-bold text-slate-900 text-base">{group.name}</div>
+                <div className="text-xs font-medium text-slate-500 mt-1 leading-relaxed">
+                  {group.members.map((member) => member.studentName).join(', ') || 'Chưa có thành viên'}
+                </div>
               </div>
               <input
                 type="number"
@@ -740,21 +796,22 @@ function GradingTab({
                 onChange={(event) =>
                   setDrafts((prev) => ({ ...prev, [group.id]: { ...draft, score: event.target.value } }))
                 }
-                className="input"
+                className="input text-sm font-semibold h-11"
                 placeholder="Điểm /10"
               />
-              <input
+              <textarea
                 value={draft.feedback}
                 onChange={(event) =>
                   setDrafts((prev) => ({ ...prev, [group.id]: { ...draft, feedback: event.target.value } }))
                 }
-                className="input"
-                placeholder="Nhận xét"
+                className="input py-2.5 h-11 resize-y min-h-[44px] text-sm text-slate-700"
+                placeholder="Nhập nhận xét chi tiết của giảng viên..."
+                rows={1}
               />
               <button
                 onClick={() => onGrade(group, Number(draft.score || 0), draft.feedback)}
                 disabled={savingGroupId === group.id}
-                className="btn-primary whitespace-nowrap"
+                className="btn-primary h-11 px-5 whitespace-nowrap"
               >
                 {savingGroupId === group.id ? <Spinner /> : 'Lưu điểm'}
               </button>
