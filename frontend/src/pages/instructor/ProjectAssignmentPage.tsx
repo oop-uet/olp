@@ -92,11 +92,28 @@ const tabs: Array<{ key: TabKey; label: string }> = [
   { key: 'grading', label: 'Chấm điểm nhóm' },
 ]
 
+interface ProjectAssignmentWorkspaceProps {
+  sectionId?: string
+  exerciseId?: string
+  standalone?: boolean
+  initialTab?: TabKey
+}
+
 export function ProjectAssignmentPage() {
   const { sectionId, exerciseId } = useParams<{ sectionId: string; exerciseId: string }>()
+
+  return <ProjectAssignmentWorkspace sectionId={sectionId} exerciseId={exerciseId} standalone />
+}
+
+export function ProjectAssignmentWorkspace({
+  sectionId,
+  exerciseId,
+  standalone = false,
+  initialTab = 'groups',
+}: ProjectAssignmentWorkspaceProps) {
   const [data, setData] = useState<ProjectWorkspace | null>(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<TabKey>('groups')
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab)
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState<GroupFormState>({ name: '', repositoryUrl: '', members: {} })
@@ -265,6 +282,14 @@ export function ProjectAssignmentPage() {
     )
   }
 
+  if (!sectionId || !exerciseId) {
+    return (
+      <div className="card p-8 text-center text-slate-500">
+        Chọn lớp để quản lý bài tập lớn.
+      </div>
+    )
+  }
+
   if (loading) return <PageLoader label="Đang tải bài tập lớn..." />
   if (!data) {
     return (
@@ -276,17 +301,19 @@ export function ProjectAssignmentPage() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-2">
-        <Link to={`/instructor/classes/${data.section.id}`} className="text-sm font-semibold text-primary hover:text-primary-700">
-          ← Quay lại lớp
-        </Link>
-        <div>
-          <h1 className="text-4xl font-bold text-slate-900">{data.exercise.title}</h1>
-          <p className="mt-2 text-sm text-slate-500">
-            {formatSectionDisplayName(data.section.name)} · {formatSemesterDisplayName(data.section.semester)}
-          </p>
+      {standalone && (
+        <div className="space-y-2">
+          <Link to={`/instructor/exercises/${data.exercise.id}?section_id=${data.section.id}`} className="text-sm font-semibold text-primary hover:text-primary-700">
+            ← Quay lại bài tập
+          </Link>
+          <div>
+            <h1 className="text-4xl font-bold text-slate-900">{data.exercise.title}</h1>
+            <p className="mt-2 text-sm text-slate-500">
+              {formatSectionDisplayName(data.section.name)} · {formatSemesterDisplayName(data.section.semester)}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="border-b border-slate-200">
         <div className="flex flex-wrap gap-1">

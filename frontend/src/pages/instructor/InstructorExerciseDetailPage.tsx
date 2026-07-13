@@ -6,6 +6,7 @@ import { toast } from '../../stores/toast.store'
 import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
 import { ExerciseMarkdownContent } from '../../components/exercise/ExerciseDescriptionEditor'
 import { stripProjectSubmissionNotes } from '../../utils/projectDescription'
+import { ProjectAssignmentWorkspace } from './ProjectAssignmentPage'
 
 type Tab = 'description' | 'groups' | 'testcases' | 'history' | 'stats'
 
@@ -428,90 +429,103 @@ export function InstructorExerciseDetailPage() {
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[360px]">
-            <StatTile label="Bài làm đúng" value={correctCount} />
-            <StatTile label="Tổng lượt nộp" value={data.submissions.length} />
+            {projectExercise ? (
+              <>
+                <StatTile label="Nhóm BTL" value={projectGroups.length} />
+                <StatTile label="Đã chấm" value={projectGroups.filter((group) => group.score != null).length} />
+              </>
+            ) : (
+              <>
+                <StatTile label="Bài làm đúng" value={correctCount} />
+                <StatTile label="Tổng lượt nộp" value={data.submissions.length} />
+              </>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white px-4 shadow-sm">
-        <nav className="flex flex-wrap gap-1" aria-label="Exercise tabs">
-          <TabButton active={activeTab === 'description'} onClick={() => setActiveTab('description')}>
-            Mô tả
-          </TabButton>
-          {projectExercise ? (
-            <TabButton active={activeTab === 'groups'} onClick={() => setActiveTab('groups')}>
-              Danh sách nhóm
-            </TabButton>
-          ) : (
-            <>
-              <TabButton active={activeTab === 'testcases'} onClick={() => setActiveTab('testcases')}>
-                Test cases ({testCases.length})
+      {projectExercise && sectionId ? (
+        <ProjectAssignmentWorkspace sectionId={sectionId} exerciseId={exercise.id} />
+      ) : (
+        <>
+          <div className="rounded-xl border border-slate-200 bg-white px-4 shadow-sm">
+            <nav className="flex flex-wrap gap-1" aria-label="Exercise tabs">
+              <TabButton active={activeTab === 'description'} onClick={() => setActiveTab('description')}>
+                Mô tả
               </TabButton>
-              <TabButton active={activeTab === 'history'} onClick={() => setActiveTab('history')}>
-                Lịch sử ({data.submissions.length})
+              {projectExercise ? (
+                <TabButton active={activeTab === 'groups'} onClick={() => setActiveTab('groups')}>
+                  Danh sách nhóm
+                </TabButton>
+              ) : (
+                <>
+                  <TabButton active={activeTab === 'testcases'} onClick={() => setActiveTab('testcases')}>
+                    Test cases ({testCases.length})
+                  </TabButton>
+                  <TabButton active={activeTab === 'history'} onClick={() => setActiveTab('history')}>
+                    Lịch sử ({data.submissions.length})
+                  </TabButton>
+                </>
+              )}
+              <TabButton active={activeTab === 'stats'} onClick={() => setActiveTab('stats')}>
+                Thống kê
               </TabButton>
-            </>
-          )}
-          <TabButton active={activeTab === 'stats'} onClick={() => setActiveTab('stats')}>
-            Thống kê
-          </TabButton>
-        </nav>
-      </div>
+            </nav>
+          </div>
 
-      {activeTab === 'description' && (
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <SectionHeader title="Đề bài" />
-          <div className="grid gap-5 p-5 xl:grid-cols-[minmax(0,1fr)_380px]">
-            <ExerciseMarkdownContent value={projectExercise ? stripProjectSubmissionNotes(exercise.description) : exercise.description} />
-            <aside className="space-y-3">
-              {!projectExercise && (
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Mã nguồn mẫu</p>
-                  {starterFiles.length > 0 ? (
-                    <div className="mt-3 space-y-3">
-                      {starterFiles.map((file) => (
-                        <div key={file.name} className="overflow-hidden rounded-lg border border-slate-800 bg-slate-950">
-                          <div className="border-b border-slate-800 px-3 py-2 font-mono text-xs font-bold text-sky-100">
-                            {file.name}
-                          </div>
-                          <pre className="max-h-[320px] overflow-auto p-4 font-mono text-xs leading-6 text-slate-100">
-                            {file.content}
-                          </pre>
+          {activeTab === 'description' && (
+            <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+              <SectionHeader title="Đề bài" />
+              <div className="grid gap-5 p-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+                <ExerciseMarkdownContent value={projectExercise ? stripProjectSubmissionNotes(exercise.description) : exercise.description} />
+                <aside className="space-y-3">
+                  {!projectExercise && (
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Mã nguồn mẫu</p>
+                      {starterFiles.length > 0 ? (
+                        <div className="mt-3 space-y-3">
+                          {starterFiles.map((file) => (
+                            <div key={file.name} className="overflow-hidden rounded-lg border border-slate-800 bg-slate-950">
+                              <div className="border-b border-slate-800 px-3 py-2 font-mono text-xs font-bold text-sky-100">
+                                {file.name}
+                              </div>
+                              <pre className="max-h-[320px] overflow-auto p-4 font-mono text-xs leading-6 text-slate-100">
+                                {file.content}
+                              </pre>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      ) : (
+                        <pre className="mt-3 max-h-[420px] overflow-auto rounded-lg bg-slate-950 p-4 font-mono text-xs leading-6 text-slate-100">
+                          {exercise.starterCode || 'Bài tập này chưa có mã nguồn mẫu.'}
+                        </pre>
+                      )}
                     </div>
-                  ) : (
-                    <pre className="mt-3 max-h-[420px] overflow-auto rounded-lg bg-slate-950 p-4 font-mono text-xs leading-6 text-slate-100">
-                      {exercise.starterCode || 'Bài tập này chưa có mã nguồn mẫu.'}
-                    </pre>
                   )}
-                </div>
-              )}
-              <Link to={`/instructor/exercises/${exercise.id}/edit`} className="btn-secondary w-full">
-                Sửa đề bài
-              </Link>
-              {!projectExercise && (
-                <Link to={`/instructor/exercises/${exercise.id}/testcases`} className="btn-primary w-full">
-                  Soạn bộ test
-                </Link>
-              )}
-            </aside>
-          </div>
-        </div>
-      )}
+                  <Link to={`/instructor/exercises/${exercise.id}/edit`} className="btn-secondary w-full">
+                    Sửa đề bài
+                  </Link>
+                  {!projectExercise && (
+                    <Link to={`/instructor/exercises/${exercise.id}/testcases`} className="btn-primary w-full">
+                      Soạn bộ test
+                    </Link>
+                  )}
+                </aside>
+              </div>
+            </div>
+          )}
 
-      {activeTab === 'groups' && projectExercise && (
-        <ProjectGroupsTab
-          sectionId={sectionId}
-          exerciseId={exercise.id}
-          stats={stats}
-          groups={projectGroups}
-          loading={loadingProjectGroups}
-        />
-      )}
+          {activeTab === 'groups' && projectExercise && (
+            <ProjectGroupsTab
+              sectionId={sectionId}
+              exerciseId={exercise.id}
+              stats={stats}
+              groups={projectGroups}
+              loading={loadingProjectGroups}
+            />
+          )}
 
-      {activeTab === 'testcases' && !projectExercise && (
+          {activeTab === 'testcases' && !projectExercise && (
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
           <SectionHeader
             title="Chi tiết test cases"
@@ -551,7 +565,7 @@ export function InstructorExerciseDetailPage() {
             )}
           </div>
         </div>
-      )}
+          )}
 
       {activeTab === 'history' && !projectExercise && (
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -826,6 +840,8 @@ export function InstructorExerciseDetailPage() {
             </>
           )}
         </div>
+      )}
+        </>
       )}
     </div>
   )

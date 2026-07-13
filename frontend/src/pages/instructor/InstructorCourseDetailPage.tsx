@@ -399,7 +399,7 @@ function WeekPanel({
                   )}
                   {isProjectExercise(ex.title) && (
                     <Link
-                      to={`/instructor/classes/${sectionId}/projects/${ex.exerciseId}`}
+                      to={`/instructor/exercises/${ex.exerciseId}?section_id=${sectionId}`}
                       className="badge-blue text-[9px] px-1 py-0.5 font-bold uppercase"
                     >
                       BTL
