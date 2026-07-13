@@ -96,6 +96,82 @@ export async function getProjectWorkspace(
   };
 }
 
+export async function getStudentProjectWorkspace(
+  studentId: string,
+  sectionId: string,
+  exerciseId: string,
+  database: Database = defaultDb
+) {
+  await ensureProjectTablesReady(database);
+
+  const student = await getStudentInSection(studentId, sectionId, database);
+  if (!student) {
+    return { error: { code: "FORBIDDEN", message: "Bạn chưa được ghi danh vào lớp này." } };
+  }
+
+  const assignment = await loadAssignedProject(sectionId, exerciseId, database);
+  if (isProjectError(assignment)) return assignment;
+  if (!assignment.exercise.isVisible) {
+    return { error: { code: "NOT_FOUND", message: "Bài tập lớn chưa được mở cho lớp này." } };
+  }
+
+  const [students, groups] = await Promise.all([
+    listSectionStudents(sectionId, database),
+    listProjectGroups(sectionId, exerciseId, database),
+  ]);
+  const myGroup = groups.find((group) =>
+    group.members.some((member) => member.studentExternalId === student.studentExternalId)
+  ) ?? null;
+
+  const studentsInGroups = new Set(
+    groups.flatMap((group) => group.members.map((member) => member.studentExternalId))
+  );
+  const submittedGroups = groups.filter((group) => Boolean(group.repositoryUrl));
+  const gradedGroups = groups.filter((group) => group.status === "graded");
+
+  return {
+    section: assignment.section,
+    exercise: assignment.exercise,
+    students,
+    groups,
+    myGroup,
+    currentStudent: student,
+    stats: {
+      totalGroups: groups.length,
+      totalStudents: students.length,
+      studentsInGroups: studentsInGroups.size,
+      submittedGroups: submittedGroups.length,
+      gradedGroups: gradedGroups.length,
+    },
+  };
+}
+
+export async function saveStudentProjectGroup(
+  studentId: string,
+  sectionId: string,
+  exerciseId: string,
+  input: ProjectGroupInput,
+  database: Database = defaultDb
+) {
+  await ensureProjectTablesReady(database);
+
+  const workspace = await getStudentProjectWorkspace(studentId, sectionId, exerciseId, database);
+  if (isProjectError(workspace)) return workspace;
+
+  const currentStudent = workspace.currentStudent;
+  const existingGroup = workspace.myGroup;
+  const normalizedInput = {
+    ...input,
+    members: ensureCurrentStudentMember(input.members ?? [], currentStudent.studentExternalId),
+  };
+
+  if (existingGroup) {
+    return updateProjectGroup(existingGroup.id, sectionId, normalizedInput, database);
+  }
+
+  return createProjectGroup(sectionId, exerciseId, normalizedInput, database);
+}
+
 export async function createProjectGroup(
   sectionId: string,
   exerciseId: string,
@@ -284,6 +360,47 @@ async function listSectionStudents(sectionId: string, database: Database) {
     fullName: row.fullName || row.username,
     email: row.email,
   }));
+}
+
+async function getStudentInSection(studentId: string, sectionId: string, database: Database) {
+  const rows = await database
+    .select({
+      userId: users.id,
+      username: users.username,
+      fullName: users.fullName,
+      email: users.email,
+      studentExternalId: sectionEnrollments.studentExternalId,
+    })
+    .from(sectionEnrollments)
+    .innerJoin(users, eq(sectionEnrollments.studentId, users.id))
+    .where(and(eq(sectionEnrollments.sectionId, sectionId), eq(sectionEnrollments.studentId, studentId)))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    userId: row.userId,
+    studentExternalId: row.studentExternalId || row.username,
+    username: row.username,
+    fullName: row.fullName || row.username,
+    email: row.email,
+  };
+}
+
+function ensureCurrentStudentMember(members: ProjectMemberInput[], studentExternalId: string) {
+  const normalized = members.filter((member) => member.student_external_id?.trim());
+  if (normalized.some((member) => member.student_external_id.trim() === studentExternalId)) {
+    return normalized;
+  }
+
+  return [
+    {
+      student_external_id: studentExternalId,
+      is_leader: normalized.length === 0,
+      contribution_percent: normalized.length === 0 ? 100 : 0,
+    },
+    ...normalized,
+  ];
 }
 
 async function listProjectGroups(sectionId: string, exerciseId: string, database: Database) {

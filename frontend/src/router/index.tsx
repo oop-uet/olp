@@ -48,6 +48,7 @@ const StudentGuidePage = lazy(() => import('../pages/student/StudentGuidePage').
 
 // Student
 const StudentCourseDetailPage = lazy(() => import('../pages/student/StudentCourseDetailPage').then((m) => ({ default: m.StudentCourseDetailPage })))
+const StudentProjectPage = lazy(() => import('../pages/student/StudentProjectPage').then((m) => ({ default: m.StudentProjectPage })))
 const ExerciseWorkspacePage = lazy(() => import('../pages/student/ExerciseWorkspacePage').then((m) => ({ default: m.ExerciseWorkspacePage })))
 const SubmissionHistoryPage = lazy(() => import('../pages/student/SubmissionHistoryPage').then((m) => ({ default: m.SubmissionHistoryPage })))
 const SubmissionDetailPage = lazy(() => import('../pages/student/SubmissionDetailPage').then((m) => ({ default: m.SubmissionDetailPage })))
@@ -113,6 +114,7 @@ export const router = createBrowserRouter(
       children: [
         { path: 'exercises', element: withSuspense(<StudentCourseDetailPage />) },
         { path: 'classes/:id', element: withSuspense(<StudentCourseDetailPage />) },
+        { path: 'classes/:sectionId/projects/:exerciseId', element: withSuspense(<StudentProjectPage />) },
         { path: 'classes/:id/students/:studentId/profile', element: withSuspense(<InstructorStudentProfilePage />) },
         { path: 'exercises/:id', element: withSuspense(<ExerciseWorkspacePage />) },
         { path: 'submissions', element: withSuspense(<SubmissionHistoryPage />) },

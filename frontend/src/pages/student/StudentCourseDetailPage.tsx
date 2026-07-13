@@ -73,6 +73,14 @@ function scoreLabel(score: number | null): string {
   return `${Math.round(score ?? 0)}/100`
 }
 
+function isProjectExercise(title: string) {
+  const normalized = title
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+  return normalized.includes('bai tap lon') || normalized.includes('btl') || normalized.includes('project')
+}
+
 export function StudentCourseDetailPage() {
   const { id } = useParams<{ id: string }>()
   const user = useAuthStore((state) => state.user)
@@ -241,7 +249,11 @@ function ExerciseWeekCard({ title, exercises }: { title: string; exercises: Exer
         {exercises.map((exercise) => (
           <Link
             key={exercise.id}
-            to={`/student/exercises/${exercise.id}`}
+            to={
+              isProjectExercise(exercise.title)
+                ? `/student/classes/${exercise.sectionId}/projects/${exercise.id}`
+                : `/student/exercises/${exercise.id}`
+            }
             className="flex items-center justify-between gap-4 px-5 py-4 transition hover:bg-slate-50/50 group"
           >
             <div className="min-w-0 flex-1 space-y-1">

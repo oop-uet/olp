@@ -22,6 +22,7 @@ import studentProgressRoutes from './routes/student/progress.routes.js';
 import studentAnticheatRoutes from './routes/student/anticheat.routes.js';
 import studentExerciseRoutes from './routes/student/exercise.routes.js';
 import studentSectionRoutes from './routes/student/section.routes.js';
+import studentProjectRoutes from './routes/student/project.routes.js';
 import instructorAnticheatRoutes from './routes/instructor/anticheat.routes.js';
 import leaderboardRoutes from './routes/instructor/leaderboard.routes.js';
 import sourceCheckRoutes from './routes/source-check.routes.js';
@@ -84,6 +85,7 @@ app.use('/api/students/progress', authMiddleware(), requireRole('student'), stud
 // Student - Assigned exercises & enrolled sections
 app.use('/api/students/exercises', authMiddleware(), requireRole('student'), studentExerciseRoutes);
 app.use('/api/students/sections', authMiddleware(), requireRole('student'), studentSectionRoutes);
+app.use('/api/students/sections', authMiddleware(), requireRole('student'), studentProjectRoutes);
 
 // Student - Anti-cheat event logging
 app.use('/api/anticheat', authMiddleware(), requireRole('student'), studentAnticheatRoutes);

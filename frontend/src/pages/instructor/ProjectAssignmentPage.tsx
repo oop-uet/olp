@@ -5,7 +5,7 @@ import { PageLoader, Spinner } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
 
-type TabKey = 'description' | 'groups' | 'stats' | 'history' | 'grading'
+type TabKey = 'description' | 'groups' | 'stats' | 'history' | 'discussion' | 'grading'
 
 interface ProjectStudent {
   userId: string
@@ -71,6 +71,7 @@ const tabs: Array<{ key: TabKey; label: string }> = [
   { key: 'groups', label: 'Danh sách nhóm BTL' },
   { key: 'stats', label: 'Thống kê' },
   { key: 'history', label: 'Lịch sử' },
+  { key: 'discussion', label: 'Thảo luận' },
   { key: 'grading', label: 'Chấm điểm' },
 ]
 
@@ -286,6 +287,7 @@ export function ProjectAssignmentPage() {
         )}
         {activeTab === 'stats' && <StatsTab data={data} />}
         {activeTab === 'history' && <HistoryTab data={data} />}
+        {activeTab === 'discussion' && <DiscussionTab />}
         {activeTab === 'grading' && (
           <GradingTab groups={filteredGroups} onGrade={gradeGroup} savingGroupId={gradingGroupId} />
         )}
@@ -586,6 +588,15 @@ function HistoryTab({ data }: { data: ProjectWorkspace }) {
           ))}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+function DiscussionTab() {
+  return (
+    <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+      <p className="font-bold text-slate-700">Khu vực thảo luận sẽ được bật khi có module bình luận.</p>
+      <p className="mt-1 text-sm text-slate-500">Hiện tại giảng viên có thể quản lý nhóm, URL GitHub và phản hồi điểm ở các tab bên cạnh.</p>
     </div>
   )
 }
