@@ -22,18 +22,10 @@ function extractWeekFromTitle(title: string): number | null {
   return Number.isInteger(week) && week > 0 ? week : null;
 }
 
-function isProjectExerciseTitle(title: string): boolean {
-  const normalized = title
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-  return normalized.includes("bai tap lon") || normalized.includes("btl") || normalized.includes("project");
-}
-
 /**
  * Assign all system-library exercises whose title contains "Tuần N" to the
- * matching week of a newly created section. Project exercises are assigned
- * without a week. Assignments are hidden by default except project exercises.
+ * matching week of a newly created section. Project exercises stay in the
+ * library pool so instructors can add them manually when needed.
  */
 export async function assignDefaultExercisesByTitleToSection(
   sectionId: string,
@@ -49,8 +41,7 @@ export async function assignDefaultExercisesByTitleToSection(
 
   for (const exercise of libraryExercises) {
     const week = extractWeekFromTitle(exercise.title);
-    const isProject = isProjectExerciseTitle(exercise.title);
-    if (!week && !isProject) {
+    if (!week) {
       skipped += 1;
       continue;
     }
@@ -63,7 +54,7 @@ export async function assignDefaultExercisesByTitleToSection(
         sectionId,
         deadline: null,
         isAssessment: 0,
-        isVisible: isProject ? 1 : 0,
+        isVisible: 0,
         allowSubmission: 1,
         maxSubmissions: null,
         week,

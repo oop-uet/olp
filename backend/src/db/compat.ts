@@ -1,7 +1,13 @@
 import { db as defaultDb } from "./index.js";
 import { eq } from "drizzle-orm";
-import { classSections } from "./schema.js";
+import { classSections, exercises } from "./schema.js";
 import { normalizeSectionNameForSemester } from "../utils/semester.js";
+import {
+  EXPENSE_PROJECT_DESCRIPTION,
+  EXPENSE_PROJECT_ID,
+  EXPENSE_PROJECT_TAGS,
+  EXPENSE_PROJECT_TITLE,
+} from "./library-projects.js";
 
 type Database = typeof defaultDb;
 
@@ -105,6 +111,8 @@ export async function ensureDatabaseCompatibility(database: Database = defaultDb
   );
 
   await normalizeExistingSectionNames(database);
+  await ensureExpenseProjectInLibrary(database);
+  await releaseUnstartedProjectAssignments(database);
 }
 
 async function normalizeExistingSectionNames(database: Database) {
@@ -125,4 +133,55 @@ async function normalizeExistingSectionNames(database: Database) {
         .where(eq(classSections.id, row.id));
     }
   }
+}
+
+async function ensureExpenseProjectInLibrary(database: Database) {
+  const now = new Date().toISOString();
+  await database
+    .insert(exercises)
+    .values({
+      id: EXPENSE_PROJECT_ID,
+      title: EXPENSE_PROJECT_TITLE,
+      description: EXPENSE_PROJECT_DESCRIPTION,
+      difficulty: "hard",
+      starterCode: "",
+      isLibrary: 1,
+      oopTags: JSON.stringify(EXPENSE_PROJECT_TAGS),
+      createdBy: null,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: exercises.id,
+      set: {
+        title: EXPENSE_PROJECT_TITLE,
+        description: EXPENSE_PROJECT_DESCRIPTION,
+        difficulty: "hard",
+        starterCode: "",
+        isLibrary: 1,
+        oopTags: JSON.stringify(EXPENSE_PROJECT_TAGS),
+        updatedAt: now,
+      },
+    });
+}
+
+async function releaseUnstartedProjectAssignments(database: Database) {
+  await executeRaw(
+    database,
+    `DELETE FROM exercise_assignments
+     WHERE exercise_id = '${EXPENSE_PROJECT_ID}'
+       AND week IS NULL
+       AND NOT EXISTS (
+         SELECT 1
+         FROM submissions
+         WHERE submissions.exercise_id = exercise_assignments.exercise_id
+           AND submissions.section_id = exercise_assignments.section_id
+       )
+       AND NOT EXISTS (
+         SELECT 1
+         FROM project_groups
+         WHERE project_groups.exercise_id = exercise_assignments.exercise_id
+           AND project_groups.section_id = exercise_assignments.section_id
+       )`
+  );
 }

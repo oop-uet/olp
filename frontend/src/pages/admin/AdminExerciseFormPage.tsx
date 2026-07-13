@@ -386,6 +386,7 @@ export function AdminExerciseFormPage() {
       setTitle((value) => ensureProjectTitle(value))
       setDifficulty('hard')
       setTagsInput((value) => mergeProjectTags(splitTags(value)).join(', '))
+      setIsLibrary(true)
       setStyleCheckEnabled(false)
     } else {
       setTitle((value) => stripProjectTitlePrefix(value))

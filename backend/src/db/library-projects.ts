@@ -1,0 +1,83 @@
+import crypto from "node:crypto";
+
+export const EXPENSE_PROJECT_TITLE = "Bài tập lớn - Quản lý Chi tiêu Cá nhân";
+
+export const EXPENSE_PROJECT_ID = `exercise-${crypto
+  .createHash("sha1")
+  .update(EXPENSE_PROJECT_TITLE)
+  .digest("hex")
+  .slice(0, 24)}`;
+
+export const EXPENSE_PROJECT_TAGS = [
+  "project",
+  "oop-design",
+  "inheritance",
+  "io",
+  "teamwork",
+];
+
+export const EXPENSE_PROJECT_DESCRIPTION = [
+  "Bài tập lớn Lập trình Hướng đối tượng",
+  "Phát triển ứng dụng Quản lý Chi tiêu Cá nhân (Personal Expense Manager) bằng Java",
+  "",
+  "Ghi chú: sinh viên được phép bổ sung lớp/hàm cần thiết và tự tổ chức cấu trúc chương trình. Có thể dùng thư viện Java bên ngoài nếu cần. Sinh viên có thể chọn phiên bản dòng lệnh (tối đa 6.5 điểm) hoặc phiên bản giao diện đồ họa (tối đa 10 điểm). Nếu một thành viên bất kỳ không trả lời được câu hỏi về bài làm, nhóm có thể bị xem là không hiểu bài và nhận 0 điểm.",
+  "",
+  "1. Giới thiệu",
+  "Xây dựng ứng dụng quản lý chi tiêu cá nhân: ghi lại khoản thu/chi, phân loại danh mục, quản lý ví/tài khoản, đặt hạn mức ngân sách và thống kê. Bài toán có cây kế thừa và tính đa hình rõ ràng, phù hợp áp dụng đầy đủ 4 nguyên tắc OOP.",
+  "",
+  "2. Mục tiêu",
+  "- Áp dụng đóng gói, kế thừa, đa hình, trừu tượng hóa.",
+  "- Phân tích, thiết kế lớp và tổ chức chương trình rõ ràng, dễ mở rộng.",
+  "- Làm việc với đọc/ghi file, xử lý ngoại lệ.",
+  "- Rèn kỹ năng làm việc nhóm và quản lý mã nguồn bằng Git.",
+  "",
+  "3. Yêu cầu chung",
+  "- Đơn vị tiền tệ mặc định là VND.",
+  "- Bắt buộc dùng GitHub và commit thường xuyên; không chấp nhận repository chỉ có một commit cuối kỳ.",
+  "- Khuyến khích dùng Collection, Enum, Interface và tách lớp lưu trữ.",
+  "",
+  "4. Phiên bản dòng lệnh cơ bản",
+  "Xây dựng menu tương tác: thêm/sửa/xóa/tìm giao dịch, quản lý danh mục, quản lý ví, thống kê tháng và kiểm tra ngân sách. Nếu nhập lựa chọn không hợp lệ, in ra \"Action is not supported\".",
+  "",
+  "5. Phiên bản nâng cấp",
+  "- Đọc/ghi file CSV hoặc JSON.",
+  "- Hạn mức ngân sách theo danh mục/tháng.",
+  "- Thống kê theo danh mục, theo tháng, khoản chi lớn nhất/nhỏ nhất, top danh mục tốn kém.",
+  "- Giao dịch định kỳ như tiền nhà, internet.",
+  "",
+  "6. Phiên bản GUI không bắt buộc",
+  "- Swing hoặc JavaFX.",
+  "- Bảng giao dịch, form thêm/sửa/xóa.",
+  "- Dashboard tổng thu/chi/số dư, cảnh báo ngân sách.",
+  "- Biểu đồ tỷ trọng chi tiêu theo danh mục/tháng.",
+  "",
+  "7. Thiết kế OOP gợi ý",
+  "Transaction (abstract) -> Income, Expense -> RecurringExpense",
+  "Wallet (abstract) -> CashWallet, BankAccount, EWallet",
+  "Storage (interface) -> CsvStorage, JsonStorage",
+  "Enum: TransactionType, WalletType, Period",
+  "Composition: Category, Budget, ExpenseManager, ConsoleView/AppView",
+  "",
+  "8. Chất lượng code",
+  "- Tên lớp PascalCase, biến/phương thức camelCase, dùng tiếng Anh.",
+  "- Tuân thủ Google Java Style Guide.",
+  "- Có JUnit cho logic chính: thống kê, budget, ví, giao dịch.",
+  "- Khuyến khích Design Pattern: Singleton, Factory Method, Strategy.",
+  "",
+  "9. Chấm điểm",
+  "- Thiết kế lớp và cây kế thừa: 2.0 điểm.",
+  "- Áp dụng 4 nguyên tắc OOP: 0.5 điểm.",
+  "- Chức năng chính dòng lệnh: 2.0 điểm.",
+  "- Xử lý lỗi và giao diện dòng lệnh: 0.5 điểm.",
+  "- Lưu trữ, budget, recurring: 0.5 điểm.",
+  "- Chất lượng code: 0.5 điểm.",
+  "- Trình bày và hỏi đáp: 0.5 điểm.",
+  "- GUI: tối đa 3.5 điểm.",
+  "- Bonus: UML/class diagram +0.5; dùng hợp lý Collection + Enum + Interface +0.5.",
+  "",
+  "Yêu cầu nộp bài:",
+  "- Nộp URL repository GitHub của nhóm.",
+  "- Repository để private và thêm giảng viên thực hành làm collaborator.",
+  "- Không đẩy thư mục .idea, target, out hoặc file build lên repository.",
+].join("\n");
+

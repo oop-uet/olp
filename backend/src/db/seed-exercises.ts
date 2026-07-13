@@ -1847,7 +1847,7 @@ public class HashtagIndexTest {
       "- Không đẩy thư mục .idea, target, out hoặc file build lên repository.",
     ].join("\n"),
     difficulty: "hard",
-    oopTags: ["project", "oop-design", "inheritance", "polymorphism", "io", "teamwork"],
+    oopTags: ["project", "oop-design", "inheritance", "io", "teamwork"],
     starterCode: "",
     testCasesData: [],
   },
@@ -1926,6 +1926,10 @@ async function seedExercises() {
   let assignmentCount = 0;
   for (const section of sections) {
     for (const exercise of seededExerciseIds) {
+      const week = weekFromTitle(exercise.title);
+      if (!week) {
+        continue;
+      }
       await db
         .insert(exerciseAssignments)
         .values({
@@ -1937,14 +1941,14 @@ async function seedExercises() {
           isVisible: isDefaultVisible(exercise.title),
           allowSubmission: 1,
           maxSubmissions: null,
-          week: weekFromTitle(exercise.title),
+          week,
           assignedAt: now,
         })
         .onConflictDoUpdate({
           target: [exerciseAssignments.exerciseId, exerciseAssignments.sectionId],
           set: {
             isAssessment: isDefaultAssessment(exercise.title),
-            week: weekFromTitle(exercise.title),
+            week,
           },
         });
       assignmentCount++;
