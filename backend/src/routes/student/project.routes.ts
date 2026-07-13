@@ -8,6 +8,13 @@ import { db } from "../../db/index.js";
 
 const router = Router({ mergeParams: true });
 
+function projectErrorStatus(code: string) {
+  if (code === "NOT_FOUND") return 404;
+  if (code === "FORBIDDEN") return 403;
+  if (code === "CONFIGURATION_ERROR") return 503;
+  return 400;
+}
+
 router.get("/:sectionId/projects/:exerciseId", async (req: Request, res: Response) => {
   try {
     const result = await getStudentProjectWorkspace(
@@ -18,8 +25,7 @@ router.get("/:sectionId/projects/:exerciseId", async (req: Request, res: Respons
     );
 
     if (isProjectError(result)) {
-      const status = result.error.code === "NOT_FOUND" ? 404 : 403;
-      res.status(status).json({ error: result.error });
+      res.status(projectErrorStatus(result.error.code)).json({ error: result.error });
       return;
     }
 
@@ -40,8 +46,7 @@ router.put("/:sectionId/projects/:exerciseId/my-group", async (req: Request, res
     );
 
     if (isProjectError(result)) {
-      const status = result.error.code === "NOT_FOUND" ? 404 : 400;
-      res.status(status).json({ error: result.error });
+      res.status(projectErrorStatus(result.error.code)).json({ error: result.error });
       return;
     }
 

@@ -10,6 +10,10 @@ import {
   sectionEnrollments,
   users,
 } from "../db/schema.js";
+import {
+  isRepositoryVerificationError,
+  verifyProjectRepository,
+} from "./repository-verification.service.js";
 
 type Database = typeof defaultDb;
 
@@ -79,7 +83,7 @@ export async function getProjectWorkspace(
       studentsInGroups: studentsInGroups.size,
       submittedGroups: submittedGroups.length,
       gradedGroups: gradedGroups.length,
-      averageScore: Number(averageScore.toFixed(1)),
+      averageScore: Number(averageScore.toFixed(2)),
     },
     history: groups
       .map((group) => ({
@@ -175,6 +179,9 @@ export async function saveStudentProjectGroup(
     ...input,
     members: ensureCurrentStudentMember(input.members ?? [], currentStudent.studentExternalId),
   };
+  if (!normalizedInput.repository_url?.trim()) {
+    return { error: { code: "VALIDATION_ERROR", message: "URL GitHub BTL là bắt buộc khi đăng ký nhóm." } };
+  }
 
   if (existingGroup) {
     return updateProjectGroup(existingGroup.id, sectionId, normalizedInput, database);
@@ -200,15 +207,21 @@ export async function createProjectGroup(
 
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
+  const repositoryUrl = input.repository_url?.trim() || null;
+  if (repositoryUrl) {
+    const verification = await verifyProjectRepository(repositoryUrl);
+    if (isRepositoryVerificationError(verification)) return verification;
+  }
+
   await database.insert(projectGroups).values({
     id,
     sectionId,
     exerciseId,
     name,
-    repositoryUrl: input.repository_url?.trim() || null,
+    repositoryUrl,
     score: null,
     feedback: null,
-    status: input.repository_url?.trim() ? "submitted" : "draft",
+    status: repositoryUrl ? "submitted" : "draft",
     createdAt: now,
     updatedAt: now,
     gradedAt: null,
@@ -243,6 +256,10 @@ export async function updateProjectGroup(
   }
   if (input.repository_url !== undefined) {
     const repositoryUrl = input.repository_url?.trim() || null;
+    if (repositoryUrl) {
+      const verification = await verifyProjectRepository(repositoryUrl);
+      if (isRepositoryVerificationError(verification)) return verification;
+    }
     update.repositoryUrl = repositoryUrl;
     if (existing.status !== "graded") update.status = repositoryUrl ? "submitted" : "draft";
   }
@@ -450,7 +467,7 @@ async function getProjectGroup(groupId: string, database: Database) {
     exerciseId: group.exerciseId,
     name: group.name,
     repositoryUrl: group.repositoryUrl,
-    score: group.score,
+    score: normalizeStoredProjectScore(group.score),
     feedback: group.feedback,
     status: group.status,
     createdAt: group.createdAt,
@@ -502,6 +519,11 @@ async function replaceGroupMembers(
 function normalizeContribution(value?: number) {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.min(100, Math.round(value ?? 0)));
+}
+
+function normalizeStoredProjectScore(value: number | null) {
+  if (value == null || !Number.isFinite(value)) return null;
+  return Math.min(10, Number(value.toFixed(2)));
 }
 
 function buildProjectStudentScores(

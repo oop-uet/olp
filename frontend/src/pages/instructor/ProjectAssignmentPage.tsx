@@ -185,8 +185,8 @@ export function ProjectAssignmentPage() {
       }
       setShowForm(false)
       fetchWorkspace()
-    } catch {
-      toast.error('Không thể lưu nhóm BTL.')
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Không thể lưu nhóm BTL.'))
     } finally {
       setSaving(false)
     }
@@ -232,7 +232,7 @@ export function ProjectAssignmentPage() {
         group.members.map((member) => member.studentExternalId).join(', '),
         group.members.map((member) => `${member.studentName} (${member.contributionPercent}%)`).join(', '),
         group.repositoryUrl || '',
-        group.score == null ? '' : String(group.score),
+        group.score == null ? '' : formatProjectScore(group.score),
         group.feedback || '',
       ]),
     ]
@@ -256,8 +256,8 @@ export function ProjectAssignmentPage() {
         student.groupName || 'Chưa có nhóm',
         student.isLeader ? 'Trưởng nhóm' : student.groupName ? 'Thành viên' : '',
         String(student.contributionPercent),
-        student.groupScore == null ? '' : String(student.groupScore),
-        student.personalScore == null ? '' : String(student.personalScore),
+        student.groupScore == null ? '' : formatProjectScore(student.groupScore),
+        student.personalScore == null ? '' : formatProjectScore(student.personalScore),
         student.repositoryUrl || '',
         projectStatusLabel(student.status),
       ]),
@@ -475,7 +475,7 @@ function DescriptionTab({ data, ungroupedCount }: { data: ProjectWorkspace; ungr
         <ul>
           <li>Nộp URL repository GitHub của nhóm.</li>
           <li>Không đẩy thư mục `.idea`, `target`, `out` hoặc file build lên repository.</li>
-          <li>Repository riêng tư cần thêm giảng viên vào danh sách collaborator.</li>
+          <li>Repository phải để private và thêm tài khoản oasis-uet vào danh sách collaborator.</li>
         </ul>
       </div>
       <div className="space-y-1 text-sm">
@@ -568,7 +568,7 @@ function ProjectGroupTable({
                   )}
                 </td>
                 <td className="px-4 py-4 align-top">
-                  {group.score == null ? <span className="text-slate-400">Chưa chấm</span> : <strong>{group.score}/10</strong>}
+                  {group.score == null ? <span className="text-slate-400">Chưa chấm</span> : <strong>{formatProjectScore(group.score)}/10</strong>}
                 </td>
                 <td className="px-4 py-4 text-right align-top">
                   <button onClick={() => onEdit(group)} className="mr-3 text-sm font-semibold text-primary hover:text-primary-700">Sửa</button>
@@ -634,12 +634,12 @@ function StatsTab({ data, onExport }: { data: ProjectWorkspace; onExport: () => 
                 <td className="px-4 py-3">{student.groupName || <span className="text-slate-400">Chưa có nhóm</span>}</td>
                 <td className="px-4 py-3">{student.isLeader ? 'Trưởng nhóm' : student.groupName ? 'Thành viên' : '—'}</td>
                 <td className="px-4 py-3">{student.groupName ? `${student.contributionPercent}%` : '—'}</td>
-                <td className="px-4 py-3">{student.groupScore == null ? '—' : `${student.groupScore}/10`}</td>
+                <td className="px-4 py-3">{student.groupScore == null ? '—' : `${formatProjectScore(student.groupScore)}/10`}</td>
                 <td className="px-4 py-3">
                   {student.personalScore == null ? (
                     <span className="text-slate-400">Chưa có điểm</span>
                   ) : (
-                    <strong className="text-primary">{student.personalScore}/10</strong>
+                    <strong className="text-primary">{formatProjectScore(student.personalScore)}/10</strong>
                   )}
                 </td>
                 <td className="px-4 py-3">{projectStatusLabel(student.status)}</td>
@@ -670,7 +670,7 @@ function HistoryTab({ data }: { data: ProjectWorkspace }) {
               <td className="px-4 py-3 text-slate-600">{formatDateTime(item.at)}</td>
               <td className="px-4 py-3 font-semibold text-slate-800">{item.groupName}</td>
               <td className="px-4 py-3">{item.action}</td>
-              <td className="px-4 py-3">{item.score == null ? '—' : `${item.score}/10`}</td>
+              <td className="px-4 py-3">{item.score == null ? '—' : `${formatProjectScore(item.score)}/10`}</td>
             </tr>
           ))}
         </tbody>
@@ -811,6 +811,21 @@ function projectStatusLabel(status: ProjectStudentScore['status']) {
   if (status === 'submitted') return 'Đã nộp URL'
   if (status === 'draft') return 'Chưa nộp URL'
   return 'Chưa có nhóm'
+}
+
+function getApiErrorMessage(error: unknown, fallback: string) {
+  if (typeof error === 'object' && error !== null && 'response' in error) {
+    const response = (error as { response?: { data?: { error?: { message?: string } } } }).response
+    return response?.data?.error?.message || fallback
+  }
+  return fallback
+}
+
+function formatProjectScore(value: number) {
+  return value.toLocaleString('vi-VN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })
 }
 
 function difficultyLabel(difficulty: ProjectWorkspace['exercise']['difficulty']) {

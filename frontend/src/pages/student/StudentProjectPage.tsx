@@ -251,8 +251,8 @@ export function StudentProjectPage() {
       toast.success('Đã lưu bài nộp BTL.')
       await fetchWorkspace()
       setActiveTab('groups')
-    } catch {
-      toast.error('Không thể lưu bài nộp BTL.')
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Không thể lưu bài nộp BTL.'))
     } finally {
       setSaving(false)
     }
@@ -350,7 +350,7 @@ function DescriptionTab({ data }: { data: StudentProjectWorkspace }) {
         <div className="whitespace-pre-line text-sm leading-7 text-slate-700">{data.exercise.description}</div>
         <h3>Chú ý khi nộp bài</h3>
         <ul>
-          <li>Repository để private và thêm giảng viên thực hành làm collaborator.</li>
+          <li>Repository phải để private và thêm tài khoản oasis-uet làm collaborator.</li>
           <li>Không đẩy thư mục `.idea`, `target`, `out` hoặc file build lên repository.</li>
           <li>Nhóm cần commit thường xuyên; repository chỉ có một commit cuối kỳ sẽ không được chấp nhận.</li>
         </ul>
@@ -411,7 +411,7 @@ function SubmissionTab({
 
       {myGroup?.status === 'graded' && (
         <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4">
-          <p className="font-bold text-emerald-800">Nhóm đã được chấm: {myGroup.score}/10</p>
+          <p className="font-bold text-emerald-800">Nhóm đã được chấm: {formatProjectScore(myGroup.score ?? 0)}/10</p>
           {myGroup.feedback && <p className="mt-1 text-sm text-emerald-700">{myGroup.feedback}</p>}
         </div>
       )}
@@ -521,9 +521,9 @@ function SubmissionTab({
       <div className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
         <p className="font-black text-danger-600">Chú ý:</p>
         <ol className="mt-1 list-decimal space-y-1 pl-5">
-          <li>Cần đăng nhập GitHub và đảm bảo URL repository truy cập được với giảng viên.</li>
+          <li>Cần đăng nhập GitHub và đảm bảo URL repository truy cập được với tài khoản oasis-uet.</li>
           <li>Không đẩy thư mục `.idea`, `target`, `out` lên repository.</li>
-          <li>Repository để private, thêm giảng viên thực hành làm collaborator.</li>
+          <li>Repository để private, thêm tài khoản oasis-uet làm collaborator.</li>
         </ol>
       </div>
 
@@ -578,7 +578,7 @@ function GroupsTab({ groups }: { groups: ProjectGroup[] }) {
                   )}
                 </td>
                 <td className="px-4 py-4">
-                  {group.score == null ? <span className="text-slate-400">Chưa chấm</span> : <strong>{group.score}/10</strong>}
+                  {group.score == null ? <span className="text-slate-400">Chưa chấm</span> : <strong>{formatProjectScore(group.score)}/10</strong>}
                 </td>
               </tr>
             ))
@@ -605,4 +605,19 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <div className="px-3 py-2 font-bold text-slate-800">{value}</div>
     </div>
   )
+}
+
+function getApiErrorMessage(error: unknown, fallback: string) {
+  if (typeof error === 'object' && error !== null && 'response' in error) {
+    const response = (error as { response?: { data?: { error?: { message?: string } } } }).response
+    return response?.data?.error?.message || fallback
+  }
+  return fallback
+}
+
+function formatProjectScore(value: number) {
+  return value.toLocaleString('vi-VN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })
 }

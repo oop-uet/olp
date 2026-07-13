@@ -1843,7 +1843,7 @@ public class HashtagIndexTest {
       "",
       "Yêu cầu nộp bài:",
       "- Nộp URL repository GitHub của nhóm.",
-      "- Repository để private và thêm giảng viên thực hành làm collaborator.",
+      "- Repository để private và thêm tài khoản oasis-uet làm collaborator.",
       "- Không đẩy thư mục .idea, target, out hoặc file build lên repository.",
     ].join("\n"),
     difficulty: "hard",

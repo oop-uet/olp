@@ -12,6 +12,13 @@ import { db } from "../../db/index.js";
 
 const router = Router({ mergeParams: true });
 
+function projectErrorStatus(code: string) {
+  if (code === "NOT_FOUND") return 404;
+  if (code === "FORBIDDEN") return 403;
+  if (code === "CONFIGURATION_ERROR") return 503;
+  return 400;
+}
+
 router.get("/:sectionId/projects/:exerciseId", async (req: Request, res: Response) => {
   try {
     const { userId, role } = req.user!;
@@ -22,7 +29,7 @@ router.get("/:sectionId/projects/:exerciseId", async (req: Request, res: Respons
 
     const result = await getProjectWorkspace(req.params.sectionId, req.params.exerciseId, db);
     if (isProjectError(result)) {
-      res.status(result.error.code === "NOT_FOUND" ? 404 : 400).json({ error: result.error });
+      res.status(projectErrorStatus(result.error.code)).json({ error: result.error });
       return;
     }
     res.status(200).json(result);
@@ -41,7 +48,7 @@ router.post("/:sectionId/projects/:exerciseId/groups", async (req: Request, res:
 
     const result = await createProjectGroup(req.params.sectionId, req.params.exerciseId, req.body, db);
     if (isProjectError(result)) {
-      res.status(result.error.code === "NOT_FOUND" ? 404 : 400).json({ error: result.error });
+      res.status(projectErrorStatus(result.error.code)).json({ error: result.error });
       return;
     }
     res.status(201).json(result);
@@ -60,7 +67,7 @@ router.put("/:sectionId/projects/:exerciseId/groups/:groupId", async (req: Reque
 
     const result = await updateProjectGroup(req.params.groupId, req.params.sectionId, req.body, db);
     if (isProjectError(result)) {
-      res.status(result.error.code === "NOT_FOUND" ? 404 : 400).json({ error: result.error });
+      res.status(projectErrorStatus(result.error.code)).json({ error: result.error });
       return;
     }
     res.status(200).json(result);
@@ -79,7 +86,7 @@ router.patch("/:sectionId/projects/:exerciseId/groups/:groupId/grade", async (re
 
     const result = await gradeProjectGroup(req.params.groupId, req.params.sectionId, userId, req.body, db);
     if (isProjectError(result)) {
-      res.status(result.error.code === "NOT_FOUND" ? 404 : 400).json({ error: result.error });
+      res.status(projectErrorStatus(result.error.code)).json({ error: result.error });
       return;
     }
     res.status(200).json(result);
