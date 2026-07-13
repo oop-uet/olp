@@ -112,6 +112,7 @@ export async function ensureDatabaseCompatibility(database: Database = defaultDb
 
   await normalizeExistingSectionNames(database);
   await ensureExpenseProjectInLibrary(database);
+  await ensureProjectTablesReady(database);
   await releaseUnstartedProjectAssignments(database);
 }
 
@@ -163,6 +164,52 @@ async function ensureExpenseProjectInLibrary(database: Database) {
         updatedAt: now,
       },
     });
+}
+
+async function ensureProjectTablesReady(database: Database) {
+  await executeRaw(
+    database,
+    `CREATE TABLE IF NOT EXISTS project_groups (
+      id TEXT PRIMARY KEY NOT NULL,
+      section_id TEXT NOT NULL REFERENCES class_sections(id),
+      exercise_id TEXT NOT NULL REFERENCES exercises(id),
+      name TEXT NOT NULL,
+      github_url TEXT,
+      score REAL,
+      feedback TEXT,
+      graded_by TEXT REFERENCES users(id),
+      graded_at TEXT,
+      submitted_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`
+  );
+
+  await executeRaw(
+    database,
+    `CREATE UNIQUE INDEX IF NOT EXISTS project_groups_section_exercise_name_unique
+      ON project_groups(section_id, exercise_id, name)`
+  );
+
+  await executeRaw(
+    database,
+    `CREATE TABLE IF NOT EXISTS project_group_members (
+      id TEXT PRIMARY KEY NOT NULL,
+      group_id TEXT NOT NULL REFERENCES project_groups(id),
+      student_id TEXT REFERENCES users(id),
+      student_external_id TEXT NOT NULL,
+      student_name TEXT NOT NULL,
+      is_leader INTEGER NOT NULL DEFAULT 0,
+      contribution_percent INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    )`
+  );
+
+  await executeRaw(
+    database,
+    `CREATE UNIQUE INDEX IF NOT EXISTS project_group_members_group_student_unique
+      ON project_group_members(group_id, student_external_id)`
+  );
 }
 
 async function releaseUnstartedProjectAssignments(database: Database) {
