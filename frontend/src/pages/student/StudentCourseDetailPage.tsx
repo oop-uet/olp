@@ -271,6 +271,11 @@ function ExerciseWeekCard({ title, exercises }: { title: string; exercises: Exer
                     Kiểm tra
                   </span>
                 )}
+                {isProjectExercise(exercise.title) && (
+                  <span className="badge-blue text-[10px] font-extrabold normal-case">
+                    BTL
+                  </span>
+                )}
               </div>
 
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-4 text-xs text-slate-400">
