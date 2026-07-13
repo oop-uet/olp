@@ -94,6 +94,7 @@ export interface ScheduleExercise {
   difficulty: string;
   oopTags: string[];
   creatorUsername: string | null;
+  isLibrary: boolean;
   isAssessment: boolean;
   isVisible: boolean;
   allowSubmission: boolean;
@@ -154,6 +155,7 @@ export async function getSectionSchedule(
       title: exercises.title,
       difficulty: exercises.difficulty,
       oopTags: exercises.oopTags,
+      isLibrary: exercises.isLibrary,
       creatorUsername: users.username,
     })
     .from(exerciseAssignments)
@@ -173,6 +175,7 @@ export async function getSectionSchedule(
     difficulty: a.difficulty,
     oopTags: parseOopTags(a.oopTags),
     creatorUsername: a.creatorUsername ?? null,
+    isLibrary: Boolean(a.isLibrary),
     isAssessment: Boolean(a.isAssessment),
     isVisible: Boolean(a.isVisible),
     allowSubmission: Boolean(a.allowSubmission),

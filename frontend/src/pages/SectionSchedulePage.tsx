@@ -23,6 +23,7 @@ interface ScheduleExercise {
   difficulty: Difficulty
   oopTags: string[]
   creatorUsername: string | null
+  isLibrary: boolean
   isAssessment: boolean
   week: number | null
   deadline: string | null
@@ -127,6 +128,94 @@ function extractWeekFromTitle(title: string): number | null {
   return Number.isInteger(week) && week > 0 ? week : null
 }
 
+function toScheduleExercise(
+  exercise: PoolExercise | ScheduleExercise,
+  week: number,
+  deadline: string | null
+): ScheduleExercise {
+  if ('exerciseId' in exercise) {
+    return {
+      ...exercise,
+      week,
+      deadline,
+    }
+  }
+
+  return {
+    assignmentId: `pending-${exercise.id}`,
+    exerciseId: exercise.id,
+    title: exercise.title,
+    difficulty: exercise.difficulty,
+    oopTags: exercise.oopTags,
+    creatorUsername: exercise.creatorUsername,
+    isLibrary: exercise.isLibrary,
+    isAssessment: false,
+    week,
+    deadline,
+  }
+}
+
+function toPoolExercise(exercise: ScheduleExercise): PoolExercise {
+  return {
+    id: exercise.exerciseId,
+    title: exercise.title,
+    difficulty: exercise.difficulty,
+    oopTags: exercise.oopTags,
+    creatorUsername: exercise.creatorUsername,
+    isLibrary: exercise.isLibrary,
+  }
+}
+
+function removeExerciseFromSchedule(data: ScheduleData, exerciseId: string) {
+  let found: ScheduleExercise | PoolExercise | null = null
+
+  const pool = data.pool.filter((exercise) => {
+    if (exercise.id === exerciseId) {
+      found = exercise
+      return false
+    }
+    return true
+  })
+
+  const otherPool = data.otherPool.filter((exercise) => {
+    if (exercise.id === exerciseId) {
+      found = exercise
+      return false
+    }
+    return true
+  })
+
+  const unscheduled = data.unscheduled.filter((exercise) => {
+    if (exercise.exerciseId === exerciseId) {
+      found = exercise
+      return false
+    }
+    return true
+  })
+
+  const weeks = data.weeks.map((week) => ({
+    ...week,
+    exercises: week.exercises.filter((exercise) => {
+      if (exercise.exerciseId === exerciseId) {
+        found = exercise
+        return false
+      }
+      return true
+    }),
+  }))
+
+  return {
+    next: {
+      ...data,
+      pool,
+      otherPool,
+      unscheduled,
+      weeks,
+    },
+    found,
+  }
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function SectionSchedulePage() {
@@ -176,30 +265,87 @@ export function SectionSchedulePage() {
 
   async function assignExercise(exerciseId: string, week: number) {
     if (!id) return
+    setData((current) => {
+      if (!current) return current
+      const { next, found } = removeExerciseFromSchedule(current, exerciseId)
+      if (!found) return current
+      const weekDeadline = next.weeks.find((item) => item.week === week)?.deadline ?? null
+      const targetWeek = next.weeks.find((item) => item.week === week)
+      if (targetWeek) {
+        return {
+          ...next,
+          weeks: next.weeks.map((item) =>
+            item.week === week
+              ? {
+                  ...item,
+                  exercises: [...item.exercises, toScheduleExercise(found, week, item.deadline)],
+                }
+              : item
+          ),
+        }
+      }
+
+      return {
+        ...next,
+        weeks: [
+          ...next.weeks,
+          {
+            week,
+            deadline: weekDeadline,
+            exercises: [toScheduleExercise(found, week, weekDeadline)],
+          },
+        ],
+      }
+    })
+
     try {
       await api.post(`${base}/sections/${id}/schedule/assign`, {
         exercise_id: exerciseId,
         week,
       })
-      toast.success(`Đã xếp bài tập vào tuần ${week}.`)
       await fetchSchedule()
     } catch (err) {
       const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
       toast.error(axiosErr.response?.data?.error?.message || 'Không thể xếp bài tập.')
+      await fetchSchedule()
     }
   }
 
   async function unassignExercise(exerciseId: string) {
     if (!id) return
+    setData((current) => {
+      if (!current) return current
+      const { next, found } = removeExerciseFromSchedule(current, exerciseId)
+      if (!found) return current
+      if (!('exerciseId' in found)) return next
+
+      const poolExercise = toPoolExercise(found)
+      if (!poolExercise.isLibrary) {
+        return {
+          ...next,
+          otherPool: next.otherPool.some((exercise) => exercise.id === exerciseId)
+            ? next.otherPool
+            : [poolExercise, ...next.otherPool],
+        }
+      }
+
+      return {
+        ...next,
+        pool: next.pool.some((exercise) => exercise.id === exerciseId)
+          ? next.pool
+          : [poolExercise, ...next.pool],
+      }
+    })
+
     try {
       await api.post(`${base}/sections/${id}/schedule/unassign`, {
         exercise_id: exerciseId,
       })
-      toast.success('Đã gỡ bài tập khỏi lịch.')
       await fetchSchedule()
     } catch (err) {
       const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
       toast.error(axiosErr.response?.data?.error?.message || 'Không thể gỡ bài tập.')
+      await fetchSchedule()
     }
   }
 
@@ -212,7 +358,6 @@ export function SectionSchedulePage() {
         week,
         deadline: iso,
       })
-      toast.success(`Đã lưu hạn nộp tuần ${week}.`)
       await fetchSchedule()
     } catch (err) {
       const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
@@ -259,7 +404,6 @@ export function SectionSchedulePage() {
     }
 
     setAutoAssigning(true)
-    let successCount = 0
     let failedCount = 0
     for (const assignment of assignments) {
       try {
@@ -267,15 +411,11 @@ export function SectionSchedulePage() {
           exercise_id: assignment.exerciseId,
           week: assignment.week,
         })
-        successCount += 1
       } catch {
         failedCount += 1
       }
     }
 
-    if (successCount > 0) {
-      toast.success(`Đã tự động gán ${successCount} bài tập theo tên tuần.`)
-    }
     if (failedCount > 0) {
       toast.error(`${failedCount} bài tập chưa gán được. Vui lòng thử lại hoặc gán thủ công.`)
     }
@@ -293,7 +433,6 @@ export function SectionSchedulePage() {
       [nextCount]: prev[nextCount] || addDaysLocalInput(prev[nextCount - 1] ?? '', 7),
     }))
     localStorage.setItem(getWeekCountKey(data.section.id), String(nextCount))
-    toast.success(`Đã thêm tuần ${nextCount}.`)
   }
 
   function removeWeek(week: number) {
@@ -307,7 +446,6 @@ export function SectionSchedulePage() {
     setVisibleWeekCount(nextCount)
     setSelectedWeek((current) => Math.min(current, nextCount))
     localStorage.setItem(getWeekCountKey(data.section.id), String(nextCount))
-    toast.success(`Đã xóa tuần ${week}.`)
   }
 
   // ─── Drag & drop handlers ──────────────────────────────────────────────
