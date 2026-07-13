@@ -831,43 +831,58 @@ export function ExerciseFormPage() {
           )}
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-white p-4">
-          <label className="label">Loại bài tập</label>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => handleExerciseKindChange('coding')}
-              className={`rounded-lg border p-4 text-left transition-colors ${
-                exerciseKind === 'coding'
-                  ? 'border-primary bg-primary-50 text-primary-800'
-                  : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-primary-200'
-              }`}
-            >
-              <span className="block text-sm font-bold">Bài tập lập trình</span>
-              <span className="mt-1 block text-xs font-medium text-slate-500">
-                Có editor, mã khởi tạo, Checkstyle và bộ test tự động.
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleExerciseKindChange('project')}
-              className={`rounded-lg border p-4 text-left transition-colors ${
-                exerciseKind === 'project'
-                  ? 'border-primary bg-primary-50 text-primary-800'
-                  : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-primary-200'
-              }`}
-            >
-              <span className="block text-sm font-bold">Bài tập lớn</span>
-              <span className="mt-1 block text-xs font-medium text-slate-500">
-                Sinh viên lập nhóm, nhập thành viên và nộp URL GitHub.
-              </span>
-            </button>
+        <section className="rounded-lg border border-slate-200 bg-slate-50 overflow-hidden">
+          <div className="border-b border-slate-200 bg-white px-4 py-3">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">Loại bài tập</h2>
+            <p className="mt-1 text-xs font-medium text-slate-500">
+              Chọn bài tập lập trình tự động chấm điểm hoặc dự án bài tập lớn nộp nhóm.
+            </p>
           </div>
-          {isProjectExercise && (
-            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
-              Bài tập lớn không dùng starter code, Checkstyle hoặc test case trên executor. Nội dung chi tiết nên đặt trong mô tả và có thể chèn ảnh/biểu đồ lớp.
+          <div className="p-4 space-y-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => handleExerciseKindChange('coding')}
+                className={`rounded-lg border p-4 text-left transition-colors ${
+                  exerciseKind === 'coding'
+                    ? 'border-primary bg-primary-50 text-primary-800'
+                    : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-primary-200'
+                }`}
+              >
+                <span className="block text-sm font-bold">Bài tập lập trình</span>
+                <span className="mt-1 block text-xs font-medium text-slate-500">
+                  Có editor, mã khởi tạo, Checkstyle và bộ test tự động.
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleExerciseKindChange('project')}
+                className={`rounded-lg border p-4 text-left transition-colors ${
+                  exerciseKind === 'project'
+                    ? 'border-primary bg-primary-50 text-primary-800'
+                    : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-primary-200'
+                }`}
+              >
+                <span className="block text-sm font-bold">Bài tập lớn</span>
+                <span className="mt-1 block text-xs font-medium text-slate-500">
+                  Sinh viên lập nhóm, nhập thành viên và nộp URL GitHub.
+                </span>
+              </button>
             </div>
-          )}
+            {isProjectExercise && (
+              <div className="rounded-lg border border-sky-200 bg-sky-50/50 p-4 text-xs text-sky-950 space-y-2">
+                <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-sky-850">
+                  <span>💡 Hướng dẫn & Lưu ý cho Bài tập lớn</span>
+                </div>
+                <p className="font-semibold leading-relaxed">
+                  • Bài tập lớn không dùng starter code, Checkstyle hoặc test case tự động. Nội dung chi tiết nên đặt trong phần Mô tả (có thể chèn ảnh/biểu đồ lớp).
+                </p>
+                <p className="font-semibold leading-relaxed">
+                  • Sau khi giao bài cho lớp, sinh viên sẽ tự lập nhóm, khai báo thành viên và nộp link GitHub trực tiếp. Giảng viên có thể theo dõi tiến độ, chấm điểm nhóm, và xem lịch sử commit tại trang quản lý BTL.
+                </p>
+              </div>
+            )}
+          </div>
         </section>
 
         {/* Title */}
@@ -975,18 +990,7 @@ export function ExerciseFormPage() {
           {errors.tags && <p className="mt-1 text-xs text-danger-600">{errors.tags}</p>}
         </div>
 
-        {isProjectExercise ? (
-          <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-emerald-900">
-              Luồng nộp bài tập lớn
-            </h2>
-            <p className="mt-2 text-sm font-medium text-emerald-800">
-              Sau khi giao bài cho lớp, sinh viên sẽ thấy trang Bài tập lớn riêng để thêm thành viên nhóm,
-              nhập tên nhóm và nộp URL GitHub. Giảng viên có thể theo dõi danh sách nhóm, thống kê, lịch sử
-              và thảo luận ở trang chi tiết BTL.
-            </p>
-          </section>
-        ) : (
+        {isProjectExercise ? null : (
           <>
             {/* Starter Code */}
             <div>
