@@ -428,7 +428,7 @@ describe('AntiCheatMonitor', () => {
     expect(workspace.parentElement).toHaveClass('opacity-50')
   })
 
-  it('does not warn for a devtools-like viewport gap during startup', async () => {
+  it('does not treat zoom or viewport size changes as DevTools', async () => {
     Object.defineProperty(window, 'outerWidth', { value: 1400, configurable: true })
     Object.defineProperty(window, 'innerWidth', { value: 900, configurable: true })
     Object.defineProperty(window, 'outerHeight', { value: 900, configurable: true })
@@ -441,19 +441,26 @@ describe('AntiCheatMonitor', () => {
         </AntiCheatMonitor>
       )
     })
+    nowMs = 30_000
+
+    await act(async () => {
+      window.dispatchEvent(new Event('resize'))
+      fireEvent.keyDown(window, { key: '+', ctrlKey: true })
+      fireEvent.keyDown(window, { key: '-', ctrlKey: true })
+      fireEvent.keyDown(window, { key: '0', ctrlKey: true })
+      fireEvent.keyDown(window, { key: '+', metaKey: true })
+      fireEvent.keyDown(window, { key: '-', metaKey: true })
+      fireEvent.keyDown(window, { key: '0', metaKey: true })
+    })
 
     expect(screen.getByText('Cảnh báo: 0/3')).toBeInTheDocument()
+    expect(api.post).not.toHaveBeenCalledWith(
+      '/api/anticheat/events',
+      expect.objectContaining({ event_type: 'devtools_open' })
+    )
   })
 
-  it('does not warn before repeated devtools detections are confirmed', async () => {
-    vi.mocked(Date.now).mockRestore()
-    vi.useFakeTimers()
-    vi.setSystemTime(0)
-    Object.defineProperty(window, 'outerWidth', { value: 1400, configurable: true })
-    Object.defineProperty(window, 'innerWidth', { value: 900, configurable: true })
-    Object.defineProperty(window, 'outerHeight', { value: 900, configurable: true })
-    Object.defineProperty(window, 'innerHeight', { value: 900, configurable: true })
-
+  it('records an explicit DevTools keyboard shortcut', async () => {
     await act(async () => {
       renderWithRouter(
         <AntiCheatMonitor isAssessment={true} exerciseId="ex-1" warningThreshold={3}>
@@ -461,17 +468,17 @@ describe('AntiCheatMonitor', () => {
         </AntiCheatMonitor>
       )
     })
+    nowMs = 6000
 
     await act(async () => {
-      vi.advanceTimersByTime(6500)
+      fireEvent.keyDown(window, { key: 'F12' })
     })
-    expect(screen.getByText('Cảnh báo: 0/3')).toBeInTheDocument()
 
-    await act(async () => {
-      vi.advanceTimersByTime(1500)
-    })
-    expect(screen.getByText('Cảnh báo: 0/3')).toBeInTheDocument()
-
-    vi.useRealTimers()
+    expect(screen.getByText('Cảnh báo: 1/3')).toBeInTheDocument()
+    expect(screen.getByText('Phát hiện thao tác mở DevTools trong phiên làm bài.')).toBeInTheDocument()
+    expect(api.post).toHaveBeenCalledWith(
+      '/api/anticheat/events',
+      expect.objectContaining({ event_type: 'devtools_open' })
+    )
   })
 })

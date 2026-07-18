@@ -56,10 +56,8 @@ export function AntiCheatMonitor({
   const [fullscreenRecoveryNeeded, setFullscreenRecoveryNeeded] = useState(false)
   const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hasCalledNullifiedRef = useRef(false)
-  const lastDevtoolsWarningAtRef = useRef(0)
   const lastExitWarningAtRef = useRef(0)
   const monitoringStartedAtRef = useRef(0)
-  const devtoolsDetectionStreakRef = useRef(0)
   const hasArmedBackGuardRef = useRef(false)
   const suppressNextFullscreenExitRef = useRef(false)
 
@@ -290,43 +288,32 @@ export function AntiCheatMonitor({
     }
   }, [exitFullscreenIfNeeded, isActive, isNullified, navigate, onExitAttempt, recordWarning, showNotification, threshold, warningCount])
 
-  // Browser APIs cannot truly forbid DevTools. Viewport gap detection is only
-  // a heuristic, so keep it conservative to avoid punishing normal fullscreen
-  // startup, browser chrome quirks, split-screen windows, or zoom/layout changes.
+  // Browsers do not expose a reliable "DevTools is open" API. Detect only the
+  // explicit keyboard shortcuts; viewport-size heuristics misclassify page zoom.
   useEffect(() => {
     if (!isActive || isNullified) return
 
-    const detectDevTools = () => {
+    const handleDevToolsShortcut = (event: KeyboardEvent) => {
       if (!document.fullscreenElement || Date.now() - monitoringStartedAtRef.current < 5000) {
-        devtoolsDetectionStreakRef.current = 0
         return
       }
 
-      const widthGap = Math.abs(window.outerWidth - window.innerWidth)
-      const heightGap = Math.abs(window.outerHeight - window.innerHeight)
-      const widthThreshold = Math.max(260, window.innerWidth * 0.22)
-      const heightThreshold = Math.max(260, window.innerHeight * 0.22)
-      const looksOpen = widthGap > widthThreshold || heightGap > heightThreshold
-      const now = Date.now()
+      const key = event.key.toLowerCase()
+      const isFunctionKey = key === 'f12'
+      const isWindowsOrLinuxShortcut = event.ctrlKey && event.shiftKey && ['i', 'j', 'c', 'k'].includes(key)
+      const isMacShortcut = event.metaKey && event.altKey && ['i', 'j', 'c', 'k'].includes(key)
 
-      if (!looksOpen) {
-        devtoolsDetectionStreakRef.current = 0
-        return
-      }
+      if (!isFunctionKey && !isWindowsOrLinuxShortcut && !isMacShortcut) return
 
-      devtoolsDetectionStreakRef.current += 1
+      event.preventDefault()
+      if (event.repeat) return
 
-      if (devtoolsDetectionStreakRef.current >= 3 && now - lastDevtoolsWarningAtRef.current > 15_000) {
-        lastDevtoolsWarningAtRef.current = now
-        devtoolsDetectionStreakRef.current = 0
-        recordWarning('devtools_open')
-        showNotification('Phát hiện DevTools đang mở trong phiên làm bài.')
-      }
+      recordWarning('devtools_open')
+      showNotification('Phát hiện thao tác mở DevTools trong phiên làm bài.')
     }
 
-    detectDevTools()
-    const timer = window.setInterval(detectDevTools, 1500)
-    return () => window.clearInterval(timer)
+    window.addEventListener('keydown', handleDevToolsShortcut, true)
+    return () => window.removeEventListener('keydown', handleDevToolsShortcut, true)
   }, [isActive, isNullified, recordWarning, showNotification])
 
   // Trigger onNullified callback when score is nullified
