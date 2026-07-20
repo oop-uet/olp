@@ -233,9 +233,6 @@ export function InstructorStatisticPage() {
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
               <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3">
-                  <h2 className="text-sm font-black uppercase tracking-wide text-slate-800">
-                    Danh sách sinh viên
-                  </h2>
                   <label className="flex items-center gap-2 text-xs font-bold text-slate-500">
                     Tìm kiếm:
                     <input
@@ -247,6 +244,24 @@ export function InstructorStatisticPage() {
                       className="h-8 rounded-md border border-slate-200 px-3 text-xs font-semibold text-slate-700 outline-none focus:border-primary"
                     />
                   </label>
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                    <span>Số dòng hiển thị:</span>
+                    <select
+                      value={pageSize === 999999 ? 'all' : pageSize}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        setPageSize(val === 'all' ? 999999 : Number(val))
+                        setCurrentPage(1)
+                      }}
+                      className="h-8 rounded border border-slate-200 bg-white px-2 outline-none cursor-pointer text-slate-700 font-semibold"
+                    >
+                      <option value="5">5</option>
+                      <option value="10">10</option>
+                      <option value="20">20</option>
+                      <option value="50">50</option>
+                      <option value="all">Tất cả</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -363,24 +378,7 @@ export function InstructorStatisticPage() {
                               </div>
                             )}
 
-                            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
-                              <span>Số dòng hiển thị:</span>
-                              <select
-                                value={pageSize === 999999 ? 'all' : pageSize}
-                                onChange={(e) => {
-                                  const val = e.target.value
-                                  setPageSize(val === 'all' ? 999999 : Number(val))
-                                  setCurrentPage(1)
-                                }}
-                                className="h-8 rounded border border-slate-200 bg-white px-2 outline-none cursor-pointer text-slate-700 font-semibold"
-                              >
-                                <option value="5">5</option>
-                                <option value="10">10</option>
-                                <option value="20">20</option>
-                                <option value="50">50</option>
-                                <option value="all">Tất cả</option>
-                              </select>
-                            </div>
+
                           </div>
                         </div>
                       )}
