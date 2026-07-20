@@ -4,6 +4,7 @@ import { api } from '../../lib/api'
 import { PageLoader, Spinner, StudentsIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { formatSectionDisplayName } from '../../utils/semester'
+import { compareByVietnameseName } from '../../lib/sortUtils'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -46,18 +47,22 @@ export function StudentManagementPage() {
   const [users, setUsers] = useState<UserRow[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [sortField, setSortField] = useState<'username' | 'fullName' | 'email' | 'createdAt' | ''>('')
+  const [sortField, setSortField] = useState<'username' | 'fullName' | 'email' | 'createdAt' | ''>('fullName')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
 
   const sortedUsers = useMemo(() => {
-    if (!sortField) return users
-    return [...users].sort((a, b) => {
+    const list = [...users]
+    const direction = sortOrder === 'asc' ? 1 : -1
+    if (!sortField || sortField === 'fullName') {
+      return list.sort((a, b) => compareByVietnameseName(a.fullName, b.fullName) * direction)
+    }
+    return list.sort((a, b) => {
       const valA = (a[sortField] || '').toLowerCase()
       const valB = (b[sortField] || '').toLowerCase()
-      if (valA < valB) return sortOrder === 'asc' ? -1 : 1
-      if (valA > valB) return sortOrder === 'asc' ? 1 : -1
+      if (valA < valB) return -1 * direction
+      if (valA > valB) return 1 * direction
       return 0
     })
   }, [users, sortField, sortOrder])

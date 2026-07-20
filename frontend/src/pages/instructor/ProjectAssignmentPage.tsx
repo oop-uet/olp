@@ -6,6 +6,7 @@ import { toast } from '../../stores/toast.store'
 import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
 import { ExerciseMarkdownContent } from '../../components/exercise/ExerciseDescriptionEditor'
 import { stripProjectSubmissionNotes } from '../../utils/projectDescription'
+import { compareByVietnameseName } from '../../lib/sortUtils'
 
 type TabKey = 'description' | 'groups' | 'stats' | 'history' | 'discussion' | 'grading'
 
@@ -611,11 +612,17 @@ function StatsTab({ data, onExport }: { data: ProjectWorkspace; onExport: () => 
 
   const [currentPage, setCurrentPage] = useState(0)
   const pageSize = 15
-  const totalPages = Math.ceil(data.studentScores.length / pageSize)
+  const sortedStudents = useMemo(() => {
+    return [...data.studentScores].sort((a, b) =>
+      compareByVietnameseName(a.studentName, b.studentName)
+    )
+  }, [data.studentScores])
+
+  const totalPages = Math.ceil(sortedStudents.length / pageSize)
 
   const paginatedStudents = useMemo(() => {
-    return data.studentScores.slice(currentPage * pageSize, (currentPage + 1) * pageSize)
-  }, [data.studentScores, currentPage, pageSize])
+    return sortedStudents.slice(currentPage * pageSize, (currentPage + 1) * pageSize)
+  }, [sortedStudents, currentPage, pageSize])
 
   useEffect(() => {
     setCurrentPage(0)

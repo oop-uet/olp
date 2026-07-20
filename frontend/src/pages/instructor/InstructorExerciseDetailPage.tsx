@@ -7,6 +7,7 @@ import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils
 import { ExerciseMarkdownContent } from '../../components/exercise/ExerciseDescriptionEditor'
 import { stripProjectSubmissionNotes } from '../../utils/projectDescription'
 import { ProjectAssignmentWorkspace } from './ProjectAssignmentPage'
+import { compareByVietnameseName } from '../../lib/sortUtils'
 
 type Tab = 'description' | 'groups' | 'testcases' | 'history' | 'stats'
 
@@ -220,7 +221,7 @@ export function InstructorExerciseDetailPage() {
   const [sectionDetail, setSectionDetail] = useState<any | null>(null)
   const [loadingSectionDetail, setLoadingSectionDetail] = useState(false)
   const [statSearch, setStatSearch] = useState('')
-  const [statSortField, setStatSortField] = useState<'studentId' | 'fullName' | 'bestScore' | ''>('')
+  const [statSortField, setStatSortField] = useState<'studentId' | 'fullName' | 'bestScore' | ''>('fullName')
   const [statSortOrder, setStatSortOrder] = useState<'asc' | 'desc'>('asc')
   const [statCurrentPage, setStatCurrentPage] = useState(1)
   const [statPageSize, setStatPageSize] = useState(10)
@@ -334,8 +335,12 @@ export function InstructorExerciseDetailPage() {
   }, [studentsWithScores, statSearch])
 
   const sortedStatStudents = useMemo(() => {
-    if (!statSortField) return filteredStatStudents
-    return [...filteredStatStudents].sort((a: any, b: any) => {
+    const list = [...filteredStatStudents]
+    const direction = statSortOrder === 'asc' ? 1 : -1
+    if (!statSortField || statSortField === 'fullName') {
+      return list.sort((a: any, b: any) => compareByVietnameseName(a.fullName, b.fullName) * direction)
+    }
+    return list.sort((a: any, b: any) => {
       let valA = statSortField === 'studentId' ? (a.studentExternalId || a.username || '') : a[statSortField]
       let valB = statSortField === 'studentId' ? (b.studentExternalId || b.username || '') : b[statSortField]
       
@@ -345,8 +350,8 @@ export function InstructorExerciseDetailPage() {
       if (valA === null) valA = -1
       if (valB === null) valB = -1
 
-      if (valA < valB) return statSortOrder === 'asc' ? -1 : 1
-      if (valA > valB) return statSortOrder === 'asc' ? 1 : -1
+      if (valA < valB) return -1 * direction
+      if (valA > valB) return 1 * direction
       return 0
     })
   }, [filteredStatStudents, statSortField, statSortOrder])

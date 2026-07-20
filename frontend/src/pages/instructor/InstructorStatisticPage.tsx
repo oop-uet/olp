@@ -4,6 +4,7 @@ import { cachedGet } from '../../lib/api'
 import { PageLoader, Spinner } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { normalizePreviewSectionName } from '../../utils/semester'
+import { compareByVietnameseName } from '../../lib/sortUtils'
 
 interface SectionOption {
   id: string
@@ -128,7 +129,7 @@ export function InstructorStatisticPage() {
 
   const selectedSection = sections.find((section) => section.id === selectedSectionId)
   
-  const [sortField, setSortField] = useState<'studentId' | 'fullName' | 'completionPercent' | 'totalScore' | 'attemptCount' | ''>('')
+  const [sortField, setSortField] = useState<'studentId' | 'fullName' | 'completionPercent' | 'totalScore' | 'attemptCount' | ''>('fullName')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
@@ -144,14 +145,18 @@ export function InstructorStatisticPage() {
   }, [query, stats])
 
   const sortedStudents = useMemo(() => {
-    if (!sortField) return filteredStudents
-    return [...filteredStudents].sort((a, b) => {
+    const list = [...filteredStudents]
+    const direction = sortOrder === 'asc' ? 1 : -1
+    if (!sortField || sortField === 'fullName') {
+      return list.sort((a, b) => compareByVietnameseName(a.fullName, b.fullName) * direction)
+    }
+    return list.sort((a, b) => {
       let valA = a[sortField]
       let valB = b[sortField]
       if (typeof valA === 'string') valA = valA.toLowerCase()
       if (typeof valB === 'string') valB = valB.toLowerCase()
-      if (valA < valB) return sortOrder === 'asc' ? -1 : 1
-      if (valA > valB) return sortOrder === 'asc' ? 1 : -1
+      if (valA < valB) return -1 * direction
+      if (valA > valB) return 1 * direction
       return 0
     })
   }, [filteredStudents, sortField, sortOrder])

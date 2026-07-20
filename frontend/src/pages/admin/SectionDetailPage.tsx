@@ -4,6 +4,7 @@ import { api } from '../../lib/api'
 import { PageLoader, Spinner, SectionIcon, StudentsIcon, ExerciseIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { formatSectionDisplayName, formatSemesterDisplayName } from '../../utils/semester'
+import { compareByVietnameseName } from '../../lib/sortUtils'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -97,7 +98,7 @@ export function SectionDetailPage() {
 
   // Student list sorting, search, and pagination
   const [studentSearch, setStudentSearch] = useState('')
-  const [studentSortField, setStudentSortField] = useState<'studentId' | 'fullName' | 'email' | ''>('')
+  const [studentSortField, setStudentSortField] = useState<'studentId' | 'fullName' | 'email' | ''>('fullName')
   const [studentSortOrder, setStudentSortOrder] = useState<'asc' | 'desc'>('asc')
   const [studentCurrentPage, setStudentCurrentPage] = useState(1)
   const [studentPageSize, setStudentPageSize] = useState(10)
@@ -116,12 +117,16 @@ export function SectionDetailPage() {
   }, [detail?.students, studentSearch])
 
   const sortedStudents = useMemo(() => {
-    if (!studentSortField) return filteredStudents
-    return [...filteredStudents].sort((a, b) => {
+    const list = [...filteredStudents]
+    const direction = studentSortOrder === 'asc' ? 1 : -1
+    if (!studentSortField || studentSortField === 'fullName') {
+      return list.sort((a, b) => compareByVietnameseName(a.fullName, b.fullName) * direction)
+    }
+    return list.sort((a, b) => {
       const valA = (a[studentSortField] || '').toLowerCase()
       const valB = (b[studentSortField] || '').toLowerCase()
-      if (valA < valB) return studentSortOrder === 'asc' ? -1 : 1
-      if (valA > valB) return studentSortOrder === 'asc' ? 1 : -1
+      if (valA < valB) return -1 * direction
+      if (valA > valB) return 1 * direction
       return 0
     })
   }, [filteredStudents, studentSortField, studentSortOrder])

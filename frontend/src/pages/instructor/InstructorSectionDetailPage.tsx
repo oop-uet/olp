@@ -5,6 +5,7 @@ import { api } from '../../lib/api'
 import { PageLoader, Spinner } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { formatSemesterDisplayName, normalizePreviewSectionName } from '../../utils/semester'
+import { compareByVietnameseName } from '../../lib/sortUtils'
 
 interface InstructorInfo {
   id: string
@@ -385,7 +386,7 @@ export function InstructorSectionDetailPage() {
 
 
 
-  const [sortField, setSortField] = useState<'studentId' | 'fullName' | 'email' | ''>('')
+  const [sortField, setSortField] = useState<'studentId' | 'fullName' | 'email' | ''>('fullName')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
 
   const students = detail?.students ?? []
@@ -402,7 +403,10 @@ export function InstructorSectionDetailPage() {
         (s.email && s.email.toLowerCase().includes(q))
       )
     })
-    if (!sortField) return list
+    if (!sortField || sortField === 'fullName') {
+      const direction = sortOrder === 'asc' ? 1 : -1
+      return [...list].sort((a, b) => compareByVietnameseName(a.fullName, b.fullName) * direction)
+    }
     return [...list].sort((a, b) => {
       const valA = (a[sortField] || '').toLowerCase()
       const valB = (b[sortField] || '').toLowerCase()
