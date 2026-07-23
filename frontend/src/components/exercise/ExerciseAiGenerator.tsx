@@ -153,7 +153,7 @@ export function ExerciseAiGenerator({
   const disabled = statusLoading || !status?.enabled
 
   return (
-    <div className="w-full space-y-3">
+    <div className={`${open ? 'w-full basis-full' : 'w-auto'} space-y-3`}>
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"

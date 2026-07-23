@@ -750,19 +750,28 @@ export function ExerciseFormPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-[1680px] space-y-5 px-2 pb-8 sm:px-4">
       {/* Page header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-gray-800">
-          {isEditing ? 'Sửa bài tập' : 'Tạo bài tập'}
-        </h1>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">
+            {isEditing ? 'Sửa bài tập' : 'Tạo bài tập'}
+          </h1>
+          <p className="mt-1 text-sm font-medium text-slate-500">
+            Soạn nội dung, cấu hình chấm điểm và bộ test trong cùng một workspace.
+          </p>
+        </div>
         <button onClick={() => navigate('/instructor/exercises')} className="btn-ghost btn-sm">
           ← Quay lại danh sách
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="card space-y-6 p-6" noValidate>
-        <section className="rounded-lg border border-slate-200 bg-slate-50">
+      <form
+        onSubmit={handleSubmit}
+        className="card grid grid-flow-row-dense grid-cols-1 gap-5 p-4 lg:p-5 xl:grid-cols-12"
+        noValidate
+      >
+        <section className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50 xl:col-span-7">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
             <div>
               <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">Template ra đề</h2>
@@ -831,7 +840,7 @@ export function ExerciseFormPage() {
           )}
         </section>
 
-        <section className="rounded-lg border border-slate-200 bg-slate-50 overflow-hidden">
+        <section className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50 xl:col-span-5">
           <div className="border-b border-slate-200 bg-white px-4 py-3">
             <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">Loại bài tập</h2>
             <p className="mt-1 text-xs font-medium text-slate-500">
@@ -872,7 +881,7 @@ export function ExerciseFormPage() {
             {isProjectExercise && (
               <div className="rounded-lg border border-sky-200 bg-sky-50/50 p-4 text-xs text-sky-950 space-y-2">
                 <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-sky-850">
-                  <span>💡 Hướng dẫn & Lưu ý cho Bài tập lớn</span>
+                  <span>Lưu ý cho Bài tập lớn</span>
                 </div>
                 <p className="font-semibold leading-relaxed">
                   • Bài tập lớn không dùng starter code, Checkstyle hoặc test case tự động. Nội dung chi tiết nên đặt trong phần Mô tả (có thể chèn ảnh/biểu đồ lớp).
@@ -886,7 +895,7 @@ export function ExerciseFormPage() {
         </section>
 
         {/* Title */}
-        <div>
+        <div className="xl:col-span-9">
           <label htmlFor="title" className="label">
             Tiêu đề <span className="text-danger-500">*</span>
           </label>
@@ -906,7 +915,7 @@ export function ExerciseFormPage() {
         </div>
 
         {/* Description */}
-        <div>
+        <div className="xl:col-span-12">
           <label htmlFor="description" className="label">
             Mô tả <span className="text-danger-500">*</span>
           </label>
@@ -923,7 +932,7 @@ export function ExerciseFormPage() {
         </div>
 
         {isProjectExercise && (
-          <div>
+          <div className="xl:col-span-12">
             <label htmlFor="project-submission-requirements" className="label">
               Yêu cầu nộp bài <span className="text-danger-500">*</span>
             </label>
@@ -942,7 +951,7 @@ export function ExerciseFormPage() {
         )}
 
         {/* Difficulty */}
-        <div>
+        <div className="xl:col-span-3">
           <label htmlFor="difficulty" className="label">
             Độ khó <span className="text-danger-500">*</span>
           </label>
@@ -963,7 +972,7 @@ export function ExerciseFormPage() {
         </div>
 
         {/* OOP Tags */}
-        <div>
+        <div className="xl:col-span-12">
           <label className="label">
             Thẻ OOP <span className="text-danger-500">*</span>
             <span className="ml-1 font-normal text-gray-400">(chọn 1-5)</span>
@@ -993,7 +1002,7 @@ export function ExerciseFormPage() {
         {isProjectExercise ? null : (
           <>
             {/* Starter Code */}
-            <div>
+            <div className="xl:col-span-7">
               <label htmlFor="starter-code" className="label">
                 Mã khởi tạo (template)
               </label>
@@ -1008,7 +1017,7 @@ export function ExerciseFormPage() {
             </div>
 
             {/* Style Policy */}
-            <section className="rounded-lg border border-slate-200 bg-slate-50">
+            <section className="rounded-lg border border-slate-200 bg-slate-50 xl:col-span-5">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
             <div>
               <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">
@@ -1103,7 +1112,7 @@ export function ExerciseFormPage() {
         </section>
 
         {/* Test Cases */}
-        <div>
+        <div className="xl:col-span-12">
           <div className="mb-3 flex items-center justify-between">
             <label className="label mb-0">
               Bộ test <span className="text-danger-500">*</span>
@@ -1211,7 +1220,7 @@ export function ExerciseFormPage() {
         )}
 
         {/* Submit */}
-        <div className="flex items-center gap-3 border-t border-gray-200 pt-6">
+        <div className="sticky bottom-3 z-20 flex items-center justify-end gap-3 rounded-lg border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur xl:col-span-12">
           <button type="submit" disabled={submitting} className="btn-primary btn-lg">
             {submitting
               ? isEditing
