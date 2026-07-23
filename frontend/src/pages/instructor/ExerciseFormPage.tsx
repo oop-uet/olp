@@ -859,9 +859,6 @@ export function ExerciseFormPage() {
                 }`}
               >
                 <span className="block text-sm font-bold">Bài tập lập trình</span>
-                <span className="mt-1 block text-xs font-medium text-slate-500">
-                  Có editor, mã khởi tạo, Checkstyle và bộ test tự động.
-                </span>
               </button>
               <button
                 type="button"
@@ -873,9 +870,6 @@ export function ExerciseFormPage() {
                 }`}
               >
                 <span className="block text-sm font-bold">Bài tập lớn</span>
-                <span className="mt-1 block text-xs font-medium text-slate-500">
-                  Sinh viên lập nhóm, nhập thành viên và nộp URL GitHub.
-                </span>
               </button>
             </div>
             {isProjectExercise && (
@@ -1000,9 +994,9 @@ export function ExerciseFormPage() {
         </div>
 
         {isProjectExercise ? null : (
-          <div className="grid items-start gap-5 xl:col-span-12 xl:grid-cols-12">
+          <div className="grid gap-5 xl:col-span-12 xl:grid-cols-12">
             {/* Starter Code */}
-            <div className="xl:col-span-7">
+            <div className="flex min-h-0 flex-col xl:col-span-7">
               <label htmlFor="starter-code" className="label">
                 Mã khởi tạo (template)
               </label>
@@ -1011,13 +1005,13 @@ export function ExerciseFormPage() {
                 value={starterCode}
                 onChange={(e) => setStarterCode(e.target.value)}
                 rows={8}
-                className="input font-mono"
+                className="input min-h-[280px] flex-1 font-mono"
                 placeholder="// Mã khởi tạo cho sinh viên..."
               />
             </div>
 
             {/* Style Policy */}
-            <section className="rounded-lg border border-slate-200 bg-slate-50 xl:col-span-5 xl:row-span-2">
+            <section className="rounded-lg border border-slate-200 bg-slate-50 xl:col-span-5">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
             <div>
               <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">
@@ -1112,7 +1106,7 @@ export function ExerciseFormPage() {
         </section>
 
         {/* Test Cases */}
-        <div className="xl:col-span-7">
+        <div className="xl:col-span-12">
           <div className="mb-3 flex items-center justify-between">
             <label className="label mb-0">
               Bộ test <span className="text-danger-500">*</span>
