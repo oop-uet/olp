@@ -259,7 +259,7 @@ export function ExerciseDescriptionEditor({
           setImageError(null)
         }}
         maxLength={maxLength}
-        rows={8}
+        rows={9}
         className={`input font-mono text-sm leading-6 ${error ? 'input-error' : ''}`}
         placeholder={[
           '# Tiêu đề bài',
@@ -271,48 +271,69 @@ export function ExerciseDescriptionEditor({
         ].join('\n')}
       />
 
-      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-        <div className="grid gap-3 md:grid-cols-[1fr_1.4fr_auto]">
-          <input
-            value={imageAlt}
-            onChange={(event) => setImageAlt(event.target.value)}
-            className="input py-2 text-xs"
-            placeholder="Chú thích ảnh"
-          />
-          <input
-            value={imageUrl}
-            onChange={(event) => {
-              setImageUrl(event.target.value)
-              setImageError(null)
-            }}
-            className="input py-2 text-xs"
-            placeholder="URL ảnh hoặc /downloads/class-diagram.png"
-          />
-          <button type="button" onClick={insertImageUrl} className="btn-secondary btn-sm whitespace-nowrap">
-            Chèn ảnh
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 pb-2.5">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
+            🖼️ Chèn hình ảnh / Biểu đồ lớp (UML Class Diagram)
+          </span>
+          <button
+            type="button"
+            onClick={() => setPreviewOpen((open) => !open)}
+            className="btn-ghost btn-sm text-xs font-bold text-primary hover:bg-primary-50"
+          >
+            {previewOpen ? '👁️ Ẩn xem trước' : '👁️ Xem trước Markdown'}
           </button>
         </div>
 
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-          <label className="btn-ghost btn-sm cursor-pointer">
-            Chọn ảnh nhỏ
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="w-full sm:w-48">
+            <input
+              value={imageAlt}
+              onChange={(event) => setImageAlt(event.target.value)}
+              className="input h-9 py-1 text-xs"
+              placeholder="Chú thích (VD: Biểu đồ lớp)"
+            />
+          </div>
+          <div className="flex-1 min-w-[240px]">
+            <input
+              value={imageUrl}
+              onChange={(event) => {
+                setImageUrl(event.target.value)
+                setImageError(null)
+              }}
+              className="input h-9 py-1 text-xs"
+              placeholder="URL ảnh (VD: https://... hoặc /downloads/class-diagram.png)"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={insertImageUrl}
+            className="btn-primary btn-sm h-9 px-4 whitespace-nowrap text-xs font-bold"
+          >
+            Chèn URL
+          </button>
+          <label className="btn-secondary btn-sm h-9 px-3.5 whitespace-nowrap cursor-pointer text-xs font-bold">
+            Tải ảnh nhỏ
             <input type="file" accept="image/*" onChange={handleImageFile} className="hidden" />
           </label>
-          <span>Khuyến nghị dùng URL ảnh cho biểu đồ lớp để đề bài gọn và dễ bảo trì.</span>
-          <button type="button" onClick={() => setPreviewOpen((open) => !open)} className="btn-ghost btn-sm ml-auto">
-            {previewOpen ? 'Ẩn xem trước' : 'Xem trước'}
-          </button>
         </div>
 
+        <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1">
+          <span>💡</span> Khuyến nghị sử dụng URL ảnh (hoặc CDN/GitHub) cho biểu đồ lớp để đề bài gọn nhẹ và dễ bảo trì.
+        </p>
+
         {imageError && (
-          <p className="mt-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
             {imageError}
           </p>
         )}
       </div>
 
       {previewOpen && (
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-3 border-b border-slate-100 pb-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+            Xem trước nội dung hiển thị cho sinh viên:
+          </div>
           <ExerciseMarkdownContent value={value || 'Chưa có nội dung mô tả.'} />
         </div>
       )}
