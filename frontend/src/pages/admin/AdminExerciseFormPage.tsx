@@ -735,7 +735,7 @@ export function AdminExerciseFormPage() {
 
       <form
         onSubmit={handleSubmit}
-        className="card grid grid-flow-row-dense grid-cols-1 gap-5 p-4 lg:p-5 xl:grid-cols-12"
+        className="card grid grid-flow-row-dense grid-cols-1 items-start gap-5 p-4 lg:p-5 xl:grid-cols-12"
         noValidate
       >
         <section className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50 xl:col-span-7">
@@ -837,7 +837,7 @@ export function AdminExerciseFormPage() {
               <button
                 type="button"
                 onClick={() => handleExerciseKindChange('coding')}
-                className={`rounded-lg border p-4 text-left transition-colors ${
+                className={`rounded-lg border p-3 text-left transition-colors ${
                   exerciseKind === 'coding'
                     ? 'border-primary bg-primary-50 text-primary-800'
                     : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-primary-200'
@@ -851,7 +851,7 @@ export function AdminExerciseFormPage() {
               <button
                 type="button"
                 onClick={() => handleExerciseKindChange('project')}
-                className={`rounded-lg border p-4 text-left transition-colors ${
+                className={`rounded-lg border p-3 text-left transition-colors ${
                   exerciseKind === 'project'
                     ? 'border-primary bg-primary-50 text-primary-800'
                     : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-primary-200'
@@ -972,22 +972,6 @@ export function AdminExerciseFormPage() {
           {errors.tags && <p className="mt-1 text-xs text-danger-600">{errors.tags}</p>}
         </div>
 
-        {isProjectExercise ? null : (
-          <div className="xl:col-span-7">
-            <label htmlFor="starter-code" className="label">
-              Mã khởi tạo (template)
-            </label>
-            <textarea
-              id="starter-code"
-              value={starterCode}
-              onChange={(e) => setStarterCode(e.target.value)}
-              rows={8}
-              className="input font-mono"
-              placeholder="// Mã khởi tạo cho sinh viên..."
-            />
-          </div>
-        )}
-
         {/* Is Library */}
         <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 xl:col-span-3">
           <input
@@ -1000,9 +984,24 @@ export function AdminExerciseFormPage() {
         </label>
 
         {!isProjectExercise && (
-          <>
+          <div className="grid items-start gap-5 xl:col-span-12 xl:grid-cols-12">
+        {/* Starter Code */}
+        <div className="xl:col-span-7">
+          <label htmlFor="starter-code" className="label">
+            Mã khởi tạo (template)
+          </label>
+          <textarea
+            id="starter-code"
+            value={starterCode}
+            onChange={(e) => setStarterCode(e.target.value)}
+            rows={8}
+            className="input font-mono"
+            placeholder="// Mã khởi tạo cho sinh viên..."
+          />
+        </div>
+
         {/* Style Policy */}
-        <section className="rounded-lg border border-slate-200 bg-slate-50 xl:col-span-5">
+        <section className="rounded-lg border border-slate-200 bg-slate-50 xl:col-span-5 xl:row-span-2">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
             <div>
               <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">
@@ -1075,7 +1074,7 @@ export function AdminExerciseFormPage() {
                 return (
                   <label
                     key={rule.id}
-                    className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5"
+                    className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2"
                     title={rule.help}
                   >
                     <input
@@ -1085,9 +1084,9 @@ export function AdminExerciseFormPage() {
                       onChange={(event) => toggleStyleRule(rule.id, event.target.checked)}
                       className="mt-0.5 rounded border-gray-300 text-primary focus:ring-primary"
                     />
-                    <span>
+                    <span className="min-w-0">
                       <span className="block text-sm font-bold text-slate-700">{rule.label}</span>
-                      <span className="block text-xs font-medium text-slate-500">{rule.help}</span>
+                      <span className="sr-only">{rule.help}</span>
                     </span>
                   </label>
                 )
@@ -1097,7 +1096,7 @@ export function AdminExerciseFormPage() {
         </section>
 
         {/* Test Cases */}
-        <div className="xl:col-span-12">
+        <div className="xl:col-span-7">
           <div className="mb-3 flex items-center justify-between">
             <label className="label mb-0">
               Bộ test <span className="text-danger-500">*</span>
@@ -1203,7 +1202,7 @@ export function AdminExerciseFormPage() {
             ))}
           </div>
         </div>
-          </>
+          </div>
         )}
 
         {/* Submit */}
