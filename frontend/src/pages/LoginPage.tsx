@@ -71,7 +71,7 @@ export function LoginPage() {
                 KHOA CÔNG NGHỆ THÔNG TIN
               </h1>
               <p className="text-[10px] font-semibold text-white/70">
-                Đại học Công nghệ – ĐHQGHN
+                Trường Đại học Công nghệ – ĐHQGHN
               </p>
             </div>
           </div>
