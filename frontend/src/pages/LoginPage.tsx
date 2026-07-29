@@ -99,7 +99,7 @@ export function LoginPage() {
               Hệ thống hỗ trợ giảng dạy và thực hành
             </p>
             <p className="text-sm font-black text-white uppercase tracking-wide">
-              UETCodehub - OOP với Java
+              Lập trình hướng đối tượng
             </p>
           </div>
         </div>
@@ -107,11 +107,8 @@ export function LoginPage() {
         {/* Right Section: Form login */}
         <div className="w-full md:w-1/2 p-12 flex flex-col justify-center gap-6 bg-white">
           <div className="space-y-1">
-            <h2 className="text-2xl font-black tracking-tight text-slate-800 flex items-center gap-2">
-              UET<span className="text-teal-600 font-black">Codehub</span>
-              <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200/80">
-                OOP với Java
-              </span>
+            <h2 className="text-2xl font-black tracking-tight text-slate-800 flex items-center gap-1">
+              UET<span className="text-[#f37021] font-black">Codehub</span>
             </h2>
             <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">
               Đăng nhập hệ thống
