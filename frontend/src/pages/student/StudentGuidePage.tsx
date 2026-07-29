@@ -97,9 +97,9 @@ export function StudentGuidePage() {
             </div>
             <div>
               <h1 className="text-lg font-bold tracking-wide text-white flex items-center gap-1.5">
-                UET OASIS <span className="text-[10px] font-bold bg-white/20 text-white px-1.5 py-0.5 rounded tracking-wide uppercase border border-white/15">Hướng dẫn</span>
+                UETCodehub <span className="text-[10px] font-bold bg-white/20 text-white px-1.5 py-0.5 rounded tracking-wide uppercase border border-white/15">Hướng dẫn</span>
               </h1>
-              <p className="text-xs text-white/80 font-medium">Hướng dẫn sử dụng dành cho sinh viên Lập trình hướng đối tượng</p>
+              <p className="text-xs text-white/80 font-medium">Hướng dẫn sử dụng dành cho sinh viên Lập trình hướng đối tượng với Java</p>
             </div>
           </div>
           <Link
@@ -144,7 +144,7 @@ export function StudentGuidePage() {
               Làm bài Java OOP trên website, biên dịch trực tiếp bằng máy cá nhân
             </h2>
             <p className="mt-4 text-sm leading-relaxed text-slate-600 max-w-3xl">
-              Hệ thống UET OASIS cung cấp trình soạn thảo trực tuyến chuyên nghiệp. Trình biên dịch Java sẽ được chạy trực tiếp trên máy tính cá nhân của bạn thông qua phần mềm <strong>Local Executor</strong>, đảm bảo tốc độ biên dịch tối ưu và trải nghiệm làm bài tốt nhất.
+              Hệ thống UETCodehub cung cấp trình soạn thảo trực tuyến chuyên nghiệp. Trình biên dịch Java sẽ được chạy trực tiếp trên máy tính cá nhân của bạn thông qua phần mềm <strong>Local Executor</strong>, đảm bảo tốc độ biên dịch tối ưu và trải nghiệm làm bài tốt nhất.
             </p>
           </section>
 

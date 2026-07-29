@@ -69,7 +69,7 @@ export function Header({ onToggleSidebar, onToggleMobile }: HeaderProps) {
         >
           <MenuIcon className="h-5 w-5" />
         </button>
-        <h1 className="text-base font-semibold text-gray-800">OOP Learning Platform</h1>
+        <h1 className="text-base font-semibold text-gray-800">UETCodehub - OOP với Java</h1>
       </div>
 
       {/* Right: user menu */}

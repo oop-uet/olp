@@ -112,17 +112,14 @@ export function TopNav() {
     <header className="relative bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 text-white shadow-md border-b border-white/5">
       <div className="mx-auto flex h-16 max-w-none items-center justify-between gap-4 px-4 lg:px-8">
         {/* Brand */}
-        <NavLink to="/" className="flex shrink-0 items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary shadow-md">
-            <svg viewBox="0 0 100 100" className="h-6 w-6 text-white" stroke="currentColor" fill="none" strokeWidth="6">
-              <path d="M 48 80 Q 50 48 50 35" strokeWidth="8" />
-              <path d="M 50 35 Q 35 30 30 42" strokeWidth="6" />
-              <path d="M 50 35 Q 40 20 50 18" strokeWidth="6" />
-              <path d="M 50 35 Q 60 20 50 18" strokeWidth="6" />
-              <path d="M 50 35 Q 65 30 70 42" strokeWidth="6" />
-            </svg>
+        <NavLink to="/" className="flex shrink-0 items-center gap-2.5">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary shadow-md font-black text-white text-xs tracking-wider">
+            UC
           </span>
-          <span className="text-lg font-black tracking-wide text-white text-shadow-sm">UET OASIS</span>
+          <div className="flex flex-col leading-tight">
+            <span className="text-base font-black tracking-wide text-white text-shadow-sm">UETCodehub</span>
+            <span className="text-[10px] font-bold text-teal-100/90 tracking-wider">OOP với Java</span>
+          </div>
         </NavLink>
 
         {/* Desktop menu */}

@@ -70,13 +70,13 @@ export function Sidebar({ collapsed = false, mobileOpen = false, onCloseMobile }
       >
         {/* Logo */}
         <div className="flex h-16 items-center gap-3 border-b border-white/10 px-4">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white font-bold text-primary-600">
-            U
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white font-black text-primary-600 text-xs tracking-wider">
+            UC
           </div>
           {!collapsed && (
             <div className="leading-tight">
-              <p className="text-sm font-bold">UET-VNU</p>
-              <p className="text-[11px] text-primary-200">OOP Platform</p>
+              <p className="text-sm font-bold">UETCodehub</p>
+              <p className="text-[11px] text-primary-200">OOP với Java</p>
             </div>
           )}
         </div>

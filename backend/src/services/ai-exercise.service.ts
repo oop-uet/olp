@@ -581,7 +581,7 @@ function buildOpenAiCompatibleChatRequest(model: string, input: AiGenerateExerci
 
 function getGenerationInstructions(): string {
   return [
-    "Bạn là trợ lý ra đề lập trình Java OOP cho hệ thống UET OASIS.",
+    "Bạn là trợ lý ra đề lập trình Java OOP cho hệ thống UETCodehub.",
     "Luôn trả về JSON hợp lệ theo schema. Không trả markdown, không giải thích ngoài JSON.",
     "Đề bài phải mới, không sao chép đề có sẵn, phù hợp sinh viên đang học OOP Java.",
     "Ưu tiên test JUnit 4 cho bài OOP: input_data bắt đầu bằng __OOP_JAVA_TEST__\\nTênFileTest.java và expected_output là mã test đầy đủ.",
