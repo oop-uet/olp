@@ -189,12 +189,9 @@ export function AntiCheatMonitor({
       if (url.origin !== window.location.origin) return null
 
       const basePath = import.meta.env.BASE_URL.replace(/\/$/, '')
-      const fallbackBasePath = '/olp'
       const stripBasePath = (pathname: string) => {
-        for (const prefix of [basePath, fallbackBasePath]) {
-          if (prefix && prefix !== '/' && pathname.startsWith(prefix)) {
-            return pathname.slice(prefix.length) || '/'
-          }
+        if (basePath && basePath !== '/' && pathname.startsWith(basePath)) {
+          return pathname.slice(basePath.length) || '/'
         }
         return pathname
       }

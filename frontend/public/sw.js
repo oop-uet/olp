@@ -1,5 +1,5 @@
-const CACHE_NAME = 'oop-frontend-v2'
-const APP_BASE = '/olp/'
+const CACHE_NAME = 'oop-frontend-v3'
+const APP_BASE = '/'
 const ASSET_PATHS = [`${APP_BASE}assets/`, `${APP_BASE}downloads/`]
 const STATIC_EXTENSIONS = /\.(?:js|css|png|jpg|jpeg|svg|ico|woff2?)$/i
 

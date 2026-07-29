@@ -6,7 +6,7 @@
     <script>
       // Single Page App redirect for GitHub Pages
       // Redirects all 404s to index.html with the path preserved in a query parameter
-      var pathSegmentsToKeep = 1; // Keep /olp/ base path segment
+      var pathSegmentsToKeep = 0;
       var l = window.location;
       l.replace(
         l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +

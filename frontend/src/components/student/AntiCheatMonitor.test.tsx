@@ -192,7 +192,7 @@ describe('AntiCheatMonitor', () => {
           warningThreshold={3}
           onExitAttempt={onExitAttempt}
         >
-          <a href="/olp/student/leaderboard">Bảng xếp hạng</a>
+          <a href="/student/leaderboard">Bảng xếp hạng</a>
         </AntiCheatMonitor>
       )
     })

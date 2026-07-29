@@ -179,5 +179,5 @@ export const router = createBrowserRouter(
       ],
     },
   ],
-  { basename: '/olp' }
+  { basename: import.meta.env.BASE_URL.replace(/\/$/, '') || '/' }
 )

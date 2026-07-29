@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: '/olp/',
+  base: '/',
   build: {
     // Raise warning limit slightly; Monaco is large but lazy-loaded
     chunkSizeWarningLimit: 800,
