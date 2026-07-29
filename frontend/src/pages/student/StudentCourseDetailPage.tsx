@@ -174,13 +174,8 @@ export function StudentCourseDetailPage() {
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 p-6 text-white shadow-md border-b-4 border-secondary">
         {/* Subtle decorative background circle */}
         <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-white/5 translate-x-12 -translate-y-12 blur-lg"></div>
-        <div className="relative z-10 space-y-2">
+        <div className="relative z-10">
           <h1 className="text-2xl font-black tracking-tight">{formatSectionDisplayName(section.name)}</h1>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-primary-200">
-            <span className="font-semibold">Giảng viên: Nguyễn Văn Tuyên</span>
-            <span>•</span>
-            <span>{exercises.length} bài thực hành</span>
-          </div>
         </div>
       </div>
 
