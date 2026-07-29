@@ -75,7 +75,7 @@ export function Sidebar({ collapsed = false, mobileOpen = false, onCloseMobile }
           </div>
           {!collapsed && (
             <div className="leading-tight">
-              <p className="text-sm font-bold">UET<span className="text-[#f37021]">Codehub</span></p>
+              <p className="text-sm font-bold">UETCodehub</p>
               <p className="text-[11px] text-primary-200">OOP Platform</p>
             </div>
           )}

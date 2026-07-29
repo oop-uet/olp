@@ -113,8 +113,8 @@ export function TopNav() {
       <div className="mx-auto flex h-16 max-w-none items-center justify-between gap-4 px-4 lg:px-8">
         {/* Brand */}
         <NavLink to="/" className="flex shrink-0 items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f37021] shadow-md">
-            <svg viewBox="0 0 100 100" className="h-6 w-6 text-slate-900" stroke="currentColor" fill="none" strokeWidth="6">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary shadow-md">
+            <svg viewBox="0 0 100 100" className="h-6 w-6 text-white" stroke="currentColor" fill="none" strokeWidth="6">
               <path d="M 48 80 Q 50 48 50 35" strokeWidth="8" />
               <path d="M 50 35 Q 35 30 30 42" strokeWidth="6" />
               <path d="M 50 35 Q 40 20 50 18" strokeWidth="6" />
@@ -122,10 +122,7 @@ export function TopNav() {
               <path d="M 50 35 Q 65 30 70 42" strokeWidth="6" />
             </svg>
           </span>
-          <span className="text-lg font-black tracking-wide">
-            <span className="text-slate-900">UET</span>
-            <span className="text-[#f37021]">Codehub</span>
-          </span>
+          <span className="text-lg font-black tracking-wide text-white text-shadow-sm">UETCodehub</span>
         </NavLink>
 
         {/* Desktop menu */}
