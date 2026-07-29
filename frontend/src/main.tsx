@@ -41,8 +41,11 @@ createRoot(document.getElementById('root')!).render(
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     const baseUrl = import.meta.env.BASE_URL
-    navigator.serviceWorker.register(`${baseUrl}sw.js`, { scope: baseUrl }).catch(() => {
-      // The app remains fully functional without the offline/static cache.
-    })
+    navigator.serviceWorker
+      .register(`${baseUrl}sw.js`, { scope: baseUrl, updateViaCache: 'none' })
+      .then((registration) => registration.update())
+      .catch(() => {
+        // The app remains fully functional without the offline/static cache.
+      })
   })
 }

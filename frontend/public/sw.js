@@ -1,4 +1,4 @@
-const CACHE_NAME = 'oop-frontend-v3'
+const CACHE_NAME = 'oop-frontend-v4'
 const APP_BASE = '/'
 const ASSET_PATHS = [`${APP_BASE}assets/`, `${APP_BASE}downloads/`]
 const STATIC_EXTENSIONS = /\.(?:js|css|png|jpg|jpeg|svg|ico|woff2?)$/i
@@ -54,7 +54,7 @@ async function cacheFirst(request) {
 
 async function networkFirst(request) {
   try {
-    const response = await fetch(request)
+    const response = await fetch(request, { cache: 'no-store' })
     if (response.ok) {
       const cache = await caches.open(CACHE_NAME)
       cache.put(request, response.clone())
