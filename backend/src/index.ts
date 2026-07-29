@@ -31,13 +31,14 @@ import { requireRole } from './middleware/role.guard.js';
 import { migrate } from 'drizzle-orm/libsql/migrator';
 import { db } from './db/index.js';
 import { ensureDatabaseCompatibility } from './db/compat.js';
+import { createCorsOrigin } from './config/cors.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: createCorsOrigin(),
   credentials: true,
 }));
 app.use(express.json());
