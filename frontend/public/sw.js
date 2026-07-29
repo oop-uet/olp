@@ -1,5 +1,6 @@
-const CACHE_NAME = 'oop-frontend-v4'
+const CACHE_NAME = 'oop-frontend-v5'
 const APP_BASE = '/'
+const APP_SHELL = `${APP_BASE}index.html`
 const ASSET_PATHS = [`${APP_BASE}assets/`, `${APP_BASE}downloads/`]
 const STATIC_EXTENSIONS = /\.(?:js|css|png|jpg|jpeg|svg|ico|woff2?)$/i
 
@@ -57,12 +58,31 @@ async function networkFirst(request) {
     const response = await fetch(request, { cache: 'no-store' })
     if (response.ok) {
       const cache = await caches.open(CACHE_NAME)
-      cache.put(request, response.clone())
+      await Promise.all([
+        cache.put(request, response.clone()),
+        cache.put(APP_SHELL, response.clone()),
+      ])
+      return response
     }
-    return response
+
+    const appShell = await fetchAppShell()
+    return appShell.ok ? appShell : response
   } catch {
     const cached = await caches.match(request)
     if (cached) return cached
-    return caches.match(`${APP_BASE}index.html`)
+
+    const cachedAppShell = await caches.match(APP_SHELL)
+    if (cachedAppShell) return cachedAppShell
+
+    return fetchAppShell()
   }
+}
+
+async function fetchAppShell() {
+  const response = await fetch(APP_SHELL, { cache: 'no-store' })
+  if (response.ok) {
+    const cache = await caches.open(CACHE_NAME)
+    await cache.put(APP_SHELL, response.clone())
+  }
+  return response
 }
