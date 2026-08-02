@@ -53,6 +53,22 @@ interface ReviewData {
   assessment: { title: string; totalPoints: number }
   student: { username: string; fullName?: string | null }
   answers: ReviewAnswer[]
+  integrityEvents?: Array<{
+    id: string
+    eventType: string
+    occurredAt: string
+    metadata: Record<string, unknown>
+  }>
+}
+
+const integrityEventLabels: Record<string, string> = {
+  fullscreen_exit: 'Thoát toàn màn hình',
+  visibility_hidden: 'Chuyển tab / thu nhỏ / chuyển ứng dụng',
+  window_blur: 'Cửa sổ mất focus',
+  devtools_open: 'Phím tắt mở DevTools',
+  copy_attempt: 'Thử copy/cắt',
+  paste_attempt: 'Thử paste',
+  context_menu: 'Thử mở menu chuột phải',
 }
 
 function answerText(answer: ReviewAnswer) {
@@ -148,6 +164,7 @@ export function AssessmentReviewPage() {
 
   if (loading) return <PageLoader label="Đang tải bài tự luận..." />
   if (!data) return <div className="card p-8 text-center text-slate-500">Không tìm thấy bài nộp.</div>
+  const integrityEvents = data.integrityEvents ?? []
 
   return (
     <div className="space-y-6">
@@ -174,6 +191,29 @@ export function AssessmentReviewPage() {
         Điểm AI chỉ là gợi ý. Chọn <strong>Chấp nhận gợi ý</strong> hoặc sửa điểm/feedback rồi
         chọn <strong>Lưu điểm GV</strong>. Khi tất cả câu tự luận đã duyệt, tổng điểm tự động
         trở thành điểm chính thức.
+      </div>
+
+      <div className={`rounded-xl border p-4 ${integrityEvents.length > 0 ? 'border-amber-200 bg-amber-50' : 'border-emerald-200 bg-emerald-50'}`}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className={`font-black ${integrityEvents.length > 0 ? 'text-amber-900' : 'text-emerald-900'}`}>
+            Giám sát phiên thi
+          </p>
+          <span className={integrityEvents.length > 0 ? 'badge-yellow' : 'badge-green'}>
+            {integrityEvents.length} cảnh báo
+          </span>
+        </div>
+        {integrityEvents.length > 0 ? (
+          <ul className="mt-3 space-y-2 text-sm text-amber-950">
+            {integrityEvents.map((event) => (
+              <li key={event.id} className="flex flex-wrap justify-between gap-2 rounded-lg bg-white/70 px-3 py-2">
+                <span className="font-semibold">{integrityEventLabels[event.eventType] ?? event.eventType}</span>
+                <time className="text-xs text-amber-700">{new Date(event.occurredAt).toLocaleString('vi-VN')}</time>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-2 text-sm text-emerald-800">Không ghi nhận thao tác vi phạm trong phiên làm bài.</p>
+        )}
       </div>
 
       {subjective.map((answer, index) => {

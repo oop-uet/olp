@@ -29,10 +29,20 @@ interface Question {
 }
 interface Section { id: string; title: string; introContent: string | null; points: number; questions: Question[] }
 interface SessionPayload {
-  session: { id: string; status: string; expiresAt: string }
+  session: { id: string; status: string; expiresAt: string; flaggedQuestionIds: string[] }
   assessment: { title: string; instructions: string; totalPoints: number; sections: Section[] }
   answers: Array<{ questionId: string; answer: Record<string, unknown>; clientRevision: number }>
+  integrity?: { warningCount: number; warningThreshold: number; requireFullscreen: boolean }
 }
+
+type IntegrityEventType =
+  | 'fullscreen_exit'
+  | 'visibility_hidden'
+  | 'window_blur'
+  | 'devtools_open'
+  | 'copy_attempt'
+  | 'paste_attempt'
+  | 'context_menu'
 interface ResultPayload {
   id: string
   title: string
@@ -64,6 +74,10 @@ function hasAnswerValue(answer: Record<string, unknown> | undefined) {
   )
 }
 
+function assessmentText(value: string | null | undefined) {
+  return String(value ?? '').replace(/\\([{}])/g, '$1')
+}
+
 export function StudentAssessmentPage() {
   const { assignmentId } = useParams<{ assignmentId: string }>()
   const [preflight, setPreflight] = useState<Preflight | null>(null)
@@ -75,15 +89,25 @@ export function StudentAssessmentPage() {
   const [starting, setStarting] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [saveState, setSaveState] = useState<'saved' | 'saving' | 'error'>('saved')
+  const [flaggedQuestionIds, setFlaggedQuestionIds] = useState<string[]>([])
+  const [warningCount, setWarningCount] = useState(0)
+  const [integrityNotice, setIntegrityNotice] = useState<string | null>(null)
+  const [fullscreenRequired, setFullscreenRequired] = useState(false)
   const revisionsRef = useRef<Record<string, number>>({})
   const timersRef = useRef<Record<string, number>>({})
   const submittingRef = useRef(false)
   const serverOffsetRef = useRef(0)
+  const suppressFullscreenExitRef = useRef(false)
+  const fullscreenArmedRef = useRef(false)
+  const integrityNoticeTimerRef = useRef<number | null>(null)
+  const integrityQueueRef = useRef<Promise<void>>(Promise.resolve())
+  const lastIntegrityEventRef = useRef<Partial<Record<IntegrityEventType, number>>>({})
 
   const loadResult = useCallback(async (sessionId: string) => {
     const response = await api.get(`/api/students/assessments/sessions/${sessionId}/result`)
     setResult(response.data.data)
     setSession(null)
+    setFullscreenRequired(false)
   }, [])
 
   const loadSession = useCallback(async (sessionId: string) => {
@@ -97,6 +121,8 @@ export function StudentAssessmentPage() {
       return
     }
     setSession(payload)
+    setFlaggedQuestionIds(payload.session.flaggedQuestionIds ?? [])
+    setWarningCount(payload.integrity?.warningCount ?? 0)
     const loadedAnswers: Record<string, Record<string, unknown>> = {}
     const revisions: Record<string, number> = {}
     payload.answers.forEach((answer) => {
@@ -131,15 +157,71 @@ export function StudentAssessmentPage() {
   useEffect(() => {
     void loadInitial()
     const answerTimers = timersRef.current
-    return () => Object.values(answerTimers).forEach((timer) => window.clearTimeout(timer))
+    return () => {
+      Object.values(answerTimers).forEach((timer) => window.clearTimeout(timer))
+      if (integrityNoticeTimerRef.current) window.clearTimeout(integrityNoticeTimerRef.current)
+    }
   }, [loadInitial])
+
+  const showIntegrityNotice = useCallback((message: string) => {
+    setIntegrityNotice(message)
+    if (integrityNoticeTimerRef.current) window.clearTimeout(integrityNoticeTimerRef.current)
+    integrityNoticeTimerRef.current = window.setTimeout(() => setIntegrityNotice(null), 4500)
+  }, [])
+
+  const recordIntegrityEvent = useCallback((
+    eventType: IntegrityEventType,
+    message: string,
+    metadata: Record<string, unknown> = {}
+  ) => {
+    if (!session || submittingRef.current) return
+    const now = Date.now()
+    if (now - (lastIntegrityEventRef.current[eventType] ?? 0) < 1500) return
+    lastIntegrityEventRef.current[eventType] = now
+    const sessionId = session.session.id
+    showIntegrityNotice(message)
+    const send = async () => {
+      try {
+        const response = await api.post(
+          `/api/students/assessments/sessions/${sessionId}/integrity-events`,
+          {
+            eventType,
+            metadata: { ...metadata, clientTimestamp: new Date().toISOString() },
+          }
+        )
+        const eventResult = response.data.data as {
+          warningCount: number
+          warningThreshold: number
+          autoSubmitted: boolean
+        }
+        setWarningCount(eventResult.warningCount)
+        if (eventResult.autoSubmitted) {
+          submittingRef.current = true
+          suppressFullscreenExitRef.current = true
+          if (document.fullscreenElement) {
+            await document.exitFullscreen().catch(() => undefined)
+          }
+          await loadResult(sessionId)
+          toast.error(`Bài đã tự nộp sau ${eventResult.warningCount} vi phạm quy chế.`)
+        }
+      } catch {
+        // Không làm gián đoạn bài thi nếu kết nối ghi log tạm thời thất bại.
+      }
+    }
+    integrityQueueRef.current = integrityQueueRef.current.then(send, send)
+  }, [loadResult, session, showIntegrityNotice])
 
   async function start() {
     if (!assignmentId || !preflight) return
     setStarting(true)
     try {
-      if (preflight.requireFullscreen && !document.fullscreenElement) {
-        await document.documentElement.requestFullscreen()
+      if (!document.fullscreenElement) {
+        try {
+          await document.documentElement.requestFullscreen()
+        } catch {
+          toast.error('Bạn cần cho phép chế độ toàn màn hình để bắt đầu làm bài.')
+          return
+        }
       }
       const response = await api.post(`/api/students/assessments/${assignmentId}/start`)
       await loadSession(response.data.data.id)
@@ -147,6 +229,28 @@ export function StudentAssessmentPage() {
       toast.error(readApiError(error).message ?? 'Không thể bắt đầu bài kiểm tra.')
     } finally {
       setStarting(false)
+    }
+  }
+
+  async function toggleQuestionFlag(questionId: string) {
+    if (!session) return
+    const wasFlagged = flaggedQuestionIds.includes(questionId)
+    setFlaggedQuestionIds((current) =>
+      wasFlagged ? current.filter((id) => id !== questionId) : [...current, questionId]
+    )
+    try {
+      const response = await api.put(
+        `/api/students/assessments/sessions/${session.session.id}/question-flag`,
+        { questionId, flagged: !wasFlagged }
+      )
+      setFlaggedQuestionIds(response.data.data.flaggedQuestionIds ?? [])
+    } catch (error: unknown) {
+      setFlaggedQuestionIds((current) =>
+        wasFlagged
+          ? current.includes(questionId) ? current : [...current, questionId]
+          : current.filter((id) => id !== questionId)
+      )
+      toast.error(readApiError(error).message ?? 'Không thể lưu cờ câu hỏi.')
     }
   }
 
@@ -195,6 +299,7 @@ export function StudentAssessmentPage() {
           await api.put(`/api/students/assessments/sessions/${session.session.id}/answers`, { answers: batch })
         }
         await api.post(`/api/students/assessments/sessions/${session.session.id}/submit`)
+        suppressFullscreenExitRef.current = true
         if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined)
         await loadResult(session.session.id)
         toast.success('Đã nộp bài kiểm tra.')
@@ -222,6 +327,90 @@ export function StudentAssessmentPage() {
   }, [session, submit])
 
   useEffect(() => {
+    if (!session) return
+    const monitoringStartedAt = Date.now()
+    const outsideGracePeriod = () => Date.now() - monitoringStartedAt > 1800
+    fullscreenArmedRef.current = Boolean(document.fullscreenElement)
+    setFullscreenRequired(!document.fullscreenElement)
+
+    const handleFullscreenChange = () => {
+      if (suppressFullscreenExitRef.current) {
+        suppressFullscreenExitRef.current = false
+        return
+      }
+      if (document.fullscreenElement) {
+        fullscreenArmedRef.current = true
+        setFullscreenRequired(false)
+        return
+      }
+      setFullscreenRequired(true)
+      if (fullscreenArmedRef.current && outsideGracePeriod()) {
+        recordIntegrityEvent('fullscreen_exit', 'Cảnh báo: bạn đã thoát chế độ toàn màn hình.')
+      }
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden' && outsideGracePeriod()) {
+        recordIntegrityEvent(
+          'visibility_hidden',
+          'Cảnh báo: hệ thống ghi nhận việc chuyển tab, thu nhỏ hoặc chuyển ứng dụng.'
+        )
+      }
+    }
+
+    const handleWindowBlur = () => {
+      if (!outsideGracePeriod() || document.visibilityState === 'hidden' || !document.fullscreenElement) return
+      recordIntegrityEvent('window_blur', 'Cảnh báo: cửa sổ làm bài đã mất focus.')
+    }
+
+    const handleCopyOrCut = (event: ClipboardEvent) => {
+      event.preventDefault()
+      recordIntegrityEvent('copy_attempt', 'Không được sao chép hoặc cắt nội dung trong khi làm bài.')
+    }
+
+    const handlePaste = (event: ClipboardEvent) => {
+      event.preventDefault()
+      recordIntegrityEvent('paste_attempt', 'Không được dán nội dung trong khi làm bài.')
+    }
+
+    const handleContextMenu = (event: MouseEvent) => {
+      event.preventDefault()
+      recordIntegrityEvent('context_menu', 'Menu chuột phải đã bị khóa trong khi làm bài.')
+    }
+
+    const handleDevToolsShortcut = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase()
+      const windowsShortcut = event.ctrlKey && event.shiftKey && ['i', 'j', 'c', 'k'].includes(key)
+      const macShortcut = event.metaKey && event.altKey && ['i', 'j', 'c', 'k'].includes(key)
+      if (key !== 'f12' && !windowsShortcut && !macShortcut) return
+      event.preventDefault()
+      if (!event.repeat) {
+        recordIntegrityEvent('devtools_open', 'Phím tắt mở DevTools đã bị chặn và ghi nhận.')
+      }
+    }
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    document.addEventListener('copy', handleCopyOrCut)
+    document.addEventListener('cut', handleCopyOrCut)
+    document.addEventListener('paste', handlePaste)
+    document.addEventListener('contextmenu', handleContextMenu)
+    window.addEventListener('blur', handleWindowBlur)
+    window.addEventListener('keydown', handleDevToolsShortcut, true)
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      document.removeEventListener('copy', handleCopyOrCut)
+      document.removeEventListener('cut', handleCopyOrCut)
+      document.removeEventListener('paste', handlePaste)
+      document.removeEventListener('contextmenu', handleContextMenu)
+      window.removeEventListener('blur', handleWindowBlur)
+      window.removeEventListener('keydown', handleDevToolsShortcut, true)
+      fullscreenArmedRef.current = false
+    }
+  }, [recordIntegrityEvent, session])
+
+  useEffect(() => {
     if (!result || result.reviewStatus === 'official') return
     const timer = window.setInterval(() => void loadResult(result.id).catch(() => undefined), 5000)
     return () => window.clearInterval(timer)
@@ -231,6 +420,18 @@ export function StudentAssessmentPage() {
     () => Object.values(answers).filter((answer) => hasAnswerValue(answer)).length,
     [answers]
   )
+  const flaggedSet = useMemo(() => new Set(flaggedQuestionIds), [flaggedQuestionIds])
+
+  async function restoreFullscreen() {
+    try {
+      await document.documentElement.requestFullscreen()
+      fullscreenArmedRef.current = true
+      setFullscreenRequired(false)
+      showIntegrityNotice('Đã trở lại chế độ toàn màn hình.')
+    } catch {
+      showIntegrityNotice('Trình duyệt chưa cho phép toàn màn hình. Hãy bấm thử lại.')
+    }
+  }
 
   if (loading) return <PageLoader label="Đang tải bài kiểm tra..." />
   if (!preflight) return <div className="card p-8 text-center text-slate-500">Không tìm thấy bài kiểm tra.</div>
@@ -261,7 +462,7 @@ export function StudentAssessmentPage() {
             </div>
             {preflight.instructions && (
               <div className="rounded-xl border border-slate-200/80 bg-slate-50/80 p-4 text-sm leading-relaxed text-slate-700 whitespace-pre-wrap font-medium">
-                {preflight.instructions}
+                {assessmentText(preflight.instructions)}
               </div>
             )}
             <ul className="space-y-2.5 text-sm text-slate-600 font-medium">
@@ -289,12 +490,14 @@ export function StudentAssessmentPage() {
                   <span>Thứ tự các câu trắc nghiệm được trộn riêng cho lượt thi này.</span>
                 </li>
               )}
-              {preflight.requireFullscreen && (
-                <li className="flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 shrink-0" />
-                  <span>Bài kiểm tra yêu cầu chế độ toàn màn hình.</span>
-                </li>
-              )}
+              <li className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 shrink-0" />
+                <span>Chế độ toàn màn hình là bắt buộc; chuyển tab, thu nhỏ hoặc mất focus sẽ được ghi nhận.</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
+                <span>Copy, paste, menu chuột phải và phím tắt DevTools bị khóa trong thời gian làm bài.</span>
+              </li>
             </ul>
             <button
               onClick={() => void start()}
@@ -312,11 +515,30 @@ export function StudentAssessmentPage() {
   const questions = session.assessment.sections.flatMap((section) => section.questions)
   return (
     <div className="space-y-5">
+      {integrityNotice && (
+        <div className="fixed left-1/2 top-4 z-[70] w-[min(92vw,680px)] -translate-x-1/2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-bold text-amber-900 shadow-lg" role="alert">
+          {integrityNotice}
+        </div>
+      )}
+      {fullscreenRequired && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/75 p-5" role="alert" aria-live="assertive">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-2xl">
+            <p className="text-xs font-black uppercase tracking-wider text-amber-700">Tạm khóa bài làm</p>
+            <h2 className="mt-2 text-xl font-black text-slate-900">Cần trở lại toàn màn hình</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Nội dung bài thi chỉ hiển thị trong chế độ toàn màn hình. Lần thoát đã được ghi nhận nếu phiên trước đó đang ở toàn màn hình.
+            </p>
+            <button onClick={() => void restoreFullscreen()} className="btn-primary mt-5 w-full">
+              Trở lại toàn màn hình
+            </button>
+          </div>
+        </div>
+      )}
       <div className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200/90 bg-white/95 backdrop-blur-md px-6 py-3.5 shadow-md border-t-4 border-t-cyan-500">
         <div>
           <h1 className="text-base font-extrabold text-slate-900">{session.assessment.title}</h1>
           <p className="text-xs font-semibold text-slate-500">
-            Đã trả lời {answeredCount}/{questions.length} ·{' '}
+            Đã trả lời {answeredCount}/{questions.length} · Gắn cờ {flaggedQuestionIds.length} ·{' '}
             {saveState === 'saved'
               ? '✓ Đã lưu'
               : saveState === 'saving'
@@ -325,6 +547,9 @@ export function StudentAssessmentPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <span className={`rounded-lg px-3 py-2 text-xs font-black ${warningCount > 0 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-50 text-emerald-700'}`}>
+            Cảnh báo {warningCount}/{session.integrity?.warningThreshold ?? preflight.warningThreshold}
+          </span>
           <div
             className={`rounded-xl px-4 py-2 font-mono text-lg font-black shadow-inner border ${
               remaining < 300
@@ -352,13 +577,17 @@ export function StudentAssessmentPage() {
               <a
                 key={question.id}
                 href={`#question-${question.id}`}
-                className={`flex h-8 w-8 items-center justify-center rounded-lg border text-xs font-bold transition-all ${
-                  hasAnswerValue(answers[question.id])
+                title={flaggedSet.has(question.id) ? `Câu ${index + 1} đã gắn cờ` : `Đi tới câu ${index + 1}`}
+                className={`relative flex h-8 w-8 items-center justify-center rounded-lg border text-xs font-bold transition-all ${
+                  flaggedSet.has(question.id)
+                    ? 'border-amber-400 bg-amber-50 text-amber-800 shadow-2xs font-black'
+                    : hasAnswerValue(answers[question.id])
                     ? 'border-emerald-400 bg-emerald-50 text-emerald-700 shadow-2xs font-black'
                     : 'border-slate-200/80 bg-white text-slate-500 hover:border-cyan-400 hover:bg-cyan-50/40'
                 }`}
               >
                 {index + 1}
+                {flaggedSet.has(question.id) && <span className="absolute -right-1 -top-1 text-[10px]" aria-hidden="true">⚑</span>}
               </a>
             ))}
           </div>
@@ -375,7 +604,7 @@ export function StudentAssessmentPage() {
               {section.introContent && (
                 <div className="p-5 pb-0">
                   <pre className="overflow-x-auto whitespace-pre-wrap rounded-xl border border-slate-800 bg-slate-900 p-4 font-mono text-xs leading-6 text-emerald-400 shadow-inner">
-                    {section.introContent}
+                    {assessmentText(section.introContent)}
                   </pre>
                 </div>
               )}
@@ -386,6 +615,8 @@ export function StudentAssessmentPage() {
                     question={question}
                     number={questionIndex + 1}
                     value={answers[question.id] ?? {}}
+                    flagged={flaggedSet.has(question.id)}
+                    onToggleFlag={() => void toggleQuestionFlag(question.id)}
                     onChange={(value) => updateAnswer(question.id, value)}
                   />
                 ))}
@@ -402,23 +633,39 @@ function QuestionInput({
   question,
   number,
   value,
+  flagged,
+  onToggleFlag,
   onChange,
 }: {
   question: Question
   number: number
   value: Record<string, unknown>
+  flagged: boolean
+  onToggleFlag: () => void
   onChange: (value: Record<string, unknown>) => void
 }) {
   return (
     <article id={`question-${question.id}`} className="scroll-mt-24 p-6">
       <div className="flex items-start justify-between gap-4">
-        <p className="text-sm font-bold leading-relaxed text-slate-900">
+        <p className="min-w-0 whitespace-pre-wrap break-words text-sm font-bold leading-relaxed text-slate-900">
           <span className="mr-2 text-base font-black text-primary">{number}.</span>
-          {question.prompt}
+          {assessmentText(question.prompt)}
         </p>
-        <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-500">
-          {question.points} điểm
-        </span>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            aria-pressed={flagged}
+            onClick={onToggleFlag}
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-black transition ${flagged ? 'border-amber-400 bg-amber-50 text-amber-800' : 'border-slate-200 bg-white text-slate-500 hover:border-amber-300 hover:text-amber-700'}`}
+            title={flagged ? 'Bỏ gắn cờ câu hỏi' : 'Gắn cờ để xem lại câu hỏi'}
+          >
+            <span aria-hidden="true">⚑</span>
+            {flagged ? 'Đã gắn cờ' : 'Gắn cờ'}
+          </button>
+          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-500">
+            {question.points} điểm
+          </span>
+        </div>
       </div>
       {question.type === 'true_false' && (
         <div className="mt-4 flex gap-3">
@@ -454,11 +701,11 @@ function QuestionInput({
                 checked={value.optionId === option.id}
                 onChange={() => onChange({ optionId: option.id })}
               />
-              <span>
+              <span className="whitespace-pre-wrap break-words">
                 <strong className="mr-2 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-slate-100 text-xs font-black text-slate-600">
                   {String.fromCharCode(65 + index)}
                 </strong>
-                {option.content}
+                {assessmentText(option.content)}
               </span>
             </label>
           ))}

@@ -14,6 +14,7 @@ interface SubmissionRow {
   autoScore: number
   predictedScore: number | null
   officialScore: number | null
+  integrityEventCount?: number
   student: { id: string; username: string; fullName?: string | null; email: string }
 }
 
@@ -120,12 +121,14 @@ export function AssessmentSubmissionsPage() {
               <th className="table-th text-center">Điểm dự kiến</th>
               <th className="table-th text-center">Điểm chính thức</th>
               <th className="table-th">Trạng thái</th>
+              <th className="table-th text-center">Giám sát</th>
               <th className="table-th text-right">Thao tác</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {data.submissions.map((row) => {
               const status = statusLabel(row)
+              const integrityCount = row.integrityEventCount ?? 0
               return (
                 <tr key={row.id} className="hover:bg-slate-50/70">
                   <td className="table-td">
@@ -143,6 +146,11 @@ export function AssessmentSubmissionsPage() {
                     <span className="font-black text-emerald-700">{score(row.officialScore, data.assessment.totalPoints)}</span>
                   </td>
                   <td className="table-td"><span className={status.className}>{status.label}</span></td>
+                  <td className="table-td text-center">
+                    <span className={integrityCount > 0 ? 'badge-yellow' : 'badge-green'}>
+                      {integrityCount > 0 ? `${integrityCount} cảnh báo` : 'Không cảnh báo'}
+                    </span>
+                  </td>
                   <td className="table-td text-right">
                     {row.status !== 'in_progress' && (
                       <Link to={`/instructor/assessment-sessions/${row.id}/review`} className="btn-secondary btn-sm">
@@ -154,7 +162,7 @@ export function AssessmentSubmissionsPage() {
               )
             })}
             {data.submissions.length === 0 && (
-              <tr><td colSpan={7} className="p-10 text-center text-sm text-slate-500">Chưa có sinh viên bắt đầu làm bài.</td></tr>
+              <tr><td colSpan={8} className="p-10 text-center text-sm text-slate-500">Chưa có sinh viên bắt đầu làm bài.</td></tr>
             )}
           </tbody>
         </table>
