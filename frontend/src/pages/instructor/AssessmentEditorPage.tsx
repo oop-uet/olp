@@ -20,6 +20,24 @@ const TYPE_LABELS: Record<AssessmentQuestionType, string> = {
   code_analysis: 'Phân tích mã Java',
 }
 
+function roundedScore(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100
+}
+
+function formatScore(value: number): string {
+  return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(roundedScore(value))
+}
+
+function assessmentDownloadBaseName(title: string): string {
+  const safeTitle = title
+    .normalize('NFC')
+    .trim()
+    .replace(/[<>:"/\\|?*;]/g, '-')
+    .replace(/\s+/g, ' ')
+    .replace(/[. ]+$/, '')
+  return `${safeTitle || 'Bài kiểm tra'} - Đề và đáp án`
+}
+
 function newQuestion(type: AssessmentQuestionType = 'true_false'): AssessmentQuestionDraft {
   if (type === 'true_false') {
     return { type, prompt: '', points: 0.2, gradingMode: 'auto', answerKey: true }
@@ -191,7 +209,7 @@ export function AssessmentEditorPage() {
       const url = URL.createObjectURL(response.data)
       const link = document.createElement('a')
       link.href = url
-      link.download = `de-thi-dap-an-${id}.pdf`
+      link.download = `${assessmentDownloadBaseName(draft.title)}.pdf`
       document.body.appendChild(link)
       link.click()
       link.remove()
@@ -212,7 +230,7 @@ export function AssessmentEditorPage() {
       const url = URL.createObjectURL(response.data)
       const link = document.createElement('a')
       link.href = url
-      link.download = `de-thi-dap-an-${id}.docx`
+      link.download = `${assessmentDownloadBaseName(draft.title)}.docx`
       document.body.appendChild(link)
       link.click()
       link.remove()
@@ -404,7 +422,7 @@ export function AssessmentEditorPage() {
               aria-label={`Tên phần ${sectionIndex + 1}`}
             />
             <span className="badge-blue">
-              {section.questions.reduce((sum, question) => sum + Number(question.points || 0), 0)} điểm
+              {formatScore(section.questions.reduce((sum, question) => sum + Number(question.points || 0), 0))} điểm
             </span>
             <button type="button" onClick={() => removeSection(sectionIndex)} className="btn-danger btn-sm">
               Xóa phần

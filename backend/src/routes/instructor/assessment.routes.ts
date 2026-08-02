@@ -103,6 +103,23 @@ function sendResult(res: Response, result: unknown, successStatus = 200) {
   res.status(successStatus).json(result);
 }
 
+function exportContentDisposition(title: string, extension: ".pdf" | ".docx"): string {
+  const baseName = String(title ?? "")
+    .normalize("NFC")
+    .trim()
+    .replace(/[<>:"/\\|?*;]/g, "-")
+    .replace(/\s+/g, " ")
+    .replace(/[. ]+$/g, "") || "Bài kiểm tra";
+  const fileName = `${baseName} - Đề và đáp án${extension}`;
+  const asciiBaseName = baseName
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z0-9._ -]/g, "-")
+    .replace(/\s+/g, " ")
+    .replace(/[. ]+$/g, "") || "assessment";
+  return `attachment; filename="${asciiBaseName} - De va dap an${extension}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
+}
+
 const router = Router();
 
 router.get("/template", async (_req: Request, res: Response) => {
@@ -220,12 +237,10 @@ router.get("/:id/export-pdf", async (req: Request, res: Response) => {
       sendResult(res, result);
       return;
     }
-    const pdf = await createAssessmentAnswerPdf(result.data as AssessmentPdfData);
+    const assessment = result.data as AssessmentPdfData;
+    const pdf = await createAssessmentAnswerPdf(assessment);
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="assessment-${req.params.id}-answer-key.pdf"`
-    );
+    res.setHeader("Content-Disposition", exportContentDisposition(assessment.title, ".pdf"));
     res.send(pdf);
   } catch (error) {
     console.error("[assessment] Failed to export assessment PDF", error);
@@ -242,15 +257,13 @@ router.get("/:id/export-docx", async (req: Request, res: Response) => {
       sendResult(res, result);
       return;
     }
-    const document = await createAssessmentAnswerDocx(result.data as AssessmentPdfData);
+    const assessment = result.data as AssessmentPdfData;
+    const document = await createAssessmentAnswerDocx(assessment);
     res.setHeader(
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     );
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="assessment-${req.params.id}-answer-key.docx"`
-    );
+    res.setHeader("Content-Disposition", exportContentDisposition(assessment.title, ".docx"));
     res.send(document);
   } catch (error) {
     console.error("[assessment] Failed to export assessment Word document", error);
