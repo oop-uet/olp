@@ -244,7 +244,6 @@ export function AssessmentEditorPage() {
   }
 
   function chooseTemplate() {
-    if (!window.confirm('Import sẽ thay thế nội dung đang có trong trình soạn thảo. Bạn muốn tiếp tục?')) return
     templateInputRef.current?.click()
   }
 
@@ -284,7 +283,7 @@ export function AssessmentEditorPage() {
       const response = id
         ? await api.put(`/api/instructor/assessments/${id}`, draft)
         : await api.post('/api/instructor/assessments', draft)
-      toast.success('Đã lưu bản nháp bài kiểm tra.')
+      toast.success('Đã lưu bài kiểm tra.')
       if (!id) navigate(`/instructor/exercises/assessments/${response.data.data.id}/edit`, { replace: true })
     } catch (error: unknown) {
       const apiError = readApiError(error)

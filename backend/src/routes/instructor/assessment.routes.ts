@@ -5,6 +5,7 @@ import {
   approveAllPredictedScores,
   assignAssessment,
   createAssessment,
+  deleteAssessment,
   getAssessmentReview,
   getInstructorAssessment,
   isAssessmentError,
@@ -94,7 +95,9 @@ function sendResult(res: Response, result: unknown, successStatus = 200) {
         ? 404
         : result.error.code === "FORBIDDEN"
           ? 403
-          : result.error.code === "ASSESSMENT_LOCKED" || result.error.code === "NOT_PUBLISHED"
+          : result.error.code === "ASSESSMENT_LOCKED" ||
+              result.error.code === "NOT_PUBLISHED" ||
+              result.error.code === "ASSESSMENT_IN_USE"
             ? 409
             : 400;
     res.status(status).json({ error: result.error });
@@ -286,6 +289,15 @@ router.put("/:id", validate(assessmentDraftSchema), async (req: Request, res: Re
     sendResult(res, await updateAssessment(req.params.id, req.body, req.user!.userId));
   } catch {
     res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Không thể cập nhật bài kiểm tra." } });
+  }
+});
+
+router.delete("/:id", async (req: Request, res: Response) => {
+  try {
+    sendResult(res, await deleteAssessment(req.params.id, req.user!.userId));
+  } catch (error) {
+    console.error("[assessment] Failed to delete assessment", error);
+    res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Không thể xóa bài kiểm tra." } });
   }
 });
 

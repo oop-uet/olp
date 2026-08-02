@@ -289,7 +289,7 @@ export const assessments = sqliteTable("assessments", {
     shuffleQuestions: integer("shuffle_questions").notNull().default(1),
   status: text("status", { enum: ["draft", "published", "archived"] })
     .notNull()
-    .default("draft"),
+    .default("published"),
   createdBy: text("created_by")
     .notNull()
     .references(() => users.id),

@@ -4,7 +4,7 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import * as schema from "../db/schema.js";
 import { getTestSqlite } from "../test/setup.js";
 import { createExercise } from "./exercise.service.js";
-import { createAssessment, publishAssessment } from "./assessment.service.js";
+import { createAssessment } from "./assessment.service.js";
 import {
   assignAssessmentToWeek,
   getSectionSchedule,
@@ -86,7 +86,7 @@ describe("Schedule Service", () => {
     );
   });
 
-  it("lists published assessments by creator and assigns them to a week", async () => {
+  it("lists assessments by creator and assigns them to a week immediately", async () => {
     const db = getDb();
     const instructorId = seedUser("gv_de_thi");
     const sectionId = seedSection(instructorId);
@@ -116,14 +116,11 @@ describe("Schedule Service", () => {
       db,
     );
     if (isScheduleError(created)) throw new Error(created.error.message);
-    const published = await publishAssessment(created.data.id, instructorId, db);
-    if (isScheduleError(published)) throw new Error(published.error.message);
-
     const before = await getSectionSchedule(sectionId, instructorId, "instructor", db);
     expect(isScheduleError(before)).toBe(false);
     if (isScheduleError(before)) return;
     expect(before.assessmentPool).toEqual([
-      expect.objectContaining({ title: "Giữa kỳ OOP - Tuần 8", creatorUsername: "gv_de_thi", status: "published" }),
+      expect.objectContaining({ title: "Giữa kỳ OOP - Tuần 8", creatorUsername: "gv_de_thi" }),
     ]);
 
     const assigned = await assignAssessmentToWeek(sectionId, created.data.id, 8, instructorId, "instructor", db);

@@ -201,6 +201,21 @@ async function assertAssessmentOwner(
   return assessment ?? null;
 }
 
+async function assessmentHasSessions(assessmentId: string, database: Database): Promise<boolean> {
+  const assignmentRows = await database
+    .select({ id: assessmentAssignments.id })
+    .from(assessmentAssignments)
+    .where(eq(assessmentAssignments.assessmentId, assessmentId));
+  if (assignmentRows.length === 0) return false;
+  const session = await database.query.assessmentSessions.findFirst({
+    where: inArray(
+      assessmentSessions.assignmentId,
+      assignmentRows.map((assignment) => assignment.id)
+    ),
+  });
+  return Boolean(session);
+}
+
 async function replaceDraftContent(
   assessmentId: string,
   sectionsInput: AssessmentSectionInput[],
@@ -311,10 +326,11 @@ export async function createAssessment(
     durationMinutes: input.durationMinutes,
     totalPoints: input.totalPoints,
     shuffleQuestions: input.shuffleQuestions === false ? 0 : 1,
-    status: "draft",
+    status: "published",
     createdBy: instructorId,
     createdAt: now,
     updatedAt: now,
+    publishedAt: now,
   });
   await replaceDraftContent(id, input.sections, database);
   return getInstructorAssessment(id, instructorId, database);
@@ -330,9 +346,13 @@ export async function updateAssessment(
   if (validation) return validation;
   const existing = await assertAssessmentOwner(assessmentId, instructorId, database);
   if (!existing) return serviceError("NOT_FOUND", "Không tìm thấy bài kiểm tra.");
-  if (existing.status !== "draft") {
-    return serviceError("ASSESSMENT_LOCKED", "Đề đã phát hành nên không thể sửa nội dung.");
+  if (await assessmentHasSessions(assessmentId, database)) {
+    return serviceError(
+      "ASSESSMENT_IN_USE",
+      "Không thể sửa nội dung vì đã có sinh viên bắt đầu làm bài kiểm tra này."
+    );
   }
+  const now = new Date().toISOString();
   await database
     .update(assessments)
     .set({
@@ -341,7 +361,9 @@ export async function updateAssessment(
       durationMinutes: input.durationMinutes,
       totalPoints: input.totalPoints,
       shuffleQuestions: input.shuffleQuestions === false ? 0 : 1,
-      updatedAt: new Date().toISOString(),
+      status: "published",
+      publishedAt: existing.publishedAt ?? now,
+      updatedAt: now,
     })
     .where(eq(assessments.id, assessmentId));
   await replaceDraftContent(assessmentId, input.sections, database);
@@ -514,6 +536,36 @@ export async function publishAssessment(
   return { data: updated };
 }
 
+export async function deleteAssessment(
+  assessmentId: string,
+  instructorId: string,
+  database: Database = defaultDb
+) {
+  const assessment = await assertAssessmentOwner(assessmentId, instructorId, database);
+  if (!assessment) return serviceError("NOT_FOUND", "Không tìm thấy bài kiểm tra.");
+  if (await assessmentHasSessions(assessmentId, database)) {
+    return serviceError(
+      "ASSESSMENT_IN_USE",
+      "Không thể xóa vì đã có sinh viên bắt đầu làm bài kiểm tra này."
+    );
+  }
+
+  await writeAudit(
+    instructorId,
+    "assessment.delete",
+    "assessment",
+    assessmentId,
+    assessment,
+    null,
+    database
+  );
+  await database
+    .delete(assessmentAssignments)
+    .where(eq(assessmentAssignments.assessmentId, assessmentId));
+  await database.delete(assessments).where(eq(assessments.id, assessmentId));
+  return { data: { id: assessmentId } };
+}
+
 export async function assignAssessment(
   assessmentId: string,
   input: {
@@ -530,9 +582,6 @@ export async function assignAssessment(
 ) {
   const assessment = await assertAssessmentOwner(assessmentId, instructorId, database);
   if (!assessment) return serviceError("NOT_FOUND", "Không tìm thấy bài kiểm tra.");
-  if (assessment.status !== "published") {
-    return serviceError("NOT_PUBLISHED", "Cần phát hành đề trước khi gán cho lớp.");
-  }
   if (!(await userCanAccessSection(input.sectionId, instructorId, "instructor", database))) {
     return serviceError("FORBIDDEN", "Bạn không phụ trách lớp này.");
   }

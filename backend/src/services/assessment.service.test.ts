@@ -7,18 +7,20 @@ import {
   approveAllPredictedScores,
   assignAssessment,
   createAssessment,
+  deleteAssessment,
   getAssessmentReview,
+  getInstructorAssessment,
   getStudentAssessmentResult,
   getStudentAssessmentSession,
   isAssessmentError,
   processPendingAssessmentAiRuns,
-  publishAssessment,
   reviewAssessmentAnswer,
   retryAssessmentAiGrade,
   saveAssessmentAnswers,
   startAssessmentSession,
   submitAssessmentSession,
   type AssessmentDraftInput,
+  updateAssessment,
 } from "./assessment.service.js";
 
 function getDb() {
@@ -119,8 +121,6 @@ describe("Assessment service", () => {
     expect(isAssessmentError(created)).toBe(false);
     const assessment = (created as any).data;
 
-    const published = await publishAssessment(assessment.id, instructorId, db);
-    expect(isAssessmentError(published)).toBe(false);
     const assignmentResult = await assignAssessment(
       assessment.id,
       {
@@ -266,7 +266,6 @@ describe("Assessment service", () => {
     );
     expect(isAssessmentError(disabled)).toBe(false);
     expect((disabled as any).data.shuffleQuestions).toBe(0);
-    expect(isAssessmentError(await publishAssessment(assessmentId, instructorId, db))).toBe(false);
     const assignmentResult = await assignAssessment(
       assessmentId,
       {
@@ -294,5 +293,41 @@ describe("Assessment service", () => {
 
     const secondView = await getStudentAssessmentSession(sessionId, studentId, db);
     expect((secondView as any).data.assessment.sections[0].questions.map((question: any) => question.id)).toEqual(firstIds);
+  });
+
+  it("creates an immediately usable assessment and allows its owner to delete it", async () => {
+    const db = getDb();
+    const { instructorId, sectionId } = seedUsersAndSection();
+    const created = await createAssessment(validDraft(), instructorId, db);
+    expect(isAssessmentError(created)).toBe(false);
+    const assessmentId = (created as any).data.id;
+    expect((created as any).data.status).toBe("published");
+
+    const updated = await updateAssessment(
+      assessmentId,
+      { ...validDraft(), title: "Đề đã chỉnh sửa" },
+      instructorId,
+      db
+    );
+    expect(isAssessmentError(updated)).toBe(false);
+    expect((updated as any).data.title).toBe("Đề đã chỉnh sửa");
+
+    const assigned = await assignAssessment(
+      assessmentId,
+      {
+        sectionId,
+        opensAt: new Date(Date.now() + 60_000).toISOString(),
+        closesAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+      },
+      instructorId,
+      db
+    );
+    expect(isAssessmentError(assigned)).toBe(false);
+
+    const deleted = await deleteAssessment(assessmentId, instructorId, db);
+    expect(deleted).toEqual({ data: { id: assessmentId } });
+    const loaded = await getInstructorAssessment(assessmentId, instructorId, db);
+    expect(isAssessmentError(loaded)).toBe(true);
+    expect((loaded as any).error.code).toBe("NOT_FOUND");
   });
 });

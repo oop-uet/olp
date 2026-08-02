@@ -130,7 +130,7 @@ async function ensureAssessmentTablesReady(database: Database) {
       duration_minutes INTEGER NOT NULL DEFAULT 60,
       total_points REAL NOT NULL DEFAULT 10,
       shuffle_questions INTEGER NOT NULL DEFAULT 1,
-      status TEXT NOT NULL DEFAULT 'draft',
+      status TEXT NOT NULL DEFAULT 'published',
       created_by TEXT NOT NULL REFERENCES users(id),
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
@@ -286,6 +286,12 @@ async function ensureAssessmentTablesReady(database: Database) {
   await addColumnIfMissing(
     database,
     "ALTER TABLE assessment_assignments ADD COLUMN week INTEGER"
+  );
+  await executeRaw(
+    database,
+    `UPDATE assessments
+     SET status = 'published', published_at = COALESCE(published_at, created_at)
+     WHERE status <> 'published'`
   );
 }
 

@@ -177,7 +177,7 @@ beforeAll(() => {
       duration_minutes INTEGER NOT NULL DEFAULT 60,
       total_points REAL NOT NULL DEFAULT 10,
       shuffle_questions INTEGER NOT NULL DEFAULT 1,
-      status TEXT NOT NULL DEFAULT 'draft',
+      status TEXT NOT NULL DEFAULT 'published',
       created_by TEXT NOT NULL REFERENCES users(id),
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,

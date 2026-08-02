@@ -99,6 +99,13 @@
       "when": 1785683000000,
       "tag": "0013_add_assessment_assignment_week",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1785684000000,
+      "tag": "0014_publish_existing_assessments",
+      "breakpoints": true
     }
   ]
 }

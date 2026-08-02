@@ -6,39 +6,6 @@ import { PageLoader, ExerciseIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import type { InstructorAssessmentListItem } from '../../types/assessment'
 
-interface SectionOption {
-  id: string
-  name: string
-  semester: string
-}
-
-interface ScheduleDraft {
-  sectionId: string
-  opensAt: string
-  closesAt: string
-  durationMinutes: number
-  requireFullscreen: boolean
-  showPredictedScore: boolean
-}
-
-function toLocalInput(date: Date) {
-  const offset = date.getTimezoneOffset() * 60_000
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16)
-}
-
-function defaultSchedule(durationMinutes: number): ScheduleDraft {
-  const opens = new Date(Date.now() + 60 * 60_000)
-  const closes = new Date(opens.getTime() + Math.max(durationMinutes + 30, 120) * 60_000)
-  return {
-    sectionId: '',
-    opensAt: toLocalInput(opens),
-    closesAt: toLocalInput(closes),
-    durationMinutes,
-    requireFullscreen: true,
-    showPredictedScore: true,
-  }
-}
-
 function formatDate(value: string) {
   return new Date(value).toLocaleString('vi-VN')
 }
@@ -46,11 +13,8 @@ function formatDate(value: string) {
 export function AssessmentManagerPanel() {
   const navigate = useNavigate()
   const [items, setItems] = useState<InstructorAssessmentListItem[]>([])
-  const [sections, setSections] = useState<SectionOption[]>([])
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
-  const [schedulingId, setSchedulingId] = useState<string | null>(null)
-  const [schedule, setSchedule] = useState<ScheduleDraft>(defaultSchedule(90))
 
   useEffect(() => {
     void load()
@@ -59,12 +23,8 @@ export function AssessmentManagerPanel() {
   async function load() {
     setLoading(true)
     try {
-      const [assessmentResponse, sectionResponse] = await Promise.all([
-        api.get('/api/instructor/assessments'),
-        api.get('/api/instructor/sections'),
-      ])
+      const assessmentResponse = await api.get('/api/instructor/assessments')
       setItems(assessmentResponse.data.data ?? [])
-      setSections(sectionResponse.data ?? [])
     } catch {
       toast.error('Không thể tải danh sách bài kiểm tra.')
     } finally {
@@ -72,43 +32,15 @@ export function AssessmentManagerPanel() {
     }
   }
 
-  async function publish(item: InstructorAssessmentListItem) {
-    if (!window.confirm('Phát hành sẽ khóa nội dung đề. Bạn muốn tiếp tục?')) return
+  async function deleteAssessment(item: InstructorAssessmentListItem) {
+    if (!window.confirm(`Xóa bài kiểm tra "${item.title}"? Thao tác này không thể hoàn tác.`)) return
     setBusyId(item.id)
     try {
-      await api.post(`/api/instructor/assessments/${item.id}/publish`)
-      toast.success('Đã phát hành bài kiểm tra.')
+      await api.delete(`/api/instructor/assessments/${item.id}`)
+      toast.success('Đã xóa bài kiểm tra.')
       await load()
     } catch (error: unknown) {
-      const details = readApiError(error).details
-      toast.error(Array.isArray(details) ? details[0] : 'Không thể phát hành đề.')
-    } finally {
-      setBusyId(null)
-    }
-  }
-
-  function openSchedule(item: InstructorAssessmentListItem) {
-    setSchedulingId(item.id)
-    setSchedule(defaultSchedule(item.durationMinutes))
-  }
-
-  async function assign() {
-    if (!schedulingId || !schedule.sectionId) {
-      toast.error('Vui lòng chọn lớp học phần.')
-      return
-    }
-    setBusyId(schedulingId)
-    try {
-      await api.post(`/api/instructor/assessments/${schedulingId}/assign`, {
-        ...schedule,
-        opensAt: new Date(schedule.opensAt).toISOString(),
-        closesAt: new Date(schedule.closesAt).toISOString(),
-      })
-      toast.success('Đã gán lịch thi cho lớp.')
-      setSchedulingId(null)
-      await load()
-    } catch (error: unknown) {
-      toast.error(readApiError(error).message ?? 'Không thể gán bài kiểm tra.')
+      toast.error(readApiError(error).message ?? 'Không thể xóa bài kiểm tra.')
     } finally {
       setBusyId(null)
     }
@@ -118,10 +50,6 @@ export function AssessmentManagerPanel() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-        <span className="font-bold">Phát hành</span> là bước chốt và khóa nội dung đề. Sau khi phát hành,
-        đề mới được phép thêm vào tuần học hoặc gán lịch thi; thời gian mở/đóng vẫn do GV thiết lập.
-      </div>
       {items.length === 0 ? (
         <div className="card flex flex-col items-center p-12 text-center">
           <ExerciseIcon className="h-12 w-12 text-slate-300" />
@@ -138,7 +66,6 @@ export function AssessmentManagerPanel() {
                 <th className="table-th">Tên đề</th>
                 <th className="table-th">Thời lượng</th>
                 <th className="table-th">Tổng điểm</th>
-                <th className="table-th">Trạng thái</th>
                 <th className="table-th">Lớp đã gán</th>
                 <th className="table-th text-right">Thao tác</th>
               </tr>
@@ -161,11 +88,6 @@ export function AssessmentManagerPanel() {
                   <td className="table-td">{item.durationMinutes} phút</td>
                   <td className="table-td font-bold">{item.totalPoints}</td>
                   <td className="table-td">
-                    <span className={item.status === 'published' ? 'badge-green' : 'badge-yellow'}>
-                      {item.status === 'published' ? 'Đã phát hành' : 'Bản nháp'}
-                    </span>
-                  </td>
-                  <td className="table-td">
                     <div className="space-y-2">
                       {item.assignments.length === 0 && <span className="text-slate-400">Chưa gán</span>}
                       {item.assignments.map((assignment) => (
@@ -186,25 +108,17 @@ export function AssessmentManagerPanel() {
                   </td>
                   <td className="table-td">
                     <div className="flex justify-end gap-2">
-                      {item.status === 'draft' && (
-                        <>
-                          <Link to={`/instructor/exercises/assessments/${item.id}/edit`} className="btn-secondary btn-sm">
-                            Sửa đề
-                          </Link>
-                          <button
-                            onClick={() => void publish(item)}
-                            disabled={busyId === item.id}
-                            className="btn-primary btn-sm"
-                          >
-                            Phát hành
-                          </button>
-                        </>
-                      )}
-                      {item.status === 'published' && (
-                        <button onClick={() => openSchedule(item)} className="btn-primary btn-sm">
-                          Gán lịch thi
-                        </button>
-                      )}
+                      <Link to={`/instructor/exercises/assessments/${item.id}/edit`} className="btn-secondary btn-sm">
+                        Sửa đề
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => void deleteAssessment(item)}
+                        disabled={busyId === item.id}
+                        className="btn-danger btn-sm"
+                      >
+                        {busyId === item.id ? 'Đang xóa...' : 'Xóa'}
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -214,91 +128,6 @@ export function AssessmentManagerPanel() {
         </div>
       )}
 
-      {schedulingId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
-          <div className="w-full max-w-xl rounded-xl bg-white p-6 shadow-xl">
-            <h2 className="text-lg font-bold text-slate-900">Gán lịch bài kiểm tra</h2>
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <label className="sm:col-span-2">
-                <span className="label">Lớp học phần</span>
-                <select
-                  className="input mt-1"
-                  value={schedule.sectionId}
-                  onChange={(event) => setSchedule((value) => ({ ...value, sectionId: event.target.value }))}
-                >
-                  <option value="">Chọn lớp</option>
-                  {sections.map((section) => (
-                    <option key={section.id} value={section.id}>
-                      {section.name} - {section.semester}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span className="label">Mở lúc</span>
-                <input
-                  type="datetime-local"
-                  className="input mt-1"
-                  value={schedule.opensAt}
-                  onChange={(event) => setSchedule((value) => ({ ...value, opensAt: event.target.value }))}
-                />
-              </label>
-              <label>
-                <span className="label">Đóng lúc</span>
-                <input
-                  type="datetime-local"
-                  className="input mt-1"
-                  value={schedule.closesAt}
-                  onChange={(event) => setSchedule((value) => ({ ...value, closesAt: event.target.value }))}
-                />
-              </label>
-              <label>
-                <span className="label">Thời lượng (phút)</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={600}
-                  className="input mt-1"
-                  value={schedule.durationMinutes}
-                  onChange={(event) =>
-                    setSchedule((value) => ({ ...value, durationMinutes: Number(event.target.value) }))
-                  }
-                />
-              </label>
-              <div className="space-y-3 pt-6">
-                <label className="flex items-center gap-2 text-sm text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={schedule.requireFullscreen}
-                    onChange={(event) =>
-                      setSchedule((value) => ({ ...value, requireFullscreen: event.target.checked }))
-                    }
-                  />
-                  Yêu cầu toàn màn hình
-                </label>
-                <label className="flex items-center gap-2 text-sm text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={schedule.showPredictedScore}
-                    onChange={(event) =>
-                      setSchedule((value) => ({ ...value, showPredictedScore: event.target.checked }))
-                    }
-                  />
-                  Hiện điểm dự kiến sau khi AI chấm
-                </label>
-              </div>
-            </div>
-            <div className="mt-6 flex justify-end gap-2">
-              <button onClick={() => setSchedulingId(null)} className="btn-secondary">
-                Hủy
-              </button>
-              <button onClick={() => void assign()} disabled={busyId === schedulingId} className="btn-primary">
-                {busyId === schedulingId ? 'Đang gán...' : 'Gán bài kiểm tra'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

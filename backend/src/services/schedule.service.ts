@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { eq, and, or } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db as defaultDb } from "../db/index.js";
 import {
   classSections,
@@ -153,7 +153,6 @@ export interface ScheduleAssessment {
   title: string;
   totalPoints: number;
   durationMinutes: number;
-  status: string;
   creatorUsername: string | null;
   week: number | null;
   deadline: string | null;
@@ -167,7 +166,6 @@ export interface SchedulePoolAssessment {
   title: string;
   totalPoints: number;
   durationMinutes: number;
-  status: string;
   creatorUsername: string | null;
 }
 
@@ -222,7 +220,6 @@ export async function getSectionSchedule(
       title: assessments.title,
       totalPoints: assessments.totalPoints,
       durationMinutes: assessmentAssignments.durationMinutes,
-      status: assessments.status,
       creatorUsername: users.username,
       week: assessmentAssignments.week,
       opensAt: assessmentAssignments.opensAt,
@@ -240,7 +237,6 @@ export async function getSectionSchedule(
     title: a.title,
     totalPoints: Number(a.totalPoints) || 0,
     durationMinutes: Number(a.durationMinutes) || 0,
-    status: a.status,
     creatorUsername: a.creatorUsername ?? null,
     week: a.week ?? null,
     deadline: a.closesAt ?? null,
@@ -328,23 +324,16 @@ export async function getSectionSchedule(
   const pool = availablePool.filter((exercise) => exercise.isLibrary);
   const otherPool = availablePool.filter((exercise) => !exercise.isLibrary);
 
-  const assessmentPoolQuery = database
+  const assessmentPoolSource = await database
     .select({
       id: assessments.id,
       title: assessments.title,
       totalPoints: assessments.totalPoints,
       durationMinutes: assessments.durationMinutes,
-      status: assessments.status,
       creatorUsername: users.username,
-      createdBy: assessments.createdBy,
     })
     .from(assessments)
     .leftJoin(users, eq(assessments.createdBy, users.id));
-  const assessmentPoolSource = role === "admin"
-    ? await assessmentPoolQuery
-    : await assessmentPoolQuery.where(
-        or(eq(assessments.status, "published"), eq(assessments.createdBy, userId))
-      );
   const assessmentPool = (assessmentPoolSource as any[])
     .filter((assessment) => !assignedAssessmentIds.has(String(assessment.id)))
     .map((assessment): SchedulePoolAssessment => ({
@@ -352,7 +341,6 @@ export async function getSectionSchedule(
       title: assessment.title,
       totalPoints: Number(assessment.totalPoints) || 0,
       durationMinutes: Number(assessment.durationMinutes) || 0,
-      status: assessment.status,
       creatorUsername: assessment.creatorUsername ?? null,
     }));
 
@@ -432,7 +420,7 @@ export async function assignExerciseToWeek(
 }
 
 /**
- * Add a published assessment to a week. The weekly deadline becomes the
+ * Add an assessment to a week. The weekly deadline becomes the
  * closing time for the exam; when no deadline exists, a safe future window is
  * generated from the exam duration.
  */
@@ -459,10 +447,6 @@ export async function assignAssessmentToWeek(
   if (!assessment) {
     return { error: { code: "NOT_FOUND", message: "Không tìm thấy bài kiểm tra." } };
   }
-  if (assessment.status !== "published") {
-    return { error: { code: "NOT_PUBLISHED", message: "Cần phát hành đề trước khi thêm vào tuần học." } };
-  }
-
   const weekRows = await database
     .select()
     .from(sectionWeeks)

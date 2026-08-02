@@ -50,7 +50,6 @@ interface ScheduleAssessment {
   title: string
   totalPoints: number
   durationMinutes: number
-  status: string
   creatorUsername: string | null
   week: number | null
   deadline: string | null
@@ -64,7 +63,6 @@ interface PoolAssessment {
   title: string
   totalPoints: number
   durationMinutes: number
-  status: string
   creatorUsername: string | null
 }
 
@@ -558,7 +556,7 @@ export function SectionSchedulePage() {
     ? 'Không còn bài tập hệ thống nào trong kho.'
     : poolTab === 'other'
       ? 'Không còn bài tập riêng nào để chọn.'
-      : 'Không còn bài kiểm tra đã phát hành nào để chọn.'
+      : 'Không còn bài kiểm tra nào để chọn.'
 
   // Ensure configured weeks are present even if backend omits empty ones.
   const weekMap = new Map<number, ScheduleWeek>()
@@ -812,9 +810,7 @@ export function SectionSchedulePage() {
                   Kho bài tập/đề thi
                 </h2>
                 <p className="mt-0.5 text-xs text-gray-500">
-                  {poolTab === 'assessment'
-                    ? 'Đề phải phát hành trước khi thêm vào tuần học.'
-                    : `Bấm + để thêm vào tuần ${selectedWeek}`}
+                  Bấm + để thêm vào tuần {selectedWeek}
                 </p>
               </div>
             </div>
@@ -868,8 +864,7 @@ export function SectionSchedulePage() {
                           <button
                             type="button"
                             onClick={() => void assignAssessment(assessment.id, selectedWeek)}
-                            disabled={assessment.status !== 'published'}
-                            className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-black leading-none text-white shadow-sm transition-all hover:bg-primary-700 active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-300"
+                            className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-black leading-none text-white shadow-sm transition-all hover:bg-primary-700 active:scale-95"
                             aria-label={`Thêm ${assessment.title} vào tuần ${selectedWeek}`}
                           >
                             +
@@ -887,15 +882,7 @@ export function SectionSchedulePage() {
                             </div>
                           </div>
                         </div>
-                        <span className={assessment.status === 'published' ? 'badge-green' : 'badge-yellow'}>
-                          {assessment.status === 'published' ? 'Đã phát hành' : 'Bản nháp'}
-                        </span>
                       </div>
-                      {assessment.status !== 'published' && (
-                        <p className="pl-8 text-[11px] font-semibold text-amber-700">
-                          Phát hành đề trước khi thêm vào tuần học.
-                        </p>
-                      )}
                     </div>
                   ))
                 )
