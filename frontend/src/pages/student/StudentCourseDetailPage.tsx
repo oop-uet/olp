@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { api, cachedGet } from '../../lib/api'
+import { cachedGet } from '../../lib/api'
 import { PageLoader, ExerciseIcon, LeaderboardIcon, CalendarIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { useAuthStore } from '../../stores/auth.store'
@@ -100,46 +100,7 @@ export function StudentCourseDetailPage() {
   const [leaderboardLoading, setLeaderboardLoading] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchSectionAndExercises()
-  }, [id])
-
-  async function fetchSectionAndExercises() {
-    setLoading(true)
-    try {
-      const [sectionsRes, exercisesRes, assessmentsRes] = await Promise.all([
-        cachedGet('/api/students/sections'),
-        api.get('/api/students/exercises'),
-        api.get('/api/students/assessments'),
-      ])
-
-      const sections: SectionInfo[] = sectionsRes.data ?? []
-      const foundSection = id ? sections.find((s) => s.id === id) : sections[0]
-      setSection(foundSection ?? null)
-
-      const allExercises = exercisesRes.data.exercises ?? []
-      const sectionExercises = foundSection
-        ? allExercises.filter((ex: Exercise) => ex.sectionId === foundSection.id)
-        : []
-      setExercises(sectionExercises)
-      const allAssessments: StudentAssessmentListItem[] = assessmentsRes.data.data ?? []
-      setAssessments(
-        foundSection
-          ? allAssessments.filter((assessment) => assessment.sectionId === foundSection.id)
-          : []
-      )
-
-      if (foundSection) {
-        fetchLeaderboard(foundSection.id)
-      }
-    } catch {
-      toast.error('Không thể tải bài học phần. Vui lòng thử lại.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function fetchLeaderboard(sectionId: string) {
+  const fetchLeaderboard = useCallback(async (sectionId: string) => {
     setLeaderboardLoading(true)
     try {
       const response = await cachedGet(`/api/sections/${sectionId}/leaderboard`, undefined, {
@@ -151,7 +112,53 @@ export function StudentCourseDetailPage() {
     } finally {
       setLeaderboardLoading(false)
     }
-  }
+  }, [])
+
+  const fetchSectionAndExercises = useCallback(async (showLoader = true) => {
+    if (showLoader) setLoading(true)
+    try {
+      const [sectionsRes, exercisesRes, assessmentsRes] = await Promise.all([
+        cachedGet('/api/students/sections'),
+        cachedGet('/api/students/exercises', undefined, { force: true }),
+        cachedGet('/api/students/assessments', undefined, { force: true }),
+      ])
+
+      const sections: SectionInfo[] = sectionsRes.data ?? []
+      const foundSection = id ? sections.find((s) => s.id === id) : sections[0]
+      setSection(foundSection ?? null)
+
+      const allExercises: Exercise[] = exercisesRes.data.exercises ?? []
+      setExercises(
+        foundSection
+          ? allExercises.filter((exercise) => exercise.sectionId === foundSection.id)
+          : []
+      )
+
+      const allAssessments: StudentAssessmentListItem[] = assessmentsRes.data.data ?? []
+      setAssessments(
+        foundSection
+          ? allAssessments.filter((assessment) => assessment.sectionId === foundSection.id)
+          : []
+      )
+
+      if (foundSection) void fetchLeaderboard(foundSection.id)
+    } catch {
+      if (showLoader) toast.error('Không thể tải bài học phần. Vui lòng thử lại.')
+    } finally {
+      if (showLoader) setLoading(false)
+    }
+  }, [fetchLeaderboard, id])
+
+  useEffect(() => {
+    void fetchSectionAndExercises()
+    const refresh = () => void fetchSectionAndExercises(false)
+    const timer = window.setInterval(refresh, 30_000)
+    window.addEventListener('focus', refresh)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('focus', refresh)
+    }
+  }, [fetchSectionAndExercises])
 
   if (loading) {
     return <PageLoader label="Đang tải bài thực hành..." />
@@ -163,7 +170,7 @@ export function StudentCourseDetailPage() {
         <p className="font-medium text-slate-500">
           Không tìm thấy lớp học phần hoặc bạn chưa được ghi danh.
         </p>
-        <button onClick={fetchSectionAndExercises} className="btn-primary btn-sm mt-4">
+        <button onClick={() => void fetchSectionAndExercises()} className="btn-primary btn-sm mt-4">
           Tải lại danh sách bài tập
         </button>
       </div>
