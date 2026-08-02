@@ -48,7 +48,6 @@ export function StudentAssessmentListPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Bài kiểm tra</h1>
-        <p className="mt-1 text-sm text-slate-500">Làm bài theo thời gian và theo dõi điểm dự kiến/chính thức.</p>
       </div>
 
       {items.length === 0 ? (

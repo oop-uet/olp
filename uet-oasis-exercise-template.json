@@ -1,0 +1,34 @@
+{
+  "format": "uet-oasis-oop-exercise-template",
+  "version": 1,
+  "title": "Student Management",
+  "description": "Viết lớp Student và StudentManagement. Mô tả rõ các lớp, thuộc tính, constructor, getter/setter và các hành vi cần kiểm tra.",
+  "difficulty": "medium",
+  "oop_tags": [
+    "classes and objects",
+    "encapsulation"
+  ],
+  "is_library": true,
+  "starter_code": "{\n  \"format\": \"oop-java-files\",\n  \"version\": 1,\n  \"files\": [\n    {\n      \"name\": \"Student.java\",\n      \"content\": \"public class Student {\\n    // TODO: declare fields, constructor and methods\\n}\\n\"\n    },\n    {\n      \"name\": \"StudentManagement.java\",\n      \"content\": \"public class StudentManagement {\\n    // TODO: manage students\\n}\\n\"\n    }\n  ]\n}",
+  "test_cases": [
+    {
+      "input_data": "__OOP_JAVA_TEST__\nMyTest.java",
+      "expected_output": "import org.junit.Test;\nimport static org.junit.Assert.*;\n\npublic class MyTest {\n    @Test\n    public void testStudentConstructor() {\n        Student s = new Student(\"Nguyen Van A\", \"24000001\", 3.5);\n        assertEquals(\"Nguyen Van A\", s.getName());\n        assertEquals(\"24000001\", s.getStudentId());\n        assertEquals(3.5, s.getGpa(), 0.001);\n    }\n}\n",
+      "is_visible": true,
+      "point_value": 50,
+      "time_limit_seconds": 3
+    },
+    {
+      "input_data": "__OOP_JAVA_TEST__\nHiddenTest.java",
+      "expected_output": "import org.junit.Test;\nimport static org.junit.Assert.*;\n\npublic class HiddenTest {\n    @Test\n    public void testValidation() {\n        assertThrows(IllegalArgumentException.class, () -> new Student(\"A\", \"1\", -1.0));\n    }\n}\n",
+      "is_visible": false,
+      "point_value": 50,
+      "time_limit_seconds": 3
+    }
+  ],
+  "authoring_notes": [
+    "Có thể export file này rồi gửi cho AI sinh đề/test case theo đúng schema.",
+    "Với JUnit, input_data dùng dạng __OOP_JAVA_TEST__ + tên file test; expected_output là toàn bộ nội dung file .java.",
+    "is_visible=false là test ẩn; point_value nên cộng lại thành 100."
+  ]
+}

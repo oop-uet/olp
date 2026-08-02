@@ -1,0 +1,20 @@
+{
+  "format": "uet-oasis-oop-exercise-template",
+  "version": 1,
+  "title": "Tên bài tập",
+  "description": "Mô tả yêu cầu bài tập.",
+  "difficulty": "easy",
+  "oop_tags": [
+    "classes and objects"
+  ],
+  "starter_code": "",
+  "is_library": false,
+  "test_cases": [
+    {
+      "input_data": "",
+      "expected_output": "",
+      "is_visible": true,
+      "point_value": 10
+    }
+  ]
+}

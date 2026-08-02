@@ -20,12 +20,6 @@ const REGULAR_DESCRIPTION_MAX_LENGTH = 5000
 const PROJECT_DESCRIPTION_MAX_LENGTH = 12000
 const PROJECT_TAGS = ['project', 'oop-design', 'teamwork']
 
-const DIFFICULTY_LABELS: Record<Difficulty, string> = {
-  easy: 'Dễ',
-  medium: 'Trung bình',
-  hard: 'Khó',
-}
-
 const OOP_TAG_OPTIONS = [
   'classes and objects',
   'inheritance',
@@ -752,15 +746,10 @@ export function ExerciseFormPage() {
   return (
     <div className="mx-auto max-w-[1680px] space-y-5 px-2 pb-8 sm:px-4">
       {/* Page header */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">
-            {isEditing ? 'Sửa bài tập' : 'Tạo bài tập'}
-          </h1>
-          <p className="mt-1 text-sm font-medium text-slate-500">
-            Soạn nội dung, cấu hình chấm điểm và bộ test trong cùng một workspace.
-          </p>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-slate-900">
+          {isEditing ? 'Sửa bài tập' : 'Tạo bài tập'}
+        </h1>
         <button onClick={() => navigate('/instructor/exercises')} className="btn-ghost btn-sm">
           ← Quay lại danh sách
         </button>
@@ -867,85 +856,62 @@ export function ExerciseFormPage() {
                 👥 Bài tập lớn (BTL)
               </button>
             </div>
-            {isProjectExercise && (
-              <div className="mt-3 rounded-lg border border-sky-200 bg-sky-50/50 p-3 text-xs text-sky-950 space-y-1">
-                <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-sky-850">
-                  <span>💡 Lưu ý cho Bài tập lớn</span>
-                </div>
-                <p className="leading-relaxed">
-                  • Bài tập lớn không dùng starter code, Checkstyle hoặc test case tự động. Nội dung đặt trong phần Mô tả.
-                </p>
-                <p className="leading-relaxed">
-                  • Sinh viên tự lập nhóm, khai báo thành viên và nộp link GitHub trực tiếp.
-                </p>
-              </div>
-            )}
           </section>
         </div>
 
         {/* Title & Difficulty Row */}
         <div className="grid grid-cols-1 gap-5 items-start xl:col-span-12 xl:grid-cols-12">
           <div className="xl:col-span-9">
-            <label htmlFor="title" className="label text-slate-800 font-bold">
+            <label htmlFor="exercise-title" className="label text-slate-800 font-bold">
               Tiêu đề bài tập <span className="text-danger-500">*</span>
             </label>
             <input
-              id="title"
+              id="exercise-title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              maxLength={200}
-              className={`input h-11 text-sm ${errors.title ? 'input-error' : ''}`}
-              placeholder="Nhập tiêu đề bài tập (VD: Tuần 1 - Hello World)"
+              className="input mt-1.5 h-11 text-base font-semibold"
+              placeholder={isProjectExercise ? 'VD: Quản lý thư viện sách' : 'VD: Lớp Student và StudentManagement'}
             />
-            <div className="mt-1 flex justify-between">
-              {errors.title && <p className="text-xs text-danger-600 font-semibold">{errors.title}</p>}
-              <p className="ml-auto text-xs text-gray-400 font-medium">{title.length}/200</p>
-            </div>
+            {errors.title && <p className="mt-1 text-xs font-semibold text-danger-600">{errors.title}</p>}
           </div>
 
           <div className="xl:col-span-3">
-            <label htmlFor="difficulty" className="label text-slate-800 font-bold">
+            <label htmlFor="exercise-difficulty" className="label text-slate-800 font-bold">
               Độ khó <span className="text-danger-500">*</span>
             </label>
             <select
-              id="difficulty"
+              id="exercise-difficulty"
               value={difficulty}
               onChange={(e) => setDifficulty(e.target.value as Difficulty)}
-              className={`input h-11 text-sm font-semibold text-slate-700 ${errors.difficulty ? 'input-error' : ''}`}
+              className="select mt-1.5 h-11 text-sm font-semibold"
             >
-              <option value="">Chọn độ khó</option>
-              {DIFFICULTY_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>
-                  {DIFFICULTY_LABELS[opt]}
-                </option>
-              ))}
+              <option value="easy">🟢 Dễ (Easy)</option>
+              <option value="medium">🟡 Trung bình (Medium)</option>
+              <option value="hard">🔴 Khó (Hard)</option>
             </select>
-            {errors.difficulty && <p className="mt-1 text-xs text-danger-600 font-semibold">{errors.difficulty}</p>}
           </div>
         </div>
 
-        {/* Description */}
+        {/* Description Markdown Editor */}
         <div className="xl:col-span-12">
-          <label htmlFor="description" className="label text-slate-800 font-bold">
-            Mô tả đề bài <span className="text-danger-500">*</span>
+          <label className="label text-slate-800 font-bold mb-1.5 flex items-center justify-between">
+            <span>
+              Mô tả yêu cầu bài tập <span className="text-danger-500">*</span>
+            </span>
           </label>
           <ExerciseDescriptionEditor
             value={description}
             onChange={setDescription}
             error={errors.description}
-            maxLength={descriptionMaxLength}
           />
-          <div className="mt-1 flex justify-between">
-            {errors.description && <p className="text-xs text-danger-600 font-semibold">{errors.description}</p>}
-            <p className="ml-auto text-xs text-gray-400 font-medium">{description.length}/{descriptionMaxLength}</p>
-          </div>
         </div>
 
+        {/* Project Submission Requirements */}
         {isProjectExercise && (
-          <div className="xl:col-span-12">
-            <label htmlFor="project-submission-requirements" className="label text-slate-800 font-bold">
-              Yêu cầu nộp bài tập lớn <span className="text-danger-500">*</span>
+          <div className="xl:col-span-12 rounded-xl border border-sky-200 bg-sky-50/30 p-4 space-y-2">
+            <label htmlFor="project-submission-requirements" className="label text-sky-950 font-bold">
+              Yêu cầu nộp bài & Quy định repository GitHub
             </label>
             <textarea
               id="project-submission-requirements"
@@ -955,9 +921,6 @@ export function ExerciseFormPage() {
               className="input font-mono text-sm leading-6"
               placeholder={DEFAULT_PROJECT_SUBMISSION_REQUIREMENTS}
             />
-            <p className="mt-1 text-xs font-medium text-slate-500">
-              Dùng cặp dấu `...` để nhấn mạnh tài khoản, thư mục hoặc file, ví dụ `oasis-uet`, `.idea`, `target`, `out`.
-            </p>
           </div>
         )}
 
@@ -993,16 +956,11 @@ export function ExerciseFormPage() {
         {!isProjectExercise && (
           <div className="grid grid-cols-1 gap-5 items-stretch xl:col-span-12 xl:grid-cols-12">
             {/* Starter Code */}
-            <section className="flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-slate-50/80 shadow-sm xl:col-span-7">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
-                <div>
-                  <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">
-                    Mã khởi tạo (Starter Code)
-                  </h2>
-                  <p className="mt-0.5 text-xs font-medium text-slate-500">
-                    Mã mẫu Java cung cấp sẵn cho sinh viên khi bắt đầu làm bài.
-                  </p>
-                </div>
+            <section className="flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm xl:col-span-7">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+                <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">
+                  Mã khởi tạo (Starter Code)
+                </h2>
               </div>
               <div className="flex flex-1 flex-col p-4">
                 <textarea
@@ -1016,16 +974,11 @@ export function ExerciseFormPage() {
             </section>
 
             {/* Checkstyle Rules */}
-            <section className="flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-slate-50/80 shadow-sm xl:col-span-5">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
-                <div>
-                  <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">
-                    Quy tắc lập trình (Checkstyle)
-                  </h2>
-                  <p className="mt-0.5 text-xs font-medium text-slate-500">
-                    Chọn các nhóm lỗi Checkstyle được tính vào điểm quy tắc.
-                  </p>
-                </div>
+            <section className="flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm xl:col-span-5">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+                <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">
+                  Quy tắc lập trình (Checkstyle)
+                </h2>
                 <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700 cursor-pointer">
                   <input
                     type="checkbox"
@@ -1048,23 +1001,21 @@ export function ExerciseFormPage() {
                       min={0}
                       max={50}
                       value={styleWeightPercent}
-                      disabled={!styleCheckEnabled}
-                      onChange={(event) => setStyleWeightPercent(Math.max(0, Math.min(50, Number(event.target.value) || 0)))}
-                      className="input h-9 text-xs"
+                      onChange={(event) => setStyleWeightPercent(parseInt(event.target.value) || 0)}
+                      className="input h-9 text-xs text-center"
                     />
                   </label>
                   <label className="block">
                     <span className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                      Trừ mỗi lỗi
+                      Trừ/lỗi (%)
                     </span>
                     <input
                       type="number"
                       min={1}
-                      max={100}
+                      max={50}
                       value={stylePenaltyPerViolation}
-                      disabled={!styleCheckEnabled}
-                      onChange={(event) => setStylePenaltyPerViolation(Math.max(1, Math.min(100, Number(event.target.value) || 1)))}
-                      className="input h-9 text-xs"
+                      onChange={(event) => setStylePenaltyPerViolation(parseInt(event.target.value) || 1)}
+                      className="input h-9 text-xs text-center"
                     />
                   </label>
                   <label className="block">
@@ -1076,33 +1027,42 @@ export function ExerciseFormPage() {
                       min={1}
                       max={100}
                       value={styleMaxViolations}
-                      disabled={!styleCheckEnabled}
-                      onChange={(event) => setStyleMaxViolations(Math.max(1, Math.min(100, Number(event.target.value) || 1)))}
-                      className="input h-9 text-xs"
+                      onChange={(event) => setStyleMaxViolations(parseInt(event.target.value) || 1)}
+                      className="input h-9 text-xs text-center"
                     />
                   </label>
                 </div>
 
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {STYLE_RULE_OPTIONS.map((rule) => {
-                    const checked = !styleDisabledRules.includes(rule.id)
-                    return (
-                      <label
-                        key={rule.id}
-                        className="flex items-center gap-2.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:border-slate-300 cursor-pointer"
-                        title={rule.help}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          disabled={!styleCheckEnabled}
-                          onChange={(event) => toggleStyleRule(rule.id, event.target.checked)}
-                          className="rounded border-gray-300 text-primary focus:ring-primary"
-                        />
-                        <span className="truncate">{rule.label}</span>
-                      </label>
-                    )
-                  })}
+                <div className="space-y-2 pt-2 border-t border-slate-100">
+                  <span className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Các quy tắc áp dụng
+                  </span>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {STYLE_RULE_OPTIONS.map((rule) => {
+                      const enabled = !styleDisabledRules.includes(rule.id)
+                      return (
+                        <label
+                          key={rule.id}
+                          className={`flex items-start gap-2.5 rounded-lg border p-2.5 text-xs transition-all cursor-pointer ${
+                            enabled
+                              ? 'border-slate-200 bg-white text-slate-800'
+                              : 'border-slate-100 bg-slate-50 text-slate-400'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={enabled}
+                            onChange={(event) => toggleStyleRule(rule.id, event.target.checked)}
+                            className="mt-0.5 rounded border-gray-300 text-primary focus:ring-primary"
+                          />
+                          <div>
+                            <span className="font-bold block">{rule.label}</span>
+                            <span className="text-[11px] opacity-80 leading-normal block">{rule.help}</span>
+                          </div>
+                        </label>
+                      )
+                    })}
+                  </div>
                 </div>
               </div>
             </section>
@@ -1111,16 +1071,11 @@ export function ExerciseFormPage() {
 
         {/* Test Cases Section */}
         {!isProjectExercise && (
-          <section className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50/80 shadow-sm xl:col-span-12">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
-              <div>
-                <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">
-                  Bộ test case chấm điểm <span className="text-danger-500">*</span>
-                </h2>
-                <p className="mt-0.5 text-xs font-medium text-slate-500">
-                  Cung cấp các bộ test tự động để chấm điểm bài nộp của sinh viên.
-                </p>
-              </div>
+          <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm xl:col-span-12">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+              <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">
+                Bộ test case chấm điểm <span className="text-danger-500">*</span>
+              </h2>
               <button
                 type="button"
                 onClick={addTestCase}
@@ -1147,66 +1102,70 @@ export function ExerciseFormPage() {
                       <button
                         type="button"
                         onClick={() => removeTestCase(index)}
-                        className="text-xs font-bold text-danger-600 hover:text-danger-700 hover:underline"
+                        className="text-xs font-semibold text-rose-600 hover:text-rose-700"
                       >
-                        Xóa bộ test
+                        Xóa test case
                       </button>
                     )}
                   </div>
 
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     <div>
-                      <label className="mb-1 block text-xs font-bold text-slate-600">Đầu vào (Input)</label>
+                      <label className="label text-slate-700 text-xs font-bold mb-1">
+                        Dữ liệu đầu vào (Input) / File Test JUnit
+                      </label>
                       <textarea
                         value={tc.input_data}
                         onChange={(e) => updateTestCase(index, 'input_data', e.target.value)}
-                        rows={3}
-                        className="input font-mono text-xs leading-5"
-                        placeholder="Dữ liệu đầu vào..."
+                        rows={5}
+                        className="input font-mono text-xs"
+                        placeholder="__OOP_JAVA_TEST__&#10;MyTest.java"
                       />
                     </div>
+
                     <div>
-                      <label className="mb-1 block text-xs font-bold text-slate-600">
-                        Kết quả mong đợi (Expected Output) <span className="text-danger-500">*</span>
+                      <label className="label text-slate-700 text-xs font-bold mb-1">
+                        Kết quả mong đợi (Expected Output) / Nội dung Test JUnit <span className="text-danger-500">*</span>
                       </label>
                       <textarea
                         value={tc.expected_output}
                         onChange={(e) => updateTestCase(index, 'expected_output', e.target.value)}
-                        rows={3}
-                        className="input font-mono text-xs leading-5"
-                        placeholder="Kết quả mong đợi..."
+                        rows={5}
+                        className="input font-mono text-xs"
+                        placeholder="Nội dung mã test JUnit 4..."
                       />
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-5 pt-1 border-t border-slate-100">
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs font-bold text-slate-600">Điểm:</label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={100}
-                        value={tc.point_value}
-                        onChange={(e) => updateTestCase(index, 'point_value', parseInt(e.target.value) || 1)}
-                        className="input h-8 w-20 text-xs text-center font-bold"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs font-bold text-slate-600">Thời hạn (Giây):</label>
-                      <input
-                        type="number"
-                        min={1}
-                        value={tc.time_limit_seconds ?? ''}
-                        onChange={(e) =>
-                          updateTestCase(
-                            index,
-                            'time_limit_seconds',
-                            e.target.value ? parseInt(e.target.value, 10) || undefined : undefined
-                          )
-                        }
-                        className="input h-8 w-28 text-xs text-center"
-                        placeholder="Mặc định (5s)"
-                      />
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-700">Điểm:</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={100}
+                          value={tc.point_value}
+                          onChange={(e) =>
+                            updateTestCase(index, 'point_value', parseInt(e.target.value) || 10)
+                          }
+                          className="input h-8 w-20 text-xs text-center"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-700">Thời hạn (giây):</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={30}
+                          value={tc.time_limit_seconds || ''}
+                          onChange={(e) =>
+                            updateTestCase(index, 'time_limit_seconds', e.target.value ? parseInt(e.target.value) || undefined : undefined)
+                          }
+                          className="input h-8 w-24 text-xs text-center"
+                          placeholder="3"
+                        />
+                      </div>
                     </div>
                     <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
                       <input

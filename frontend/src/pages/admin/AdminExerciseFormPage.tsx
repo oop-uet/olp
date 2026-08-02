@@ -716,15 +716,10 @@ export function AdminExerciseFormPage() {
   return (
     <div className="mx-auto max-w-[1680px] space-y-5 px-2 pb-8 animate-fade-in sm:px-4">
       {/* Page header */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">
-            {isEditing ? 'Sửa bài tập' : 'Tạo bài tập'}
-          </h1>
-          <p className="mt-1 text-sm font-medium text-slate-500">
-            Soạn nội dung, cấu hình chấm điểm và quản lý bài trong thư viện hệ thống.
-          </p>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-slate-900">
+          {isEditing ? 'Sửa bài tập' : 'Tạo bài tập'}
+        </h1>
         <button
           onClick={() => navigate('/admin/exercises')}
           className="btn-ghost btn-sm"
@@ -1210,10 +1205,7 @@ export function AdminExerciseFormPage() {
         )}
 
         {/* Submit Action Bar */}
-        <div className="sticky bottom-3 z-20 flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white/95 px-5 py-3.5 shadow-xl backdrop-blur xl:col-span-12">
-          <p className="text-xs font-medium text-slate-500 hidden sm:block">
-            Nhấn <strong className="text-slate-700">{isEditing ? 'Cập nhật' : 'Tạo'}</strong> để lưu lại các thay đổi của bài tập.
-          </p>
+        <div className="sticky bottom-3 z-20 flex items-center justify-end gap-3 rounded-xl border border-slate-200 bg-white/95 px-5 py-3.5 shadow-xl backdrop-blur xl:col-span-12">
           <div className="flex items-center gap-3 ml-auto">
             <button
               type="button"

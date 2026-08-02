@@ -93,7 +93,6 @@ export function AssessmentSubmissionsPage() {
             ← Bài kiểm tra
           </Link>
           <h1 className="mt-2 text-2xl font-bold text-slate-900">{data.assessment.title}</h1>
-          <p className="mt-1 text-sm text-slate-500">Danh sách bài nộp và duyệt điểm dự kiến.</p>
         </div>
         <button onClick={() => void approveAll()} disabled={approving || ready === 0} className="btn-primary">
           {approving ? 'Đang duyệt...' : 'Approve toàn bộ điểm dự kiến'}
