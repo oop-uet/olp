@@ -5,6 +5,7 @@ import { PageLoader, ExerciseIcon, LeaderboardIcon, CalendarIcon } from '../../c
 import { toast } from '../../stores/toast.store'
 import { useAuthStore } from '../../stores/auth.store'
 import { formatSectionDisplayName, normalizePreviewSectionName } from '../../utils/semester'
+import type { StudentAssessmentListItem } from '../../types/assessment'
 
 interface Exercise {
   id: string
@@ -61,11 +62,20 @@ function formatDeadline(deadline: string | null): string {
   })
 }
 
-function getWeekDeadline(exercises: Exercise[]): string | null {
-  return exercises
-    .map((exercise) => exercise.deadline)
+function getWeekDeadline(exercises: Exercise[], assessments: StudentAssessmentListItem[]): string | null {
+  return [
+    ...exercises.map((exercise) => exercise.deadline),
+    ...assessments.map((assessment) => assessment.closesAt),
+  ]
     .filter((deadline): deadline is string => Boolean(deadline))
     .sort()[0] ?? null
+}
+
+function assessmentAvailability(assessment: StudentAssessmentListItem) {
+  const now = Date.now()
+  if (now < new Date(assessment.opensAt).getTime()) return { label: 'Sắp mở', className: 'badge-blue' }
+  if (now >= new Date(assessment.closesAt).getTime()) return { label: 'Đã đóng', className: 'badge-gray' }
+  return { label: 'Đang mở', className: 'badge-green' }
 }
 
 function scoreLabel(score: number | null): string {
@@ -85,6 +95,7 @@ export function StudentCourseDetailPage() {
   const user = useAuthStore((state) => state.user)
   const [section, setSection] = useState<SectionInfo | null>(null)
   const [exercises, setExercises] = useState<Exercise[]>([])
+  const [assessments, setAssessments] = useState<StudentAssessmentListItem[]>([])
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [leaderboardLoading, setLeaderboardLoading] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -96,9 +107,10 @@ export function StudentCourseDetailPage() {
   async function fetchSectionAndExercises() {
     setLoading(true)
     try {
-      const [sectionsRes, exercisesRes] = await Promise.all([
+      const [sectionsRes, exercisesRes, assessmentsRes] = await Promise.all([
         cachedGet('/api/students/sections'),
         cachedGet('/api/students/exercises'),
+        cachedGet('/api/students/assessments'),
       ])
 
       const sections: SectionInfo[] = sectionsRes.data ?? []
@@ -110,6 +122,12 @@ export function StudentCourseDetailPage() {
         ? allExercises.filter((ex: Exercise) => ex.sectionId === foundSection.id)
         : []
       setExercises(sectionExercises)
+      const allAssessments: StudentAssessmentListItem[] = assessmentsRes.data.data ?? []
+      setAssessments(
+        foundSection
+          ? allAssessments.filter((assessment) => assessment.sectionId === foundSection.id)
+          : []
+      )
 
       if (foundSection) {
         fetchLeaderboard(foundSection.id)
@@ -152,20 +170,38 @@ export function StudentCourseDetailPage() {
     )
   }
 
-  const weeks = Array.from({ length: DEFAULT_TOTAL_WEEKS }, (_, i) => i + 1)
+  const highestAssignedWeek = Math.max(
+    DEFAULT_TOTAL_WEEKS,
+    ...exercises.map((exercise) => exercise.week ?? 0),
+    ...assessments.map((assessment) => assessment.week ?? 0)
+  )
+  const weeks = Array.from({ length: highestAssignedWeek }, (_, i) => i + 1)
   const exercisesByWeek = new Map<number, Exercise[]>()
+  const assessmentsByWeek = new Map<number, StudentAssessmentListItem[]>()
   const unscheduledExercises: Exercise[] = []
-  weeks.forEach((week) => exercisesByWeek.set(week, []))
+  const unscheduledAssessments: StudentAssessmentListItem[] = []
+  weeks.forEach((week) => {
+    exercisesByWeek.set(week, [])
+    assessmentsByWeek.set(week, [])
+  })
 
   exercises.forEach((exercise) => {
-    if (!exercise.week || exercise.week < 1 || exercise.week > DEFAULT_TOTAL_WEEKS) {
+    if (!exercise.week || exercise.week < 1 || exercise.week > highestAssignedWeek) {
       unscheduledExercises.push(exercise)
       return
     }
     exercisesByWeek.get(exercise.week)?.push(exercise)
   })
 
-  const hasExercises = exercises.length > 0
+  assessments.forEach((assessment) => {
+    if (!assessment.week || assessment.week < 1 || assessment.week > highestAssignedWeek) {
+      unscheduledAssessments.push(assessment)
+      return
+    }
+    assessmentsByWeek.get(assessment.week)?.push(assessment)
+  })
+
+  const hasAssignedContent = exercises.length > 0 || assessments.length > 0
 
   return (
     <div className="space-y-5">
@@ -180,31 +216,37 @@ export function StudentCourseDetailPage() {
 
       <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-5">
-          {!hasExercises ? (
+          {!hasAssignedContent ? (
             <div className="card flex flex-col items-center justify-center p-12 text-center border border-slate-100 shadow-sm">
               <ExerciseIcon className="mb-3 h-10 w-10 text-slate-300" />
               <p className="font-semibold text-slate-600">
-                Chưa có bài tập nào được giao cho lớp này.
+                Chưa có bài tập hoặc bài kiểm tra nào được giao cho lớp này.
               </p>
               <p className="mt-1 text-sm text-slate-400">
-                Vui lòng quay lại sau khi giảng viên gán bài tập thực hành.
+                Vui lòng quay lại sau khi giảng viên phân bài theo tuần.
               </p>
             </div>
           ) : (
             <>
-              {unscheduledExercises.length > 0 && (
-                <ExerciseWeekCard title="CHƯA XẾP TUẦN" exercises={unscheduledExercises} />
+              {(unscheduledExercises.length > 0 || unscheduledAssessments.length > 0) && (
+                <ExerciseWeekCard
+                  title="CHƯA XẾP TUẦN"
+                  exercises={unscheduledExercises}
+                  assessments={unscheduledAssessments}
+                />
               )}
 
               {weeks.map((weekNum) => {
                 const weekExercises = exercisesByWeek.get(weekNum) ?? []
-                if (weekExercises.length === 0) return null
+                const weekAssessments = assessmentsByWeek.get(weekNum) ?? []
+                if (weekExercises.length === 0 && weekAssessments.length === 0) return null
 
                 return (
                   <ExerciseWeekCard
                     key={weekNum}
                     title={`TUẦN ${weekNum}`}
                     exercises={weekExercises}
+                    assessments={weekAssessments}
                   />
                 )
               })}
@@ -224,8 +266,16 @@ export function StudentCourseDetailPage() {
   )
 }
 
-function ExerciseWeekCard({ title, exercises }: { title: string; exercises: Exercise[] }) {
-  const deadline = getWeekDeadline(exercises)
+function ExerciseWeekCard({
+  title,
+  exercises,
+  assessments,
+}: {
+  title: string
+  exercises: Exercise[]
+  assessments: StudentAssessmentListItem[]
+}) {
+  const deadline = getWeekDeadline(exercises, assessments)
 
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow">
@@ -298,6 +348,30 @@ function ExerciseWeekCard({ title, exercises }: { title: string; exercises: Exer
             </div>
           </Link>
         ))}
+        {assessments.map((assessment) => {
+          const availability = assessmentAvailability(assessment)
+          return (
+            <Link
+              key={assessment.id}
+              to={`/student/assessments/${assessment.id}`}
+              className="group flex items-center justify-between gap-4 border-l-4 border-cyan-400 bg-cyan-50/20 px-5 py-4 transition hover:bg-cyan-50/60"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <span className="badge-blue text-[10px] font-extrabold">KT</span>
+                  <span className="truncate text-sm font-bold text-slate-700 transition-colors group-hover:text-primary">
+                    {assessment.title}
+                  </span>
+                </div>
+                <p className="mt-1 pl-10 text-xs font-semibold text-slate-400">
+                  {assessment.durationMinutes} phút · {assessment.totalPoints} điểm · Đóng lúc{' '}
+                  {formatDeadline(assessment.closesAt)}
+                </p>
+              </div>
+              <span className={availability.className}>{availability.label}</span>
+            </Link>
+          )
+        })}
       </div>
     </section>
   )

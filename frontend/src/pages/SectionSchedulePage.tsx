@@ -141,6 +141,24 @@ function fillCascadingDeadlineInputs(inputs: Record<number, string>, weekCount: 
 
 const DRAG_MIME = 'text/plain'
 
+type ScheduleDragPayload =
+  | { type: 'exercise'; id: string }
+  | { type: 'assessment'; id: string }
+
+function readDragPayload(event: React.DragEvent): ScheduleDragPayload | null {
+  const raw = event.dataTransfer.getData(DRAG_MIME)
+  if (!raw) return null
+  try {
+    const payload = JSON.parse(raw) as Partial<ScheduleDragPayload>
+    if ((payload.type === 'exercise' || payload.type === 'assessment') && typeof payload.id === 'string') {
+      return payload as ScheduleDragPayload
+    }
+  } catch {
+    // Ignore drag data from outside this schedule.
+  }
+  return null
+}
+
 function extractWeekFromTitle(title: string): number | null {
   const normalized = title
     .normalize('NFD')
@@ -490,9 +508,11 @@ export function SectionSchedulePage() {
 
   function removeWeek(week: number) {
     if (!data || week <= DEFAULT_TOTAL_WEEKS) return
-    const weekHasExercises = data.weeks.some((w) => w.week === week && w.exercises.length > 0)
-    if (weekHasExercises) {
-      toast.error('Không thể xóa tuần đang có bài tập. Hãy kéo bài về kho hoặc sang tuần khác trước.')
+    const weekHasContent = data.weeks.some(
+      (item) => item.week === week && (item.exercises.length > 0 || item.assessments.length > 0)
+    )
+    if (weekHasContent) {
+      toast.error('Không thể xóa tuần đang có bài tập hoặc bài kiểm tra. Hãy kéo nội dung sang tuần khác trước.')
       return
     }
     const nextCount = Math.max(DEFAULT_TOTAL_WEEKS, visibleWeekCount - 1)
@@ -503,27 +523,25 @@ export function SectionSchedulePage() {
 
   // ─── Drag & drop handlers ──────────────────────────────────────────────
 
-  function handleDragStart(e: React.DragEvent, exerciseId: string) {
-    e.dataTransfer.setData(DRAG_MIME, exerciseId)
+  function handleDragStart(e: React.DragEvent, payload: ScheduleDragPayload) {
+    e.dataTransfer.setData(DRAG_MIME, JSON.stringify(payload))
     e.dataTransfer.effectAllowed = 'move'
   }
 
   function handleDropOnWeek(e: React.DragEvent, week: number) {
     e.preventDefault()
     setDropWeek(null)
-    const exerciseId = e.dataTransfer.getData(DRAG_MIME)
-    if (exerciseId) {
-      void assignExercise(exerciseId, week)
-    }
+    const payload = readDragPayload(e)
+    if (payload?.type === 'exercise') void assignExercise(payload.id, week)
+    if (payload?.type === 'assessment') void assignAssessment(payload.id, week)
   }
 
   function handleDropOnPool(e: React.DragEvent) {
     e.preventDefault()
     setDropWeek(null)
-    const exerciseId = e.dataTransfer.getData(DRAG_MIME)
-    if (exerciseId) {
-      void unassignExercise(exerciseId)
-    }
+    const payload = readDragPayload(e)
+    if (payload?.type === 'exercise') void unassignExercise(payload.id)
+    if (payload?.type === 'assessment') void unassignAssessment(payload.id)
   }
 
   function allowDrop(e: React.DragEvent) {
@@ -628,7 +646,7 @@ export function SectionSchedulePage() {
                   <div
                     key={ex.assignmentId}
                     draggable
-                    onDragStart={(e) => handleDragStart(e, ex.exerciseId)}
+                    onDragStart={(e) => handleDragStart(e, { type: 'exercise', id: ex.exerciseId })}
                     className="flex cursor-grab items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 active:cursor-grabbing"
                   >
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -647,7 +665,9 @@ export function SectionSchedulePage() {
                 {assessmentUnscheduled.map((assessment) => (
                   <div
                     key={assessment.assignmentId}
-                    className="flex items-center justify-between gap-2 rounded-lg border border-cyan-200 bg-white px-3 py-2"
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, { type: 'assessment', id: assessment.assessmentId })}
+                    className="flex cursor-grab items-center justify-between gap-2 rounded-lg border border-cyan-200 bg-white px-3 py-2 active:cursor-grabbing"
                   >
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
                       <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-black text-cyan-700">KT</span>
@@ -734,7 +754,7 @@ export function SectionSchedulePage() {
                 <div className="space-y-2 p-4">
                   {w.exercises.length === 0 && (w.assessments ?? []).length === 0 ? (
                     <p className="rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/30 py-5 text-center text-[11px] font-bold text-slate-400 hover:bg-slate-50 hover:border-primary/30 transition-all cursor-pointer">
-                      📥 Thả bài tập hoặc thêm đề kiểm tra vào đây
+                      📥 Thả bài tập hoặc bài kiểm tra vào đây
                     </p>
                   ) : (
                     <>
@@ -742,7 +762,7 @@ export function SectionSchedulePage() {
                         <div
                           key={ex.assignmentId}
                           draggable
-                          onDragStart={(e) => handleDragStart(e, ex.exerciseId)}
+                          onDragStart={(e) => handleDragStart(e, { type: 'exercise', id: ex.exerciseId })}
                           className="flex cursor-grab items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-white px-4 py-2.5 shadow-sm hover:shadow hover:border-slate-300 transition-all active:cursor-grabbing group relative"
                         >
                           <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -762,9 +782,12 @@ export function SectionSchedulePage() {
                       {(w.assessments ?? []).map((assessment) => (
                         <div
                           key={assessment.assignmentId}
-                          className="flex items-center justify-between gap-3 rounded-xl border border-cyan-200 bg-cyan-50/40 px-4 py-2.5 shadow-sm"
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, { type: 'assessment', id: assessment.assessmentId })}
+                          className="flex cursor-grab items-center justify-between gap-3 rounded-xl border border-cyan-200 bg-cyan-50/40 px-4 py-2.5 shadow-sm active:cursor-grabbing"
                         >
                           <div className="flex min-w-0 flex-wrap items-center gap-2">
+                            <span className="select-none font-mono text-[10px] text-cyan-300">☰</span>
                             <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-black text-cyan-700">KT</span>
                             <span className="truncate font-bold text-slate-700 text-xs">{assessment.title}</span>
                             <span className="text-[10px] font-semibold text-slate-500">
@@ -857,7 +880,9 @@ export function SectionSchedulePage() {
                   assessmentPool.map((assessment) => (
                     <div
                       key={assessment.id}
-                      className="space-y-2.5 rounded-xl border border-cyan-200 bg-cyan-50/30 p-4 transition-all hover:border-cyan-300"
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, { type: 'assessment', id: assessment.id })}
+                      className="cursor-grab space-y-2.5 rounded-xl border border-cyan-200 bg-cyan-50/30 p-4 transition-all hover:border-cyan-300 active:cursor-grabbing"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 items-start gap-2.5">
@@ -895,7 +920,7 @@ export function SectionSchedulePage() {
                   <div
                     key={ex.id}
                     draggable
-                    onDragStart={(e) => handleDragStart(e, ex.id)}
+                    onDragStart={(e) => handleDragStart(e, { type: 'exercise', id: ex.id })}
                     className="card-hover cursor-grab space-y-2.5 rounded-xl border border-slate-200/80 bg-white p-4 active:cursor-grabbing hover:border-primary/30 relative group transition-all"
                   >
                     <div className="flex items-start justify-between gap-3">

@@ -681,6 +681,7 @@ export async function listStudentAssessments(
       closesAt: row.assignment.closesAt,
       durationMinutes: row.assignment.durationMinutes,
       totalPoints: row.assessment.totalPoints,
+      week: row.assignment.week ?? null,
       session: session
         ? {
             id: session.id,

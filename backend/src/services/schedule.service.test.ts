@@ -4,7 +4,7 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import * as schema from "../db/schema.js";
 import { getTestSqlite } from "../test/setup.js";
 import { createExercise } from "./exercise.service.js";
-import { createAssessment } from "./assessment.service.js";
+import { createAssessment, listStudentAssessments } from "./assessment.service.js";
 import {
   assignAssessmentToWeek,
   getSectionSchedule,
@@ -16,7 +16,7 @@ function getDb() {
   return drizzle(getTestSqlite(), { schema }) as any;
 }
 
-function seedUser(username: string, role: "instructor" | "admin" = "instructor") {
+function seedUser(username: string, role: "instructor" | "admin" | "student" = "instructor") {
   const id = randomUUID();
   getTestSqlite()
     .prepare(
@@ -89,7 +89,14 @@ describe("Schedule Service", () => {
   it("lists assessments by creator and assigns them to a week immediately", async () => {
     const db = getDb();
     const instructorId = seedUser("gv_de_thi");
+    const studentId = seedUser("sv_de_thi", "student");
     const sectionId = seedSection(instructorId);
+    getTestSqlite()
+      .prepare(
+        `INSERT INTO section_enrollments (id, section_id, student_id, student_external_id, enrolled_at)
+         VALUES (?, ?, ?, 'sv_de_thi', datetime('now'))`
+      )
+      .run(randomUUID(), sectionId, studentId);
     const created = await createAssessment(
       {
         title: "Giữa kỳ OOP - Tuần 8",
@@ -133,6 +140,21 @@ describe("Schedule Service", () => {
       expect.objectContaining({ title: "Giữa kỳ OOP - Tuần 8", creatorUsername: "gv_de_thi" }),
     ]);
     expect(after.assessmentPool).toHaveLength(0);
+
+    const studentAssessments = await listStudentAssessments(studentId, db);
+    expect(studentAssessments.data).toEqual([
+      expect.objectContaining({ title: "Giữa kỳ OOP - Tuần 8", sectionId, week: 8 }),
+    ]);
+
+    const moved = await assignAssessmentToWeek(sectionId, created.data.id, 3, instructorId, "instructor", db);
+    expect(moved).toEqual(expect.objectContaining({ success: true, week: 3 }));
+    const afterMove = await getSectionSchedule(sectionId, instructorId, "instructor", db);
+    expect(isScheduleError(afterMove)).toBe(false);
+    if (isScheduleError(afterMove)) return;
+    expect(afterMove.weeks[2].assessments).toEqual([
+      expect.objectContaining({ title: "Giữa kỳ OOP - Tuần 8" }),
+    ]);
+    expect(afterMove.weeks[7].assessments).toHaveLength(0);
 
     await removeAssessmentAssignment(sectionId, created.data.id, instructorId, "instructor", db);
     const removed = await getSectionSchedule(sectionId, instructorId, "instructor", db);

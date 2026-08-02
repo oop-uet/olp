@@ -72,6 +72,7 @@ export interface StudentAssessmentListItem {
   closesAt: string
   durationMinutes: number
   totalPoints: number
+  week: number | null
   session: {
     id: string
     status: string
