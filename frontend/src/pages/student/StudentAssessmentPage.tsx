@@ -434,7 +434,7 @@ export function StudentAssessmentPage() {
   }
 
   if (loading) return <PageLoader label="Đang tải bài kiểm tra..." />
-  if (!preflight) return <div className="card p-8 text-center text-slate-500">Không tìm thấy bài kiểm tra.</div>
+  if (!preflight) return <div className="card p-8 text-center text-slate-500 font-semibold">Không tìm thấy bài kiểm tra.</div>
   if (result) return <AssessmentResult result={result} />
 
   if (!session) {
@@ -443,68 +443,101 @@ export function StudentAssessmentPage() {
     const closed = now >= new Date(preflight.closesAt).getTime()
     return (
       <div className="mx-auto max-w-3xl space-y-5">
-        <Link to="/student/assessments" className="inline-flex items-center gap-1.5 text-sm font-bold text-primary hover:underline">
-          <span>←</span> Bài kiểm tra
+        <Link
+          to="/student/assessments"
+          className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-teal-700 hover:text-teal-800 transition-colors"
+        >
+          <span>←</span> Quay lại danh sách bài kiểm tra
         </Link>
-        <div className="card overflow-hidden shadow-md">
-          <div className="relative overflow-hidden rounded-t-xl bg-gradient-to-r from-teal-700 via-cyan-700 to-blue-800 p-6 text-white shadow-sm border-b-4 border-secondary">
-            <div className="absolute right-0 top-0 h-40 w-40 translate-x-12 -translate-y-12 rounded-full bg-white/10 blur-xl pointer-events-none" />
-            <div className="relative z-10">
-              <p className="text-[11px] font-black uppercase tracking-wider text-cyan-200/90">Chuẩn bị làm bài</p>
-              <h1 className="mt-1.5 text-2xl font-black tracking-tight text-white text-shadow-sm">{preflight.title}</h1>
+
+        <div className="card overflow-hidden border border-slate-200/90 shadow-md">
+          {/* Header Banner */}
+          <div className="relative overflow-hidden rounded-t-xl bg-gradient-to-r from-teal-700 via-cyan-700 to-blue-800 p-6 sm:p-8 text-white shadow-sm border-b-4 border-secondary">
+            <div className="absolute right-0 top-0 h-44 w-44 translate-x-12 -translate-y-12 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+            <div className="relative z-10 space-y-2">
+              <span className="inline-block rounded-full bg-white/15 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-cyan-100 backdrop-blur-xs">
+                Chuẩn bị làm bài
+              </span>
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
+                {preflight.title}
+              </h1>
             </div>
           </div>
-          <div className="space-y-6 p-6 bg-white">
+
+          <div className="space-y-6 p-6 sm:p-8 bg-white">
+            {/* Stat Cards */}
             <div className="grid gap-3 sm:grid-cols-3">
-              <Meta label="Thời lượng" value={`${preflight.durationMinutes} phút`} />
-              <Meta label="Số câu" value={String(preflight.questionCount)} />
-              <Meta label="Tổng điểm" value={String(preflight.totalPoints)} />
+              <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 text-center transition-all hover:bg-slate-50">
+                <span className="text-xl">⏱️</span>
+                <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">Thời lượng</p>
+                <p className="mt-0.5 text-lg font-black text-slate-900">{preflight.durationMinutes} phút</p>
+              </div>
+              <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 text-center transition-all hover:bg-slate-50">
+                <span className="text-xl">📝</span>
+                <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">Số câu hỏi</p>
+                <p className="mt-0.5 text-lg font-black text-slate-900">{preflight.questionCount} câu</p>
+              </div>
+              <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 text-center transition-all hover:bg-slate-50">
+                <span className="text-xl">🏆</span>
+                <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">Tổng điểm</p>
+                <p className="mt-0.5 text-lg font-black text-slate-900">{preflight.totalPoints} điểm</p>
+              </div>
             </div>
+
+            {/* Instructions */}
             {preflight.instructions && (
-              <div className="rounded-xl border border-slate-200/80 bg-slate-50/80 p-4 text-sm leading-relaxed text-slate-700 whitespace-pre-wrap font-medium">
+              <div className="rounded-xl border border-cyan-200/70 bg-cyan-50/30 p-4 text-xs sm:text-sm leading-relaxed text-slate-700 whitespace-pre-wrap font-medium">
+                <p className="text-xs font-bold uppercase tracking-wider text-cyan-800 mb-1.5">📌 Hướng dẫn làm bài</p>
                 {assessmentText(preflight.instructions)}
               </div>
             )}
-            <ul className="space-y-2.5 text-sm text-slate-600 font-medium">
-              <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-teal-500 shrink-0" />
-                <span>Mở: <strong>{new Date(preflight.opensAt).toLocaleString('vi-VN')}</strong></span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
-                <span>Đóng: <strong>{new Date(preflight.closesAt).toLocaleString('vi-VN')}</strong></span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 shrink-0" />
-                <span>Câu trả lời được tự lưu; tải lại trang không tạo lượt thi mới.</span>
-              </li>
-              {preflight.showPredictedScore && (
-                <li className="flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
-                  <span>Điểm LLM hiển thị trước dưới nhãn “dự kiến”; GV duyệt mới thành điểm chính thức.</span>
+
+            {/* Exam Rules & Notices */}
+            <div className="space-y-2.5 rounded-xl border border-slate-200/80 bg-slate-50/50 p-4 text-xs sm:text-sm text-slate-700">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">📋 Quy chế & Lưu ý bài thi</p>
+              <ul className="space-y-2 text-xs sm:text-sm font-medium">
+                <li className="flex items-center gap-2.5">
+                  <span className="h-2 w-2 rounded-full bg-teal-500 shrink-0" />
+                  <span>Thời gian mở: <strong className="text-slate-900">{new Date(preflight.opensAt).toLocaleString('vi-VN')}</strong></span>
                 </li>
-              )}
-              {preflight.shuffleQuestions && (
-                <li className="flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
-                  <span>Thứ tự các câu trắc nghiệm được trộn riêng cho lượt thi này.</span>
+                <li className="flex items-center gap-2.5">
+                  <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" />
+                  <span>Thời gian đóng: <strong className="text-slate-900">{new Date(preflight.closesAt).toLocaleString('vi-VN')}</strong></span>
                 </li>
-              )}
-              <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 shrink-0" />
-                <span>Chế độ toàn màn hình là bắt buộc; chuyển tab, thu nhỏ hoặc mất focus sẽ được ghi nhận.</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
-                <span>Copy, paste, menu chuột phải và phím tắt DevTools bị khóa trong thời gian làm bài.</span>
-              </li>
-            </ul>
+                <li className="flex items-center gap-2.5">
+                  <span className="h-2 w-2 rounded-full bg-cyan-500 shrink-0" />
+                  <span>Câu trả lời được tự động lưu; tải lại trang không làm mất bài thi.</span>
+                </li>
+                {preflight.showPredictedScore && (
+                  <li className="flex items-center gap-2.5">
+                    <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
+                    <span>Điểm LLM hiển thị trước dưới nhãn “dự kiến”; Giảng viên duyệt mới thành điểm chính thức.</span>
+                  </li>
+                )}
+                {preflight.shuffleQuestions && (
+                  <li className="flex items-center gap-2.5">
+                    <span className="h-2 w-2 rounded-full bg-blue-500 shrink-0" />
+                    <span>Thứ tự các câu hỏi trắc nghiệm được trộn ngẫu nhiên riêng cho lượt thi này.</span>
+                  </li>
+                )}
+                <li className="flex items-center gap-2.5">
+                  <span className="h-2 w-2 rounded-full bg-indigo-500 shrink-0" />
+                  <span>Chế độ toàn màn hình là bắt buộc; chuyển tab, thu nhỏ hoặc mất focus sẽ ghi nhận cảnh báo.</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" />
+                  <span>Thao tác Sao chép (Copy), Dán (Paste), Chuột phải và Phím tắt DevTools bị khóa.</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Start CTA Button */}
             <button
               onClick={() => void start()}
               disabled={starting || notOpen || closed}
-              className="btn-primary btn-lg w-full text-sm font-bold shadow-md hover:shadow-lg transition-all"
+              className="btn-primary btn-lg w-full text-sm font-bold shadow-md hover:shadow-lg transition-all h-12"
             >
-              {notOpen ? 'Bài kiểm tra chưa mở' : closed ? 'Bài kiểm tra đã đóng' : starting ? 'Đang bắt đầu...' : 'Bắt đầu làm bài'}
+              {notOpen ? 'Bài kiểm tra chưa mở' : closed ? 'Bài kiểm tra đã đóng' : starting ? 'Đang khởi tạo bài thi...' : 'Bắt đầu làm bài'}
             </button>
           </div>
         </div>
@@ -516,42 +549,46 @@ export function StudentAssessmentPage() {
   return (
     <div className="space-y-5">
       {integrityNotice && (
-        <div className="fixed left-1/2 top-4 z-[70] w-[min(92vw,680px)] -translate-x-1/2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-bold text-amber-900 shadow-lg" role="alert">
+        <div className="fixed left-1/2 top-4 z-[70] w-[min(92vw,680px)] -translate-x-1/2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-center text-xs font-bold text-amber-900 shadow-xl animate-fade-in" role="alert">
           {integrityNotice}
         </div>
       )}
       {fullscreenRequired && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/75 p-5" role="alert" aria-live="assertive">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-2xl">
-            <p className="text-xs font-black uppercase tracking-wider text-amber-700">Tạm khóa bài làm</p>
-            <h2 className="mt-2 text-xl font-black text-slate-900">Cần trở lại toàn màn hình</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              Nội dung bài thi chỉ hiển thị trong chế độ toàn màn hình. Lần thoát đã được ghi nhận nếu phiên trước đó đang ở toàn màn hình.
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/80 p-5 backdrop-blur-xs" role="alert" aria-live="assertive">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-2xl space-y-3">
+            <span className="inline-block rounded-full bg-amber-100 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-amber-800">
+              Tạm khóa bài làm
+            </span>
+            <h2 className="text-xl font-black text-slate-900">Cần trở lại toàn màn hình</h2>
+            <p className="text-xs sm:text-sm leading-relaxed text-slate-600 font-medium">
+              Nội dung bài thi chỉ hiển thị trong chế độ toàn màn hình. Thao tác thoát đã được hệ thống ghi nhận.
             </p>
-            <button onClick={() => void restoreFullscreen()} className="btn-primary mt-5 w-full">
+            <button onClick={() => void restoreFullscreen()} className="btn-primary mt-4 w-full h-10 text-xs font-bold">
               Trở lại toàn màn hình
             </button>
           </div>
         </div>
       )}
-      <div className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200/90 bg-white/95 backdrop-blur-md px-6 py-3.5 shadow-md border-t-4 border-t-cyan-500">
+
+      {/* Sticky Active Exam Header */}
+      <div className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200/90 bg-white/95 backdrop-blur-md px-5 py-3 shadow-md border-t-4 border-t-cyan-500">
         <div>
           <h1 className="text-base font-extrabold text-slate-900">{session.assessment.title}</h1>
-          <p className="text-xs font-semibold text-slate-500">
-            Đã trả lời {answeredCount}/{questions.length} · Gắn cờ {flaggedQuestionIds.length} ·{' '}
+          <p className="text-xs font-semibold text-slate-500 mt-0.5">
+            Đã trả lời <strong className="text-teal-700">{answeredCount}</strong>/{questions.length} câu · Gắn cờ <strong className="text-amber-600">{flaggedQuestionIds.length}</strong> ·{' '}
             {saveState === 'saved'
               ? '✓ Đã lưu'
               : saveState === 'saving'
               ? '⏳ Đang lưu...'
-              : '⚠️ Lỗi lưu - hệ thống sẽ thử lại'}
+              : '⚠️ Lỗi lưu - thử lại...'}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className={`rounded-lg px-3 py-2 text-xs font-black ${warningCount > 0 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-50 text-emerald-700'}`}>
+          <span className={`rounded-lg px-3 py-1.5 text-xs font-black ${warningCount > 0 ? 'bg-amber-100 text-amber-800 ring-1 ring-amber-300' : 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'}`}>
             Cảnh báo {warningCount}/{session.integrity?.warningThreshold ?? preflight.warningThreshold}
           </span>
           <div
-            className={`rounded-xl px-4 py-2 font-mono text-lg font-black shadow-inner border ${
+            className={`rounded-xl px-3.5 py-1.5 font-mono text-base font-black shadow-inner border ${
               remaining < 300
                 ? 'border-rose-300 bg-rose-100 text-rose-700 animate-pulse'
                 : 'border-slate-800 bg-slate-900 text-white'
@@ -562,17 +599,21 @@ export function StudentAssessmentPage() {
           <button
             onClick={() => void submit(true)}
             disabled={submitting}
-            className="btn-primary font-bold shadow-md hover:shadow-lg transition-all"
+            className="btn-primary h-9 px-4 text-xs font-bold shadow-sm hover:shadow-md transition-all"
           >
             {submitting ? 'Đang nộp...' : 'Nộp bài'}
           </button>
         </div>
       </div>
 
+      {/* Grid Layout: Sidebar Navigation + Question Cards */}
       <div className="grid items-start gap-5 xl:grid-cols-[240px_minmax(0,1fr)]">
-        <aside className="card sticky top-24 p-4 shadow-sm">
-          <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">Điều hướng câu hỏi</p>
-          <div className="mt-3 flex flex-wrap gap-2">
+        <aside className="card sticky top-20 p-4 shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">Điều hướng câu hỏi</p>
+            <span className="text-[11px] font-bold text-teal-700">{answeredCount}/{questions.length}</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
             {questions.map((question, index) => (
               <a
                 key={question.id}
@@ -580,7 +621,7 @@ export function StudentAssessmentPage() {
                 title={flaggedSet.has(question.id) ? `Câu ${index + 1} đã gắn cờ` : `Đi tới câu ${index + 1}`}
                 className={`relative flex h-8 w-8 items-center justify-center rounded-lg border text-xs font-bold transition-all ${
                   flaggedSet.has(question.id)
-                    ? 'border-amber-400 bg-amber-50 text-amber-800 shadow-2xs font-black'
+                    ? 'border-amber-400 bg-amber-50 text-amber-800 shadow-2xs font-black ring-1 ring-amber-300'
                     : hasAnswerValue(answers[question.id])
                     ? 'border-emerald-400 bg-emerald-50 text-emerald-700 shadow-2xs font-black'
                     : 'border-slate-200/80 bg-white text-slate-500 hover:border-cyan-400 hover:bg-cyan-50/40'
@@ -592,12 +633,13 @@ export function StudentAssessmentPage() {
             ))}
           </div>
         </aside>
+
         <main className="space-y-5">
           {session.assessment.sections.map((section) => (
             <section key={section.id} className="card overflow-hidden shadow-sm">
-              <div className="flex items-center justify-between border-b border-slate-200/80 bg-slate-50/90 px-6 py-4 border-l-4 border-primary">
-                <h2 className="text-base font-extrabold text-slate-900">{section.title}</h2>
-                <span className="inline-flex items-center rounded-md bg-cyan-500 px-2.5 py-1 text-xs font-black text-white shadow-2xs">
+              <div className="flex items-center justify-between border-b border-slate-200/80 bg-slate-50/90 px-6 py-3.5 border-l-4 border-primary">
+                <h2 className="text-sm font-extrabold text-slate-900">{section.title}</h2>
+                <span className="inline-flex items-center rounded-md bg-cyan-500 px-2.5 py-0.5 text-xs font-black text-white shadow-2xs">
                   {section.points} điểm
                 </span>
               </div>
@@ -645,64 +687,72 @@ function QuestionInput({
   onChange: (value: Record<string, unknown>) => void
 }) {
   return (
-    <article id={`question-${question.id}`} className="scroll-mt-24 p-6">
+    <article id={`question-${question.id}`} className="scroll-mt-24 p-6 space-y-4">
       <div className="flex items-start justify-between gap-4">
-        <p className="min-w-0 whitespace-pre-wrap break-words text-sm font-bold leading-relaxed text-slate-900">
-          <span className="mr-2 text-base font-black text-primary">{number}.</span>
-          {assessmentText(question.prompt)}
-        </p>
+        <div className="min-w-0 whitespace-pre-wrap break-words text-sm font-bold leading-relaxed text-slate-900 flex items-start gap-2.5">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs font-black text-teal-800">
+            {number}
+          </span>
+          <div className="mt-0.5">{assessmentText(question.prompt)}</div>
+        </div>
         <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
             aria-pressed={flagged}
             onClick={onToggleFlag}
-            className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-black transition ${flagged ? 'border-amber-400 bg-amber-50 text-amber-800' : 'border-slate-200 bg-white text-slate-500 hover:border-amber-300 hover:text-amber-700'}`}
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-black transition ${
+              flagged
+                ? 'border-amber-400 bg-amber-50 text-amber-800 shadow-2xs'
+                : 'border-slate-200 bg-white text-slate-500 hover:border-amber-300 hover:text-amber-700'
+            }`}
             title={flagged ? 'Bỏ gắn cờ câu hỏi' : 'Gắn cờ để xem lại câu hỏi'}
           >
             <span aria-hidden="true">⚑</span>
             {flagged ? 'Đã gắn cờ' : 'Gắn cờ'}
           </button>
-          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-500">
+          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600">
             {question.points} điểm
           </span>
         </div>
       </div>
+
       {question.type === 'true_false' && (
-        <div className="mt-4 flex gap-3">
+        <div className="flex flex-wrap gap-3 pl-8">
           {[true, false].map((option) => (
             <label
               key={String(option)}
-              className={`flex cursor-pointer items-center gap-2.5 rounded-xl border px-5 py-3 text-sm font-bold transition-all shadow-2xs ${
+              className={`flex cursor-pointer items-center gap-2.5 rounded-xl border px-5 py-2.5 text-xs sm:text-sm font-bold transition-all shadow-2xs ${
                 value.value === option
-                  ? 'border-primary bg-primary-50/80 text-primary ring-2 ring-primary/20'
+                  ? 'border-teal-600 bg-teal-50/80 text-teal-900 ring-2 ring-teal-600/20'
                   : 'border-slate-200/80 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50/50'
               }`}
             >
-              <input type="radio" checked={value.value === option} onChange={() => onChange({ value: option })} />
+              <input type="radio" checked={value.value === option} onChange={() => onChange({ value: option })} className="text-teal-600 focus:ring-teal-500" />
               {option ? 'Đúng' : 'Sai'}
             </label>
           ))}
         </div>
       )}
+
       {question.type === 'single_choice' && (
-        <div className="mt-4 space-y-2.5">
+        <div className="space-y-2.5 pl-8">
           {question.options.map((option, index) => (
             <label
               key={option.id}
-              className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 text-sm font-medium transition-all shadow-2xs ${
+              className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-xs sm:text-sm font-medium transition-all shadow-2xs ${
                 value.optionId === option.id
-                  ? 'border-primary bg-primary-50/80 text-primary ring-2 ring-primary/20 font-bold'
+                  ? 'border-teal-600 bg-teal-50/80 text-teal-950 ring-2 ring-teal-600/20 font-bold'
                   : 'border-slate-200/80 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50/50'
               }`}
             >
               <input
                 type="radio"
-                className="mt-0.5"
+                className="mt-0.5 text-teal-600 focus:ring-teal-500"
                 checked={value.optionId === option.id}
                 onChange={() => onChange({ optionId: option.id })}
               />
               <span className="whitespace-pre-wrap break-words">
-                <strong className="mr-2 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-slate-100 text-xs font-black text-slate-600">
+                <strong className="mr-2 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-slate-100 text-xs font-black text-slate-700">
                   {String.fromCharCode(65 + index)}
                 </strong>
                 {assessmentText(option.content)}
@@ -711,16 +761,19 @@ function QuestionInput({
           ))}
         </div>
       )}
+
       {['short_text', 'essay', 'code_analysis'].includes(question.type) && (
-        <textarea
-          rows={question.type === 'short_text' ? 4 : 9}
-          className={`input mt-4 rounded-xl border-slate-200/80 p-3.5 focus:ring-primary/20 font-medium ${
-            question.type === 'code_analysis' ? 'font-mono text-xs' : ''
-          }`}
-          value={typeof value.text === 'string' ? value.text : ''}
-          onChange={(event) => onChange({ text: event.target.value })}
-          placeholder="Nhập câu trả lời..."
-        />
+        <div className="pl-8">
+          <textarea
+            rows={question.type === 'short_text' ? 3 : 8}
+            className={`input rounded-xl border-slate-200/90 p-3.5 focus:ring-teal-500/20 font-medium ${
+              question.type === 'code_analysis' ? 'font-mono text-xs' : ''
+            }`}
+            value={typeof value.text === 'string' ? value.text : ''}
+            onChange={(event) => onChange({ text: event.target.value })}
+            placeholder="Nhập câu trả lời của bạn ở đây..."
+          />
+        </div>
       )}
     </article>
   )
@@ -730,58 +783,71 @@ function AssessmentResult({ result }: { result: ResultPayload }) {
   const official = result.officialScore !== null
   const hasVisiblePredicted =
     result.showPredictedScore && result.predictedReady && result.predictedScore !== null
+
   return (
     <div className="mx-auto max-w-3xl space-y-5">
-      <Link to="/student/assessments" className="inline-flex items-center gap-1.5 text-sm font-bold text-primary hover:underline">
-        <span>←</span> Bài kiểm tra
+      <Link
+        to="/student/assessments"
+        className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-teal-700 hover:text-teal-800 transition-colors"
+      >
+        <span>←</span> Quay lại danh sách bài kiểm tra
       </Link>
-      <div className="card overflow-hidden shadow-md">
+
+      <div className="card overflow-hidden border border-slate-200/90 shadow-md">
+        {/* Result Header */}
         <div
-          className={`relative overflow-hidden rounded-t-xl p-6 text-white shadow-sm border-b-4 border-secondary ${
+          className={`relative overflow-hidden rounded-t-xl p-6 sm:p-8 text-white shadow-sm border-b-4 border-secondary ${
             official
               ? 'bg-gradient-to-r from-emerald-700 via-teal-700 to-emerald-800'
               : 'bg-gradient-to-r from-teal-700 via-cyan-700 to-blue-800'
           }`}
         >
-          <div className="absolute right-0 top-0 h-40 w-40 translate-x-12 -translate-y-12 rounded-full bg-white/10 blur-xl pointer-events-none" />
-          <div className="relative z-10">
-            <p className="text-[11px] font-black uppercase tracking-wider text-cyan-200/90">
+          <div className="absolute right-0 top-0 h-44 w-44 translate-x-12 -translate-y-12 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+          <div className="relative z-10 space-y-2">
+            <span className="inline-block rounded-full bg-white/15 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-cyan-100 backdrop-blur-xs">
               {official ? 'Kết quả chính thức' : hasVisiblePredicted ? 'Kết quả dự kiến' : 'Bài đã nộp'}
-            </p>
-            <h1 className="mt-1.5 text-2xl font-black tracking-tight text-white text-shadow-sm">{result.title}</h1>
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
+              {result.title}
+            </h1>
           </div>
         </div>
-        <div className="space-y-6 p-6 text-center bg-white">
+
+        <div className="space-y-6 p-6 sm:p-8 text-center bg-white">
           {official ? (
-            <>
-              <p className="text-sm font-bold text-emerald-700 uppercase tracking-wide">Đã được giảng viên duyệt</p>
-              <p className="text-5xl font-black text-emerald-700">{result.officialScore}/{result.totalPoints}</p>
-            </>
+            <div className="space-y-2">
+              <p className="text-xs font-extrabold text-emerald-700 uppercase tracking-wider">Đã được giảng viên duyệt điểm</p>
+              <p className="text-5xl font-black text-emerald-700">{result.officialScore}<span className="text-2xl text-emerald-600/80 font-bold">/{result.totalPoints}</span></p>
+            </div>
           ) : hasVisiblePredicted ? (
-            <>
-              <p className="text-sm font-bold text-cyan-700 uppercase tracking-wide">Điểm dự kiến từ chấm tự động và LLM</p>
-              <p className="text-5xl font-black text-primary">{result.predictedScore}/{result.totalPoints}</p>
-              <div className="rounded-xl border border-amber-200/90 bg-amber-50/80 p-4 text-sm font-medium text-amber-800 shadow-2xs">
+            <div className="space-y-3">
+              <p className="text-xs font-extrabold text-cyan-800 uppercase tracking-wider">Điểm dự kiến từ chấm tự động và AI</p>
+              <p className="text-5xl font-black text-teal-700">{result.predictedScore}<span className="text-2xl text-teal-600/80 font-bold">/{result.totalPoints}</span></p>
+              <div className="rounded-xl border border-amber-200/90 bg-amber-50/80 p-3.5 text-xs sm:text-sm font-medium text-amber-850 shadow-2xs">
                 Điểm này chưa chính thức. Giảng viên có thể duyệt hoặc chấm lại phần tự luận.
               </div>
-            </>
+            </div>
           ) : result.reviewStatus === 'pending_review' || result.predictedReady ? (
-            <>
-              <p className="font-bold text-slate-800">Bài đã chấm sơ bộ và đang chờ giảng viên duyệt.</p>
-              <p className="text-sm font-medium text-slate-500">Điểm chính thức sẽ xuất hiện sau khi giảng viên hoàn tất review.</p>
-            </>
+            <div className="space-y-2 py-4">
+              <p className="text-base font-bold text-slate-800">Bài đã chấm sơ bộ và đang chờ giảng viên duyệt.</p>
+              <p className="text-xs text-slate-500 font-medium">Điểm chính thức sẽ xuất hiện sau khi giảng viên hoàn tất chấm bài.</p>
+            </div>
           ) : (
-            <>
+            <div className="space-y-3 py-6">
               <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-cyan-100 border-t-cyan-600" />
-              <p className="font-bold text-slate-800">AI đang chấm phần tự luận...</p>
-              <p className="text-sm font-medium text-slate-500">Trang tự cập nhật khi có điểm dự kiến.</p>
-            </>
+              <p className="text-base font-bold text-slate-800">AI đang chấm phần tự luận...</p>
+              <p className="text-xs text-slate-500 font-medium">Trang tự động cập nhật khi có điểm dự kiến.</p>
+            </div>
           )}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Meta label="Điểm tự động" value={`${result.autoScore}/${result.totalPoints}`} />
-            <Meta label="Trạng thái" value={official ? 'Chính thức' : 'Chờ GV duyệt'} />
+
+          <div className="grid gap-3 sm:grid-cols-2 pt-2 border-t border-slate-100">
+            <Meta label="Điểm trắc nghiệm tự động" value={`${result.autoScore}/${result.totalPoints}`} />
+            <Meta label="Trạng thái duyệt" value={official ? 'Chính thức' : 'Chờ GV duyệt'} />
           </div>
-          <p className="text-xs font-semibold text-slate-400">Nộp lúc {new Date(result.submittedAt).toLocaleString('vi-VN')}</p>
+
+          <p className="text-xs font-semibold text-slate-400">
+            Thời gian nộp bài: {new Date(result.submittedAt).toLocaleString('vi-VN')}
+          </p>
         </div>
       </div>
     </div>
@@ -790,9 +856,9 @@ function AssessmentResult({ result }: { result: ResultPayload }) {
 
 function Meta({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-slate-200/80 bg-slate-50/80 p-3.5 text-center transition-all hover:bg-slate-100/50">
+    <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3.5 text-center transition-all hover:bg-slate-100/50">
       <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{label}</p>
-      <p className="mt-1 text-lg font-black text-slate-800">{value}</p>
+      <p className="mt-1 text-base font-black text-slate-900">{value}</p>
     </div>
   )
 }
