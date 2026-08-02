@@ -367,8 +367,8 @@ export function AssessmentEditorPage() {
             <span className="label">Tổng điểm đề</span>
             <input
               type="number"
-              min={0.1}
-              step={0.1}
+              min={0.01}
+              step={0.01}
               className="input mt-1"
               value={draft.totalPoints}
               onChange={(event) => setDraft((value) => ({ ...value, totalPoints: Number(event.target.value) }))}
@@ -509,8 +509,8 @@ function QuestionEditor({
           Điểm
           <input
             type="number"
-            min={0.1}
-            step={0.1}
+            min={0.01}
+            step={0.01}
             className="input w-24"
             value={question.points}
             onChange={(event) => onChange({ ...question, points: Number(event.target.value) })}
@@ -643,8 +643,8 @@ function QuestionEditor({
                 />
                 <input
                   type="number"
-                  min={0.1}
-                  step={0.1}
+                  min={0.01}
+                  step={0.01}
                   className="input w-24"
                   value={criterion.points}
                   onChange={(event) =>
