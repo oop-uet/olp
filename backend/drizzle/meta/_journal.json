@@ -85,6 +85,13 @@
       "when": 1785681000000,
       "tag": "0011_retire_legacy_assessment_labels",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1785682000000,
+      "tag": "0012_add_assessment_question_shuffle",
+      "breakpoints": true
     }
   ]
 }

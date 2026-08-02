@@ -105,6 +105,7 @@ function sampleDraft(): TemplateDraft {
     instructions: "Thời gian làm bài 90 phút. Không được sử dụng tài liệu.",
     durationMinutes: 90,
     totalPoints: 10,
+    shuffleQuestions: true,
     sections: [
       {
         key: "C1",
@@ -299,6 +300,7 @@ export async function createUetMidtermAssessmentTemplate(): Promise<Buffer> {
     ["Cách sử dụng", "Chỉnh sửa các sheet ThongTinDe, CauHoi và Rubric; không đổi tên sheet hoặc tên cột."],
     ["Đáp án", "Các đáp án Đúng/Sai và một lựa chọn đang để trống. GV phải kiểm tra và điền trước khi lưu/phát hành đề."],
     ["Đáp án đúng", "Dùng Đúng/Sai cho true_false; dùng A/B/C/D cho single_choice."],
+    ["Trộn câu", "Trong sheet ThongTinDe, nhập Bật/Tắt ở Trộn câu trắc nghiệm. Mặc định là Bật."],
     ["Loại câu hỏi", "true_false | single_choice | short_text | essay | code_analysis"],
     ["Chế độ chấm", "auto | llm_assisted | manual"],
     ["Rubric", "Mỗi tiêu chí là một dòng trong sheet Rubric; tổng điểm rubric phải bằng điểm câu hỏi."],
@@ -331,6 +333,7 @@ export async function createUetMidtermAssessmentTemplate(): Promise<Buffer> {
     ["Hướng dẫn", draft.instructions],
     ["Thời lượng (phút)", draft.durationMinutes],
     ["Tổng điểm", draft.totalPoints],
+    ["Trộn câu trắc nghiệm", draft.shuffleQuestions ? "Bật" : "Tắt"],
   ]);
   metadata.columns = [{ width: 28 }, { width: 100 }];
   styleHeader(metadata.getRow(1));
@@ -512,8 +515,8 @@ function parseGradingMode(value: string): AssessmentGradingMode | null {
 
 function parseTrueFalse(value: string): boolean | undefined {
   const key = normalized(value);
-  if (["dung", "true", "1", "yes"].includes(key)) return true;
-  if (["sai", "false", "0", "no"].includes(key)) return false;
+  if (["dung", "bat", "true", "1", "yes", "on"].includes(key)) return true;
+  if (["sai", "tat", "false", "0", "no", "off"].includes(key)) return false;
   return undefined;
 }
 
@@ -554,9 +557,16 @@ export function parseAssessmentTemplate(buffer: Buffer): AssessmentTemplateImpor
   const instructions = String(metadata.get("huong_dan") ?? "").trim();
   const durationMinutes = Number(metadata.get("thoi_luong_phut"));
   const declaredTotal = Number(metadata.get("tong_diem"));
+  const shuffleRaw = metadata.get("tron_cau_trac_nghiem");
+  const parsedShuffle = shuffleRaw === undefined || String(shuffleRaw).trim() === ""
+    ? true
+    : parseTrueFalse(String(shuffleRaw));
   if (!title) errors.push("Sheet ThongTinDe thiếu Tên đề.");
   if (!Number.isInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 600) {
     errors.push("Thời lượng phải là số nguyên từ 1 đến 600 phút.");
+  }
+  if (parsedShuffle === undefined) {
+    errors.push("Trộn câu trắc nghiệm phải là Bật/Tắt hoặc Đúng/Sai.");
   }
 
   const rubricByQuestion = new Map<string, NonNullable<AssessmentQuestionInput["rubric"]>>();
@@ -678,6 +688,7 @@ export function parseAssessmentTemplate(buffer: Buffer): AssessmentTemplateImpor
       instructions,
       durationMinutes,
       totalPoints,
+      shuffleQuestions: parsedShuffle ?? true,
       sections: parsedSections,
     },
     warnings,

@@ -283,9 +283,10 @@ export const anticheatEvents = sqliteTable("anticheat_events", {
 export const assessments = sqliteTable("assessments", {
   id: text("id").primaryKey(),
   title: text("title").notNull(),
-  instructions: text("instructions").notNull().default(""),
-  durationMinutes: integer("duration_minutes").notNull().default(60),
-  totalPoints: real("total_points").notNull().default(10),
+    instructions: text("instructions").notNull().default(""),
+    durationMinutes: integer("duration_minutes").notNull().default(60),
+    totalPoints: real("total_points").notNull().default(10),
+    shuffleQuestions: integer("shuffle_questions").notNull().default(1),
   status: text("status", { enum: ["draft", "published", "archived"] })
     .notNull()
     .default("draft"),
@@ -431,6 +432,7 @@ export const assessmentSessions = sqliteTable(
       .default("in_progress"),
     startedAt: text("started_at").notNull(),
     expiresAt: text("expires_at").notNull(),
+    questionOrderJson: text("question_order_json"),
     submittedAt: text("submitted_at"),
     submitReason: text("submit_reason"),
     autoScore: real("auto_score").notNull().default(0),

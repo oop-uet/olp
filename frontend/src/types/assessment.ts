@@ -37,6 +37,7 @@ export interface AssessmentDraft {
   instructions: string
   durationMinutes: number
   totalPoints: number
+  shuffleQuestions: boolean
   sections: AssessmentSectionDraft[]
 }
 

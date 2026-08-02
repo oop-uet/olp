@@ -57,8 +57,18 @@ describe("database compatibility", () => {
     const assignment = sqlite
       .prepare("SELECT is_assessment AS isAssessment FROM exercise_assignments WHERE id = ?")
       .get("legacy-assignment") as { isAssessment: number };
+    const assessmentColumns = sqlite
+      .prepare("PRAGMA table_info(assessments)")
+      .all()
+      .map((row) => (row as { name: string }).name);
+    const sessionColumns = sqlite
+      .prepare("PRAGMA table_info(assessment_sessions)")
+      .all()
+      .map((row) => (row as { name: string }).name);
 
     expect(tables).toEqual(ASSESSMENT_TABLES);
     expect(assignment.isAssessment).toBe(0);
+    expect(assessmentColumns).toContain("shuffle_questions");
+    expect(sessionColumns).toContain("question_order_json");
   });
 });

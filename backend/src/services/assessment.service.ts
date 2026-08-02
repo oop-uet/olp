@@ -60,6 +60,7 @@ export interface AssessmentDraftInput {
   instructions?: string;
   durationMinutes: number;
   totalPoints: number;
+  shuffleQuestions?: boolean;
   sections: AssessmentSectionInput[];
 }
 
@@ -309,6 +310,7 @@ export async function createAssessment(
     instructions: input.instructions?.trim() || "",
     durationMinutes: input.durationMinutes,
     totalPoints: input.totalPoints,
+    shuffleQuestions: input.shuffleQuestions === false ? 0 : 1,
     status: "draft",
     createdBy: instructorId,
     createdAt: now,
@@ -338,6 +340,7 @@ export async function updateAssessment(
       instructions: input.instructions?.trim() || "",
       durationMinutes: input.durationMinutes,
       totalPoints: input.totalPoints,
+      shuffleQuestions: input.shuffleQuestions === false ? 0 : 1,
       updatedAt: new Date().toISOString(),
     })
     .where(eq(assessments.id, assessmentId));
@@ -480,6 +483,7 @@ export async function publishAssessment(
     instructions: graph.data.instructions,
     durationMinutes: graph.data.durationMinutes,
     totalPoints: graph.data.totalPoints,
+    shuffleQuestions: graph.data.shuffleQuestions === 1,
     sections: graph.data.sections.map((section: any) => ({
       title: section.title,
       introContent: section.introContent ?? "",
@@ -663,6 +667,7 @@ export async function getStudentAssessmentPreflight(
       instructions: row.assessment.instructions,
       totalPoints: row.assessment.totalPoints,
       durationMinutes: row.assignment.durationMinutes,
+      shuffleQuestions: row.assessment.shuffleQuestions === 1,
       opensAt: row.assignment.opensAt,
       closesAt: row.assignment.closesAt,
       requireFullscreen: row.assignment.requireFullscreen === 1,
@@ -679,6 +684,82 @@ export async function getStudentAssessmentPreflight(
     },
     serverNow: new Date().toISOString(),
   };
+}
+
+const shuffleableQuestionTypes = new Set(["true_false", "single_choice"]);
+
+type QuestionOrderMap = Record<string, string[]>;
+
+function createQuestionOrder(
+  sections: Array<{ id: string; questions: Array<{ id: string; type: string }> }>,
+  shouldShuffle: boolean
+): QuestionOrderMap {
+  const order: QuestionOrderMap = {};
+  for (const section of sections) {
+    const questions = [...section.questions];
+    const shuffleable = shouldShuffle
+      ? questions.filter((question) => shuffleableQuestionTypes.has(question.type))
+      : [];
+    for (let index = shuffleable.length - 1; index > 0; index -= 1) {
+      const swapIndex = crypto.randomInt(index + 1);
+      [shuffleable[index], shuffleable[swapIndex]] = [shuffleable[swapIndex], shuffleable[index]];
+    }
+    if (shouldShuffle && shuffleable.length > 1) {
+      let shuffleIndex = 0;
+      for (let index = 0; index < questions.length; index += 1) {
+        if (shuffleableQuestionTypes.has(questions[index].type)) {
+          questions[index] = shuffleable[shuffleIndex];
+          shuffleIndex += 1;
+        }
+      }
+    }
+    order[section.id] = questions.map((question) => question.id);
+  }
+  return order;
+}
+
+function hasValidQuestionOrder(
+  sections: Array<{ id: string; questions: Array<{ id: string }> }>,
+  order: QuestionOrderMap
+) {
+  return sections.every((section) => {
+    const ids = order[section.id];
+    if (!Array.isArray(ids) || ids.length !== section.questions.length) return false;
+    const expected = new Set(section.questions.map((question) => question.id));
+    return ids.every((id) => expected.has(id)) && new Set(ids).size === expected.size;
+  });
+}
+
+function applyQuestionOrder<T extends { id: string }>(
+  sections: Array<{ id: string; questions: T[] }>,
+  order: QuestionOrderMap
+) {
+  return sections.map((section) => {
+    const ids = order[section.id];
+    if (!ids) return section;
+    const questionsById = new Map(section.questions.map((question) => [question.id, question]));
+    return {
+      ...section,
+      questions: ids.map((id) => questionsById.get(id)).filter((question): question is T => Boolean(question)),
+    };
+  });
+}
+
+async function loadSessionSectionsWithOrder(
+  context: Awaited<ReturnType<typeof loadSessionContext>>,
+  database: Database
+) {
+  if (!context) return [];
+  const sections = await loadAssessmentContent(context.assessment.id, false, database);
+  let order = parseJson<QuestionOrderMap>(context.session.questionOrderJson, {});
+  if (!hasValidQuestionOrder(sections, order)) {
+    order = createQuestionOrder(sections, context.assessment.shuffleQuestions === 1);
+    await database
+      .update(assessmentSessions)
+      .set({ questionOrderJson: JSON.stringify(order) })
+      .where(eq(assessmentSessions.id, context.session.id));
+  }
+  return applyQuestionOrder(sections, order);
 }
 
 export async function startAssessmentSession(
@@ -703,6 +784,8 @@ export async function startAssessmentSession(
   if (now >= closesAt) return serviceError("CLOSED", "Bài kiểm tra đã đóng.");
   const durationEnd = new Date(now.getTime() + row.assignment.durationMinutes * 60_000);
   const expiresAt = durationEnd < closesAt ? durationEnd : closesAt;
+  const initialSections = await loadAssessmentContent(row.assessment.id, false, database);
+  const questionOrder = createQuestionOrder(initialSections, row.assessment.shuffleQuestions === 1);
   const id = crypto.randomUUID();
   try {
     const [session] = await database
@@ -714,6 +797,7 @@ export async function startAssessmentSession(
         status: "in_progress",
         startedAt: now.toISOString(),
         expiresAt: expiresAt.toISOString(),
+        questionOrderJson: JSON.stringify(questionOrder),
         autoScore: 0,
         reviewStatus: "not_ready",
       })
@@ -762,7 +846,7 @@ export async function getStudentAssessmentSession(
     context = await loadSessionContext(sessionId, database);
     if (!context) return serviceError("NOT_FOUND", "Không tìm thấy phiên làm bài.");
   }
-  const sections = await loadAssessmentContent(context.assessment.id, false, database);
+  const sections = await loadSessionSectionsWithOrder(context, database);
   const answerRows = await database
     .select()
     .from(assessmentAnswers)

@@ -50,6 +50,7 @@ const initialDraft: AssessmentDraft = {
   instructions: 'Thời gian làm bài 90 phút. Không được sử dụng tài liệu.',
   durationMinutes: 90,
   totalPoints: 10,
+  shuffleQuestions: true,
   sections: [{ title: 'Câu 1', introContent: '', questions: [newQuestion()] }],
 }
 
@@ -76,6 +77,7 @@ interface LoadedAssessment {
   instructions?: string | null
   durationMinutes: number
   totalPoints: number
+  shuffleQuestions?: number | boolean | null
   sections?: LoadedSection[]
 }
 
@@ -85,6 +87,9 @@ function normalizeLoaded(data: LoadedAssessment): AssessmentDraft {
     instructions: data.instructions ?? '',
     durationMinutes: data.durationMinutes,
     totalPoints: data.totalPoints,
+    shuffleQuestions: data.shuffleQuestions === undefined || data.shuffleQuestions === null
+      ? true
+      : data.shuffleQuestions === true || data.shuffleQuestions === 1,
     sections: (data.sections ?? []).map((section) => ({
       title: section.title,
       introContent: section.introContent ?? '',
@@ -316,6 +321,20 @@ export function AssessmentEditorPage() {
             />
             <span className={`mt-2 block text-xs font-bold ${actualTotal === draft.totalPoints ? 'text-emerald-600' : 'text-rose-600'}`}>
               Tổng câu hỏi: {actualTotal}/{draft.totalPoints}
+            </span>
+          </label>
+          <label className="md:col-span-4 flex cursor-pointer items-start gap-3 rounded-lg border border-blue-100 bg-blue-50/60 p-4">
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4 accent-primary"
+              checked={draft.shuffleQuestions}
+              onChange={(event) => setDraft((value) => ({ ...value, shuffleQuestions: event.target.checked }))}
+            />
+            <span>
+              <span className="block font-bold text-slate-800">Trộn thứ tự câu trắc nghiệm</span>
+              <span className="mt-1 block text-xs leading-5 text-slate-600">
+                Mặc định bật. Mỗi lượt thi sẽ có thứ tự khác nhau cho câu Đúng/Sai và một lựa chọn; câu tự luận vẫn giữ vị trí.
+              </span>
             </span>
           </label>
         </div>

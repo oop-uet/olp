@@ -129,6 +129,7 @@ async function ensureAssessmentTablesReady(database: Database) {
       instructions TEXT NOT NULL DEFAULT '',
       duration_minutes INTEGER NOT NULL DEFAULT 60,
       total_points REAL NOT NULL DEFAULT 10,
+      shuffle_questions INTEGER NOT NULL DEFAULT 1,
       status TEXT NOT NULL DEFAULT 'draft',
       created_by TEXT NOT NULL REFERENCES users(id),
       created_at TEXT NOT NULL,
@@ -197,6 +198,7 @@ async function ensureAssessmentTablesReady(database: Database) {
       status TEXT NOT NULL DEFAULT 'in_progress',
       started_at TEXT NOT NULL,
       expires_at TEXT NOT NULL,
+      question_order_json TEXT,
       submitted_at TEXT,
       submit_reason TEXT,
       auto_score REAL NOT NULL DEFAULT 0,
@@ -271,6 +273,15 @@ async function ensureAssessmentTablesReady(database: Database) {
   for (const statement of statements) {
     await executeRaw(database, statement);
   }
+
+  await addColumnIfMissing(
+    database,
+    "ALTER TABLE assessments ADD COLUMN shuffle_questions INTEGER NOT NULL DEFAULT 1"
+  );
+  await addColumnIfMissing(
+    database,
+    "ALTER TABLE assessment_sessions ADD COLUMN question_order_json TEXT"
+  );
 }
 
 async function normalizeExistingSectionNames(database: Database) {

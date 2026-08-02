@@ -45,6 +45,7 @@ export const assessmentDraftSchema = z.object({
   instructions: z.string().max(10_000).optional().default(""),
   durationMinutes: z.number().int().min(1).max(600),
   totalPoints: z.number().positive().max(1000),
+  shuffleQuestions: z.boolean().optional().default(true),
   sections: z
     .array(
       z.object({

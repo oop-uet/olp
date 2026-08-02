@@ -213,4 +213,86 @@ describe("Assessment service", () => {
     expect((preservedOfficial as any).data.officialScore).toBe(9);
     expect((preservedOfficial as any).data.reviewStatus).toBe("official");
   });
+
+  it("stores one shuffled objective-question order per session and preserves it on reload", async () => {
+    const db = getDb();
+    const { instructorId, studentId, sectionId } = seedUsersAndSection();
+    const draft: AssessmentDraftInput = {
+      title: "Trộn câu OOP",
+      instructions: "",
+      durationMinutes: 60,
+      totalPoints: 9,
+      shuffleQuestions: true,
+      sections: [
+        {
+          title: "Phần trắc nghiệm và tự luận",
+          questions: [
+            { type: "true_false", prompt: "Mệnh đề 1", points: 1, gradingMode: "auto", answerKey: true },
+            {
+              type: "single_choice",
+              prompt: "Mệnh đề 2",
+              points: 1,
+              gradingMode: "auto",
+              options: ["A", "B"],
+              answerKey: 0,
+            },
+            {
+              type: "essay",
+              prompt: "Câu tự luận giữ vị trí.",
+              points: 1,
+              gradingMode: "llm_assisted",
+              referenceAnswer: "Đáp án",
+              rubric: [{ id: "criterion", criterion: "Đúng", points: 1 }],
+            },
+            ...Array.from({ length: 6 }, (_, index) => ({
+              type: "true_false" as const,
+              prompt: `Mệnh đề ${index + 3}`,
+              points: 1,
+              gradingMode: "auto" as const,
+              answerKey: index % 2 === 0,
+            })),
+          ],
+        },
+      ],
+    };
+    const created = await createAssessment(draft, instructorId, db);
+    expect(isAssessmentError(created)).toBe(false);
+    const assessmentId = (created as any).data.id;
+    expect((created as any).data.shuffleQuestions).toBe(1);
+    const disabled = await createAssessment(
+      { ...draft, title: "Không trộn câu OOP", shuffleQuestions: false },
+      instructorId,
+      db
+    );
+    expect(isAssessmentError(disabled)).toBe(false);
+    expect((disabled as any).data.shuffleQuestions).toBe(0);
+    expect(isAssessmentError(await publishAssessment(assessmentId, instructorId, db))).toBe(false);
+    const assignmentResult = await assignAssessment(
+      assessmentId,
+      {
+        sectionId,
+        opensAt: new Date(Date.now() - 60_000).toISOString(),
+        closesAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+      },
+      instructorId,
+      db
+    );
+    expect(isAssessmentError(assignmentResult)).toBe(false);
+
+    const started = await startAssessmentSession((assignmentResult as any).data.id, studentId, db);
+    expect(isAssessmentError(started)).toBe(false);
+    const sessionId = (started as any).data.id;
+    const firstView = await getStudentAssessmentSession(sessionId, studentId, db);
+    const firstQuestions = (firstView as any).data.assessment.sections[0].questions;
+    const firstIds = firstQuestions.map((question: any) => question.id);
+    expect(firstQuestions.findIndex((question: any) => question.type === "essay")).toBe(2);
+
+    const stored = getTestSqlite()
+      .prepare("SELECT question_order_json AS questionOrderJson FROM assessment_sessions WHERE id = ?")
+      .get(sessionId) as { questionOrderJson: string };
+    expect(JSON.parse(stored.questionOrderJson)).toBeTruthy();
+
+    const secondView = await getStudentAssessmentSession(sessionId, studentId, db);
+    expect((secondView as any).data.assessment.sections[0].questions.map((question: any) => question.id)).toEqual(firstIds);
+  });
 });

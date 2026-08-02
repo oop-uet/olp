@@ -11,6 +11,7 @@ interface Preflight {
   instructions: string
   totalPoints: number
   durationMinutes: number
+  shuffleQuestions: boolean
   opensAt: string
   closesAt: string
   requireFullscreen: boolean
@@ -261,6 +262,7 @@ export function StudentAssessmentPage() {
               <li>• Đóng: {new Date(preflight.closesAt).toLocaleString('vi-VN')}</li>
               <li>• Câu trả lời được tự lưu; tải lại trang không tạo lượt thi mới.</li>
               {preflight.showPredictedScore && <li>• Điểm LLM hiển thị trước dưới nhãn “dự kiến”; GV duyệt mới thành điểm chính thức.</li>}
+              {preflight.shuffleQuestions && <li>• Thứ tự các câu trắc nghiệm được trộn riêng cho lượt thi này.</li>}
               {preflight.requireFullscreen && <li>• Bài kiểm tra yêu cầu chế độ toàn màn hình.</li>}
             </ul>
             <button onClick={() => void start()} disabled={starting || notOpen || closed} className="btn-primary btn-lg w-full">
