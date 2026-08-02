@@ -24,14 +24,20 @@ interface MenuItem {
   icon: ComponentType<{ className?: string }>
 }
 
+interface StudentSectionSummary {
+  id: string
+}
+
 const menusByRole: Record<UserRole, MenuItem[]> = {
   student: [
     { label: 'Bài tập', path: '/student/exercises', icon: ExerciseIcon },
+    { label: 'Bài kiểm tra', path: '/student/assessments', icon: SubmissionIcon },
     { label: 'Bài nộp', path: '/student/submissions', icon: SubmissionIcon },
     { label: 'Bảng xếp hạng', path: '/student/leaderboard', icon: LeaderboardIcon },
   ],
   instructor: [
     { label: 'Bài tập', path: '/instructor/exercises', icon: ExerciseIcon },
+    { label: 'Bài kiểm tra', path: '/instructor/assessments', icon: SubmissionIcon },
     { label: 'Bài Nộp', path: '/instructor/submissions', icon: SubmissionIcon },
     { label: 'Xếp Hạng', path: '/instructor/leaderboard', icon: LeaderboardIcon },
     { label: 'Thống Kê', path: '/instructor/statistic', icon: ProgressIcon },
@@ -67,7 +73,7 @@ export function TopNav() {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
-  const [studentSections, setStudentSections] = useState<any[]>([])
+  const [studentSections, setStudentSections] = useState<StudentSectionSummary[]>([])
 
   useEffect(() => {
     if (user?.role === 'student') {

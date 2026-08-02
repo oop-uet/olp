@@ -170,6 +170,151 @@ beforeAll(() => {
       occurred_at TEXT DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS assessments (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      instructions TEXT NOT NULL DEFAULT '',
+      duration_minutes INTEGER NOT NULL DEFAULT 60,
+      total_points REAL NOT NULL DEFAULT 10,
+      status TEXT NOT NULL DEFAULT 'draft',
+      created_by TEXT NOT NULL REFERENCES users(id),
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      published_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS assessment_sections (
+      id TEXT PRIMARY KEY,
+      assessment_id TEXT NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      intro_content TEXT,
+      points REAL NOT NULL,
+      order_index INTEGER NOT NULL,
+      UNIQUE(assessment_id, order_index)
+    );
+
+    CREATE TABLE IF NOT EXISTS assessment_questions (
+      id TEXT PRIMARY KEY,
+      section_id TEXT NOT NULL REFERENCES assessment_sections(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      prompt TEXT NOT NULL,
+      points REAL NOT NULL,
+      order_index INTEGER NOT NULL,
+      grading_mode TEXT NOT NULL,
+      UNIQUE(section_id, order_index)
+    );
+
+    CREATE TABLE IF NOT EXISTS assessment_options (
+      id TEXT PRIMARY KEY,
+      question_id TEXT NOT NULL REFERENCES assessment_questions(id) ON DELETE CASCADE,
+      content TEXT NOT NULL,
+      order_index INTEGER NOT NULL,
+      UNIQUE(question_id, order_index)
+    );
+
+    CREATE TABLE IF NOT EXISTS assessment_answer_keys (
+      question_id TEXT PRIMARY KEY REFERENCES assessment_questions(id) ON DELETE CASCADE,
+      answer_json TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS assessment_grading_guides (
+      question_id TEXT PRIMARY KEY REFERENCES assessment_questions(id) ON DELETE CASCADE,
+      reference_answer TEXT NOT NULL,
+      rubric_json TEXT NOT NULL,
+      prompt_template TEXT NOT NULL DEFAULT ''
+    );
+
+    CREATE TABLE IF NOT EXISTS assessment_assignments (
+      id TEXT PRIMARY KEY,
+      assessment_id TEXT NOT NULL REFERENCES assessments(id),
+      section_id TEXT NOT NULL REFERENCES class_sections(id),
+      opens_at TEXT NOT NULL,
+      closes_at TEXT NOT NULL,
+      duration_minutes INTEGER NOT NULL,
+      is_visible INTEGER NOT NULL DEFAULT 1,
+      require_fullscreen INTEGER NOT NULL DEFAULT 0,
+      warning_threshold INTEGER NOT NULL DEFAULT 3,
+      show_predicted_score INTEGER NOT NULL DEFAULT 1,
+      assigned_by TEXT NOT NULL REFERENCES users(id),
+      assigned_at TEXT NOT NULL,
+      UNIQUE(assessment_id, section_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS assessment_sessions (
+      id TEXT PRIMARY KEY,
+      assignment_id TEXT NOT NULL REFERENCES assessment_assignments(id),
+      student_id TEXT NOT NULL REFERENCES users(id),
+      status TEXT NOT NULL DEFAULT 'in_progress',
+      started_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      submitted_at TEXT,
+      submit_reason TEXT,
+      auto_score REAL NOT NULL DEFAULT 0,
+      predicted_score REAL,
+      official_score REAL,
+      review_status TEXT NOT NULL DEFAULT 'not_ready',
+      official_at TEXT,
+      official_by TEXT REFERENCES users(id),
+      UNIQUE(assignment_id, student_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS assessment_answers (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL REFERENCES assessment_sessions(id) ON DELETE CASCADE,
+      question_id TEXT NOT NULL REFERENCES assessment_questions(id),
+      answer_json TEXT NOT NULL,
+      client_revision INTEGER NOT NULL DEFAULT 1,
+      saved_at TEXT NOT NULL,
+      auto_points REAL,
+      ai_suggested_points REAL,
+      final_points REAL,
+      ai_feedback TEXT,
+      final_feedback TEXT,
+      ai_confidence TEXT,
+      grading_state TEXT NOT NULL DEFAULT 'ungraded',
+      reviewed_by TEXT REFERENCES users(id),
+      reviewed_at TEXT,
+      UNIQUE(session_id, question_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS assessment_ai_grading_runs (
+      id TEXT PRIMARY KEY,
+      answer_id TEXT NOT NULL REFERENCES assessment_answers(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'queued',
+      provider TEXT,
+      model TEXT,
+      prompt_version TEXT NOT NULL DEFAULT 'assessment-grading-v1',
+      suggested_points REAL,
+      result_json TEXT,
+      confidence TEXT,
+      needs_human_attention INTEGER NOT NULL DEFAULT 0,
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      error_code TEXT,
+      error_message TEXT,
+      created_at TEXT NOT NULL,
+      started_at TEXT,
+      finished_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS assessment_integrity_events (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL REFERENCES assessment_sessions(id) ON DELETE CASCADE,
+      event_type TEXT NOT NULL,
+      occurred_at TEXT NOT NULL,
+      metadata_json TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS assessment_audit_logs (
+      id TEXT PRIMARY KEY,
+      actor_id TEXT NOT NULL REFERENCES users(id),
+      action TEXT NOT NULL,
+      target_type TEXT NOT NULL,
+      target_id TEXT NOT NULL,
+      before_json TEXT,
+      after_json TEXT,
+      created_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS system_config (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
@@ -224,6 +369,18 @@ beforeAll(() => {
 afterEach(() => {
   // Clean user-created data between tests but preserve system_config defaults
   sqlite.exec(`
+    DELETE FROM assessment_audit_logs;
+    DELETE FROM assessment_integrity_events;
+    DELETE FROM assessment_ai_grading_runs;
+    DELETE FROM assessment_answers;
+    DELETE FROM assessment_sessions;
+    DELETE FROM assessment_assignments;
+    DELETE FROM assessment_answer_keys;
+    DELETE FROM assessment_grading_guides;
+    DELETE FROM assessment_options;
+    DELETE FROM assessment_questions;
+    DELETE FROM assessment_sections;
+    DELETE FROM assessments;
     DELETE FROM anticheat_events;
     DELETE FROM source_check_reports;
     DELETE FROM submission_results;

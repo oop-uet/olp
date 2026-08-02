@@ -12,6 +12,7 @@ WHERE id NOT IN (
   )
   WHERE rn = 1
 );
+--> statement-breakpoint
 
 CREATE UNIQUE INDEX IF NOT EXISTS enrollments_student_unique
 ON section_enrollments(student_id);

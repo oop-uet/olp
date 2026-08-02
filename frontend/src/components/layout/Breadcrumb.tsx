@@ -11,6 +11,9 @@ const segmentLabels: Record<string, string> = {
   submissions: 'Bài nộp',
   progress: 'Tiến độ',
   leaderboard: 'Bảng xếp hạng',
+  assessments: 'Bài kiểm tra',
+  'assessment-assignments': 'Ca thi',
+  'assessment-sessions': 'Bài làm kiểm tra',
   // Instructor
   classes: 'Lớp của tôi',
   plagiarism: 'Kiểm tra mã nguồn',

@@ -1,8 +1,13 @@
 ALTER TABLE submissions ADD COLUMN functional_score REAL;
+--> statement-breakpoint
 ALTER TABLE submissions ADD COLUMN style_score REAL;
+--> statement-breakpoint
 ALTER TABLE submissions ADD COLUMN style_status TEXT;
+--> statement-breakpoint
 ALTER TABLE submissions ADD COLUMN style_feedback TEXT;
+--> statement-breakpoint
 ALTER TABLE submissions ADD COLUMN style_report TEXT;
+--> statement-breakpoint
 
 INSERT INTO system_config (key, value, valid_range, updated_at, updated_by)
 VALUES

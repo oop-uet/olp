@@ -17,12 +17,15 @@ CREATE TABLE IF NOT EXISTS source_check_reports (
   finished_at TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
+--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS source_check_reports_exercise_idx
   ON source_check_reports(exercise_id);
+--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS source_check_reports_section_idx
   ON source_check_reports(section_id);
+--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS source_check_reports_finished_idx
   ON source_check_reports(finished_at);

@@ -278,6 +278,270 @@ export const anticheatEvents = sqliteTable("anticheat_events", {
   occurredAt: text("occurred_at").notNull(),
 });
 
+// ─── Assessments ────────────────────────────────────────────────────────────
+
+export const assessments = sqliteTable("assessments", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  instructions: text("instructions").notNull().default(""),
+  durationMinutes: integer("duration_minutes").notNull().default(60),
+  totalPoints: real("total_points").notNull().default(10),
+  status: text("status", { enum: ["draft", "published", "archived"] })
+    .notNull()
+    .default("draft"),
+  createdBy: text("created_by")
+    .notNull()
+    .references(() => users.id),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+  publishedAt: text("published_at"),
+});
+
+export const assessmentSections = sqliteTable(
+  "assessment_sections",
+  {
+    id: text("id").primaryKey(),
+    assessmentId: text("assessment_id")
+      .notNull()
+      .references(() => assessments.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    introContent: text("intro_content"),
+    points: real("points").notNull(),
+    orderIndex: integer("order_index").notNull(),
+  },
+  (table) => ({
+    assessmentOrderIdx: uniqueIndex("assessment_sections_assessment_order_unique").on(
+      table.assessmentId,
+      table.orderIndex
+    ),
+  })
+);
+
+export const assessmentQuestions = sqliteTable(
+  "assessment_questions",
+  {
+    id: text("id").primaryKey(),
+    sectionId: text("section_id")
+      .notNull()
+      .references(() => assessmentSections.id, { onDelete: "cascade" }),
+    type: text("type", {
+      enum: ["true_false", "single_choice", "short_text", "essay", "code_analysis"],
+    }).notNull(),
+    prompt: text("prompt").notNull(),
+    points: real("points").notNull(),
+    orderIndex: integer("order_index").notNull(),
+    gradingMode: text("grading_mode", {
+      enum: ["auto", "llm_assisted", "manual"],
+    }).notNull(),
+  },
+  (table) => ({
+    sectionOrderIdx: uniqueIndex("assessment_questions_section_order_unique").on(
+      table.sectionId,
+      table.orderIndex
+    ),
+  })
+);
+
+export const assessmentOptions = sqliteTable(
+  "assessment_options",
+  {
+    id: text("id").primaryKey(),
+    questionId: text("question_id")
+      .notNull()
+      .references(() => assessmentQuestions.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    orderIndex: integer("order_index").notNull(),
+  },
+  (table) => ({
+    questionOrderIdx: uniqueIndex("assessment_options_question_order_unique").on(
+      table.questionId,
+      table.orderIndex
+    ),
+  })
+);
+
+export const assessmentAnswerKeys = sqliteTable("assessment_answer_keys", {
+  questionId: text("question_id")
+    .primaryKey()
+    .references(() => assessmentQuestions.id, { onDelete: "cascade" }),
+  answerJson: text("answer_json").notNull(),
+});
+
+export const assessmentGradingGuides = sqliteTable("assessment_grading_guides", {
+  questionId: text("question_id")
+    .primaryKey()
+    .references(() => assessmentQuestions.id, { onDelete: "cascade" }),
+  referenceAnswer: text("reference_answer").notNull(),
+  rubricJson: text("rubric_json").notNull(),
+  promptTemplate: text("prompt_template").notNull().default(""),
+});
+
+export const assessmentAssignments = sqliteTable(
+  "assessment_assignments",
+  {
+    id: text("id").primaryKey(),
+    assessmentId: text("assessment_id")
+      .notNull()
+      .references(() => assessments.id),
+    sectionId: text("section_id")
+      .notNull()
+      .references(() => classSections.id),
+    opensAt: text("opens_at").notNull(),
+    closesAt: text("closes_at").notNull(),
+    durationMinutes: integer("duration_minutes").notNull(),
+    isVisible: integer("is_visible").notNull().default(1),
+    requireFullscreen: integer("require_fullscreen").notNull().default(0),
+    warningThreshold: integer("warning_threshold").notNull().default(3),
+    showPredictedScore: integer("show_predicted_score").notNull().default(1),
+    assignedBy: text("assigned_by")
+      .notNull()
+      .references(() => users.id),
+    assignedAt: text("assigned_at").notNull(),
+  },
+  (table) => ({
+    assessmentSectionIdx: uniqueIndex("assessment_assignments_assessment_section_unique").on(
+      table.assessmentId,
+      table.sectionId
+    ),
+  })
+);
+
+export const assessmentSessions = sqliteTable(
+  "assessment_sessions",
+  {
+    id: text("id").primaryKey(),
+    assignmentId: text("assignment_id")
+      .notNull()
+      .references(() => assessmentAssignments.id),
+    studentId: text("student_id")
+      .notNull()
+      .references(() => users.id),
+    status: text("status", {
+      enum: [
+        "in_progress",
+        "submitted",
+        "auto_submitted",
+        "ai_grading",
+        "pending_review",
+        "graded",
+        "voided",
+      ],
+    })
+      .notNull()
+      .default("in_progress"),
+    startedAt: text("started_at").notNull(),
+    expiresAt: text("expires_at").notNull(),
+    submittedAt: text("submitted_at"),
+    submitReason: text("submit_reason"),
+    autoScore: real("auto_score").notNull().default(0),
+    predictedScore: real("predicted_score"),
+    officialScore: real("official_score"),
+    reviewStatus: text("review_status", {
+      enum: ["not_ready", "ai_queued", "ai_running", "pending_review", "official"],
+    })
+      .notNull()
+      .default("not_ready"),
+    officialAt: text("official_at"),
+    officialBy: text("official_by").references(() => users.id),
+  },
+  (table) => ({
+    assignmentStudentIdx: uniqueIndex("assessment_sessions_assignment_student_unique").on(
+      table.assignmentId,
+      table.studentId
+    ),
+  })
+);
+
+export const assessmentAnswers = sqliteTable(
+  "assessment_answers",
+  {
+    id: text("id").primaryKey(),
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => assessmentSessions.id, { onDelete: "cascade" }),
+    questionId: text("question_id")
+      .notNull()
+      .references(() => assessmentQuestions.id),
+    answerJson: text("answer_json").notNull(),
+    clientRevision: integer("client_revision").notNull().default(1),
+    savedAt: text("saved_at").notNull(),
+    autoPoints: real("auto_points"),
+    aiSuggestedPoints: real("ai_suggested_points"),
+    finalPoints: real("final_points"),
+    aiFeedback: text("ai_feedback"),
+    finalFeedback: text("final_feedback"),
+    aiConfidence: text("ai_confidence", { enum: ["low", "medium", "high"] }),
+    gradingState: text("grading_state", {
+      enum: [
+        "ungraded",
+        "auto_graded",
+        "ai_queued",
+        "ai_running",
+        "ai_suggested",
+        "human_accepted",
+        "human_adjusted",
+        "manually_graded",
+      ],
+    })
+      .notNull()
+      .default("ungraded"),
+    reviewedBy: text("reviewed_by").references(() => users.id),
+    reviewedAt: text("reviewed_at"),
+  },
+  (table) => ({
+    sessionQuestionIdx: uniqueIndex("assessment_answers_session_question_unique").on(
+      table.sessionId,
+      table.questionId
+    ),
+  })
+);
+
+export const assessmentAiGradingRuns = sqliteTable("assessment_ai_grading_runs", {
+  id: text("id").primaryKey(),
+  answerId: text("answer_id")
+    .notNull()
+    .references(() => assessmentAnswers.id, { onDelete: "cascade" }),
+  status: text("status", { enum: ["queued", "running", "succeeded", "failed", "invalid"] })
+    .notNull()
+    .default("queued"),
+  provider: text("provider"),
+  model: text("model"),
+  promptVersion: text("prompt_version").notNull().default("assessment-grading-v1"),
+  suggestedPoints: real("suggested_points"),
+  resultJson: text("result_json"),
+  confidence: text("confidence", { enum: ["low", "medium", "high"] }),
+  needsHumanAttention: integer("needs_human_attention").notNull().default(0),
+  attemptCount: integer("attempt_count").notNull().default(0),
+  errorCode: text("error_code"),
+  errorMessage: text("error_message"),
+  createdAt: text("created_at").notNull(),
+  startedAt: text("started_at"),
+  finishedAt: text("finished_at"),
+});
+
+export const assessmentIntegrityEvents = sqliteTable("assessment_integrity_events", {
+  id: text("id").primaryKey(),
+  sessionId: text("session_id")
+    .notNull()
+    .references(() => assessmentSessions.id, { onDelete: "cascade" }),
+  eventType: text("event_type").notNull(),
+  occurredAt: text("occurred_at").notNull(),
+  metadataJson: text("metadata_json"),
+});
+
+export const assessmentAuditLogs = sqliteTable("assessment_audit_logs", {
+  id: text("id").primaryKey(),
+  actorId: text("actor_id")
+    .notNull()
+    .references(() => users.id),
+  action: text("action").notNull(),
+  targetType: text("target_type").notNull(),
+  targetId: text("target_id").notNull(),
+  beforeJson: text("before_json"),
+  afterJson: text("after_json"),
+  createdAt: text("created_at").notNull(),
+});
+
 // ─── System Config ───────────────────────────────────────────────────────────
 
 export const systemConfig = sqliteTable("system_config", {
@@ -343,6 +607,8 @@ export const usersRelations = relations(users, ({ many }) => ({
   projectGroups: many(projectGroups),
   projectMemberships: many(projectGroupMembers),
   anticheatEvents: many(anticheatEvents),
+  createdAssessments: many(assessments),
+  assessmentSessions: many(assessmentSessions),
 }));
 
 export const classSectionsRelations = relations(classSections, ({ one, many }) => ({
@@ -355,6 +621,107 @@ export const classSectionsRelations = relations(classSections, ({ one, many }) =
   assignments: many(exerciseAssignments),
   submissions: many(submissions),
   projectGroups: many(projectGroups),
+  assessmentAssignments: many(assessmentAssignments),
+}));
+
+export const assessmentsRelations = relations(assessments, ({ one, many }) => ({
+  creator: one(users, {
+    fields: [assessments.createdBy],
+    references: [users.id],
+  }),
+  sections: many(assessmentSections),
+  assignments: many(assessmentAssignments),
+}));
+
+export const assessmentSectionsRelations = relations(assessmentSections, ({ one, many }) => ({
+  assessment: one(assessments, {
+    fields: [assessmentSections.assessmentId],
+    references: [assessments.id],
+  }),
+  questions: many(assessmentQuestions),
+}));
+
+export const assessmentQuestionsRelations = relations(assessmentQuestions, ({ one, many }) => ({
+  section: one(assessmentSections, {
+    fields: [assessmentQuestions.sectionId],
+    references: [assessmentSections.id],
+  }),
+  options: many(assessmentOptions),
+  answerKey: one(assessmentAnswerKeys),
+  gradingGuide: one(assessmentGradingGuides),
+  answers: many(assessmentAnswers),
+}));
+
+export const assessmentOptionsRelations = relations(assessmentOptions, ({ one }) => ({
+  question: one(assessmentQuestions, {
+    fields: [assessmentOptions.questionId],
+    references: [assessmentQuestions.id],
+  }),
+}));
+
+export const assessmentAnswerKeysRelations = relations(assessmentAnswerKeys, ({ one }) => ({
+  question: one(assessmentQuestions, {
+    fields: [assessmentAnswerKeys.questionId],
+    references: [assessmentQuestions.id],
+  }),
+}));
+
+export const assessmentGradingGuidesRelations = relations(assessmentGradingGuides, ({ one }) => ({
+  question: one(assessmentQuestions, {
+    fields: [assessmentGradingGuides.questionId],
+    references: [assessmentQuestions.id],
+  }),
+}));
+
+export const assessmentAssignmentsRelations = relations(assessmentAssignments, ({ one, many }) => ({
+  assessment: one(assessments, {
+    fields: [assessmentAssignments.assessmentId],
+    references: [assessments.id],
+  }),
+  section: one(classSections, {
+    fields: [assessmentAssignments.sectionId],
+    references: [classSections.id],
+  }),
+  sessions: many(assessmentSessions),
+}));
+
+export const assessmentSessionsRelations = relations(assessmentSessions, ({ one, many }) => ({
+  assignment: one(assessmentAssignments, {
+    fields: [assessmentSessions.assignmentId],
+    references: [assessmentAssignments.id],
+  }),
+  student: one(users, {
+    fields: [assessmentSessions.studentId],
+    references: [users.id],
+  }),
+  answers: many(assessmentAnswers),
+  integrityEvents: many(assessmentIntegrityEvents),
+}));
+
+export const assessmentAnswersRelations = relations(assessmentAnswers, ({ one, many }) => ({
+  session: one(assessmentSessions, {
+    fields: [assessmentAnswers.sessionId],
+    references: [assessmentSessions.id],
+  }),
+  question: one(assessmentQuestions, {
+    fields: [assessmentAnswers.questionId],
+    references: [assessmentQuestions.id],
+  }),
+  aiRuns: many(assessmentAiGradingRuns),
+}));
+
+export const assessmentAiGradingRunsRelations = relations(assessmentAiGradingRuns, ({ one }) => ({
+  answer: one(assessmentAnswers, {
+    fields: [assessmentAiGradingRuns.answerId],
+    references: [assessmentAnswers.id],
+  }),
+}));
+
+export const assessmentIntegrityEventsRelations = relations(assessmentIntegrityEvents, ({ one }) => ({
+  session: one(assessmentSessions, {
+    fields: [assessmentIntegrityEvents.sessionId],
+    references: [assessmentSessions.id],
+  }),
 }));
 
 export const sectionInstructorsRelations = relations(sectionInstructors, ({ one }) => ({
@@ -544,6 +911,23 @@ export type NewSubmissionResult = InferInsertModel<typeof submissionResults>;
 
 export type AnticheatEvent = InferSelectModel<typeof anticheatEvents>;
 export type NewAnticheatEvent = InferInsertModel<typeof anticheatEvents>;
+
+export type Assessment = InferSelectModel<typeof assessments>;
+export type NewAssessment = InferInsertModel<typeof assessments>;
+export type AssessmentSection = InferSelectModel<typeof assessmentSections>;
+export type NewAssessmentSection = InferInsertModel<typeof assessmentSections>;
+export type AssessmentQuestion = InferSelectModel<typeof assessmentQuestions>;
+export type NewAssessmentQuestion = InferInsertModel<typeof assessmentQuestions>;
+export type AssessmentOption = InferSelectModel<typeof assessmentOptions>;
+export type NewAssessmentOption = InferInsertModel<typeof assessmentOptions>;
+export type AssessmentAssignment = InferSelectModel<typeof assessmentAssignments>;
+export type NewAssessmentAssignment = InferInsertModel<typeof assessmentAssignments>;
+export type AssessmentSession = InferSelectModel<typeof assessmentSessions>;
+export type NewAssessmentSession = InferInsertModel<typeof assessmentSessions>;
+export type AssessmentAnswer = InferSelectModel<typeof assessmentAnswers>;
+export type NewAssessmentAnswer = InferInsertModel<typeof assessmentAnswers>;
+export type AssessmentAiGradingRun = InferSelectModel<typeof assessmentAiGradingRuns>;
+export type NewAssessmentAiGradingRun = InferInsertModel<typeof assessmentAiGradingRuns>;
 
 export type SystemConfig = InferSelectModel<typeof systemConfig>;
 export type NewSystemConfig = InferInsertModel<typeof systemConfig>;

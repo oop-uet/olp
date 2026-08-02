@@ -23,7 +23,9 @@ import studentAnticheatRoutes from './routes/student/anticheat.routes.js';
 import studentExerciseRoutes from './routes/student/exercise.routes.js';
 import studentSectionRoutes from './routes/student/section.routes.js';
 import studentProjectRoutes from './routes/student/project.routes.js';
+import studentAssessmentRoutes from './routes/student/assessment.routes.js';
 import instructorAnticheatRoutes from './routes/instructor/anticheat.routes.js';
+import instructorAssessmentRoutes from './routes/instructor/assessment.routes.js';
 import leaderboardRoutes from './routes/instructor/leaderboard.routes.js';
 import sourceCheckRoutes from './routes/source-check.routes.js';
 import { authMiddleware } from './middleware/auth.middleware.js';
@@ -32,6 +34,7 @@ import { migrate } from 'drizzle-orm/libsql/migrator';
 import { db } from './db/index.js';
 import { ensureDatabaseCompatibility } from './db/compat.js';
 import { createCorsOrigin } from './config/cors.js';
+import { startAssessmentAiWorker } from './services/assessment.service.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -72,6 +75,7 @@ app.use('/api/testcases', authMiddleware(), requireRole('instructor'), testCaseR
 
 // Instructor - Exercises
 app.use('/api/exercises', authMiddleware(), requireRole('instructor'), exerciseRoutes);
+app.use('/api/instructor/assessments', authMiddleware(), requireRole('instructor'), instructorAssessmentRoutes);
 
 // Submissions - all methods accessible by authenticated students and instructors
 // POST is student-only (enforced inside the student submission router via role check)
@@ -87,6 +91,7 @@ app.use('/api/students/progress', authMiddleware(), requireRole('student'), stud
 app.use('/api/students/exercises', authMiddleware(), requireRole('student'), studentExerciseRoutes);
 app.use('/api/students/sections', authMiddleware(), requireRole('student'), studentSectionRoutes);
 app.use('/api/students/sections', authMiddleware(), requireRole('student'), studentProjectRoutes);
+app.use('/api/students/assessments', authMiddleware(), requireRole('student'), studentAssessmentRoutes);
 
 // Student - Anti-cheat event logging
 app.use('/api/anticheat', authMiddleware(), requireRole('student'), studentAnticheatRoutes);
@@ -103,6 +108,7 @@ if (process.env.NODE_ENV !== 'test') {
     .then(() => ensureDatabaseCompatibility(db))
     .then(() => {
       console.log('[server] Database migrations and compatibility checks applied successfully');
+      startAssessmentAiWorker();
     })
     .catch((err) => {
       console.error('[server] Database migration failed:', err);

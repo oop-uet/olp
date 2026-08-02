@@ -9,8 +9,8 @@ import { PageLoader } from '../components/ui/PageLoader'
 // Catches dynamic import / chunk loading errors caught by React Router
 // and reloads the window to retrieve the latest script chunks.
 function GlobalErrorBoundary() {
-  const error = useRouteError() as any
-  const errorMessage = error?.message || error?.toString() || ''
+  const error = useRouteError()
+  const errorMessage = error instanceof Error ? error.message : String(error ?? '')
 
   const isChunkError =
     errorMessage.includes('Failed to fetch dynamically imported module') ||
@@ -53,6 +53,8 @@ const ExerciseWorkspacePage = lazy(() => import('../pages/student/ExerciseWorksp
 const SubmissionHistoryPage = lazy(() => import('../pages/student/SubmissionHistoryPage').then((m) => ({ default: m.SubmissionHistoryPage })))
 const SubmissionDetailPage = lazy(() => import('../pages/student/SubmissionDetailPage').then((m) => ({ default: m.SubmissionDetailPage })))
 const StudentLeaderboardPage = lazy(() => import('../pages/student/StudentLeaderboardPage').then((m) => ({ default: m.StudentLeaderboardPage })))
+const StudentAssessmentListPage = lazy(() => import('../pages/student/StudentAssessmentListPage').then((m) => ({ default: m.StudentAssessmentListPage })))
+const StudentAssessmentPage = lazy(() => import('../pages/student/StudentAssessmentPage').then((m) => ({ default: m.StudentAssessmentPage })))
 
 // Instructor
 const ExerciseManagerPage = lazy(() => import('../pages/instructor/ExerciseManagerPage').then((m) => ({ default: m.ExerciseManagerPage })))
@@ -64,6 +66,10 @@ const LeaderboardPage = lazy(() => import('../pages/instructor/LeaderboardPage')
 const PlagiarismPage = lazy(() => import('../pages/instructor/PlagiarismPage').then((m) => ({ default: m.PlagiarismPage })))
 const ProjectAssignmentPage = lazy(() => import('../pages/instructor/ProjectAssignmentPage').then((m) => ({ default: m.ProjectAssignmentPage })))
 const InstructorManageClassRedirect = lazy(() => import('../pages/instructor/InstructorManageClassRedirect').then((m) => ({ default: m.InstructorManageClassRedirect })))
+const AssessmentManagerPage = lazy(() => import('../pages/instructor/AssessmentManagerPage').then((m) => ({ default: m.AssessmentManagerPage })))
+const AssessmentEditorPage = lazy(() => import('../pages/instructor/AssessmentEditorPage').then((m) => ({ default: m.AssessmentEditorPage })))
+const AssessmentSubmissionsPage = lazy(() => import('../pages/instructor/AssessmentSubmissionsPage').then((m) => ({ default: m.AssessmentSubmissionsPage })))
+const AssessmentReviewPage = lazy(() => import('../pages/instructor/AssessmentReviewPage').then((m) => ({ default: m.AssessmentReviewPage })))
 
 // Admin
 const AdminDashboardPage = lazy(() => import('../pages/admin/DashboardPage').then((m) => ({ default: m.DashboardPage })))
@@ -120,6 +126,8 @@ export const router = createBrowserRouter(
         { path: 'submissions', element: withSuspense(<SubmissionHistoryPage />) },
         { path: 'submissions/:id', element: withSuspense(<SubmissionDetailPage />) },
         { path: 'leaderboard', element: withSuspense(<StudentLeaderboardPage />) },
+        { path: 'assessments', element: withSuspense(<StudentAssessmentListPage />) },
+        { path: 'assessments/:assignmentId', element: withSuspense(<StudentAssessmentPage />) },
       ],
     },
 
@@ -151,6 +159,11 @@ export const router = createBrowserRouter(
         { path: 'submissions/:id', element: withSuspense(<SubmissionDetailPage />) },
         { path: 'leaderboard', element: withSuspense(<LeaderboardPage />) },
         { path: 'plagiarism', element: withSuspense(<PlagiarismPage />) },
+        { path: 'assessments', element: withSuspense(<AssessmentManagerPage />) },
+        { path: 'assessments/new', element: withSuspense(<AssessmentEditorPage />) },
+        { path: 'assessments/:id/edit', element: withSuspense(<AssessmentEditorPage />) },
+        { path: 'assessment-assignments/:assignmentId/submissions', element: withSuspense(<AssessmentSubmissionsPage />) },
+        { path: 'assessment-sessions/:sessionId/review', element: withSuspense(<AssessmentReviewPage />) },
       ],
     },
 

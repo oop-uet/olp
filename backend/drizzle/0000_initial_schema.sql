@@ -9,9 +9,12 @@ CREATE TABLE `users` (
   `created_at` text NOT NULL,
   `updated_at` text NOT NULL
 );
+--> statement-breakpoint
 
 CREATE UNIQUE INDEX `users_username_unique` ON `users` (`username`);
+--> statement-breakpoint
 CREATE UNIQUE INDEX `users_email_unique` ON `users` (`email`);
+--> statement-breakpoint
 
 CREATE TABLE `class_sections` (
   `id` text PRIMARY KEY NOT NULL,
@@ -20,6 +23,7 @@ CREATE TABLE `class_sections` (
   `instructor_id` text REFERENCES `users`(`id`),
   `created_at` text NOT NULL
 );
+--> statement-breakpoint
 
 CREATE TABLE `section_instructors` (
   `id` text PRIMARY KEY NOT NULL,
@@ -28,9 +32,11 @@ CREATE TABLE `section_instructors` (
   `is_primary` integer NOT NULL DEFAULT 0,
   `assigned_at` text NOT NULL
 );
+--> statement-breakpoint
 
 CREATE UNIQUE INDEX `section_instructors_section_instructor_unique`
   ON `section_instructors` (`section_id`, `instructor_id`);
+--> statement-breakpoint
 
 CREATE TABLE `section_enrollments` (
   `id` text PRIMARY KEY NOT NULL,
@@ -39,9 +45,12 @@ CREATE TABLE `section_enrollments` (
   `student_external_id` text,
   `enrolled_at` text NOT NULL
 );
+--> statement-breakpoint
 
 CREATE UNIQUE INDEX `enrollments_section_student_unique` ON `section_enrollments` (`section_id`, `student_id`);
+--> statement-breakpoint
 CREATE UNIQUE INDEX `enrollments_student_unique` ON `section_enrollments` (`student_id`);
+--> statement-breakpoint
 
 CREATE TABLE `exercises` (
   `id` text PRIMARY KEY NOT NULL,
@@ -55,6 +64,7 @@ CREATE TABLE `exercises` (
   `created_at` text NOT NULL,
   `updated_at` text NOT NULL
 );
+--> statement-breakpoint
 
 CREATE TABLE `exercise_assignments` (
   `id` text PRIMARY KEY NOT NULL,
@@ -64,8 +74,10 @@ CREATE TABLE `exercise_assignments` (
   `is_assessment` integer NOT NULL DEFAULT 0,
   `assigned_at` text NOT NULL
 );
+--> statement-breakpoint
 
 CREATE UNIQUE INDEX `assignments_exercise_section_unique` ON `exercise_assignments` (`exercise_id`, `section_id`);
+--> statement-breakpoint
 
 CREATE TABLE `test_cases` (
   `id` text PRIMARY KEY NOT NULL,
@@ -77,6 +89,7 @@ CREATE TABLE `test_cases` (
   `time_limit_seconds` integer,
   `created_at` text NOT NULL
 );
+--> statement-breakpoint
 
 CREATE TABLE `submissions` (
   `id` text PRIMARY KEY NOT NULL,
@@ -88,6 +101,7 @@ CREATE TABLE `submissions` (
   `attempt_number` integer NOT NULL DEFAULT 1,
   `submitted_at` text NOT NULL
 );
+--> statement-breakpoint
 
 CREATE TABLE `project_groups` (
   `id` text PRIMARY KEY NOT NULL,
@@ -103,9 +117,11 @@ CREATE TABLE `project_groups` (
   `graded_at` text,
   `graded_by` text REFERENCES `users`(`id`)
 );
+--> statement-breakpoint
 
 CREATE UNIQUE INDEX `project_groups_section_exercise_name_unique`
   ON `project_groups` (`section_id`, `exercise_id`, `name`);
+--> statement-breakpoint
 
 CREATE TABLE `project_group_members` (
   `id` text PRIMARY KEY NOT NULL,
@@ -117,9 +133,11 @@ CREATE TABLE `project_group_members` (
   `contribution_percent` integer NOT NULL DEFAULT 0,
   `created_at` text NOT NULL
 );
+--> statement-breakpoint
 
 CREATE UNIQUE INDEX `project_group_members_group_student_unique`
   ON `project_group_members` (`group_id`, `student_external_id`);
+--> statement-breakpoint
 
 CREATE TABLE `submission_results` (
   `id` text PRIMARY KEY NOT NULL,
@@ -130,6 +148,7 @@ CREATE TABLE `submission_results` (
   `status` text NOT NULL,
   `execution_time_ms` integer
 );
+--> statement-breakpoint
 
 CREATE TABLE `anticheat_events` (
   `id` text PRIMARY KEY NOT NULL,
@@ -140,6 +159,7 @@ CREATE TABLE `anticheat_events` (
   `warning_count_at_event` integer NOT NULL,
   `occurred_at` text NOT NULL
 );
+--> statement-breakpoint
 
 CREATE TABLE `system_config` (
   `key` text PRIMARY KEY NOT NULL,

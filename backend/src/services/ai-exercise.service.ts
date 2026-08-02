@@ -110,6 +110,21 @@ export interface AiServiceError {
   };
 }
 
+export interface StructuredAiRequest {
+  schemaName: string;
+  schema: Record<string, unknown>;
+  instructions: string;
+  input: unknown;
+  maxOutputTokens?: number;
+  temperature?: number;
+}
+
+export interface StructuredAiResult {
+  data: unknown;
+  provider: AiProvider;
+  model: string;
+}
+
 export function isAiServiceError(value: unknown): value is AiServiceError {
   return (
     typeof value === "object" &&
@@ -197,7 +212,7 @@ function decryptApiKey(encryptedApiKey: string): string | AiServiceError {
     return {
       error: {
         code: "AI_KEY_MISSING",
-        message: "Chưa cấu hình API key cho tính năng tạo bài tập bằng AI.",
+        message: "Chưa cấu hình API key cho dịch vụ AI.",
       },
     };
   }
@@ -279,7 +294,7 @@ export async function getAiAvailability(database: Database = defaultDb): Promise
   } else if (status.lastCheckStatus !== "ok") {
     reason = "API key AI chưa được kiểm tra thành công.";
   } else if (!status.enabled) {
-    reason = "Tính năng tạo bài tập bằng AI đang tắt trong cấu hình quản trị.";
+    reason = "Các tính năng AI đang tắt trong cấu hình quản trị.";
   }
 
   return {
@@ -462,6 +477,58 @@ export async function generateExerciseDraft(
       error: {
         code: "AI_GENERATION_FAILED",
         message: "Không thể tạo bài tập bằng AI. Vui lòng thử lại sau.",
+      },
+    };
+  }
+}
+
+/**
+ * Provider-neutral structured-output call used by assessment grading.
+ * It deliberately reuses the encrypted AI credential configured by admins,
+ * while keeping the caller-specific prompt and schema outside this service.
+ */
+export async function generateStructuredAi(
+  request: StructuredAiRequest,
+  database: Database = defaultDb
+): Promise<StructuredAiResult | AiServiceError> {
+  const config = await readConfigMap(database);
+  const availability = await getAiAvailability(database);
+  if (!availability.enabled) {
+    return {
+      error: {
+        code: "AI_GENERATION_DISABLED",
+        message: availability.reason || "Dịch vụ AI chưa sẵn sàng.",
+      },
+    };
+  }
+
+  const apiKey = decryptApiKey(config[CONFIG_KEYS.encryptedApiKey] || "");
+  if (isAiServiceError(apiKey)) return apiKey;
+  const provider = parseProvider(config[CONFIG_KEYS.provider]);
+  const model = config[CONFIG_KEYS.model] || DEFAULT_MODELS[provider];
+
+  let raw: string | AiServiceError;
+  try {
+    raw = await generateStructuredWithProvider(provider, model, apiKey, request);
+  } catch (error) {
+    return {
+      error: {
+        code: error instanceof DOMException && error.name === "TimeoutError"
+          ? "AI_REQUEST_TIMEOUT"
+          : "AI_REQUEST_FAILED",
+        message: "Không thể kết nối tới dịch vụ AI để nhận kết quả chấm.",
+      },
+    };
+  }
+  if (isAiServiceError(raw)) return raw;
+
+  try {
+    return { data: JSON.parse(raw), provider, model };
+  } catch {
+    return {
+      error: {
+        code: "AI_RESPONSE_INVALID",
+        message: "AI trả về dữ liệu không phải JSON hợp lệ.",
       },
     };
   }
@@ -1063,6 +1130,150 @@ async function generateWithProvider(
         code: "AI_REQUEST_FAILED",
         message: await readProviderError(response, provider),
       },
+    };
+  }
+  return extractGeminiText((await response.json()) as Record<string, unknown>) || "";
+}
+
+async function generateStructuredWithProvider(
+  provider: AiProvider,
+  model: string,
+  apiKey: string,
+  request: StructuredAiRequest
+): Promise<string | AiServiceError> {
+  const temperature = request.temperature ?? 0;
+  const maxOutputTokens = request.maxOutputTokens ?? 1600;
+  const inputText = JSON.stringify(request.input, null, 2);
+  const signal = AbortSignal.timeout(60_000);
+
+  if (provider === "openai") {
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      signal,
+      body: JSON.stringify({
+        model,
+        instructions: request.instructions,
+        input: inputText,
+        temperature,
+        max_output_tokens: maxOutputTokens,
+        text: {
+          format: {
+            type: "json_schema",
+            name: request.schemaName,
+            strict: true,
+            schema: request.schema,
+          },
+        },
+      }),
+    });
+    if (!response.ok) {
+      return {
+        error: { code: "AI_REQUEST_FAILED", message: await readProviderError(response, provider) },
+      };
+    }
+    return extractOpenAiOutputText((await response.json()) as Record<string, unknown>) || "";
+  }
+
+  if (provider === "anthropic") {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      signal,
+      body: JSON.stringify({
+        model,
+        max_tokens: maxOutputTokens,
+        temperature,
+        system: request.instructions,
+        messages: [{ role: "user", content: inputText }],
+        tools: [
+          {
+            name: request.schemaName,
+            description: "Return the structured assessment grading result.",
+            input_schema: request.schema,
+          },
+        ],
+        tool_choice: { type: "tool", name: request.schemaName },
+      }),
+    });
+    if (!response.ok) {
+      return {
+        error: { code: "AI_REQUEST_FAILED", message: await readProviderError(response, provider) },
+      };
+    }
+    return JSON.stringify(extractAnthropicToolInput((await response.json()) as Record<string, unknown>));
+  }
+
+  if (provider === "groq" || provider === "openrouter") {
+    const endpoint =
+      provider === "groq"
+        ? "https://api.groq.com/openai/v1/chat/completions"
+        : "https://openrouter.ai/api/v1/chat/completions";
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      signal,
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: request.instructions },
+          { role: "user", content: inputText },
+        ],
+        temperature,
+        max_tokens: maxOutputTokens,
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: request.schemaName,
+            strict: true,
+            schema: request.schema,
+          },
+        },
+      }),
+    });
+    if (!response.ok) {
+      return {
+        error: { code: "AI_REQUEST_FAILED", message: await readProviderError(response, provider) },
+      };
+    }
+    return extractChatCompletionText((await response.json()) as Record<string, unknown>) || "";
+  }
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal,
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: `${request.instructions}\n\n${inputText}` }],
+          },
+        ],
+        generationConfig: {
+          temperature,
+          maxOutputTokens,
+          responseMimeType: "application/json",
+          responseSchema: toGeminiResponseSchema(request.schema),
+        },
+      }),
+    }
+  );
+  if (!response.ok) {
+    return {
+      error: { code: "AI_REQUEST_FAILED", message: await readProviderError(response, provider) },
     };
   }
   return extractGeminiText((await response.json()) as Record<string, unknown>) || "";
