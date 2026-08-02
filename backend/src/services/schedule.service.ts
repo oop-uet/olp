@@ -1,10 +1,12 @@
 import crypto from "node:crypto";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 import { db as defaultDb } from "../db/index.js";
 import {
   classSections,
   exercises,
   exerciseAssignments,
+  assessments,
+  assessmentAssignments,
   sectionWeeks,
   users,
 } from "../db/schema.js";
@@ -65,6 +67,22 @@ async function ensureSectionWeeksReady(database: Database = defaultDb) {
   }
 }
 
+async function ensureAssessmentAssignmentWeekReady(database: Database = defaultDb) {
+  const sqlite = database.session?.client;
+  if (!sqlite) return;
+  const statement = "ALTER TABLE assessment_assignments ADD COLUMN week INTEGER";
+  try {
+    if (typeof sqlite.exec === "function") {
+      sqlite.exec(statement);
+    } else if (typeof sqlite.execute === "function") {
+      await sqlite.execute(statement);
+    }
+  } catch (error: any) {
+    const message = String(error?.message ?? error).toLowerCase();
+    if (!message.includes("duplicate column") && !message.includes("no such table")) throw error;
+  }
+}
+
 /**
  * Verify a section exists and that the requester (instructor) owns it.
  * Admins bypass the ownership check.
@@ -107,6 +125,7 @@ export interface ScheduleWeek {
   week: number;
   deadline: string | null;
   exercises: ScheduleExercise[];
+  assessments: ScheduleAssessment[];
 }
 
 export interface SectionSchedule {
@@ -115,6 +134,8 @@ export interface SectionSchedule {
   unscheduled: ScheduleExercise[];
   pool: SchedulePoolExercise[];
   otherPool: SchedulePoolExercise[];
+  assessmentUnscheduled: ScheduleAssessment[];
+  assessmentPool: SchedulePoolAssessment[];
 }
 
 export interface SchedulePoolExercise {
@@ -124,6 +145,30 @@ export interface SchedulePoolExercise {
     oopTags: string[];
     creatorUsername: string | null;
     isLibrary: boolean;
+}
+
+export interface ScheduleAssessment {
+  assignmentId: string;
+  assessmentId: string;
+  title: string;
+  totalPoints: number;
+  durationMinutes: number;
+  status: string;
+  creatorUsername: string | null;
+  week: number | null;
+  deadline: string | null;
+  opensAt: string;
+  closesAt: string;
+  isVisible: boolean;
+}
+
+export interface SchedulePoolAssessment {
+  id: string;
+  title: string;
+  totalPoints: number;
+  durationMinutes: number;
+  status: string;
+  creatorUsername: string | null;
 }
 
 /**
@@ -139,6 +184,7 @@ export async function getSectionSchedule(
   const loaded = await loadSectionForUser(sectionId, userId, role, database);
   if (isScheduleError(loaded)) return loaded;
   await ensureSectionWeeksReady(database);
+  await ensureAssessmentAssignmentWeekReady(database);
   const section = loaded.section;
 
   // Assigned exercises for this section.
@@ -168,6 +214,40 @@ export async function getSectionSchedule(
     .select()
     .from(sectionWeeks)
     .where(eq(sectionWeeks.sectionId, sectionId));
+
+  const assessmentRows = await database
+    .select({
+      assignmentId: assessmentAssignments.id,
+      assessmentId: assessmentAssignments.assessmentId,
+      title: assessments.title,
+      totalPoints: assessments.totalPoints,
+      durationMinutes: assessmentAssignments.durationMinutes,
+      status: assessments.status,
+      creatorUsername: users.username,
+      week: assessmentAssignments.week,
+      opensAt: assessmentAssignments.opensAt,
+      closesAt: assessmentAssignments.closesAt,
+      isVisible: assessmentAssignments.isVisible,
+    })
+    .from(assessmentAssignments)
+    .innerJoin(assessments, eq(assessmentAssignments.assessmentId, assessments.id))
+    .leftJoin(users, eq(assessments.createdBy, users.id))
+    .where(eq(assessmentAssignments.sectionId, sectionId));
+
+  const toScheduleAssessment = (a: any): ScheduleAssessment => ({
+    assignmentId: a.assignmentId,
+    assessmentId: a.assessmentId,
+    title: a.title,
+    totalPoints: Number(a.totalPoints) || 0,
+    durationMinutes: Number(a.durationMinutes) || 0,
+    status: a.status,
+    creatorUsername: a.creatorUsername ?? null,
+    week: a.week ?? null,
+    deadline: a.closesAt ?? null,
+    opensAt: a.opensAt,
+    closesAt: a.closesAt,
+    isVisible: Boolean(a.isVisible),
+  });
   const toScheduleExercise = (a: any): ScheduleExercise => ({
     assignmentId: a.assignmentId,
     exerciseId: a.exerciseId,
@@ -191,6 +271,7 @@ export async function getSectionSchedule(
   const maxConfiguredWeek = Math.max(
     TOTAL_WEEKS,
     ...((assignments as any[]).map((a) => Number(a.week) || 0)),
+    ...((assessmentRows as any[]).map((a) => Number(a.week) || 0)),
     ...((weekRows as any[]).map((w) => Number(w.week) || 0))
   );
 
@@ -203,12 +284,21 @@ export async function getSectionSchedule(
       exercises: assignments
         .filter((a: any) => a.week === i)
         .map(toScheduleExercise),
+      assessments: assessmentRows
+        .filter((a: any) => a.week === i)
+        .map(toScheduleAssessment),
     });
   }
 
   const unscheduled = assignments
     .filter((a: any) => !a.week || a.week < 1)
     .map(toScheduleExercise);
+  const assessmentUnscheduled = assessmentRows
+    .filter((a: any) => !a.week || a.week < 1)
+    .map(toScheduleAssessment);
+  const assignedAssessmentIds = new Set<string>(
+    (assessmentRows as any[]).map((a) => String(a.assessmentId))
+  );
 
   // Pool: unassigned system-library exercises and a separate "other" pool of
   // private exercises created by instructors/admins across the system.
@@ -238,12 +328,42 @@ export async function getSectionSchedule(
   const pool = availablePool.filter((exercise) => exercise.isLibrary);
   const otherPool = availablePool.filter((exercise) => !exercise.isLibrary);
 
+  const assessmentPoolQuery = database
+    .select({
+      id: assessments.id,
+      title: assessments.title,
+      totalPoints: assessments.totalPoints,
+      durationMinutes: assessments.durationMinutes,
+      status: assessments.status,
+      creatorUsername: users.username,
+      createdBy: assessments.createdBy,
+    })
+    .from(assessments)
+    .leftJoin(users, eq(assessments.createdBy, users.id));
+  const assessmentPoolSource = role === "admin"
+    ? await assessmentPoolQuery
+    : await assessmentPoolQuery.where(
+        or(eq(assessments.status, "published"), eq(assessments.createdBy, userId))
+      );
+  const assessmentPool = (assessmentPoolSource as any[])
+    .filter((assessment) => !assignedAssessmentIds.has(String(assessment.id)))
+    .map((assessment): SchedulePoolAssessment => ({
+      id: assessment.id,
+      title: assessment.title,
+      totalPoints: Number(assessment.totalPoints) || 0,
+      durationMinutes: Number(assessment.durationMinutes) || 0,
+      status: assessment.status,
+      creatorUsername: assessment.creatorUsername ?? null,
+    }));
+
   return {
     section: { id: section.id, name: section.name, semester: section.semester },
     weeks,
     unscheduled,
     pool,
     otherPool,
+    assessmentUnscheduled,
+    assessmentPool,
   };
 }
 
@@ -308,6 +428,112 @@ export async function assignExerciseToWeek(
     });
   }
 
+  return { success: true };
+}
+
+/**
+ * Add a published assessment to a week. The weekly deadline becomes the
+ * closing time for the exam; when no deadline exists, a safe future window is
+ * generated from the exam duration.
+ */
+export async function assignAssessmentToWeek(
+  sectionId: string,
+  assessmentId: string,
+  week: number,
+  userId: string,
+  role: string,
+  database: Database = defaultDb
+): Promise<{ success: true; assignmentId: string; week: number } | ScheduleError> {
+  const loaded = await loadSectionForUser(sectionId, userId, role, database);
+  if (isScheduleError(loaded)) return loaded;
+  await ensureSectionWeeksReady(database);
+  await ensureAssessmentAssignmentWeekReady(database);
+
+  if (!isValidScheduleWeek(week)) {
+    return { error: { code: "VALIDATION_ERROR", message: "Tuần không hợp lệ." } };
+  }
+
+  const assessment = await database.query.assessments.findFirst({
+    where: eq(assessments.id, assessmentId),
+  });
+  if (!assessment) {
+    return { error: { code: "NOT_FOUND", message: "Không tìm thấy bài kiểm tra." } };
+  }
+  if (assessment.status !== "published") {
+    return { error: { code: "NOT_PUBLISHED", message: "Cần phát hành đề trước khi thêm vào tuần học." } };
+  }
+
+  const weekRows = await database
+    .select()
+    .from(sectionWeeks)
+    .where(eq(sectionWeeks.sectionId, sectionId));
+  const weekDeadline = resolveDefaultDeadline(weekRows as any[], week);
+  const existing = await database.query.assessmentAssignments.findFirst({
+    where: and(
+      eq(assessmentAssignments.assessmentId, assessmentId),
+      eq(assessmentAssignments.sectionId, sectionId)
+    ),
+  });
+  const now = new Date();
+  const fallbackClose = new Date(now.getTime() + Math.max(assessment.durationMinutes + 30, 7 * 24 * 60) * 60_000);
+  const requestedClose = weekDeadline ? new Date(weekDeadline) : fallbackClose;
+  const closesAt = Number.isNaN(requestedClose.getTime()) || requestedClose <= now
+    ? fallbackClose.toISOString()
+    : requestedClose.toISOString();
+  const closeDate = new Date(closesAt);
+  const weekStart = new Date(closeDate.getTime() - 7 * 24 * 60 * 60_000);
+  const opensAt = weekStart > now ? weekStart.toISOString() : now.toISOString();
+
+  if (existing) {
+    await database
+      .update(assessmentAssignments)
+      .set({ week, closesAt, isVisible: 1 })
+      .where(eq(assessmentAssignments.id, existing.id));
+    return { success: true, assignmentId: existing.id, week };
+  }
+
+  const assignmentId = crypto.randomUUID();
+  await database.insert(assessmentAssignments).values({
+    id: assignmentId,
+    assessmentId,
+    sectionId,
+    opensAt,
+    closesAt,
+    durationMinutes: assessment.durationMinutes,
+    isVisible: 1,
+    requireFullscreen: 1,
+    warningThreshold: 3,
+    showPredictedScore: 1,
+    week,
+    assignedBy: userId,
+    assignedAt: now.toISOString(),
+  });
+  return { success: true, assignmentId, week };
+}
+
+/** Remove an assessment from its week while keeping the assignment record for audit/history. */
+export async function removeAssessmentAssignment(
+  sectionId: string,
+  assessmentId: string,
+  userId: string,
+  role: string,
+  database: Database = defaultDb
+): Promise<{ success: true } | ScheduleError> {
+  const loaded = await loadSectionForUser(sectionId, userId, role, database);
+  if (isScheduleError(loaded)) return loaded;
+  await ensureAssessmentAssignmentWeekReady(database);
+  const existing = await database.query.assessmentAssignments.findFirst({
+    where: and(
+      eq(assessmentAssignments.assessmentId, assessmentId),
+      eq(assessmentAssignments.sectionId, sectionId)
+    ),
+  });
+  if (!existing) return { success: true };
+
+  await database
+    .update(assessmentAssignments)
+    .set({ week: null, isVisible: 0 })
+    .where(eq(assessmentAssignments.id, existing.id));
   return { success: true };
 }
 
@@ -386,6 +612,19 @@ export async function setWeekDeadline(
         eq(exerciseAssignments.week, week)
       )
     );
+
+  if (normalized) {
+    await ensureAssessmentAssignmentWeekReady(database);
+    await database
+      .update(assessmentAssignments)
+      .set({ closesAt: normalized })
+      .where(
+        and(
+          eq(assessmentAssignments.sectionId, sectionId),
+          eq(assessmentAssignments.week, week)
+        )
+      );
+  }
 
   return { success: true, week, deadline: normalized };
 }

@@ -32,6 +32,7 @@ interface ScheduleWeek {
   week: number
   deadline: string | null
   exercises: ScheduleExercise[]
+  assessments: ScheduleAssessment[]
 }
 
 interface PoolExercise {
@@ -43,12 +44,38 @@ interface PoolExercise {
   isLibrary: boolean
 }
 
+interface ScheduleAssessment {
+  assignmentId: string
+  assessmentId: string
+  title: string
+  totalPoints: number
+  durationMinutes: number
+  status: string
+  creatorUsername: string | null
+  week: number | null
+  deadline: string | null
+  opensAt: string
+  closesAt: string
+  isVisible: boolean
+}
+
+interface PoolAssessment {
+  id: string
+  title: string
+  totalPoints: number
+  durationMinutes: number
+  status: string
+  creatorUsername: string | null
+}
+
 interface ScheduleData {
   section: ScheduleSection
   weeks: ScheduleWeek[]
   unscheduled: ScheduleExercise[]
   pool: PoolExercise[]
   otherPool: PoolExercise[]
+  assessmentUnscheduled: ScheduleAssessment[]
+  assessmentPool: PoolAssessment[]
 }
 
 const DEFAULT_TOTAL_WEEKS = 10
@@ -231,7 +258,7 @@ export function SectionSchedulePage() {
   const [visibleWeekCount, setVisibleWeekCount] = useState(DEFAULT_TOTAL_WEEKS)
   const [selectedWeek, setSelectedWeek] = useState(1)
   const [autoAssigning, setAutoAssigning] = useState(false)
-  const [poolTab, setPoolTab] = useState<'system' | 'other'>('system')
+  const [poolTab, setPoolTab] = useState<'system' | 'other' | 'assessment'>('system')
 
   const fetchSchedule = useCallback(async () => {
     if (!id) return
@@ -291,6 +318,7 @@ export function SectionSchedulePage() {
             week,
             deadline: weekDeadline,
             exercises: [toScheduleExercise(found, week, weekDeadline)],
+            assessments: [],
           },
         ],
       }
@@ -306,6 +334,21 @@ export function SectionSchedulePage() {
       const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
       toast.error(axiosErr.response?.data?.error?.message || 'Không thể xếp bài tập.')
       await fetchSchedule()
+    }
+  }
+
+  async function assignAssessment(assessmentId: string, week: number) {
+    if (!id) return
+    try {
+      await api.post(`${base}/sections/${id}/schedule/assign-assessment`, {
+        assessment_id: assessmentId,
+        week,
+      })
+      toast.success(`Đã thêm đề kiểm tra vào tuần ${week}.`)
+      await fetchSchedule()
+    } catch (err) {
+      const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
+      toast.error(axiosErr.response?.data?.error?.message || 'Không thể xếp bài kiểm tra.')
     }
   }
 
@@ -344,6 +387,20 @@ export function SectionSchedulePage() {
       const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
       toast.error(axiosErr.response?.data?.error?.message || 'Không thể gỡ bài tập.')
       await fetchSchedule()
+    }
+  }
+
+  async function unassignAssessment(assessmentId: string) {
+    if (!id) return
+    try {
+      await api.post(`${base}/sections/${id}/schedule/unassign-assessment`, {
+        assessment_id: assessmentId,
+      })
+      toast.success('Đã gỡ bài kiểm tra khỏi tuần học.')
+      await fetchSchedule()
+    } catch (err) {
+      const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
+      toast.error(axiosErr.response?.data?.error?.message || 'Không thể gỡ bài kiểm tra.')
     }
   }
 
@@ -495,18 +552,20 @@ export function SectionSchedulePage() {
     )
   }
 
-  const { section, weeks, unscheduled, pool, otherPool = [] } = data
-  const activePool = poolTab === 'system' ? pool : otherPool
+  const { section, weeks, unscheduled, pool, otherPool = [], assessmentUnscheduled = [], assessmentPool = [] } = data
+  const activePool = poolTab === 'system' ? pool : poolTab === 'other' ? otherPool : []
   const activePoolEmpty = poolTab === 'system'
-    ? 'Không còn bài tập nào trong kho.'
-    : 'Không còn bài tập riêng nào để chọn.'
+    ? 'Không còn bài tập hệ thống nào trong kho.'
+    : poolTab === 'other'
+      ? 'Không còn bài tập riêng nào để chọn.'
+      : 'Không còn bài kiểm tra đã phát hành nào để chọn.'
 
   // Ensure configured weeks are present even if backend omits empty ones.
   const weekMap = new Map<number, ScheduleWeek>()
   for (const w of weeks) weekMap.set(w.week, w)
   const allWeeks: ScheduleWeek[] = Array.from({ length: visibleWeekCount }, (_, i) => {
     const n = i + 1
-    return weekMap.get(n) ?? { week: n, deadline: null, exercises: [] }
+    return weekMap.get(n) ?? { week: n, deadline: null, exercises: [], assessments: [] }
   })
 
   return (
@@ -559,11 +618,11 @@ export function SectionSchedulePage() {
           </div>
 
           {/* Unscheduled panel */}
-          {unscheduled.length > 0 && (
+          {(unscheduled.length > 0 || assessmentUnscheduled.length > 0) && (
             <div className="card border-amber-200 bg-amber-50/40 p-0">
               <div className="border-b border-amber-200 px-4 py-3">
                 <h2 className="text-sm font-semibold text-amber-800">
-                  Chưa xếp tuần ({unscheduled.length})
+                  Chưa xếp tuần ({unscheduled.length + assessmentUnscheduled.length})
                 </h2>
               </div>
               <div className="space-y-2 p-4">
@@ -584,6 +643,27 @@ export function SectionSchedulePage() {
                       className="flex-shrink-0 text-sm font-medium text-danger-600 hover:text-danger-700"
                     >
                       Gỡ
+                    </button>
+                  </div>
+                ))}
+                {assessmentUnscheduled.map((assessment) => (
+                  <div
+                    key={assessment.assignmentId}
+                    className="flex items-center justify-between gap-2 rounded-lg border border-cyan-200 bg-white px-3 py-2"
+                  >
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-black text-cyan-700">KT</span>
+                      <span className="truncate font-medium text-gray-800">{assessment.title}</span>
+                      <span className="text-[10px] font-semibold text-slate-500">
+                        {assessment.durationMinutes} phút · {assessment.totalPoints} điểm
+                      </span>
+                      <CreatorBadge username={assessment.creatorUsername} />
+                    </div>
+                    <button
+                      onClick={() => void assignAssessment(assessment.assessmentId, selectedWeek)}
+                      className="flex-shrink-0 text-sm font-bold text-primary hover:text-primary-700"
+                    >
+                      Thêm tuần {selectedWeek}
                     </button>
                   </div>
                 ))}
@@ -654,32 +734,55 @@ export function SectionSchedulePage() {
 
                 {/* Week body */}
                 <div className="space-y-2 p-4">
-                  {w.exercises.length === 0 ? (
+                  {w.exercises.length === 0 && (w.assessments ?? []).length === 0 ? (
                     <p className="rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/30 py-5 text-center text-[11px] font-bold text-slate-400 hover:bg-slate-50 hover:border-primary/30 transition-all cursor-pointer">
-                      📥 Thả bài tập vào đây
+                      📥 Thả bài tập hoặc thêm đề kiểm tra vào đây
                     </p>
                   ) : (
-                    w.exercises.map((ex) => (
-                      <div
-                        key={ex.assignmentId}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, ex.exerciseId)}
-                        className="flex cursor-grab items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-white px-4 py-2.5 shadow-sm hover:shadow hover:border-slate-300 transition-all active:cursor-grabbing group relative"
-                      >
-                        <div className="flex min-w-0 flex-wrap items-center gap-2">
-                          <span className="text-slate-300 font-mono text-[10px] select-none">☰</span>
-                          <span className="truncate font-bold text-slate-700 text-xs">{ex.title}</span>
-                          <DifficultyBadge difficulty={ex.difficulty} />
-                          <CreatorBadge username={ex.creatorUsername} />
-                        </div>
-                        <button
-                          onClick={() => unassignExercise(ex.exerciseId)}
-                          className="text-[10px] font-bold text-rose-500 bg-rose-50 hover:bg-rose-100/60 px-2.5 py-1 rounded-md transition-all flex-shrink-0"
+                    <>
+                      {w.exercises.map((ex) => (
+                        <div
+                          key={ex.assignmentId}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, ex.exerciseId)}
+                          className="flex cursor-grab items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-white px-4 py-2.5 shadow-sm hover:shadow hover:border-slate-300 transition-all active:cursor-grabbing group relative"
                         >
-                          Gỡ
-                        </button>
-                      </div>
-                    ))
+                          <div className="flex min-w-0 flex-wrap items-center gap-2">
+                            <span className="text-slate-300 font-mono text-[10px] select-none">☰</span>
+                            <span className="truncate font-bold text-slate-700 text-xs">{ex.title}</span>
+                            <DifficultyBadge difficulty={ex.difficulty} />
+                            <CreatorBadge username={ex.creatorUsername} />
+                          </div>
+                          <button
+                            onClick={() => void unassignExercise(ex.exerciseId)}
+                            className="text-[10px] font-bold text-rose-500 bg-rose-50 hover:bg-rose-100/60 px-2.5 py-1 rounded-md transition-all flex-shrink-0"
+                          >
+                            Gỡ
+                          </button>
+                        </div>
+                      ))}
+                      {(w.assessments ?? []).map((assessment) => (
+                        <div
+                          key={assessment.assignmentId}
+                          className="flex items-center justify-between gap-3 rounded-xl border border-cyan-200 bg-cyan-50/40 px-4 py-2.5 shadow-sm"
+                        >
+                          <div className="flex min-w-0 flex-wrap items-center gap-2">
+                            <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-black text-cyan-700">KT</span>
+                            <span className="truncate font-bold text-slate-700 text-xs">{assessment.title}</span>
+                            <span className="text-[10px] font-semibold text-slate-500">
+                              {assessment.durationMinutes} phút · {assessment.totalPoints} điểm
+                            </span>
+                            <CreatorBadge username={assessment.creatorUsername} />
+                          </div>
+                          <button
+                            onClick={() => void unassignAssessment(assessment.assessmentId)}
+                            className="text-[10px] font-bold text-rose-500 bg-rose-50 hover:bg-rose-100/60 px-2.5 py-1 rounded-md transition-all flex-shrink-0"
+                          >
+                            Gỡ
+                          </button>
+                        </div>
+                      ))}
+                    </>
                   )}
                 </div>
               </div>
@@ -706,9 +809,13 @@ export function SectionSchedulePage() {
               <ExerciseIcon className="h-5 w-5 text-gray-500" />
               <div className="min-w-0 flex-1">
                 <h2 className="text-sm font-semibold text-gray-700">
-                  Kho bài tập
+                  Kho bài tập/đề thi
                 </h2>
-                <p className="mt-0.5 text-xs text-gray-500">Bấm + để thêm vào tuần {selectedWeek}</p>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  {poolTab === 'assessment'
+                    ? 'Đề phải phát hành trước khi thêm vào tuần học.'
+                    : `Bấm + để thêm vào tuần ${selectedWeek}`}
+                </p>
               </div>
             </div>
             <div className="flex gap-2 border-b border-gray-100 px-4 py-3">
@@ -721,7 +828,7 @@ export function SectionSchedulePage() {
                     : 'bg-slate-100 text-slate-600 hover:bg-primary-50 hover:text-primary'
                 }`}
               >
-                Hệ thống ({pool.length})
+                Bài tập hệ thống ({pool.length})
               </button>
               <button
                 type="button"
@@ -734,9 +841,65 @@ export function SectionSchedulePage() {
               >
                 Bài tập khác ({otherPool.length})
               </button>
+              <button
+                type="button"
+                onClick={() => setPoolTab('assessment')}
+                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${
+                  poolTab === 'assessment'
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-600 hover:bg-primary-50 hover:text-primary'
+                }`}
+              >
+                Bài kiểm tra ({assessmentPool.length})
+              </button>
             </div>
             <div className="space-y-2 p-4 lg:max-h-[calc(100vh-14rem)] lg:overflow-y-auto">
-              {activePool.length === 0 ? (
+              {poolTab === 'assessment' ? (
+                assessmentPool.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-gray-500">{activePoolEmpty}</p>
+                ) : (
+                  assessmentPool.map((assessment) => (
+                    <div
+                      key={assessment.id}
+                      className="space-y-2.5 rounded-xl border border-cyan-200 bg-cyan-50/30 p-4 transition-all hover:border-cyan-300"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-start gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => void assignAssessment(assessment.id, selectedWeek)}
+                            disabled={assessment.status !== 'published'}
+                            className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-black leading-none text-white shadow-sm transition-all hover:bg-primary-700 active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-300"
+                            aria-label={`Thêm ${assessment.title} vào tuần ${selectedWeek}`}
+                          >
+                            +
+                          </button>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-black text-cyan-700">KT</span>
+                              <span className="block font-bold text-slate-700 text-xs leading-snug">{assessment.title}</span>
+                            </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-2">
+                              <CreatorBadge username={assessment.creatorUsername} />
+                              <span className="text-[10px] font-semibold text-slate-500">
+                                {assessment.durationMinutes} phút · {assessment.totalPoints} điểm
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <span className={assessment.status === 'published' ? 'badge-green' : 'badge-yellow'}>
+                          {assessment.status === 'published' ? 'Đã phát hành' : 'Bản nháp'}
+                        </span>
+                      </div>
+                      {assessment.status !== 'published' && (
+                        <p className="pl-8 text-[11px] font-semibold text-amber-700">
+                          Phát hành đề trước khi thêm vào tuần học.
+                        </p>
+                      )}
+                    </div>
+                  ))
+                )
+              ) : activePool.length === 0 ? (
                 <p className="py-8 text-center text-sm text-gray-500">
                   {activePoolEmpty}
                 </p>

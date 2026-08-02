@@ -236,6 +236,7 @@ beforeAll(() => {
       require_fullscreen INTEGER NOT NULL DEFAULT 0,
       warning_threshold INTEGER NOT NULL DEFAULT 3,
       show_predicted_score INTEGER NOT NULL DEFAULT 1,
+      week INTEGER,
       assigned_by TEXT NOT NULL REFERENCES users(id),
       assigned_at TEXT NOT NULL,
       UNIQUE(assessment_id, section_id)

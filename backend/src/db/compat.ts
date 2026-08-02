@@ -186,6 +186,7 @@ async function ensureAssessmentTablesReady(database: Database) {
       require_fullscreen INTEGER NOT NULL DEFAULT 0,
       warning_threshold INTEGER NOT NULL DEFAULT 3,
       show_predicted_score INTEGER NOT NULL DEFAULT 1,
+      week INTEGER,
       assigned_by TEXT NOT NULL REFERENCES users(id),
       assigned_at TEXT NOT NULL
     )`,
@@ -281,6 +282,10 @@ async function ensureAssessmentTablesReady(database: Database) {
   await addColumnIfMissing(
     database,
     "ALTER TABLE assessment_sessions ADD COLUMN question_order_json TEXT"
+  );
+  await addColumnIfMissing(
+    database,
+    "ALTER TABLE assessment_assignments ADD COLUMN week INTEGER"
   );
 }
 

@@ -394,6 +394,7 @@ export const assessmentAssignments = sqliteTable(
     requireFullscreen: integer("require_fullscreen").notNull().default(0),
     warningThreshold: integer("warning_threshold").notNull().default(3),
     showPredictedScore: integer("show_predicted_score").notNull().default(1),
+    week: integer("week"),
     assignedBy: text("assigned_by")
       .notNull()
       .references(() => users.id),

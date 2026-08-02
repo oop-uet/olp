@@ -58,6 +58,7 @@ export interface InstructorAssessmentListItem {
   durationMinutes: number
   totalPoints: number
   status: 'draft' | 'published' | 'archived'
+  creatorUsername?: string | null
   updatedAt: string
   publishedAt?: string | null
   assignments: AssessmentAssignmentSummary[]

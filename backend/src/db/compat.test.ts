@@ -65,10 +65,15 @@ describe("database compatibility", () => {
       .prepare("PRAGMA table_info(assessment_sessions)")
       .all()
       .map((row) => (row as { name: string }).name);
+    const assessmentAssignmentColumns = sqlite
+      .prepare("PRAGMA table_info(assessment_assignments)")
+      .all()
+      .map((row) => (row as { name: string }).name);
 
     expect(tables).toEqual(ASSESSMENT_TABLES);
     expect(assignment.isAssessment).toBe(0);
     expect(assessmentColumns).toContain("shuffle_questions");
     expect(sessionColumns).toContain("question_order_json");
+    expect(assessmentAssignmentColumns).toContain("week");
   });
 });

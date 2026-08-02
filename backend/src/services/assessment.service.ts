@@ -422,12 +422,14 @@ export async function listInstructorAssessments(
   database: Database = defaultDb
 ) {
   const rows = await database
-    .select()
+    .select({ assessment: assessments, creatorUsername: users.username })
     .from(assessments)
+    .leftJoin(users, eq(assessments.createdBy, users.id))
     .where(eq(assessments.createdBy, instructorId))
     .orderBy(desc(assessments.updatedAt));
   const result = [];
-  for (const assessment of rows) {
+  for (const row of rows) {
+    const assessment = row.assessment;
     const assignments = await database
       .select({
         id: assessmentAssignments.id,
@@ -439,7 +441,7 @@ export async function listInstructorAssessments(
       .from(assessmentAssignments)
       .innerJoin(classSections, eq(assessmentAssignments.sectionId, classSections.id))
       .where(eq(assessmentAssignments.assessmentId, assessment.id));
-    result.push({ ...assessment, assignments });
+    result.push({ ...assessment, creatorUsername: row.creatorUsername ?? null, assignments });
   }
   return { data: result };
 }

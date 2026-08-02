@@ -118,6 +118,10 @@ export function AssessmentManagerPanel() {
 
   return (
     <div className="space-y-6">
+      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+        <span className="font-bold">Phát hành</span> là bước chốt và khóa nội dung đề. Sau khi phát hành,
+        đề mới được phép thêm vào tuần học hoặc gán lịch thi; thời gian mở/đóng vẫn do GV thiết lập.
+      </div>
       {items.length === 0 ? (
         <div className="card flex flex-col items-center p-12 text-center">
           <ExerciseIcon className="h-12 w-12 text-slate-300" />
@@ -147,6 +151,9 @@ export function AssessmentManagerPanel() {
                       <span className="badge-blue">KT</span>
                       <p className="font-bold text-slate-900">{item.title}</p>
                     </div>
+                    {item.creatorUsername && (
+                      <p className="mt-1 text-[11px] font-semibold text-slate-500">Người ra đề: @{item.creatorUsername}</p>
+                    )}
                     <p className="mt-1 text-[11px] text-slate-400">
                       Cập nhật {formatDate(item.updatedAt)}
                     </p>
