@@ -774,14 +774,9 @@ export function ExerciseFormPage() {
         {/* Top Section: Template & Exercise Kind */}
         <div className="grid grid-cols-1 gap-5 items-stretch xl:col-span-12 xl:grid-cols-12">
           {/* Template Ra Đề */}
-          <section className="flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-slate-50/80 shadow-sm xl:col-span-7">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
-              <div>
-                <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">Template ra đề</h2>
-                <p className="mt-0.5 text-xs font-medium text-slate-500">
-                  JSON template dùng để tải mẫu, xuất bài hiện tại hoặc nhập nội dung do AI tạo.
-                </p>
-              </div>
+          <section className="flex flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-sm xl:col-span-7 justify-center">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">Template ra đề</h2>
               <div className="flex flex-wrap items-center gap-2">
                 <ExerciseAiGenerator
                   difficulty={difficulty || 'easy'}
@@ -793,10 +788,10 @@ export function ExerciseFormPage() {
                   Tải mẫu JSON
                 </button>
                 <button type="button" onClick={handleExportCurrentTemplate} className="btn-secondary btn-sm h-8 text-xs font-semibold">
-                  Xuất bài hiện tại
+                  Xuất JSON
                 </button>
                 <label className="btn-secondary btn-sm h-8 text-xs font-semibold cursor-pointer">
-                  Nhập file JSON
+                  Nhập JSON
                   <input
                     type="file"
                     accept="application/json,.json"
@@ -807,7 +802,7 @@ export function ExerciseFormPage() {
                 <button
                   type="button"
                   onClick={() => setTemplatePanelOpen((value) => !value)}
-                  className="btn-ghost btn-sm h-8 text-xs font-semibold"
+                  className="btn-secondary btn-sm h-8 text-xs font-semibold"
                 >
                   {templatePanelOpen ? 'Ẩn JSON' : 'Dán JSON'}
                 </button>
@@ -815,14 +810,14 @@ export function ExerciseFormPage() {
             </div>
 
             {templatePanelOpen && (
-              <div className="space-y-3 p-4 bg-white border-t border-slate-200">
+              <div className="mt-3 space-y-3 pt-3 border-t border-slate-200">
                 <textarea
                   value={templateText}
                   onChange={(e) => {
                     setTemplateText(e.target.value)
                     setTemplateError(null)
                   }}
-                  rows={14}
+                  rows={12}
                   className="input font-mono text-xs"
                   placeholder="Dán JSON template ở đây..."
                 />
@@ -844,54 +839,47 @@ export function ExerciseFormPage() {
           </section>
 
           {/* Loại Bài Tập */}
-          <section className="flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-slate-50/80 shadow-sm xl:col-span-5">
-            <div className="border-b border-slate-200 bg-white px-4 py-3">
-              <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">Loại bài tập</h2>
-              <p className="mt-0.5 text-xs font-medium text-slate-500">
-                Bài tập lập trình tự động chấm hoặc bài tập lớn nộp nhóm.
-              </p>
+          <section className="flex flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-sm xl:col-span-5 justify-center">
+            <div className="flex items-center justify-between gap-3 mb-2.5">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">Loại bài tập</h2>
             </div>
-            <div className="p-4 space-y-3 flex-1 flex flex-col justify-center">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => handleExerciseKindChange('coding')}
-                  className={`rounded-xl border p-3.5 text-left transition-all ${
-                    exerciseKind === 'coding'
-                      ? 'border-primary bg-primary-50 text-primary-800 ring-1 ring-primary shadow-xs'
-                      : 'border-slate-200 bg-white text-slate-700 hover:border-primary-200'
-                  }`}
-                >
-                  <span className="block text-sm font-bold">💻 Bài tập lập trình</span>
-                  <span className="mt-1 block text-xs text-slate-500">Tự động chấm bằng Executor</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleExerciseKindChange('project')}
-                  className={`rounded-xl border p-3.5 text-left transition-all ${
-                    exerciseKind === 'project'
-                      ? 'border-primary bg-primary-50 text-primary-800 ring-1 ring-primary shadow-xs'
-                      : 'border-slate-200 bg-white text-slate-700 hover:border-primary-200'
-                  }`}
-                >
-                  <span className="block text-sm font-bold">👥 Bài tập lớn</span>
-                  <span className="mt-1 block text-xs text-slate-500">Nộp nhóm & Repos GitHub</span>
-                </button>
-              </div>
-              {isProjectExercise && (
-                <div className="rounded-lg border border-sky-200 bg-sky-50/50 p-3.5 text-xs text-sky-950 space-y-1.5">
-                  <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-sky-850">
-                    <span>💡 Lưu ý cho Bài tập lớn</span>
-                  </div>
-                  <p className="font-semibold leading-relaxed">
-                    • Bài tập lớn không dùng starter code, Checkstyle hoặc test case tự động. Nội dung chi tiết nên đặt trong phần Mô tả.
-                  </p>
-                  <p className="font-semibold leading-relaxed">
-                    • Sinh viên sẽ tự lập nhóm, khai báo thành viên và nộp link GitHub trực tiếp.
-                  </p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => handleExerciseKindChange('coding')}
+                className={`rounded-xl border px-3.5 py-2.5 text-center text-xs transition-all ${
+                  exerciseKind === 'coding'
+                    ? 'border-teal-600 bg-teal-50/60 font-bold text-teal-800 shadow-xs ring-1 ring-teal-600/30'
+                    : 'border-slate-200 bg-white font-semibold text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                💻 Bài tập lập trình
+              </button>
+              <button
+                type="button"
+                onClick={() => handleExerciseKindChange('project')}
+                className={`rounded-xl border px-3.5 py-2.5 text-center text-xs transition-all ${
+                  exerciseKind === 'project'
+                    ? 'border-teal-600 bg-teal-50/60 font-bold text-teal-800 shadow-xs ring-1 ring-teal-600/30'
+                    : 'border-slate-200 bg-white font-semibold text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                👥 Bài tập lớn (BTL)
+              </button>
+            </div>
+            {isProjectExercise && (
+              <div className="mt-3 rounded-lg border border-sky-200 bg-sky-50/50 p-3 text-xs text-sky-950 space-y-1">
+                <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-sky-850">
+                  <span>💡 Lưu ý cho Bài tập lớn</span>
                 </div>
-              )}
-            </div>
+                <p className="leading-relaxed">
+                  • Bài tập lớn không dùng starter code, Checkstyle hoặc test case tự động. Nội dung đặt trong phần Mô tả.
+                </p>
+                <p className="leading-relaxed">
+                  • Sinh viên tự lập nhóm, khai báo thành viên và nộp link GitHub trực tiếp.
+                </p>
+              </div>
+            )}
           </section>
         </div>
 
