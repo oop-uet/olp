@@ -21,6 +21,11 @@ import {
   createUetMidtermAssessmentTemplate,
   parseAssessmentTemplate,
 } from "../../services/assessment-template.service.js";
+import {
+  createAssessmentAnswerPdf,
+  type AssessmentPdfData,
+} from "../../services/assessment-pdf.service.js";
+import { createAssessmentAnswerDocx } from "../../services/assessment-docx.service.js";
 
 const rubricCriterionSchema = z.object({
   id: z.string().max(100).optional(),
@@ -205,6 +210,53 @@ router.post("/answers/:answerId/ai-grade", async (req: Request, res: Response) =
     }
   } catch {
     res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Không thể xếp hàng chấm AI." } });
+  }
+});
+
+router.get("/:id/export-pdf", async (req: Request, res: Response) => {
+  try {
+    const result = await getInstructorAssessment(req.params.id, req.user!.userId);
+    if (isAssessmentError(result)) {
+      sendResult(res, result);
+      return;
+    }
+    const pdf = await createAssessmentAnswerPdf(result.data as AssessmentPdfData);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="assessment-${req.params.id}-answer-key.pdf"`
+    );
+    res.send(pdf);
+  } catch (error) {
+    console.error("[assessment] Failed to export assessment PDF", error);
+    res.status(500).json({
+      error: { code: "INTERNAL_ERROR", message: "Không thể xuất PDF đề thi và đáp án." },
+    });
+  }
+});
+
+router.get("/:id/export-docx", async (req: Request, res: Response) => {
+  try {
+    const result = await getInstructorAssessment(req.params.id, req.user!.userId);
+    if (isAssessmentError(result)) {
+      sendResult(res, result);
+      return;
+    }
+    const document = await createAssessmentAnswerDocx(result.data as AssessmentPdfData);
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    );
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="assessment-${req.params.id}-answer-key.docx"`
+    );
+    res.send(document);
+  } catch (error) {
+    console.error("[assessment] Failed to export assessment Word document", error);
+    res.status(500).json({
+      error: { code: "INTERNAL_ERROR", message: "Không thể xuất Word đề thi và đáp án." },
+    });
   }
 });
 

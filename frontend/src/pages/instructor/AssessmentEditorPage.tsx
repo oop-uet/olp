@@ -116,6 +116,8 @@ export function AssessmentEditorPage() {
   const [saving, setSaving] = useState(false)
   const [downloadingTemplate, setDownloadingTemplate] = useState(false)
   const [importingTemplate, setImportingTemplate] = useState(false)
+  const [exportingPdf, setExportingPdf] = useState(false)
+  const [exportingDocx, setExportingDocx] = useState(false)
   const [importWarnings, setImportWarnings] = useState<string[]>([])
   const templateInputRef = useRef<HTMLInputElement>(null)
 
@@ -178,6 +180,48 @@ export function AssessmentEditorPage() {
       toast.error('Không thể tải template bài kiểm tra.')
     } finally {
       setDownloadingTemplate(false)
+    }
+  }
+
+  async function exportAnswerPdf() {
+    if (!id) return
+    setExportingPdf(true)
+    try {
+      const response = await api.get(`/api/instructor/assessments/${id}/export-pdf`, { responseType: 'blob' })
+      const url = URL.createObjectURL(response.data)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `de-thi-dap-an-${id}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+      toast.success('Đã xuất PDF đề thi kèm đáp án.')
+    } catch {
+      toast.error('Không thể xuất PDF đề thi và đáp án.')
+    } finally {
+      setExportingPdf(false)
+    }
+  }
+
+  async function exportAnswerDocx() {
+    if (!id) return
+    setExportingDocx(true)
+    try {
+      const response = await api.get(`/api/instructor/assessments/${id}/export-docx`, { responseType: 'blob' })
+      const url = URL.createObjectURL(response.data)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `de-thi-dap-an-${id}.docx`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+      toast.success('Đã xuất Word đề thi kèm đáp án.')
+    } catch {
+      toast.error('Không thể xuất Word đề thi và đáp án.')
+    } finally {
+      setExportingDocx(false)
     }
   }
 
@@ -261,6 +305,16 @@ export function AssessmentEditorPage() {
           <button type="button" onClick={chooseTemplate} disabled={importingTemplate} className="btn-secondary">
             {importingTemplate ? 'Đang import...' : 'Import từ Excel'}
           </button>
+          {id && (
+            <>
+              <button type="button" onClick={() => void exportAnswerPdf()} disabled={exportingPdf || exportingDocx} className="btn-secondary">
+                {exportingPdf ? 'Đang xuất PDF...' : 'Xuất PDF'}
+              </button>
+              <button type="button" onClick={() => void exportAnswerDocx()} disabled={exportingPdf || exportingDocx} className="btn-secondary">
+                {exportingDocx ? 'Đang xuất Word...' : 'Xuất Word'}
+              </button>
+            </>
+          )}
           <button type="submit" disabled={saving || importingTemplate} className="btn-primary">
             {saving ? 'Đang lưu...' : 'Lưu bản nháp'}
           </button>
