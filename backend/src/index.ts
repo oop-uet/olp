@@ -44,7 +44,7 @@ app.use(cors({
   origin: createCorsOrigin(),
   credentials: true,
 }));
-app.use(express.json());
+app.use(express.json({ limit: '6mb' }));
 
 // Health check route
 app.get('/api/health', (_req, res) => {

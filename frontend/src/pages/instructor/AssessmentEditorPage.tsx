@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { readApiError } from '../../lib/apiError'
@@ -94,7 +94,7 @@ function normalizeLoaded(data: LoadedAssessment): AssessmentDraft {
         points: question.points,
         gradingMode: question.gradingMode,
         options: question.options?.map((option) => option.content) ?? [],
-        answerKey: question.answerKey ?? (question.type === 'true_false' ? true : 0),
+        answerKey: question.answerKey ?? undefined,
         referenceAnswer: question.referenceAnswer ?? '',
         gradingPrompt: question.gradingPrompt ?? '',
         rubric: question.rubric ?? [],
@@ -109,6 +109,10 @@ export function AssessmentEditorPage() {
   const [draft, setDraft] = useState<AssessmentDraft>(initialDraft)
   const [loading, setLoading] = useState(Boolean(id))
   const [saving, setSaving] = useState(false)
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false)
+  const [importingTemplate, setImportingTemplate] = useState(false)
+  const [importWarnings, setImportWarnings] = useState<string[]>([])
+  const templateInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!id) return
@@ -152,6 +156,60 @@ export function AssessmentEditorPage() {
     setDraft((current) => ({ ...current, sections: current.sections.filter((_, i) => i !== index) }))
   }
 
+  async function downloadTemplate() {
+    setDownloadingTemplate(true)
+    try {
+      const response = await api.get('/api/instructor/assessments/template', { responseType: 'blob' })
+      const url = URL.createObjectURL(response.data)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'uet-oop-midterm-2020-2021-assessment-template.xlsx'
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+      toast.success('Đã tải template Excel từ đề giữa kỳ mẫu.')
+    } catch {
+      toast.error('Không thể tải template bài kiểm tra.')
+    } finally {
+      setDownloadingTemplate(false)
+    }
+  }
+
+  function chooseTemplate() {
+    if (!window.confirm('Import sẽ thay thế nội dung đang có trong trình soạn thảo. Bạn muốn tiếp tục?')) return
+    templateInputRef.current?.click()
+  }
+
+  async function importTemplate(file: File) {
+    setImportingTemplate(true)
+    try {
+      const fileBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result ?? ''))
+        reader.onerror = () => reject(reader.error)
+        reader.readAsDataURL(file)
+      })
+      const response = await api.post('/api/instructor/assessments/import-template', {
+        filename: file.name,
+        fileBase64,
+      })
+      setDraft(response.data.data as AssessmentDraft)
+      setImportWarnings(response.data.warnings ?? [])
+      toast.success(`Đã import ${response.data.data.sections.length} phần vào trình soạn thảo.`)
+    } catch (error: unknown) {
+      const apiError = readApiError(error)
+      toast.error(
+        Array.isArray(apiError.details)
+          ? apiError.details.slice(0, 3).join(' ')
+          : apiError.message ?? 'Không thể import template Excel.'
+      )
+    } finally {
+      setImportingTemplate(false)
+      if (templateInputRef.current) templateInputRef.current.value = ''
+    }
+  }
+
   async function save(event: FormEvent) {
     event.preventDefault()
     setSaving(true)
@@ -179,11 +237,41 @@ export function AssessmentEditorPage() {
             ← Quay lại danh sách
           </Link>
           <h1 className="mt-2 text-2xl font-bold text-slate-900">{id ? 'Sửa bài kiểm tra' : 'Tạo bài kiểm tra'}</h1>
+          <p className="mt-1 text-sm text-slate-500">Tải đề mẫu Excel, chỉnh sửa rồi import để nạp toàn bộ câu hỏi vào đây.</p>
         </div>
-        <button type="submit" disabled={saving} className="btn-primary">
-          {saving ? 'Đang lưu...' : 'Lưu bản nháp'}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            ref={templateInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              if (file) void importTemplate(file)
+            }}
+          />
+          <button type="button" onClick={() => void downloadTemplate()} disabled={downloadingTemplate} className="btn-secondary">
+            {downloadingTemplate ? 'Đang tải...' : 'Tải template Excel'}
+          </button>
+          <button type="button" onClick={chooseTemplate} disabled={importingTemplate} className="btn-secondary">
+            {importingTemplate ? 'Đang import...' : 'Import từ Excel'}
+          </button>
+          <button type="submit" disabled={saving || importingTemplate} className="btn-primary">
+            {saving ? 'Đang lưu...' : 'Lưu bản nháp'}
+          </button>
+        </div>
       </div>
+
+      {importWarnings.length > 0 && (
+        <details className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+          <summary className="cursor-pointer font-bold">
+            Template đã được nạp với {importWarnings.length} mục cần GV kiểm tra
+          </summary>
+          <ul className="mt-3 max-h-56 list-disc space-y-1 overflow-y-auto pl-5 text-xs leading-5">
+            {importWarnings.map((warning, index) => <li key={`${warning}-${index}`}>{warning}</li>)}
+          </ul>
+        </details>
+      )}
 
       <section className="card p-6">
         <h2 className="text-lg font-bold text-slate-800">Thông tin chung</h2>
@@ -303,7 +391,7 @@ export function AssessmentEditorPage() {
         <button type="button" onClick={addSection} className="btn-secondary">
           + Thêm phần
         </button>
-        <button type="submit" disabled={saving} className="btn-primary">
+        <button type="submit" disabled={saving || importingTemplate} className="btn-primary">
           {saving ? 'Đang lưu...' : 'Lưu bản nháp'}
         </button>
       </div>
@@ -373,9 +461,15 @@ function QuestionEditor({
           <span className="label">Đáp án đúng</span>
           <select
             className="input mt-1"
-            value={String(question.answerKey)}
-            onChange={(event) => onChange({ ...question, answerKey: event.target.value === 'true' })}
+            value={question.answerKey === undefined ? '' : String(question.answerKey)}
+            onChange={(event) =>
+              onChange({
+                ...question,
+                answerKey: event.target.value === '' ? undefined : event.target.value === 'true',
+              })
+            }
           >
+            <option value="">-- Chọn đáp án --</option>
             <option value="true">Đúng</option>
             <option value="false">Sai</option>
           </select>

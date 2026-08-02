@@ -16,6 +16,11 @@ import {
   reviewAssessmentAnswer,
   updateAssessment,
 } from "../../services/assessment.service.js";
+import {
+  AssessmentTemplateImportError,
+  createUetMidtermAssessmentTemplate,
+  parseAssessmentTemplate,
+} from "../../services/assessment-template.service.js";
 
 const rubricCriterionSchema = z.object({
   id: z.string().max(100).optional(),
@@ -69,6 +74,13 @@ const reviewSchema = z.object({
   adjustmentReason: z.string().max(2000).optional(),
 });
 
+const importTemplateSchema = z.object({
+  filename: z.string().min(1).max(255).refine((value) => /\.xlsx?$/i.test(value), {
+    message: "Chỉ hỗ trợ file Excel .xlsx hoặc .xls.",
+  }),
+  fileBase64: z.string().min(1).max(6_000_000),
+});
+
 function sendResult(res: Response, result: unknown, successStatus = 200) {
   if (isAssessmentError(result)) {
     const status =
@@ -86,6 +98,50 @@ function sendResult(res: Response, result: unknown, successStatus = 200) {
 }
 
 const router = Router();
+
+router.get("/template", async (_req: Request, res: Response) => {
+  try {
+    const workbook = await createUetMidtermAssessmentTemplate();
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader(
+      "Content-Disposition",
+      'attachment; filename="uet-oop-midterm-2020-2021-assessment-template.xlsx"'
+    );
+    res.send(workbook);
+  } catch (error) {
+    console.error("[assessment] Failed to create assessment template", error);
+    res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Không thể tạo file template." } });
+  }
+});
+
+router.post("/import-template", validate(importTemplateSchema), (req: Request, res: Response) => {
+  try {
+    const encoded = req.body.fileBase64.includes(",")
+      ? req.body.fileBase64.slice(req.body.fileBase64.indexOf(",") + 1)
+      : req.body.fileBase64;
+    const buffer = Buffer.from(encoded, "base64");
+    if (buffer.length === 0 || buffer.length > 4_000_000) {
+      res.status(413).json({
+        error: { code: "FILE_TOO_LARGE", message: "File template phải nhỏ hơn 4 MB." },
+      });
+      return;
+    }
+    const result = parseAssessmentTemplate(buffer);
+    res.json({ data: result.draft, warnings: result.warnings });
+  } catch (error) {
+    if (error instanceof AssessmentTemplateImportError) {
+      res.status(400).json({
+        error: { code: "INVALID_TEMPLATE", message: error.message, details: error.details },
+      });
+      return;
+    }
+    console.error("[assessment] Failed to import assessment template", error);
+    res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Không thể import file template." } });
+  }
+});
 
 router.get("/", async (req: Request, res: Response) => {
   try {
