@@ -102,21 +102,32 @@ app.use('/api/sections/:id/leaderboard', authMiddleware(), requireRole('instruct
 // Shared Student Profile (instructors and students can access)
 app.use('/api/sections', authMiddleware(), requireRole('instructor', 'student'), sharedProfileRouter);
 
-// Start server
-if (process.env.NODE_ENV !== 'test') {
-  migrate(db, { migrationsFolder: './drizzle' })
-    .then(() => ensureDatabaseCompatibility(db))
-    .then(() => {
-      console.log('[server] Database migrations and compatibility checks applied successfully');
-      startAssessmentAiWorker();
-    })
-    .catch((err) => {
-      console.error('[server] Database migration failed:', err);
-    });
+async function startServer() {
+  try {
+    try {
+      await migrate(db, { migrationsFolder: './drizzle' });
+    } catch (error) {
+      // Older production databases predate Drizzle's journal. Compatibility bootstrap
+      // below remains authoritative for those installations.
+      console.warn('[server] Drizzle migrations could not be applied; using compatibility bootstrap.', error);
+    }
 
-  app.listen(PORT, () => {
-    console.log(`[server] Backend running on port ${PORT}`);
-  });
+    await ensureDatabaseCompatibility(db);
+    console.log('[server] Database migrations and compatibility checks applied successfully');
+    startAssessmentAiWorker();
+
+    app.listen(PORT, () => {
+      console.log(`[server] Backend running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('[server] Database initialization failed; server was not started.', error);
+    process.exitCode = 1;
+  }
+}
+
+// Start accepting requests only after all required tables are ready.
+if (process.env.NODE_ENV !== 'test') {
+  void startServer();
 }
 
 export default app;

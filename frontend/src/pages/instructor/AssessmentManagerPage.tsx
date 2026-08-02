@@ -118,11 +118,6 @@ export function AssessmentManagerPanel() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-3 text-sm text-slate-600">
-        Các đề có nhãn <span className="badge-blue mx-1">KT</span> hỗ trợ câu hỏi hỗn hợp,
-        chấm tự động và duyệt điểm do AI đề xuất.
-      </div>
-
       {items.length === 0 ? (
         <div className="card flex flex-col items-center p-12 text-center">
           <ExerciseIcon className="h-12 w-12 text-slate-300" />

@@ -90,7 +90,8 @@ const router = Router();
 router.get("/", async (req: Request, res: Response) => {
   try {
     sendResult(res, await listInstructorAssessments(req.user!.userId));
-  } catch {
+  } catch (error) {
+    console.error("[assessment] Failed to list instructor assessments", error);
     res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Không thể tải bài kiểm tra." } });
   }
 });

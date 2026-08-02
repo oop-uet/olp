@@ -184,7 +184,7 @@ export function ExerciseManagerPage() {
                 : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
             }`}
           >
-            Bài kiểm tra <span className="badge-blue ml-1">KT</span>
+            Bài kiểm tra
           </button>
           <button
             onClick={() => selectTab('library')}
