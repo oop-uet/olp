@@ -28,7 +28,7 @@ function GlobalErrorBoundary() {
         <div className="text-4xl">⚠️</div>
         <h2 className="text-lg font-bold text-slate-800">Đã xảy ra lỗi tải trang</h2>
         <p className="text-xs text-slate-500 leading-relaxed">
-          {error?.message || 'Có lỗi xảy ra trong quá trình xử lý.'}
+          {errorMessage || 'Có lỗi xảy ra trong quá trình xử lý.'}
         </p>
         <button onClick={() => window.location.reload()} className="btn-primary w-full py-2">
           Tải lại trang
@@ -146,6 +146,8 @@ export const router = createBrowserRouter(
         { path: 'exercises/:id', element: withSuspense(<InstructorExerciseDetailPage />) },
         { path: 'exercises/:id/edit', element: withSuspense(<ExerciseFormPage />) },
         { path: 'exercises/:id/testcases', element: withSuspense(<TestCaseEditorPage />) },
+        { path: 'exercises/assessments/new', element: withSuspense(<AssessmentEditorPage />) },
+        { path: 'exercises/assessments/:id/edit', element: withSuspense(<AssessmentEditorPage />) },
         { path: 'classes', element: withSuspense(<InstructorSectionsPage />) },
         { path: 'classes/:id', element: withSuspense(<InstructorCourseDetailPage />) },
         { path: 'classes/:id/students', element: withSuspense(<InstructorSectionDetailPage />) },
@@ -160,6 +162,7 @@ export const router = createBrowserRouter(
         { path: 'leaderboard', element: withSuspense(<LeaderboardPage />) },
         { path: 'plagiarism', element: withSuspense(<PlagiarismPage />) },
         { path: 'assessments', element: withSuspense(<AssessmentManagerPage />) },
+        // Legacy URLs remain available for existing bookmarks.
         { path: 'assessments/new', element: withSuspense(<AssessmentEditorPage />) },
         { path: 'assessments/:id/edit', element: withSuspense(<AssessmentEditorPage />) },
         { path: 'assessment-assignments/:assignmentId/submissions', element: withSuspense(<AssessmentSubmissionsPage />) },

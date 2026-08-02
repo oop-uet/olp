@@ -693,9 +693,6 @@ export function ExerciseWorkspacePage() {
               <span className={difficultyConfig[exercise.difficulty].className}>
                 {difficultyConfig[exercise.difficulty].label}
               </span>
-              {exercise.isAssessment && (
-                <span className="badge-yellow">Kiểm tra</span>
-              )}
             </div>
             <p className="mt-0.5 text-xs font-medium text-slate-500">
               {exercise.deadline

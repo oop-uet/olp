@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api, cachedGet } from '../../lib/api'
 import { PageLoader, ExerciseIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { ExerciseLibrary } from '../../components/instructor/ExerciseLibrary'
+import { AssessmentManagerPanel } from './AssessmentManagerPage'
 
 export interface Exercise {
   id: string
@@ -20,7 +21,7 @@ export interface Exercise {
   updated_at: string
 }
 
-type Tab = 'my-exercises' | 'library'
+type Tab = 'my-exercises' | 'assessments' | 'library'
 
 const DIFFICULTY_BADGE: Record<string, { className: string; label: string }> = {
   easy: { className: 'badge-green', label: 'Dễ' },
@@ -54,7 +55,7 @@ function CreatorBadge({ username }: { username?: string | null }) {
 export function ExerciseManagerPage() {
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<Tab>('my-exercises')
+  const [searchParams, setSearchParams] = useSearchParams()
   const [deletingId, setDeletingId] = useState<string | null>(null)
   
   const [search, setSearch] = useState('')
@@ -64,6 +65,14 @@ export function ExerciseManagerPage() {
   const [pageSize, setPageSize] = useState(10)
 
   const navigate = useNavigate()
+  const requestedTab = searchParams.get('tab')
+  const activeTab: Tab = requestedTab === 'assessments' || requestedTab === 'library'
+    ? requestedTab
+    : 'my-exercises'
+
+  function selectTab(tab: Tab) {
+    setSearchParams(tab === 'my-exercises' ? {} : { tab }, { replace: true })
+  }
 
   useEffect(() => {
     if (activeTab === 'my-exercises') {
@@ -142,20 +151,23 @@ export function ExerciseManagerPage() {
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold text-gray-800">Quản lý bài tập</h1>
-        {activeTab === 'my-exercises' && (
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={() => navigate('/instructor/exercises/assessments/new')} className="btn-secondary">
+            Tạo bài kiểm tra
+          </button>
           <button onClick={() => navigate('/instructor/exercises/new')} className="btn-primary">
             Tạo bài tập
           </button>
-        )}
+        </div>
       </div>
 
       {/* Tabs */}
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex gap-6" aria-label="Tabs">
           <button
-            onClick={() => setActiveTab('my-exercises')}
+            onClick={() => selectTab('my-exercises')}
             className={`border-b-2 px-1 py-3 text-sm font-medium transition-colors ${
               activeTab === 'my-exercises'
                 ? 'border-primary text-primary'
@@ -165,7 +177,17 @@ export function ExerciseManagerPage() {
             Bài tập của tôi
           </button>
           <button
-            onClick={() => setActiveTab('library')}
+            onClick={() => selectTab('assessments')}
+            className={`border-b-2 px-1 py-3 text-sm font-medium transition-colors ${
+              activeTab === 'assessments'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            }`}
+          >
+            Bài kiểm tra <span className="badge-blue ml-1">KT</span>
+          </button>
+          <button
+            onClick={() => selectTab('library')}
             className={`border-b-2 px-1 py-3 text-sm font-medium transition-colors ${
               activeTab === 'library'
                 ? 'border-primary text-primary'
@@ -368,6 +390,8 @@ export function ExerciseManagerPage() {
           )}
         </>
       )}
+
+      {activeTab === 'assessments' && <AssessmentManagerPanel />}
 
       {activeTab === 'library' && <ExerciseLibrary />}
     </div>

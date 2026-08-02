@@ -15,7 +15,6 @@ interface Exercise {
   sectionName: string
   deadline: string | null
   week: number | null
-  isAssessment: boolean
   bestScore: number | null
   attemptCount: number
   maxSubmissions: number
@@ -261,11 +260,6 @@ function ExerciseWeekCard({ title, exercises }: { title: string; exercises: Exer
                 <span className="truncate text-sm font-bold text-slate-700 group-hover:text-primary transition-colors">
                   {exercise.title}
                 </span>
-                {exercise.isAssessment && (
-                  <span className="badge-yellow text-[10px] font-extrabold normal-case">
-                    Kiểm tra
-                  </span>
-                )}
                 {isProjectExercise(exercise.title) && (
                   <span className="badge-blue text-[10px] font-extrabold normal-case">
                     BTL

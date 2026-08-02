@@ -37,7 +37,6 @@ const menusByRole: Record<UserRole, MenuItem[]> = {
   ],
   instructor: [
     { label: 'Bài tập', path: '/instructor/exercises', icon: ExerciseIcon },
-    { label: 'Bài kiểm tra', path: '/instructor/assessments', icon: SubmissionIcon },
     { label: 'Bài Nộp', path: '/instructor/submissions', icon: SubmissionIcon },
     { label: 'Xếp Hạng', path: '/instructor/leaderboard', icon: LeaderboardIcon },
     { label: 'Thống Kê', path: '/instructor/statistic', icon: ProgressIcon },

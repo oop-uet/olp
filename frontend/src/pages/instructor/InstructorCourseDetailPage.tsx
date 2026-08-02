@@ -27,7 +27,6 @@ interface SectionExercise {
   title: string
   difficulty: 'easy' | 'medium' | 'hard'
   deadline: string | null
-  isAssessment: boolean
   isVisible: boolean
   allowSubmission: boolean
   maxSubmissions: number | null
@@ -53,7 +52,6 @@ type AssignmentSettingsPatch = {
   isVisible?: boolean
   allowSubmission?: boolean
   maxSubmissions?: number | null
-  isAssessment?: boolean
 }
 
 const TOTAL_WEEKS = 10
@@ -138,7 +136,6 @@ export function InstructorCourseDetailPage() {
                 ...(patch.isVisible !== undefined ? { isVisible: patch.isVisible } : {}),
                 ...(patch.allowSubmission !== undefined ? { allowSubmission: patch.allowSubmission } : {}),
                 ...(patch.maxSubmissions !== undefined ? { maxSubmissions: patch.maxSubmissions } : {}),
-                ...(patch.isAssessment !== undefined ? { isAssessment: patch.isAssessment } : {}),
               }
             : ex
         ),
@@ -167,7 +164,6 @@ export function InstructorCourseDetailPage() {
           ...(pendingPatch.isVisible !== undefined ? { is_visible: pendingPatch.isVisible } : {}),
           ...(pendingPatch.allowSubmission !== undefined ? { allow_submission: pendingPatch.allowSubmission } : {}),
           ...(pendingPatch.maxSubmissions !== undefined ? { max_submissions: pendingPatch.maxSubmissions } : {}),
-          ...(pendingPatch.isAssessment !== undefined ? { is_assessment: pendingPatch.isAssessment } : {}),
         })
       } catch {
         if (settingsSaveVersions.current[exerciseId] === saveVersion) {
@@ -394,9 +390,6 @@ function WeekPanel({
                   >
                     {ex.title}
                   </Link>
-                  {ex.isAssessment && (
-                    <span className="badge-yellow text-[9px] px-1 py-0.5 font-bold uppercase">Kiểm tra</span>
-                  )}
                   {isProjectExercise(ex.title) && (
                     <Link
                       to={`/instructor/exercises/${ex.exerciseId}?section_id=${sectionId}`}
@@ -408,20 +401,6 @@ function WeekPanel({
                 </div>
 
                 <div className="flex items-center gap-3 text-xs shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => onUpdateSettings(ex.exerciseId, { isAssessment: !ex.isAssessment })}
-                    className="rounded px-2 py-1 text-[10px] font-black uppercase shadow-sm transition-colors"
-                    style={{
-                      height: '24px',
-                      backgroundColor: ex.isAssessment ? '#f59e0b' : '#e5e7eb',
-                      color: ex.isAssessment ? '#ffffff' : '#64748b',
-                    }}
-                    title={ex.isAssessment ? 'Bỏ đánh dấu bài kiểm tra' : 'Đánh dấu là bài kiểm tra'}
-                  >
-                    KT
-                  </button>
-
                   {/* Max Submissions Selector Dropdown */}
                   <div className="flex items-center">
                     <select

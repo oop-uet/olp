@@ -41,7 +41,6 @@ interface SectionExercise {
   title: string
   difficulty: string
   deadline: string | null
-  isAssessment: boolean
   assignedAt: string
 }
 
@@ -93,7 +92,6 @@ export function SectionDetailPage() {
   const [availableExercises, setAvailableExercises] = useState<AvailableExercise[]>([])
   const [assignExerciseId, setAssignExerciseId] = useState('')
   const [assignDeadline, setAssignDeadline] = useState('')
-  const [assignIsAssessment, setAssignIsAssessment] = useState(false)
   const [assignSubmitting, setAssignSubmitting] = useState(false)
 
   // Student list sorting, search, and pagination
@@ -260,7 +258,6 @@ export function SectionDetailPage() {
     setShowAssignForm(true)
     setAssignExerciseId('')
     setAssignDeadline('')
-    setAssignIsAssessment(false)
     try {
       const response = await api.get('/api/admin/exercises')
       setAvailableExercises(response.data)
@@ -280,7 +277,6 @@ export function SectionDetailPage() {
       await api.post(`/api/admin/sections/${id}/assign-exercise`, {
         exercise_id: assignExerciseId,
         ...(assignDeadline ? { deadline: new Date(assignDeadline).toISOString() } : {}),
-        is_assessment: assignIsAssessment,
       })
       toast.success('Đã gán bài tập.')
       setShowAssignForm(false)
@@ -582,15 +578,6 @@ export function SectionDetailPage() {
                 className="input"
               />
             </div>
-            <label className="flex items-center gap-2 text-sm text-gray-700">
-              <input
-                type="checkbox"
-                checked={assignIsAssessment}
-                onChange={(e) => setAssignIsAssessment(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-              />
-              Bài đánh giá (chống gian lận)
-            </label>
             <div className="flex justify-end gap-3">
               <button
                 type="button"
@@ -656,9 +643,6 @@ export function SectionDetailPage() {
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-slate-800">{exercise.title}</span>
-                        {exercise.isAssessment && (
-                          <span className="badge-blue font-bold text-[10px]">Đánh giá</span>
-                        )}
                       </div>
                     </td>
                     <td className="px-4 py-2.5">

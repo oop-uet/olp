@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { readApiError } from '../../lib/apiError'
 import { PageLoader, ExerciseIcon } from '../../components/ui'
@@ -43,7 +43,7 @@ function formatDate(value: string) {
   return new Date(value).toLocaleString('vi-VN')
 }
 
-export function AssessmentManagerPage() {
+export function AssessmentManagerPanel() {
   const navigate = useNavigate()
   const [items, setItems] = useState<InstructorAssessmentListItem[]>([])
   const [sections, setSections] = useState<SectionOption[]>([])
@@ -118,23 +118,16 @@ export function AssessmentManagerPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Bài kiểm tra</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Tạo đề hỗn hợp, chấm tự động và duyệt điểm do AI đề xuất.
-          </p>
-        </div>
-        <button onClick={() => navigate('/instructor/assessments/new')} className="btn-primary">
-          Tạo bài kiểm tra
-        </button>
+      <div className="rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-3 text-sm text-slate-600">
+        Các đề có nhãn <span className="badge-blue mx-1">KT</span> hỗ trợ câu hỏi hỗn hợp,
+        chấm tự động và duyệt điểm do AI đề xuất.
       </div>
 
       {items.length === 0 ? (
         <div className="card flex flex-col items-center p-12 text-center">
           <ExerciseIcon className="h-12 w-12 text-slate-300" />
           <p className="mt-3 font-semibold text-slate-600">Chưa có bài kiểm tra nào.</p>
-          <button onClick={() => navigate('/instructor/assessments/new')} className="btn-primary mt-4">
+          <button onClick={() => navigate('/instructor/exercises/assessments/new')} className="btn-primary mt-4">
             Tạo đề đầu tiên
           </button>
         </div>
@@ -155,7 +148,10 @@ export function AssessmentManagerPage() {
               {items.map((item) => (
                 <tr key={item.id} className="align-top hover:bg-slate-50/70">
                   <td className="table-td">
-                    <p className="font-bold text-slate-900">{item.title}</p>
+                    <div className="flex items-center gap-2">
+                      <span className="badge-blue">KT</span>
+                      <p className="font-bold text-slate-900">{item.title}</p>
+                    </div>
                     <p className="mt-1 text-[11px] text-slate-400">
                       Cập nhật {formatDate(item.updatedAt)}
                     </p>
@@ -190,7 +186,7 @@ export function AssessmentManagerPage() {
                     <div className="flex justify-end gap-2">
                       {item.status === 'draft' && (
                         <>
-                          <Link to={`/instructor/assessments/${item.id}/edit`} className="btn-secondary btn-sm">
+                          <Link to={`/instructor/exercises/assessments/${item.id}/edit`} className="btn-secondary btn-sm">
                             Sửa đề
                           </Link>
                           <button
@@ -303,4 +299,9 @@ export function AssessmentManagerPage() {
       )}
     </div>
   )
+}
+
+/** Keep old bookmarks working while management now lives inside the Exercise screen. */
+export function AssessmentManagerPage() {
+  return <Navigate to="/instructor/exercises?tab=assessments" replace />
 }

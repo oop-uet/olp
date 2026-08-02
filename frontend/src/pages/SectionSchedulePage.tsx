@@ -24,7 +24,6 @@ interface ScheduleExercise {
   oopTags: string[]
   creatorUsername: string | null
   isLibrary: boolean
-  isAssessment: boolean
   week: number | null
   deadline: string | null
 }
@@ -149,7 +148,6 @@ function toScheduleExercise(
     oopTags: exercise.oopTags,
     creatorUsername: exercise.creatorUsername,
     isLibrary: exercise.isLibrary,
-    isAssessment: false,
     week,
     deadline,
   }
@@ -580,7 +578,6 @@ export function SectionSchedulePage() {
                       <span className="truncate font-medium text-gray-800">{ex.title}</span>
                       <DifficultyBadge difficulty={ex.difficulty} />
                       <CreatorBadge username={ex.creatorUsername} />
-                      {ex.isAssessment && <span className="badge-blue">Đánh giá</span>}
                     </div>
                     <button
                       onClick={() => unassignExercise(ex.exerciseId)}
@@ -674,7 +671,6 @@ export function SectionSchedulePage() {
                           <span className="truncate font-bold text-slate-700 text-xs">{ex.title}</span>
                           <DifficultyBadge difficulty={ex.difficulty} />
                           <CreatorBadge username={ex.creatorUsername} />
-                          {ex.isAssessment && <span className="badge-blue text-[9px] font-extrabold normal-case">Đánh giá</span>}
                         </div>
                         <button
                           onClick={() => unassignExercise(ex.exerciseId)}

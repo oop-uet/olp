@@ -70,7 +70,10 @@ export function StudentAssessmentListPage() {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-wide text-secondary">{item.sectionName}</p>
-                    <h2 className="mt-1 text-lg font-bold text-slate-900 group-hover:text-primary">{item.title}</h2>
+                    <h2 className="mt-1 flex items-center gap-2 text-lg font-bold text-slate-900 group-hover:text-primary">
+                      <span className="badge-blue">KT</span>
+                      <span>{item.title}</span>
+                    </h2>
                   </div>
                   <span className={availability.className}>{availability.label}</span>
                 </div>

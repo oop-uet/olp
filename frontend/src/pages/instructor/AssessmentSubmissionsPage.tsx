@@ -89,7 +89,7 @@ export function AssessmentSubmissionsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <Link to="/instructor/assessments" className="text-sm font-semibold text-primary hover:underline">
+          <Link to="/instructor/exercises?tab=assessments" className="text-sm font-semibold text-primary hover:underline">
             ← Bài kiểm tra
           </Link>
           <h1 className="mt-2 text-2xl font-bold text-slate-900">{data.assessment.title}</h1>

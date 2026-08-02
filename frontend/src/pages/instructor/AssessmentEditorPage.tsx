@@ -160,7 +160,7 @@ export function AssessmentEditorPage() {
         ? await api.put(`/api/instructor/assessments/${id}`, draft)
         : await api.post('/api/instructor/assessments', draft)
       toast.success('Đã lưu bản nháp bài kiểm tra.')
-      if (!id) navigate(`/instructor/assessments/${response.data.data.id}/edit`, { replace: true })
+      if (!id) navigate(`/instructor/exercises/assessments/${response.data.data.id}/edit`, { replace: true })
     } catch (error: unknown) {
       const apiError = readApiError(error)
       toast.error(Array.isArray(apiError.details) ? apiError.details.join(' ') : apiError.message ?? 'Không thể lưu đề.')
@@ -175,7 +175,7 @@ export function AssessmentEditorPage() {
     <form onSubmit={save} className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <Link to="/instructor/assessments" className="text-sm font-semibold text-primary hover:underline">
+          <Link to="/instructor/exercises?tab=assessments" className="text-sm font-semibold text-primary hover:underline">
             ← Quay lại danh sách
           </Link>
           <h1 className="mt-2 text-2xl font-bold text-slate-900">{id ? 'Sửa bài kiểm tra' : 'Tạo bài kiểm tra'}</h1>
