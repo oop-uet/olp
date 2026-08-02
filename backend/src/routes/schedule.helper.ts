@@ -5,6 +5,7 @@ import {
   assignAssessmentToWeek,
   removeAssignment,
   removeAssessmentAssignment,
+  reorderScheduleWeek,
   setWeekDeadline,
   toggleExerciseVisibility,
   updateAssignmentSettings,
@@ -133,6 +134,27 @@ export function registerScheduleRoutes(router: Router): void {
       res.status(200).json(result);
     } catch {
       res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Không thể gỡ bài kiểm tra khỏi tuần." } });
+    }
+  });
+
+  router.post("/:id/schedule/reorder", async (req: Request, res: Response) => {
+    try {
+      const { userId, role } = req.user!;
+      const { week, items } = req.body;
+      const result = await reorderScheduleWeek(
+        req.params.id,
+        Number(week),
+        Array.isArray(items) ? items : [],
+        userId,
+        role
+      );
+      if (isScheduleError(result)) {
+        res.status(statusFor(result.error.code)).json({ error: result.error });
+        return;
+      }
+      res.status(200).json(result);
+    } catch {
+      res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Không thể sắp xếp nội dung trong tuần." } });
     }
   });
 

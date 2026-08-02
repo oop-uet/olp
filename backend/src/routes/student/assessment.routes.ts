@@ -8,7 +8,9 @@ import {
   isAssessmentError,
   listStudentAssessments,
   processPendingAssessmentAiRuns,
+  recordAssessmentIntegrityEvent,
   saveAssessmentAnswers,
+  setAssessmentQuestionFlag,
   startAssessmentSession,
   submitAssessmentSession,
 } from "../../services/assessment.service.js";
@@ -24,6 +26,24 @@ const saveAnswersSchema = z.object({
     )
     .min(1)
     .max(200),
+});
+
+const questionFlagSchema = z.object({
+  questionId: z.string().min(1),
+  flagged: z.boolean(),
+});
+
+const integrityEventSchema = z.object({
+  eventType: z.enum([
+    "fullscreen_exit",
+    "visibility_hidden",
+    "window_blur",
+    "devtools_open",
+    "copy_attempt",
+    "paste_attempt",
+    "context_menu",
+  ]),
+  metadata: z.record(z.unknown()).optional().default({}),
 });
 
 function sendResult(res: Response, result: unknown, successStatus = 200) {
@@ -92,6 +112,47 @@ router.put(
       );
     } catch {
       res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Không thể tự lưu câu trả lời." } });
+    }
+  }
+);
+
+router.put(
+  "/sessions/:sessionId/question-flag",
+  validate(questionFlagSchema),
+  async (req: Request, res: Response) => {
+    try {
+      sendResult(
+        res,
+        await setAssessmentQuestionFlag(
+          req.params.sessionId,
+          req.user!.userId,
+          req.body.questionId,
+          req.body.flagged
+        )
+      );
+    } catch {
+      res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Không thể lưu cờ câu hỏi." } });
+    }
+  }
+);
+
+router.post(
+  "/sessions/:sessionId/integrity-events",
+  validate(integrityEventSchema),
+  async (req: Request, res: Response) => {
+    try {
+      const result = await recordAssessmentIntegrityEvent(
+        req.params.sessionId,
+        req.user!.userId,
+        req.body.eventType,
+        req.body.metadata
+      );
+      sendResult(res, result, 201);
+      if (!isAssessmentError(result) && result.data.autoSubmitted) {
+        void processPendingAssessmentAiRuns(3).catch(() => undefined);
+      }
+    } catch {
+      res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Không thể ghi nhận sự kiện giám sát." } });
     }
   }
 );

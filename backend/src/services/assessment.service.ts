@@ -13,6 +13,7 @@ import {
   assessmentSessions,
   assessmentAnswers,
   assessmentAiGradingRuns,
+  assessmentIntegrityEvents,
   assessmentAuditLogs,
   classSections,
   sectionEnrollments,
@@ -605,7 +606,7 @@ export async function assignAssessment(
       closesAt: closesAt.toISOString(),
       durationMinutes,
       isVisible: 1,
-      requireFullscreen: input.requireFullscreen ? 1 : 0,
+      requireFullscreen: input.requireFullscreen === false ? 0 : 1,
       warningThreshold: input.warningThreshold ?? 3,
       showPredictedScore: input.showPredictedScore === false ? 0 : 1,
       assignedBy: instructorId,
@@ -903,9 +904,18 @@ export async function getStudentAssessmentSession(
     .select()
     .from(assessmentAnswers)
     .where(eq(assessmentAnswers.sessionId, sessionId));
+  const integrityRows = await database
+    .select({ id: assessmentIntegrityEvents.id })
+    .from(assessmentIntegrityEvents)
+    .where(eq(assessmentIntegrityEvents.sessionId, sessionId));
+  const allowedQuestionIds = new Set(
+    sections.flatMap((section) => section.questions.map((question) => question.id))
+  );
+  const flaggedQuestionIds = parseJson<string[]>(context.session.flaggedQuestionIdsJson, [])
+    .filter((questionId) => allowedQuestionIds.has(questionId));
   return {
     data: {
-      session: context.session,
+      session: { ...context.session, flaggedQuestionIds },
       assessment: {
         id: context.assessment.id,
         title: context.assessment.title,
@@ -920,9 +930,107 @@ export async function getStudentAssessmentSession(
         clientRevision: answer.clientRevision,
         savedAt: answer.savedAt,
       })),
+      integrity: {
+        warningCount: integrityRows.length,
+        warningThreshold: context.assignment.warningThreshold,
+        requireFullscreen: context.assignment.requireFullscreen === 1,
+      },
     },
     serverNow: new Date().toISOString(),
   };
+}
+
+export type AssessmentIntegrityEventType =
+  | "fullscreen_exit"
+  | "visibility_hidden"
+  | "window_blur"
+  | "devtools_open"
+  | "copy_attempt"
+  | "paste_attempt"
+  | "context_menu";
+
+const assessmentIntegrityEventTypes = new Set<AssessmentIntegrityEventType>([
+  "fullscreen_exit",
+  "visibility_hidden",
+  "window_blur",
+  "devtools_open",
+  "copy_attempt",
+  "paste_attempt",
+  "context_menu",
+]);
+
+export async function setAssessmentQuestionFlag(
+  sessionId: string,
+  studentId: string,
+  questionId: string,
+  flagged: boolean,
+  database: Database = defaultDb
+) {
+  const context = await loadSessionContext(sessionId, database);
+  if (!context || context.session.studentId !== studentId) {
+    return serviceError("NOT_FOUND", "Không tìm thấy phiên làm bài.");
+  }
+  if (context.session.status !== "in_progress") {
+    return serviceError("SESSION_CLOSED", "Phiên làm bài đã được chốt.");
+  }
+  const sections = await loadSessionSectionsWithOrder(context, database);
+  const allowedQuestionIds = new Set(
+    sections.flatMap((section) => section.questions.map((question) => question.id))
+  );
+  if (!allowedQuestionIds.has(questionId)) {
+    return serviceError("VALIDATION_ERROR", "Câu hỏi không thuộc bài kiểm tra này.");
+  }
+  const flags = new Set(parseJson<string[]>(context.session.flaggedQuestionIdsJson, []));
+  if (flagged) flags.add(questionId);
+  else flags.delete(questionId);
+  const flaggedQuestionIds = [...flags].filter((id) => allowedQuestionIds.has(id));
+  await database
+    .update(assessmentSessions)
+    .set({ flaggedQuestionIdsJson: JSON.stringify(flaggedQuestionIds) })
+    .where(eq(assessmentSessions.id, sessionId));
+  return { data: { flaggedQuestionIds } };
+}
+
+export async function recordAssessmentIntegrityEvent(
+  sessionId: string,
+  studentId: string,
+  eventType: AssessmentIntegrityEventType,
+  metadata: Record<string, unknown> = {},
+  database: Database = defaultDb
+) {
+  const context = await loadSessionContext(sessionId, database);
+  if (!context || context.session.studentId !== studentId) {
+    return serviceError("NOT_FOUND", "Không tìm thấy phiên làm bài.");
+  }
+  if (context.session.status !== "in_progress") {
+    return serviceError("SESSION_CLOSED", "Phiên làm bài đã được chốt.");
+  }
+  if (!assessmentIntegrityEventTypes.has(eventType)) {
+    return serviceError("VALIDATION_ERROR", "Loại sự kiện giám sát không hợp lệ.");
+  }
+  const metadataJson = JSON.stringify(metadata ?? {});
+  if (metadataJson.length > 2_000) {
+    return serviceError("VALIDATION_ERROR", "Dữ liệu sự kiện giám sát quá lớn.");
+  }
+  await database.insert(assessmentIntegrityEvents).values({
+    id: crypto.randomUUID(),
+    sessionId,
+    eventType,
+    occurredAt: new Date().toISOString(),
+    metadataJson,
+  });
+  const events = await database
+    .select({ id: assessmentIntegrityEvents.id })
+    .from(assessmentIntegrityEvents)
+    .where(eq(assessmentIntegrityEvents.sessionId, sessionId));
+  const warningCount = events.length;
+  const warningThreshold = context.assignment.warningThreshold;
+  let autoSubmitted = false;
+  if (warningCount >= warningThreshold) {
+    const submitted = await submitAssessmentSession(sessionId, studentId, "integrity", database);
+    autoSubmitted = !isAssessmentError(submitted);
+  }
+  return { data: { warningCount, warningThreshold, autoSubmitted } };
 }
 
 export async function saveAssessmentAnswers(
@@ -1509,11 +1617,28 @@ export async function listAssessmentSubmissions(
     .innerJoin(users, eq(assessmentSessions.studentId, users.id))
     .where(eq(assessmentSessions.assignmentId, assignmentId))
     .orderBy(asc(users.username));
+  const eventRows = rows.length
+    ? await database
+        .select({ sessionId: assessmentIntegrityEvents.sessionId })
+        .from(assessmentIntegrityEvents)
+        .where(inArray(assessmentIntegrityEvents.sessionId, rows.map((row) => row.session.id)))
+    : [];
+  const integrityCountBySession = new Map<string, number>();
+  eventRows.forEach((event) => {
+    integrityCountBySession.set(
+      event.sessionId,
+      (integrityCountBySession.get(event.sessionId) ?? 0) + 1
+    );
+  });
   return {
     data: {
       assignment,
       assessment,
-      submissions: rows.map((row) => ({ ...row.session, student: row.student })),
+      submissions: rows.map((row) => ({
+        ...row.session,
+        student: row.student,
+        integrityEventCount: integrityCountBySession.get(row.session.id) ?? 0,
+      })),
     },
   };
 }
@@ -1537,6 +1662,11 @@ export async function getAssessmentReview(
     .select()
     .from(assessmentAnswers)
     .where(eq(assessmentAnswers.sessionId, sessionId));
+  const integrityEvents = await database
+    .select()
+    .from(assessmentIntegrityEvents)
+    .where(eq(assessmentIntegrityEvents.sessionId, sessionId))
+    .orderBy(asc(assessmentIntegrityEvents.occurredAt));
   const answerMap = new Map(answerRows.map((answer) => [answer.questionId, answer]));
   const reviewAnswers = [];
   for (const section of sections) {
@@ -1581,6 +1711,12 @@ export async function getAssessmentReview(
       assessment: { ...context.assessment, sections },
       student,
       answers: reviewAnswers,
+      integrityEvents: integrityEvents.map((event) => ({
+        id: event.id,
+        eventType: event.eventType,
+        occurredAt: event.occurredAt,
+        metadata: parseJson(event.metadataJson, {}),
+      })),
     },
   };
 }

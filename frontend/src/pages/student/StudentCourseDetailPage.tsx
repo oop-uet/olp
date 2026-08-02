@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { cachedGet } from '../../lib/api'
+import { api, cachedGet } from '../../lib/api'
 import { PageLoader, ExerciseIcon, LeaderboardIcon, CalendarIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { useAuthStore } from '../../stores/auth.store'
@@ -109,8 +109,8 @@ export function StudentCourseDetailPage() {
     try {
       const [sectionsRes, exercisesRes, assessmentsRes] = await Promise.all([
         cachedGet('/api/students/sections'),
-        cachedGet('/api/students/exercises'),
-        cachedGet('/api/students/assessments'),
+        api.get('/api/students/exercises'),
+        api.get('/api/students/assessments'),
       ])
 
       const sections: SectionInfo[] = sectionsRes.data ?? []
@@ -350,23 +350,35 @@ function ExerciseWeekCard({
         ))}
         {assessments.map((assessment) => {
           const availability = assessmentAvailability(assessment)
+          const isCompleted = Boolean(
+            assessment.session && assessment.session.status !== 'in_progress'
+          )
           return (
             <Link
               key={assessment.id}
               to={`/student/assessments/${assessment.id}`}
-              className="group flex items-center justify-between gap-4 border-l-4 border-cyan-400 bg-cyan-50/20 px-5 py-4 transition hover:bg-cyan-50/60"
+              className="group flex items-center justify-between gap-4 border-l-4 border-cyan-500 bg-cyan-50/20 px-5 py-4 transition hover:bg-cyan-50/60"
             >
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 space-y-1">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
-                  <span className="badge-blue text-[10px] font-extrabold">KT</span>
-                  <span className="truncate text-sm font-bold text-slate-700 transition-colors group-hover:text-primary">
+                  {isCompleted ? (
+                    <span className="text-emerald-500 text-sm font-bold" title="Đã nộp bài">✓</span>
+                  ) : (
+                    <span className="text-slate-300 text-sm font-bold">•</span>
+                  )}
+                  <span className="truncate text-sm font-bold text-slate-800 transition-colors group-hover:text-primary">
                     {assessment.title}
                   </span>
+                  <span className="inline-flex items-center rounded-md bg-cyan-500 px-2 py-0.5 text-[10px] font-black text-white shadow-2xs">
+                    KT
+                  </span>
                 </div>
-                <p className="mt-1 pl-10 text-xs font-semibold text-slate-400">
-                  {assessment.durationMinutes} phút · {assessment.totalPoints} điểm · Đóng lúc{' '}
-                  {formatDeadline(assessment.closesAt)}
-                </p>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-5 text-xs font-semibold text-slate-400">
+                  <span>
+                    {assessment.durationMinutes} phút · {assessment.totalPoints} điểm · Đóng lúc{' '}
+                    {formatDeadline(assessment.closesAt)}
+                  </span>
+                </div>
               </div>
               <span className={availability.className}>{availability.label}</span>
             </Link>

@@ -14,9 +14,11 @@ import {
   getStudentAssessmentSession,
   isAssessmentError,
   processPendingAssessmentAiRuns,
+  recordAssessmentIntegrityEvent,
   reviewAssessmentAnswer,
   retryAssessmentAiGrade,
   saveAssessmentAnswers,
+  setAssessmentQuestionFlag,
   startAssessmentSession,
   submitAssessmentSession,
   type AssessmentDraftInput,
@@ -293,6 +295,59 @@ describe("Assessment service", () => {
 
     const secondView = await getStudentAssessmentSession(sessionId, studentId, db);
     expect((secondView as any).data.assessment.sections[0].questions.map((question: any) => question.id)).toEqual(firstIds);
+  });
+
+  it("persists flagged questions and auto-submits after the integrity warning threshold", async () => {
+    const db = getDb();
+    const { instructorId, studentId, sectionId } = seedUsersAndSection();
+    const created = await createAssessment(validDraft(), instructorId, db);
+    const assignment = await assignAssessment(
+      (created as any).data.id,
+      {
+        sectionId,
+        opensAt: new Date(Date.now() - 60_000).toISOString(),
+        closesAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+        warningThreshold: 2,
+      },
+      instructorId,
+      db
+    );
+    const started = await startAssessmentSession((assignment as any).data.id, studentId, db);
+    const sessionId = (started as any).data.id;
+    const firstView = await getStudentAssessmentSession(sessionId, studentId, db);
+    const questionId = (firstView as any).data.assessment.sections[0].questions[0].id;
+
+    const flagged = await setAssessmentQuestionFlag(sessionId, studentId, questionId, true, db);
+    expect((flagged as any).data.flaggedQuestionIds).toEqual([questionId]);
+    const reloaded = await getStudentAssessmentSession(sessionId, studentId, db);
+    expect((reloaded as any).data.session.flaggedQuestionIds).toEqual([questionId]);
+    expect((reloaded as any).data.integrity).toMatchObject({
+      warningCount: 0,
+      warningThreshold: 2,
+      requireFullscreen: true,
+    });
+
+    const firstEvent = await recordAssessmentIntegrityEvent(
+      sessionId,
+      studentId,
+      "copy_attempt",
+      { clientTimestamp: new Date().toISOString() },
+      db
+    );
+    expect((firstEvent as any).data).toMatchObject({ warningCount: 1, autoSubmitted: false });
+    const thresholdEvent = await recordAssessmentIntegrityEvent(
+      sessionId,
+      studentId,
+      "visibility_hidden",
+      {},
+      db
+    );
+    expect((thresholdEvent as any).data).toMatchObject({ warningCount: 2, autoSubmitted: true });
+    const storedSession = await db.query.assessmentSessions.findFirst({
+      where: (sessions: any, { eq }: any) => eq(sessions.id, sessionId),
+    });
+    expect(storedSession.status).not.toBe("in_progress");
+    expect(storedSession.submitReason).toBe("integrity");
   });
 
   it("creates an immediately usable assessment and allows its owner to delete it", async () => {

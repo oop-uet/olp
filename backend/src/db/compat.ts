@@ -183,10 +183,11 @@ async function ensureAssessmentTablesReady(database: Database) {
       closes_at TEXT NOT NULL,
       duration_minutes INTEGER NOT NULL,
       is_visible INTEGER NOT NULL DEFAULT 1,
-      require_fullscreen INTEGER NOT NULL DEFAULT 0,
+      require_fullscreen INTEGER NOT NULL DEFAULT 1,
       warning_threshold INTEGER NOT NULL DEFAULT 3,
       show_predicted_score INTEGER NOT NULL DEFAULT 1,
       week INTEGER,
+      sort_order INTEGER NOT NULL DEFAULT 0,
       assigned_by TEXT NOT NULL REFERENCES users(id),
       assigned_at TEXT NOT NULL
     )`,
@@ -200,6 +201,7 @@ async function ensureAssessmentTablesReady(database: Database) {
       started_at TEXT NOT NULL,
       expires_at TEXT NOT NULL,
       question_order_json TEXT,
+      flagged_question_ids_json TEXT,
       submitted_at TEXT,
       submit_reason TEXT,
       auto_score REAL NOT NULL DEFAULT 0,
@@ -285,8 +287,21 @@ async function ensureAssessmentTablesReady(database: Database) {
   );
   await addColumnIfMissing(
     database,
+    "ALTER TABLE assessment_sessions ADD COLUMN flagged_question_ids_json TEXT"
+  );
+  await addColumnIfMissing(
+    database,
     "ALTER TABLE assessment_assignments ADD COLUMN week INTEGER"
   );
+  await addColumnIfMissing(
+    database,
+    "ALTER TABLE exercise_assignments ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0"
+  );
+  await addColumnIfMissing(
+    database,
+    "ALTER TABLE assessment_assignments ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0"
+  );
+  await executeRaw(database, "UPDATE assessment_assignments SET require_fullscreen = 1");
   await executeRaw(
     database,
     `UPDATE assessments

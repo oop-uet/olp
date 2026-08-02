@@ -69,7 +69,7 @@ const assignSchema = z.object({
   opensAt: z.string().datetime(),
   closesAt: z.string().datetime(),
   durationMinutes: z.number().int().min(1).max(600).optional(),
-  requireFullscreen: z.boolean().optional().default(false),
+  requireFullscreen: z.boolean().optional().default(true),
   warningThreshold: z.number().int().min(1).max(20).optional().default(3),
   showPredictedScore: z.boolean().optional().default(true),
 });

@@ -116,6 +116,7 @@ export const exerciseAssignments = sqliteTable(
     allowSubmission: integer("allow_submission").notNull().default(1),
     maxSubmissions: integer("max_submissions"),
     week: integer("week"),
+    sortOrder: integer("sort_order").notNull().default(0),
     assignedAt: text("assigned_at").notNull(),
   },
   (table) => ({
@@ -391,10 +392,11 @@ export const assessmentAssignments = sqliteTable(
     closesAt: text("closes_at").notNull(),
     durationMinutes: integer("duration_minutes").notNull(),
     isVisible: integer("is_visible").notNull().default(1),
-    requireFullscreen: integer("require_fullscreen").notNull().default(0),
+    requireFullscreen: integer("require_fullscreen").notNull().default(1),
     warningThreshold: integer("warning_threshold").notNull().default(3),
     showPredictedScore: integer("show_predicted_score").notNull().default(1),
     week: integer("week"),
+    sortOrder: integer("sort_order").notNull().default(0),
     assignedBy: text("assigned_by")
       .notNull()
       .references(() => users.id),
@@ -434,6 +436,7 @@ export const assessmentSessions = sqliteTable(
     startedAt: text("started_at").notNull(),
     expiresAt: text("expires_at").notNull(),
     questionOrderJson: text("question_order_json"),
+    flaggedQuestionIdsJson: text("flagged_question_ids_json"),
     submittedAt: text("submitted_at"),
     submitReason: text("submit_reason"),
     autoScore: real("auto_score").notNull().default(0),

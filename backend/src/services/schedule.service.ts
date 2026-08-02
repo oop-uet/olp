@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { eq, and } from "drizzle-orm";
+import { eq, and, max } from "drizzle-orm";
 import { db as defaultDb } from "../db/index.js";
 import {
   classSections,
@@ -119,6 +119,7 @@ export interface ScheduleExercise {
   maxSubmissions: number | null;
   week: number | null;
   deadline: string | null;
+  sortOrder: number;
 }
 
 export interface ScheduleWeek {
@@ -159,6 +160,7 @@ export interface ScheduleAssessment {
   opensAt: string;
   closesAt: string;
   isVisible: boolean;
+  sortOrder: number;
 }
 
 export interface SchedulePoolAssessment {
@@ -196,6 +198,7 @@ export async function getSectionSchedule(
       allowSubmission: exerciseAssignments.allowSubmission,
       maxSubmissions: exerciseAssignments.maxSubmissions,
       week: exerciseAssignments.week,
+      sortOrder: exerciseAssignments.sortOrder,
       title: exercises.title,
       difficulty: exercises.difficulty,
       oopTags: exercises.oopTags,
@@ -225,6 +228,7 @@ export async function getSectionSchedule(
       opensAt: assessmentAssignments.opensAt,
       closesAt: assessmentAssignments.closesAt,
       isVisible: assessmentAssignments.isVisible,
+      sortOrder: assessmentAssignments.sortOrder,
     })
     .from(assessmentAssignments)
     .innerJoin(assessments, eq(assessmentAssignments.assessmentId, assessments.id))
@@ -243,6 +247,7 @@ export async function getSectionSchedule(
     opensAt: a.opensAt,
     closesAt: a.closesAt,
     isVisible: Boolean(a.isVisible),
+    sortOrder: Number(a.sortOrder) || 0,
   });
   const toScheduleExercise = (a: any): ScheduleExercise => ({
     assignmentId: a.assignmentId,
@@ -258,6 +263,7 @@ export async function getSectionSchedule(
     maxSubmissions: a.maxSubmissions ?? null,
     week: a.week ?? null,
     deadline: a.deadline ?? null,
+    sortOrder: Number(a.sortOrder) || 0,
   });
 
   const assignedExerciseIds = new Set<string>(
@@ -279,9 +285,11 @@ export async function getSectionSchedule(
       deadline: resolveDefaultDeadline(weekRows as any[], i),
       exercises: assignments
         .filter((a: any) => a.week === i)
+        .sort((a: any, b: any) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0))
         .map(toScheduleExercise),
       assessments: assessmentRows
         .filter((a: any) => a.week === i)
+        .sort((a: any, b: any) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0))
         .map(toScheduleAssessment),
     });
   }
@@ -359,6 +367,24 @@ export async function getSectionSchedule(
  * Assign an exercise to a specific week of a section (or move it there if it is
  * already assigned). The assignment's deadline is synced to the week's deadline.
  */
+async function nextScheduleSortOrder(
+  sectionId: string,
+  week: number,
+  database: Database
+): Promise<number> {
+  const [exerciseMax] = await database
+    .select({ value: max(exerciseAssignments.sortOrder) })
+    .from(exerciseAssignments)
+    .where(and(eq(exerciseAssignments.sectionId, sectionId), eq(exerciseAssignments.week, week)));
+  const [assessmentMax] = await database
+    .select({ value: max(assessmentAssignments.sortOrder) })
+    .from(assessmentAssignments)
+    .where(and(eq(assessmentAssignments.sectionId, sectionId), eq(assessmentAssignments.week, week)));
+  const exerciseOrder = exerciseMax?.value == null ? -1 : Number(exerciseMax.value);
+  const assessmentOrder = assessmentMax?.value == null ? -1 : Number(assessmentMax.value);
+  return Math.max(exerciseOrder, assessmentOrder) + 1;
+}
+
 export async function assignExerciseToWeek(
   sectionId: string,
   exerciseId: string,
@@ -398,11 +424,15 @@ export async function assignExerciseToWeek(
   });
 
   if (existing) {
+    const sortOrder = existing.week === week
+      ? existing.sortOrder
+      : await nextScheduleSortOrder(sectionId, week, database);
     await database
       .update(exerciseAssignments)
-      .set({ week, deadline: weekDeadline })
+      .set({ week, deadline: weekDeadline, sortOrder })
       .where(eq(exerciseAssignments.id, existing.id));
   } else {
+    const sortOrder = await nextScheduleSortOrder(sectionId, week, database);
     await database.insert(exerciseAssignments).values({
       id: crypto.randomUUID(),
       exerciseId,
@@ -412,6 +442,7 @@ export async function assignExerciseToWeek(
       isVisible: 0,
       allowSubmission: 1,
       week,
+      sortOrder,
       assignedAt: new Date().toISOString(),
     });
   }
@@ -469,14 +500,18 @@ export async function assignAssessmentToWeek(
   const opensAt = weekStart > now ? weekStart.toISOString() : now.toISOString();
 
   if (existing) {
+    const sortOrder = existing.week === week
+      ? existing.sortOrder
+      : await nextScheduleSortOrder(sectionId, week, database);
     await database
       .update(assessmentAssignments)
-      .set({ week, closesAt, isVisible: 1 })
+      .set({ week, closesAt, isVisible: 1, sortOrder })
       .where(eq(assessmentAssignments.id, existing.id));
     return { success: true, assignmentId: existing.id, week };
   }
 
   const assignmentId = crypto.randomUUID();
+  const sortOrder = await nextScheduleSortOrder(sectionId, week, database);
   await database.insert(assessmentAssignments).values({
     id: assignmentId,
     assessmentId,
@@ -489,10 +524,76 @@ export async function assignAssessmentToWeek(
     warningThreshold: 3,
     showPredictedScore: 1,
     week,
+    sortOrder,
     assignedBy: userId,
     assignedAt: now.toISOString(),
   });
   return { success: true, assignmentId, week };
+}
+
+export type ScheduleOrderItemInput = {
+  type: "exercise" | "assessment";
+  id: string;
+};
+
+export async function reorderScheduleWeek(
+  sectionId: string,
+  week: number,
+  items: ScheduleOrderItemInput[],
+  userId: string,
+  role: string,
+  database: Database = defaultDb
+): Promise<{ success: true; week: number } | ScheduleError> {
+  const loaded = await loadSectionForUser(sectionId, userId, role, database);
+  if (isScheduleError(loaded)) return loaded;
+  await ensureAssessmentAssignmentWeekReady(database);
+  if (!isValidScheduleWeek(week)) {
+    return { error: { code: "VALIDATION_ERROR", message: "Tuần không hợp lệ." } };
+  }
+  if (!Array.isArray(items) || items.length > 200) {
+    return { error: { code: "VALIDATION_ERROR", message: "Danh sách thứ tự không hợp lệ." } };
+  }
+
+  const exerciseRows = await database
+    .select({ id: exerciseAssignments.id, exerciseId: exerciseAssignments.exerciseId })
+    .from(exerciseAssignments)
+    .where(and(eq(exerciseAssignments.sectionId, sectionId), eq(exerciseAssignments.week, week)));
+  const assessmentRows = await database
+    .select({ id: assessmentAssignments.id, assessmentId: assessmentAssignments.assessmentId })
+    .from(assessmentAssignments)
+    .where(and(eq(assessmentAssignments.sectionId, sectionId), eq(assessmentAssignments.week, week)));
+  const expected = new Set([
+    ...exerciseRows.map((row: { exerciseId: string }) => `exercise:${row.exerciseId}`),
+    ...assessmentRows.map((row: { assessmentId: string }) => `assessment:${row.assessmentId}`),
+  ]);
+  const received = items.map((item) => `${item.type}:${item.id}`);
+  if (
+    items.some((item) => !["exercise", "assessment"].includes(item.type) || !item.id) ||
+    received.length !== expected.size ||
+    new Set(received).size !== received.length ||
+    received.some((item) => !expected.has(item))
+  ) {
+    return { error: { code: "VALIDATION_ERROR", message: "Thứ tự bài trong tuần không hợp lệ." } };
+  }
+
+  for (const [sortOrder, item] of items.entries()) {
+    if (item.type === "exercise") {
+      const assignment = exerciseRows.find((row: { id: string; exerciseId: string }) => row.exerciseId === item.id);
+      if (!assignment) continue;
+      await database
+        .update(exerciseAssignments)
+        .set({ sortOrder })
+        .where(eq(exerciseAssignments.id, assignment.id));
+    } else {
+      const assignment = assessmentRows.find((row: { id: string; assessmentId: string }) => row.assessmentId === item.id);
+      if (!assignment) continue;
+      await database
+        .update(assessmentAssignments)
+        .set({ sortOrder })
+        .where(eq(assessmentAssignments.id, assignment.id));
+    }
+  }
+  return { success: true, week };
 }
 
 /** Remove an assessment from its week while keeping the assignment record for audit/history. */

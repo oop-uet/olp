@@ -7,9 +7,11 @@ import { createExercise } from "./exercise.service.js";
 import { createAssessment, listStudentAssessments } from "./assessment.service.js";
 import {
   assignAssessmentToWeek,
+  assignExerciseToWeek,
   getSectionSchedule,
   isScheduleError,
   removeAssessmentAssignment,
+  reorderScheduleWeek,
 } from "./schedule.service.js";
 
 function getDb() {
@@ -155,6 +157,27 @@ describe("Schedule Service", () => {
       expect.objectContaining({ title: "Giữa kỳ OOP - Tuần 8" }),
     ]);
     expect(afterMove.weeks[7].assessments).toHaveLength(0);
+
+    const exercise = await createExercise(exerciseInput("Bài tập cùng tuần"), instructorId, db);
+    const assignedExercise = await assignExerciseToWeek(sectionId, exercise.id, 3, instructorId, "instructor", db);
+    expect(assignedExercise).toEqual({ success: true });
+    const reordered = await reorderScheduleWeek(
+      sectionId,
+      3,
+      [
+        { type: "assessment", id: created.data.id },
+        { type: "exercise", id: exercise.id },
+      ],
+      instructorId,
+      "instructor",
+      db
+    );
+    expect(reordered).toEqual({ success: true, week: 3 });
+    const ordered = await getSectionSchedule(sectionId, instructorId, "instructor", db);
+    expect(isScheduleError(ordered)).toBe(false);
+    if (isScheduleError(ordered)) return;
+    expect(ordered.weeks[2].assessments[0].sortOrder).toBe(0);
+    expect(ordered.weeks[2].exercises[0].sortOrder).toBe(1);
 
     await removeAssessmentAssignment(sectionId, created.data.id, instructorId, "instructor", db);
     const removed = await getSectionSchedule(sectionId, instructorId, "instructor", db);

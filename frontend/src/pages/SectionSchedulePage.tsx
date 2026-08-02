@@ -26,6 +26,7 @@ interface ScheduleExercise {
   isLibrary: boolean
   week: number | null
   deadline: string | null
+  sortOrder: number
 }
 
 interface ScheduleWeek {
@@ -56,6 +57,7 @@ interface ScheduleAssessment {
   opensAt: string
   closesAt: string
   isVisible: boolean
+  sortOrder: number
 }
 
 interface PoolAssessment {
@@ -65,6 +67,11 @@ interface PoolAssessment {
   durationMinutes: number
   creatorUsername: string | null
 }
+
+type WeekItem =
+  | { type: 'exercise'; id: string; item: ScheduleExercise }
+  | { type: 'assessment'; id: string; item: ScheduleAssessment }
+
 
 interface ScheduleData {
   section: ScheduleSection
@@ -193,8 +200,20 @@ function toScheduleExercise(
     isLibrary: exercise.isLibrary,
     week,
     deadline,
+    sortOrder: 0,
   }
 }
+
+function getWeekItems(week: ScheduleWeek): WeekItem[] {
+  return [
+    ...week.exercises.map((item) => ({ type: 'exercise' as const, id: item.exerciseId, item })),
+    ...week.assessments.map((item) => ({ type: 'assessment' as const, id: item.assessmentId, item })),
+  ].sort((a, b) => {
+    const order = (Number(a.item.sortOrder) || 0) - (Number(b.item.sortOrder) || 0)
+    return order || a.id.localeCompare(b.id)
+  })
+}
+
 
 function toPoolExercise(exercise: ScheduleExercise): PoolExercise {
   return {
@@ -257,6 +276,83 @@ function removeExerciseFromSchedule(data: ScheduleData, exerciseId: string) {
   }
 }
 
+function removeAssessmentFromSchedule(data: ScheduleData, assessmentId: string) {
+  let found: ScheduleAssessment | PoolAssessment | null = null
+  const assessmentPool = data.assessmentPool.filter((assessment) => {
+    if (assessment.id === assessmentId) {
+      found = assessment
+      return false
+    }
+    return true
+  })
+  const assessmentUnscheduled = data.assessmentUnscheduled.filter((assessment) => {
+    if (assessment.assessmentId === assessmentId) {
+      found = assessment
+      return false
+    }
+    return true
+  })
+  const weeks = data.weeks.map((week) => ({
+    ...week,
+    assessments: week.assessments.filter((assessment) => {
+      if (assessment.assessmentId === assessmentId) {
+        found = assessment
+        return false
+      }
+      return true
+    }),
+  }))
+  return { next: { ...data, assessmentPool, assessmentUnscheduled, weeks }, found }
+}
+
+function toScheduleAssessment(
+  assessment: PoolAssessment | ScheduleAssessment,
+  week: number,
+  deadline: string | null,
+  sortOrder: number
+): ScheduleAssessment {
+  if ('assessmentId' in assessment) return { ...assessment, week, deadline, sortOrder }
+  const now = new Date().toISOString()
+  return {
+    assignmentId: `pending-${assessment.id}`,
+    assessmentId: assessment.id,
+    title: assessment.title,
+    totalPoints: assessment.totalPoints,
+    durationMinutes: assessment.durationMinutes,
+    creatorUsername: assessment.creatorUsername,
+    week,
+    deadline,
+    opensAt: now,
+    closesAt: deadline ?? now,
+    isVisible: true,
+    sortOrder,
+  }
+}
+
+function applyWeekItems(data: ScheduleData, week: number, items: WeekItem[]): ScheduleData {
+  const exercises = items
+    .filter((entry): entry is Extract<WeekItem, { type: 'exercise' }> => entry.type === 'exercise')
+    .map((entry) => ({
+      ...entry.item,
+      sortOrder: items.findIndex((item) => item.type === entry.type && item.id === entry.id),
+    }))
+  const assessments = items
+    .filter((entry): entry is Extract<WeekItem, { type: 'assessment' }> => entry.type === 'assessment')
+    .map((entry) => ({
+      ...entry.item,
+      sortOrder: items.findIndex((item) => item.type === entry.type && item.id === entry.id),
+    }))
+  const existing = data.weeks.find((item) => item.week === week)
+  if (!existing) {
+    return { ...data, weeks: [...data.weeks, { week, deadline: null, exercises, assessments }] }
+  }
+  return {
+    ...data,
+    weeks: data.weeks.map((item) => (item.week === week ? { ...item, exercises, assessments } : item)),
+  }
+}
+
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function SectionSchedulePage() {
@@ -312,6 +408,8 @@ export function SectionSchedulePage() {
       if (!found) return current
       const weekDeadline = next.weeks.find((item) => item.week === week)?.deadline ?? null
       const targetWeek = next.weeks.find((item) => item.week === week)
+      const sortOrder = targetWeek ? getWeekItems(targetWeek).length : 0
+      const scheduled = { ...toScheduleExercise(found, week, weekDeadline), sortOrder }
       if (targetWeek) {
         return {
           ...next,
@@ -319,7 +417,7 @@ export function SectionSchedulePage() {
             item.week === week
               ? {
                   ...item,
-                  exercises: [...item.exercises, toScheduleExercise(found, week, item.deadline)],
+                  exercises: [...item.exercises, scheduled],
                 }
               : item
           ),
@@ -333,7 +431,7 @@ export function SectionSchedulePage() {
           {
             week,
             deadline: weekDeadline,
-            exercises: [toScheduleExercise(found, week, weekDeadline)],
+            exercises: [scheduled],
             assessments: [],
           },
         ],
@@ -345,7 +443,6 @@ export function SectionSchedulePage() {
         exercise_id: exerciseId,
         week,
       })
-      await fetchSchedule()
     } catch (err) {
       const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
       toast.error(axiosErr.response?.data?.error?.message || 'Không thể xếp bài tập.')
@@ -355,16 +452,30 @@ export function SectionSchedulePage() {
 
   async function assignAssessment(assessmentId: string, week: number) {
     if (!id) return
+    setData((current) => {
+      if (!current) return current
+      const { next, found } = removeAssessmentFromSchedule(current, assessmentId)
+      if (!found) return current
+      const targetWeek = next.weeks.find((item) => item.week === week)
+      const deadline = targetWeek?.deadline ?? null
+      const sortOrder = targetWeek ? getWeekItems(targetWeek).length : 0
+      const scheduled = toScheduleAssessment(found, week, deadline, sortOrder)
+      const items = [...(targetWeek ? getWeekItems(targetWeek) : []), {
+        type: 'assessment' as const,
+        id: assessmentId,
+        item: scheduled,
+      }]
+      return applyWeekItems(next, week, items)
+    })
     try {
       await api.post(`${base}/sections/${id}/schedule/assign-assessment`, {
         assessment_id: assessmentId,
         week,
       })
-      toast.success(`Đã thêm đề kiểm tra vào tuần ${week}.`)
-      await fetchSchedule()
     } catch (err) {
       const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
       toast.error(axiosErr.response?.data?.error?.message || 'Không thể xếp bài kiểm tra.')
+      await fetchSchedule()
     }
   }
 
@@ -398,7 +509,6 @@ export function SectionSchedulePage() {
       await api.post(`${base}/sections/${id}/schedule/unassign`, {
         exercise_id: exerciseId,
       })
-      await fetchSchedule()
     } catch (err) {
       const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
       toast.error(axiosErr.response?.data?.error?.message || 'Không thể gỡ bài tập.')
@@ -408,15 +518,27 @@ export function SectionSchedulePage() {
 
   async function unassignAssessment(assessmentId: string) {
     if (!id) return
+    setData((current) => {
+      if (!current) return current
+      const { next, found } = removeAssessmentFromSchedule(current, assessmentId)
+      if (!found || !('assessmentId' in found)) return current
+      const scheduledAssessment = found as ScheduleAssessment
+      return {
+        ...next,
+        assessmentUnscheduled: [
+          ...next.assessmentUnscheduled,
+          { ...scheduledAssessment, week: null, isVisible: false, sortOrder: 0 },
+        ],
+      }
+    })
     try {
       await api.post(`${base}/sections/${id}/schedule/unassign-assessment`, {
         assessment_id: assessmentId,
       })
-      toast.success('Đã gỡ bài kiểm tra khỏi tuần học.')
-      await fetchSchedule()
     } catch (err) {
       const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
       toast.error(axiosErr.response?.data?.error?.message || 'Không thể gỡ bài kiểm tra.')
+      await fetchSchedule()
     }
   }
 
@@ -528,12 +650,104 @@ export function SectionSchedulePage() {
     e.dataTransfer.effectAllowed = 'move'
   }
 
-  function handleDropOnWeek(e: React.DragEvent, week: number) {
+  async function persistWeekOrder(week: number, scheduleData: ScheduleData) {
+    if (!id) return
+    const weekData = scheduleData.weeks.find((item) => item.week === week)
+    if (!weekData) return
+    await api.post(`${base}/sections/${id}/schedule/reorder`, {
+      week,
+      items: getWeekItems(weekData).map((item) => ({ type: item.type, id: item.id })),
+    })
+  }
+
+  async function moveScheduleItem(payload: ScheduleDragPayload, week: number, targetIndex?: number) {
+    if (!id) return
+    const current = data
+    if (!current) return
+
+    const sourceWeek = current.weeks.find((item) =>
+      getWeekItems(item).some((entry) => entry.type === payload.type && entry.id === payload.id)
+    )?.week ?? null
+    const sourceItems = sourceWeek === null
+      ? []
+      : getWeekItems(current.weeks.find((item) => item.week === sourceWeek)!)
+    const sourceIndex = sourceItems.findIndex((item) => item.type === payload.type && item.id === payload.id)
+
+    let removed
+    let item: WeekItem | null = null
+    if (payload.type === 'exercise') {
+      removed = removeExerciseFromSchedule(current, payload.id)
+      if (removed.found) {
+        const deadline = current.weeks.find((entry) => entry.week === week)?.deadline ?? null
+        item = {
+          type: 'exercise',
+          id: payload.id,
+          item: toScheduleExercise(removed.found, week, deadline),
+        }
+      }
+    } else {
+      removed = removeAssessmentFromSchedule(current, payload.id)
+      if (removed.found) {
+        const deadline = current.weeks.find((entry) => entry.week === week)?.deadline ?? null
+        item = {
+          type: 'assessment',
+          id: payload.id,
+          item: toScheduleAssessment(removed.found, week, deadline, 0),
+        }
+      }
+    }
+    if (!removed?.found || !item) return
+
+    const targetWeekData = removed.next.weeks.find((entry) => entry.week === week)
+    const targetItems = targetWeekData ? getWeekItems(targetWeekData) : []
+    let insertionIndex = targetIndex ?? targetItems.length
+    if (sourceWeek === week && sourceIndex >= 0 && sourceIndex < insertionIndex) insertionIndex -= 1
+    insertionIndex = Math.max(0, Math.min(insertionIndex, targetItems.length))
+    targetItems.splice(insertionIndex, 0, item)
+
+    let optimistic = applyWeekItems(removed.next, week, targetItems)
+    if (sourceWeek !== null && sourceWeek !== week) {
+      const sourceWeekData = optimistic.weeks.find((entry) => entry.week === sourceWeek)
+      if (sourceWeekData) optimistic = applyWeekItems(optimistic, sourceWeek, getWeekItems(sourceWeekData))
+    }
+    setData(optimistic)
+
+    try {
+      if (sourceWeek !== week) {
+        if (payload.type === 'exercise') {
+          await api.post(`${base}/sections/${id}/schedule/assign`, {
+            exercise_id: payload.id,
+            week,
+          })
+        } else {
+          await api.post(`${base}/sections/${id}/schedule/assign-assessment`, {
+            assessment_id: payload.id,
+            week,
+          })
+        }
+      }
+      await persistWeekOrder(week, optimistic)
+      if (sourceWeek !== null && sourceWeek !== week) await persistWeekOrder(sourceWeek, optimistic)
+    } catch (err) {
+      const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
+      toast.error(axiosErr.response?.data?.error?.message || 'Không thể sắp xếp nội dung.')
+      await fetchSchedule()
+    }
+  }
+
+  function handleDropOnWeek(e: React.DragEvent, week: number, targetIndex?: number) {
     e.preventDefault()
+    e.stopPropagation()
     setDropWeek(null)
     const payload = readDragPayload(e)
-    if (payload?.type === 'exercise') void assignExercise(payload.id, week)
-    if (payload?.type === 'assessment') void assignAssessment(payload.id, week)
+    if (payload) void moveScheduleItem(payload, week, targetIndex)
+  }
+
+  function handleItemDragOver(e: React.DragEvent, week: number) {
+    e.preventDefault()
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'move'
+    setDropWeek((current) => (current === week ? current : week))
   }
 
   function handleDropOnPool(e: React.DragEvent) {
@@ -758,49 +972,53 @@ export function SectionSchedulePage() {
                     </p>
                   ) : (
                     <>
-                      {w.exercises.map((ex) => (
+                      {getWeekItems(w).map((entry, index) => (
                         <div
-                          key={ex.assignmentId}
+                          key={`${entry.type}-${entry.id}`}
                           draggable
-                          onDragStart={(e) => handleDragStart(e, { type: 'exercise', id: ex.exerciseId })}
-                          className="flex cursor-grab items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-white px-4 py-2.5 shadow-sm hover:shadow hover:border-slate-300 transition-all active:cursor-grabbing group relative"
+                          onDragStart={(e) => handleDragStart(e, { type: entry.type, id: entry.id })}
+                          onDragOver={(e) => handleItemDragOver(e, w.week)}
+                          onDrop={(e) => handleDropOnWeek(e, w.week, index)}
+                          className={`flex cursor-grab items-center justify-between gap-3 rounded-xl px-4 py-2.5 shadow-sm transition-all active:cursor-grabbing ${
+                            entry.type === 'assessment'
+                              ? 'border border-cyan-200 bg-cyan-50/40'
+                              : 'border border-slate-200/80 bg-white hover:border-slate-300 hover:shadow'
+                          }`}
                         >
-                          <div className="flex min-w-0 flex-wrap items-center gap-2">
-                            <span className="text-slate-300 font-mono text-[10px] select-none">☰</span>
-                            <span className="truncate font-bold text-slate-700 text-xs">{ex.title}</span>
-                            <DifficultyBadge difficulty={ex.difficulty} />
-                            <CreatorBadge username={ex.creatorUsername} />
-                          </div>
-                          <button
-                            onClick={() => void unassignExercise(ex.exerciseId)}
-                            className="text-[10px] font-bold text-rose-500 bg-rose-50 hover:bg-rose-100/60 px-2.5 py-1 rounded-md transition-all flex-shrink-0"
-                          >
-                            Gỡ
-                          </button>
-                        </div>
-                      ))}
-                      {(w.assessments ?? []).map((assessment) => (
-                        <div
-                          key={assessment.assignmentId}
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, { type: 'assessment', id: assessment.assessmentId })}
-                          className="flex cursor-grab items-center justify-between gap-3 rounded-xl border border-cyan-200 bg-cyan-50/40 px-4 py-2.5 shadow-sm active:cursor-grabbing"
-                        >
-                          <div className="flex min-w-0 flex-wrap items-center gap-2">
-                            <span className="select-none font-mono text-[10px] text-cyan-300">☰</span>
-                            <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-black text-cyan-700">KT</span>
-                            <span className="truncate font-bold text-slate-700 text-xs">{assessment.title}</span>
-                            <span className="text-[10px] font-semibold text-slate-500">
-                              {assessment.durationMinutes} phút · {assessment.totalPoints} điểm
-                            </span>
-                            <CreatorBadge username={assessment.creatorUsername} />
-                          </div>
-                          <button
-                            onClick={() => void unassignAssessment(assessment.assessmentId)}
-                            className="text-[10px] font-bold text-rose-500 bg-rose-50 hover:bg-rose-100/60 px-2.5 py-1 rounded-md transition-all flex-shrink-0"
-                          >
-                            Gỡ
-                          </button>
+                          {entry.type === 'exercise' ? (
+                            <>
+                              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                <span className="select-none font-mono text-[10px] text-slate-300">☰</span>
+                                <span className="truncate font-bold text-slate-700 text-xs">{entry.item.title}</span>
+                                <DifficultyBadge difficulty={entry.item.difficulty} />
+                                <CreatorBadge username={entry.item.creatorUsername} />
+                              </div>
+                              <button
+                                onClick={() => void unassignExercise(entry.item.exerciseId)}
+                                className="flex-shrink-0 rounded-md bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-500 transition-all hover:bg-rose-100/60"
+                              >
+                                Gỡ
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                <span className="select-none font-mono text-[10px] text-cyan-300">☰</span>
+                                <span className="inline-flex items-center rounded-md bg-cyan-500 px-2 py-0.5 text-[10px] font-black text-white shadow-2xs">KT</span>
+                                <span className="truncate font-bold text-slate-700 text-xs">{entry.item.title}</span>
+                                <span className="text-[10px] font-semibold text-slate-500">
+                                  {entry.item.durationMinutes} phút · {entry.item.totalPoints} điểm
+                                </span>
+                                <CreatorBadge username={entry.item.creatorUsername} />
+                              </div>
+                              <button
+                                onClick={() => void unassignAssessment(entry.item.assessmentId)}
+                                className="flex-shrink-0 rounded-md bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-500 transition-all hover:bg-rose-100/60"
+                              >
+                                Gỡ
+                              </button>
+                            </>
+                          )}
                         </div>
                       ))}
                     </>
@@ -896,7 +1114,7 @@ export function SectionSchedulePage() {
                           </button>
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-black text-cyan-700">KT</span>
+                              <span className="inline-flex items-center rounded-md bg-cyan-500 px-2 py-0.5 text-[10px] font-black text-white shadow-2xs">KT</span>
                               <span className="block font-bold text-slate-700 text-xs leading-snug">{assessment.title}</span>
                             </div>
                             <div className="mt-1 flex flex-wrap items-center gap-2">

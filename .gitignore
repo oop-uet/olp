@@ -47,6 +47,8 @@ local-executor/target/
 # Temporary files
 tmp/
 temp/
+output/
+source-check-output/
 backend/.java/
 .cache/
 backend/.cache/
