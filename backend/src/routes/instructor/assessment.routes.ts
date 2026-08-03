@@ -15,6 +15,7 @@ import {
   retryAssessmentAiGrade,
   reviewAssessmentAnswer,
   updateAssessment,
+  updateAssessmentAssignmentWindow,
 } from "../../services/assessment.service.js";
 import {
   AssessmentTemplateImportError,
@@ -71,6 +72,11 @@ const assignSchema = z.object({
   requireFullscreen: z.boolean().optional().default(true),
   warningThreshold: z.number().int().min(1).max(20).optional().default(3),
   showPredictedScore: z.boolean().optional().default(true),
+});
+
+const assignmentWindowSchema = z.object({
+  opensAt: z.string().datetime(),
+  closesAt: z.string().datetime(),
 });
 
 const reviewSchema = z.object({
@@ -200,6 +206,28 @@ router.post("/assignments/:assignmentId/approve-all", async (req: Request, res: 
     res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Không thể duyệt điểm dự kiến." } });
   }
 });
+
+router.put(
+  "/assignments/:assignmentId/window",
+  validate(assignmentWindowSchema),
+  async (req: Request, res: Response) => {
+    try {
+      sendResult(
+        res,
+        await updateAssessmentAssignmentWindow(
+          req.params.assignmentId,
+          req.body,
+          req.user!.userId
+        )
+      );
+    } catch (error) {
+      console.error("[assessment] Failed to update assessment assignment window", error);
+      res.status(500).json({
+        error: { code: "INTERNAL_ERROR", message: "Không thể cập nhật thời gian bài kiểm tra." },
+      });
+    }
+  }
+);
 
 router.get("/sessions/:sessionId/review", async (req: Request, res: Response) => {
   try {

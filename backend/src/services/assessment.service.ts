@@ -617,6 +617,49 @@ export async function assignAssessment(
   return { data: assignment };
 }
 
+export async function updateAssessmentAssignmentWindow(
+  assignmentId: string,
+  input: { opensAt: string; closesAt: string },
+  instructorId: string,
+  database: Database = defaultDb
+) {
+  const assignment = await database.query.assessmentAssignments.findFirst({
+    where: eq(assessmentAssignments.id, assignmentId),
+  });
+  if (!assignment) return serviceError("NOT_FOUND", "Không tìm thấy lịch bài kiểm tra.");
+
+  const assessment = await assertAssessmentOwner(assignment.assessmentId, instructorId, database);
+  if (!assessment) {
+    return serviceError("FORBIDDEN", "Bạn không có quyền thay đổi lịch bài kiểm tra này.");
+  }
+
+  const opensAt = new Date(input.opensAt);
+  const closesAt = new Date(input.closesAt);
+  if (Number.isNaN(opensAt.getTime()) || Number.isNaN(closesAt.getTime()) || closesAt <= opensAt) {
+    return serviceError("VALIDATION_ERROR", "Thời gian đóng phải sau thời gian mở.");
+  }
+
+  const [updated] = await database
+    .update(assessmentAssignments)
+    .set({
+      opensAt: opensAt.toISOString(),
+      closesAt: closesAt.toISOString(),
+    })
+    .where(eq(assessmentAssignments.id, assignmentId))
+    .returning();
+
+  await writeAudit(
+    instructorId,
+    "assessment.assignment_window.update",
+    "assessment_assignment",
+    assignmentId,
+    assignment,
+    updated,
+    database
+  );
+  return { data: updated };
+}
+
 async function getStudentAssignment(
   assignmentId: string,
   studentId: string,

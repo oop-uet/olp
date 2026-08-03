@@ -24,6 +24,7 @@ import {
   submitAssessmentSession,
   type AssessmentDraftInput,
   updateAssessment,
+  updateAssessmentAssignmentWindow,
 } from "./assessment.service.js";
 
 function getDb() {
@@ -125,6 +126,113 @@ describe("Assessment service", () => {
     const result = await createAssessment({ ...validDraft(), totalPoints: 9 }, instructorId, db);
     expect(isAssessmentError(result)).toBe(true);
     expect((result as any).error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("updates an assignment window without limiting it to the assessment duration", async () => {
+    const db = getDb();
+    const { instructorId, sectionId } = seedUsersAndSection();
+    const created = await createAssessment(validDraft(), instructorId, db);
+    const assigned = await assignAssessment(
+      (created as any).data.id,
+      {
+        sectionId,
+        opensAt: "2026-08-10T01:00:00.000Z",
+        closesAt: "2026-08-10T03:00:00.000Z",
+      },
+      instructorId,
+      db
+    );
+
+    const result = await updateAssessmentAssignmentWindow(
+      (assigned as any).data.id,
+      {
+        opensAt: "2026-08-10T01:00:00.000Z",
+        closesAt: "2026-08-17T01:00:00.000Z",
+      },
+      instructorId,
+      db
+    );
+
+    expect(isAssessmentError(result)).toBe(false);
+    expect((result as any).data).toMatchObject({
+      opensAt: "2026-08-10T01:00:00.000Z",
+      closesAt: "2026-08-17T01:00:00.000Z",
+      durationMinutes: 90,
+    });
+  });
+
+  it("rejects an assignment window whose closing time is not after opening", async () => {
+    const db = getDb();
+    const { instructorId, sectionId } = seedUsersAndSection();
+    const created = await createAssessment(validDraft(), instructorId, db);
+    const assigned = await assignAssessment(
+      (created as any).data.id,
+      {
+        sectionId,
+        opensAt: "2026-08-10T01:00:00.000Z",
+        closesAt: "2026-08-10T03:00:00.000Z",
+      },
+      instructorId,
+      db
+    );
+
+    const result = await updateAssessmentAssignmentWindow(
+      (assigned as any).data.id,
+      {
+        opensAt: "2026-08-10T03:00:00.000Z",
+        closesAt: "2026-08-10T03:00:00.000Z",
+      },
+      instructorId,
+      db
+    );
+
+    expect(isAssessmentError(result)).toBe(true);
+    expect((result as any).error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("does not let another instructor change an assessment assignment window", async () => {
+    const db = getDb();
+    const sqlite = getTestSqlite();
+    const { instructorId, sectionId } = seedUsersAndSection();
+    const created = await createAssessment(validDraft(), instructorId, db);
+    const assigned = await assignAssessment(
+      (created as any).data.id,
+      {
+        sectionId,
+        opensAt: "2026-08-10T01:00:00.000Z",
+        closesAt: "2026-08-10T03:00:00.000Z",
+      },
+      instructorId,
+      db
+    );
+    const otherInstructorId = randomUUID();
+    const now = new Date().toISOString();
+    sqlite
+      .prepare(
+        `INSERT INTO users (id, username, email, password_hash, role, created_at, updated_at)
+         VALUES (?, ?, ?, 'hash', 'instructor', ?, ?)`
+      )
+      .run(otherInstructorId, "other_teacher", "other_teacher@test.com", now, now);
+
+    const result = await updateAssessmentAssignmentWindow(
+      (assigned as any).data.id,
+      {
+        opensAt: "2026-08-11T01:00:00.000Z",
+        closesAt: "2026-08-18T01:00:00.000Z",
+      },
+      otherInstructorId,
+      db
+    );
+
+    expect(isAssessmentError(result)).toBe(true);
+    expect((result as any).error.code).toBe("FORBIDDEN");
+    const stored = sqlite
+      .prepare("SELECT opens_at AS opensAt, closes_at AS closesAt FROM assessment_assignments WHERE id = ?")
+      .get((assigned as any).data.id) as { opensAt: string; closesAt: string };
+    expect(stored).toEqual({
+      opensAt: "2026-08-10T01:00:00.000Z",
+      closesAt: "2026-08-10T03:00:00.000Z",
+    });
   });
 
   it("bulk-saves only the newest client revision for each answer", async () => {

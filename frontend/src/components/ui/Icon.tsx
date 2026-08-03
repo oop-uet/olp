@@ -43,6 +43,19 @@ export const ConfigIcon = ({ className }: IconProps) => (
   </svg>
 )
 
+export const EditIcon = ({ className }: IconProps) => (
+  <svg className={base(className)} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 3.487a2.25 2.25 0 113.182 3.182L8.25 18.463 3.75 19.5l1.037-4.5L16.862 3.487z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 4.5l3.75 3.75" />
+  </svg>
+)
+
+export const TrashIcon = ({ className }: IconProps) => (
+  <svg className={base(className)} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6 7.5h12m-10.5 0 .75 12h7.5l.75-12M9.75 7.5V4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V7.5M10 11.25v4.5m4-4.5v4.5" />
+  </svg>
+)
+
 export const QuotaIcon = ({ className }: IconProps) => (
   <svg className={base(className)} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />

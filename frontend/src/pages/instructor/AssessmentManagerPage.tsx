@@ -2,12 +2,29 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { readApiError } from '../../lib/apiError'
-import { PageLoader, ExerciseIcon } from '../../components/ui'
+import { ConfigIcon, EditIcon, ExerciseIcon, PageLoader, Spinner, TrashIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
-import type { InstructorAssessmentListItem } from '../../types/assessment'
+import type { AssessmentAssignmentSummary, InstructorAssessmentListItem } from '../../types/assessment'
 
 function formatDate(value: string) {
   return new Date(value).toLocaleString('vi-VN')
+}
+
+function isoToLocalInput(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const pad = (part: number) => String(part).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+function localInputToIso(value: string) {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date.toISOString()
+}
+
+interface AssignmentWindowDraft extends AssessmentAssignmentSummary {
+  opensAtInput: string
+  closesAtInput: string
 }
 
 export function AssessmentManagerPanel() {
@@ -15,10 +32,22 @@ export function AssessmentManagerPanel() {
   const [items, setItems] = useState<InstructorAssessmentListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [settingsItem, setSettingsItem] = useState<InstructorAssessmentListItem | null>(null)
+  const [windowDrafts, setWindowDrafts] = useState<AssignmentWindowDraft[]>([])
+  const [savingAssignmentId, setSavingAssignmentId] = useState<string | null>(null)
 
   useEffect(() => {
     void load()
   }, [])
+
+  useEffect(() => {
+    if (!settingsItem) return
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !savingAssignmentId) setSettingsItem(null)
+    }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [savingAssignmentId, settingsItem])
 
   async function load() {
     setLoading(true)
@@ -43,6 +72,75 @@ export function AssessmentManagerPanel() {
       toast.error(readApiError(error).message ?? 'Không thể xóa bài kiểm tra.')
     } finally {
       setBusyId(null)
+    }
+  }
+
+  function openSettings(item: InstructorAssessmentListItem) {
+    setSettingsItem(item)
+    setWindowDrafts(
+      item.assignments.map((assignment) => ({
+        ...assignment,
+        opensAtInput: isoToLocalInput(assignment.opensAt),
+        closesAtInput: isoToLocalInput(assignment.closesAt),
+      }))
+    )
+  }
+
+  function updateWindowDraft(
+    assignmentId: string,
+    field: 'opensAtInput' | 'closesAtInput',
+    value: string
+  ) {
+    setWindowDrafts((current) =>
+      current.map((draft) => (draft.id === assignmentId ? { ...draft, [field]: value } : draft))
+    )
+  }
+
+  async function saveAssignmentWindow(draft: AssignmentWindowDraft) {
+    const opensAt = localInputToIso(draft.opensAtInput)
+    const closesAt = localInputToIso(draft.closesAtInput)
+    if (!opensAt || !closesAt) {
+      toast.error('Vui lòng nhập đầy đủ thời gian mở và đóng.')
+      return
+    }
+    if (new Date(closesAt) <= new Date(opensAt)) {
+      toast.error('Thời gian đóng phải sau thời gian mở.')
+      return
+    }
+
+    setSavingAssignmentId(draft.id)
+    try {
+      await api.put(`/api/instructor/assessments/assignments/${draft.id}/window`, {
+        opensAt,
+        closesAt,
+      })
+      setItems((current) =>
+        current.map((item) =>
+          item.id !== settingsItem?.id
+            ? item
+            : {
+                ...item,
+                assignments: item.assignments.map((assignment) =>
+                  assignment.id === draft.id ? { ...assignment, opensAt, closesAt } : assignment
+                ),
+              }
+        )
+      )
+      setSettingsItem((current) =>
+        current
+          ? {
+              ...current,
+              assignments: current.assignments.map((assignment) =>
+                assignment.id === draft.id ? { ...assignment, opensAt, closesAt } : assignment
+              ),
+            }
+          : current
+      )
+      toast.success(`Đã cập nhật thời gian cho lớp ${draft.sectionName}.`)
+    } catch (error: unknown) {
+      toast.error(readApiError(error).message ?? 'Không thể cập nhật thời gian bài kiểm tra.')
+    } finally {
+      setSavingAssignmentId(null)
     }
   }
 
@@ -108,16 +206,32 @@ export function AssessmentManagerPanel() {
                   </td>
                   <td className="table-td">
                     <div className="flex justify-end gap-2">
-                      <Link to={`/instructor/exercises/assessments/${item.id}/edit`} className="btn-secondary btn-sm">
-                        Sửa đề
+                      <Link
+                        to={`/instructor/exercises/assessments/${item.id}/edit`}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:border-primary/40 hover:bg-primary-50 hover:text-primary"
+                        aria-label={`Sửa đề ${item.title}`}
+                        title="Sửa đề"
+                      >
+                        <EditIcon className="h-4 w-4" />
                       </Link>
+                      <button
+                        type="button"
+                        onClick={() => openSettings(item)}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:border-primary/40 hover:bg-primary-50 hover:text-primary"
+                        aria-label={`Cài đặt thời gian ${item.title}`}
+                        title="Cài đặt thời gian mở và đóng"
+                      >
+                        <ConfigIcon className="h-4 w-4" />
+                      </button>
                       <button
                         type="button"
                         onClick={() => void deleteAssessment(item)}
                         disabled={busyId === item.id}
-                        className="btn-danger btn-sm"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-600 transition-colors hover:bg-red-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                        aria-label={`Xóa đề ${item.title}`}
+                        title="Xóa đề"
                       >
-                        {busyId === item.id ? 'Đang xóa...' : 'Xóa'}
+                        {busyId === item.id ? <Spinner /> : <TrashIcon className="h-4 w-4" />}
                       </button>
                     </div>
                   </td>
@@ -125,6 +239,110 @@ export function AssessmentManagerPanel() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {settingsItem && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="assessment-window-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !savingAssignmentId) setSettingsItem(null)
+          }}
+        >
+          <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-slate-50 px-5 py-4">
+              <div>
+                <h2 id="assessment-window-title" className="font-bold text-slate-900">
+                  Cài đặt thời gian mở và đóng
+                </h2>
+                <p className="mt-1 text-sm text-slate-600">{settingsItem.title}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSettingsItem(null)}
+                disabled={Boolean(savingAssignmentId)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-xl text-slate-400 hover:bg-slate-200 hover:text-slate-700 disabled:opacity-50"
+                aria-label="Đóng cài đặt"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="max-h-[70vh] space-y-4 overflow-y-auto p-5">
+              <p className="rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-slate-700">
+                Thời gian đóng chỉ cần sau thời gian mở và có thể kéo dài hơn thời lượng làm bài để dự phòng sự cố.
+              </p>
+
+              {windowDrafts.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500">
+                  Đề chưa được gán vào lớp. Hãy gán đề tại màn hình Phân bài theo tuần trước khi đặt thời gian.
+                </p>
+              ) : (
+                windowDrafts.map((draft) => (
+                  <form
+                    key={draft.id}
+                    className="rounded-xl border border-slate-200 p-4"
+                    onSubmit={(event) => {
+                      event.preventDefault()
+                      void saveAssignmentWindow(draft)
+                    }}
+                  >
+                    <h3 className="font-bold text-slate-800">{draft.sectionName}</h3>
+                    <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="label" htmlFor={`opens-at-${draft.id}`}>
+                          Thời gian mở
+                        </label>
+                        <input
+                          id={`opens-at-${draft.id}`}
+                          type="datetime-local"
+                          required
+                          value={draft.opensAtInput}
+                          onChange={(event) =>
+                            updateWindowDraft(draft.id, 'opensAtInput', event.target.value)
+                          }
+                          className="input"
+                        />
+                      </div>
+                      <div>
+                        <label className="label" htmlFor={`closes-at-${draft.id}`}>
+                          Thời gian đóng
+                        </label>
+                        <input
+                          id={`closes-at-${draft.id}`}
+                          type="datetime-local"
+                          required
+                          value={draft.closesAtInput}
+                          onChange={(event) =>
+                            updateWindowDraft(draft.id, 'closesAtInput', event.target.value)
+                          }
+                          className="input"
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-4 flex justify-end">
+                      <button
+                        type="submit"
+                        className="btn-primary btn-sm"
+                        disabled={Boolean(savingAssignmentId)}
+                      >
+                        {savingAssignmentId === draft.id ? (
+                          <>
+                            <Spinner /> Đang lưu...
+                          </>
+                        ) : (
+                          'Lưu thời gian'
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       )}
 
