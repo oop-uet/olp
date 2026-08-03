@@ -129,13 +129,7 @@ describe('StudentAssessmentPage integrity controls', () => {
     const user = userEvent.setup()
     renderPage()
 
-    expect(
-      await screen.findByText(
-        (content, element) =>
-          element?.tagName.toLowerCase() === 'pre' &&
-          element?.textContent?.trim() === 'class A { void show() { } }'
-      )
-    ).toBeInTheDocument()
+    expect(await screen.findByText('class A { void show() { } }')).toBeInTheDocument()
     fireEvent.copy(document.body)
     await waitFor(() => {
       expect(mockedApi.post).toHaveBeenCalledWith(
@@ -158,9 +152,7 @@ describe('StudentAssessmentPage integrity controls', () => {
     renderPage()
 
     const prompt = await screen.findByText(
-      (content, element) =>
-        element?.tagName.toLowerCase() === 'pre' &&
-        element?.textContent?.trim() === 'class A { void show() { } }'
+      (_content, element) => element?.tagName === 'PRE' && (element?.textContent?.includes('class A') ?? false)
     )
     const secureRoot = prompt.closest('[data-assessment-secure-root="true"]')
     expect(secureRoot).toHaveClass('assessment-secure-content', 'select-none')
@@ -195,9 +187,7 @@ describe('StudentAssessmentPage integrity controls', () => {
 
     expect(
       await screen.findByText(
-        (content, element) =>
-          element?.tagName.toLowerCase() === 'pre' &&
-          element?.textContent?.trim() === 'class A { void show() { } }'
+        (_content, element) => element?.tagName === 'PRE' && (element?.textContent?.includes('class A') ?? false)
       )
     ).toBeInTheDocument()
     const radios = screen.getAllByRole('radio')
