@@ -18,6 +18,16 @@ const CONFIG_KEYS = {
   lastCheckedAt: "ai_generation_last_checked_at",
 } as const;
 
+const OPENROUTER_FALLBACK_KEYS = {
+  model: "ai_openrouter_fallback_model",
+  enabled: "ai_openrouter_fallback_enabled",
+  encryptedApiKey: "ai_openrouter_fallback_api_key_encrypted",
+  keyLast4: "ai_openrouter_fallback_api_key_last4",
+  lastCheckStatus: "ai_openrouter_fallback_last_check_status",
+  lastCheckError: "ai_openrouter_fallback_last_check_error",
+  lastCheckedAt: "ai_openrouter_fallback_last_checked_at",
+} as const;
+
 const DEFAULT_PROVIDER: AiProvider = "openai";
 const DEFAULT_MODELS: Record<AiProvider, string> = {
   openai: "gpt-4o-mini",
@@ -37,6 +47,13 @@ const DEFAULT_CONFIGS: Array<{ key: string; value: string; validRange: string }>
   { key: CONFIG_KEYS.lastCheckStatus, value: "missing", validRange: "enum:missing,untested,ok,error" },
   { key: CONFIG_KEYS.lastCheckError, value: "", validRange: "text" },
   { key: CONFIG_KEYS.lastCheckedAt, value: "", validRange: "text" },
+  { key: OPENROUTER_FALLBACK_KEYS.model, value: DEFAULT_MODELS.openrouter, validRange: "text" },
+  { key: OPENROUTER_FALLBACK_KEYS.enabled, value: "0", validRange: "0-1" },
+  { key: OPENROUTER_FALLBACK_KEYS.encryptedApiKey, value: "", validRange: "secret" },
+  { key: OPENROUTER_FALLBACK_KEYS.keyLast4, value: "", validRange: "text" },
+  { key: OPENROUTER_FALLBACK_KEYS.lastCheckStatus, value: "missing", validRange: "enum:missing,untested,ok,error" },
+  { key: OPENROUTER_FALLBACK_KEYS.lastCheckError, value: "", validRange: "text" },
+  { key: OPENROUTER_FALLBACK_KEYS.lastCheckedAt, value: "", validRange: "text" },
 ];
 
 export const aiGenerateExerciseSchema = z.object({
@@ -94,6 +111,18 @@ export interface AiConfigStatus {
   lastCheckError: string;
   lastCheckedAt: string;
   encryptionReady: boolean;
+  openRouterFallback: OpenRouterFallbackStatus;
+}
+
+export interface OpenRouterFallbackStatus {
+  provider: "openrouter";
+  model: string;
+  enabled: boolean;
+  keyConfigured: boolean;
+  keyLast4: string;
+  lastCheckStatus: "missing" | "untested" | "ok" | "error";
+  lastCheckError: string;
+  lastCheckedAt: string;
 }
 
 export interface AiAvailability {
@@ -110,6 +139,7 @@ export interface AiServiceError {
     httpStatus?: number;
     providerStatus?: string;
     retryAfterMs?: number;
+    provider?: AiProvider;
   };
 }
 
@@ -130,6 +160,7 @@ export interface StructuredAiResult {
 
 interface StructuredProviderOutput {
   text: string;
+  resolvedModel?: string;
   finishReason?: string;
   promptBlockReason?: string;
 }
@@ -284,6 +315,31 @@ function toStatus(config: Record<string, string>): AiConfigStatus {
     lastCheckError: config[CONFIG_KEYS.lastCheckError] || "",
     lastCheckedAt: config[CONFIG_KEYS.lastCheckedAt] || "",
     encryptionReady: Boolean(getEncryptionSecret()),
+    openRouterFallback: toOpenRouterFallbackStatus(config),
+  };
+}
+
+function toOpenRouterFallbackStatus(
+  config: Record<string, string>
+): OpenRouterFallbackStatus {
+  const keyConfigured = Boolean(config[OPENROUTER_FALLBACK_KEYS.encryptedApiKey]);
+  const rawStatus = config[OPENROUTER_FALLBACK_KEYS.lastCheckStatus] || "missing";
+  const lastCheckStatus =
+    rawStatus === "ok" || rawStatus === "error" || rawStatus === "untested"
+      ? rawStatus
+      : "missing";
+  return {
+    provider: "openrouter",
+    model: config[OPENROUTER_FALLBACK_KEYS.model] || DEFAULT_MODELS.openrouter,
+    enabled:
+      config[OPENROUTER_FALLBACK_KEYS.enabled] === "1" &&
+      keyConfigured &&
+      lastCheckStatus === "ok",
+    keyConfigured,
+    keyLast4: config[OPENROUTER_FALLBACK_KEYS.keyLast4] || "",
+    lastCheckStatus: keyConfigured ? lastCheckStatus : "missing",
+    lastCheckError: config[OPENROUTER_FALLBACK_KEYS.lastCheckError] || "",
+    lastCheckedAt: config[OPENROUTER_FALLBACK_KEYS.lastCheckedAt] || "",
   };
 }
 
@@ -441,6 +497,120 @@ export async function testAiConfig(
   }
 }
 
+export async function updateOpenRouterFallbackConfig(
+  input: {
+    model?: string;
+    apiKey?: string;
+    enabled?: boolean;
+    clearApiKey?: boolean;
+  },
+  updatedBy: string,
+  database: Database = defaultDb
+): Promise<AiConfigStatus | AiServiceError> {
+  await ensureAiConfigRows(database);
+  const nextModel = input.model?.trim();
+  if (nextModel !== undefined) {
+    if (nextModel.length < 3 || nextModel.length > 120) {
+      return {
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Tên model OpenRouter phải có từ 3 đến 120 ký tự.",
+        },
+      };
+    }
+    await setConfigValue(OPENROUTER_FALLBACK_KEYS.model, nextModel, updatedBy, database);
+  }
+
+  if (input.clearApiKey) {
+    await setConfigValue(OPENROUTER_FALLBACK_KEYS.encryptedApiKey, "", updatedBy, database);
+    await setConfigValue(OPENROUTER_FALLBACK_KEYS.keyLast4, "", updatedBy, database);
+    await setConfigValue(OPENROUTER_FALLBACK_KEYS.lastCheckStatus, "missing", updatedBy, database);
+    await setConfigValue(OPENROUTER_FALLBACK_KEYS.lastCheckError, "", updatedBy, database);
+    await setConfigValue(OPENROUTER_FALLBACK_KEYS.lastCheckedAt, "", updatedBy, database);
+    await setConfigValue(OPENROUTER_FALLBACK_KEYS.enabled, "0", updatedBy, database);
+  } else if (input.apiKey?.trim()) {
+    const apiKey = input.apiKey.trim();
+    const encrypted = encryptApiKey(apiKey);
+    if (isAiServiceError(encrypted)) return encrypted;
+    await setConfigValue(OPENROUTER_FALLBACK_KEYS.encryptedApiKey, encrypted, updatedBy, database);
+    await setConfigValue(OPENROUTER_FALLBACK_KEYS.keyLast4, apiKey.slice(-4), updatedBy, database);
+    await setConfigValue(OPENROUTER_FALLBACK_KEYS.lastCheckStatus, "untested", updatedBy, database);
+    await setConfigValue(OPENROUTER_FALLBACK_KEYS.lastCheckError, "", updatedBy, database);
+    await setConfigValue(OPENROUTER_FALLBACK_KEYS.lastCheckedAt, "", updatedBy, database);
+    await setConfigValue(OPENROUTER_FALLBACK_KEYS.enabled, "0", updatedBy, database);
+  }
+
+  if (typeof input.enabled === "boolean") {
+    const config = await readConfigMap(database);
+    const fallback = toOpenRouterFallbackStatus(config);
+    const canEnable =
+      input.enabled && fallback.keyConfigured && fallback.lastCheckStatus === "ok";
+    await setConfigValue(
+      OPENROUTER_FALLBACK_KEYS.enabled,
+      canEnable ? "1" : "0",
+      updatedBy,
+      database
+    );
+  }
+
+  return getAiConfigStatus(database);
+}
+
+export async function testOpenRouterFallbackConfig(
+  updatedBy: string,
+  database: Database = defaultDb
+): Promise<AiConfigStatus | AiServiceError> {
+  const config = await readConfigMap(database);
+  const apiKey = decryptApiKey(config[OPENROUTER_FALLBACK_KEYS.encryptedApiKey] || "");
+  if (isAiServiceError(apiKey)) return apiKey;
+  const model = config[OPENROUTER_FALLBACK_KEYS.model] || DEFAULT_MODELS.openrouter;
+
+  try {
+    const testResult = await testProviderKey("openrouter", model, apiKey);
+    await setConfigValue(
+      OPENROUTER_FALLBACK_KEYS.lastCheckStatus,
+      testResult.ok ? "ok" : "error",
+      updatedBy,
+      database
+    );
+    await setConfigValue(
+      OPENROUTER_FALLBACK_KEYS.lastCheckError,
+      testResult.ok ? "" : testResult.message,
+      updatedBy,
+      database
+    );
+    await setConfigValue(
+      OPENROUTER_FALLBACK_KEYS.lastCheckedAt,
+      new Date().toISOString(),
+      updatedBy,
+      database
+    );
+    await setConfigValue(
+      OPENROUTER_FALLBACK_KEYS.enabled,
+      testResult.ok ? "1" : "0",
+      updatedBy,
+      database
+    );
+    return getAiConfigStatus(database);
+  } catch {
+    await setConfigValue(OPENROUTER_FALLBACK_KEYS.lastCheckStatus, "error", updatedBy, database);
+    await setConfigValue(
+      OPENROUTER_FALLBACK_KEYS.lastCheckError,
+      "Không thể kết nối tới OpenRouter để kiểm tra API key.",
+      updatedBy,
+      database
+    );
+    await setConfigValue(
+      OPENROUTER_FALLBACK_KEYS.lastCheckedAt,
+      new Date().toISOString(),
+      updatedBy,
+      database
+    );
+    await setConfigValue(OPENROUTER_FALLBACK_KEYS.enabled, "0", updatedBy, database);
+    return getAiConfigStatus(database);
+  }
+}
+
 export async function generateExerciseDraft(
   input: AiGenerateExerciseInput,
   database: Database = defaultDb
@@ -497,8 +667,8 @@ export async function generateExerciseDraft(
 
 /**
  * Provider-neutral structured-output call used by assessment grading.
- * It deliberately reuses the encrypted AI credential configured by admins,
- * while keeping the caller-specific prompt and schema outside this service.
+ * It uses the encrypted primary credential and, for transient/format failures,
+ * can fail over to the separately encrypted OpenRouter Free Models Router key.
  */
 export async function generateStructuredAi(
   request: StructuredAiRequest,
@@ -520,6 +690,62 @@ export async function generateStructuredAi(
   const provider = parseProvider(config[CONFIG_KEYS.provider]);
   const model = config[CONFIG_KEYS.model] || DEFAULT_MODELS[provider];
 
+  const primaryResult = await executeStructuredProvider(
+    provider,
+    model,
+    apiKey,
+    request
+  );
+  if (!isAiServiceError(primaryResult)) return primaryResult;
+
+  const fallback = toOpenRouterFallbackStatus(config);
+  if (
+    provider === "openrouter" ||
+    !fallback.enabled ||
+    !shouldUseStructuredFallback(primaryResult.error.code)
+  ) {
+    return primaryResult;
+  }
+  const fallbackApiKey = decryptApiKey(
+    config[OPENROUTER_FALLBACK_KEYS.encryptedApiKey] || ""
+  );
+  if (isAiServiceError(fallbackApiKey)) return primaryResult;
+  const fallbackResult = await executeStructuredProvider(
+    "openrouter",
+    fallback.model,
+    fallbackApiKey,
+    request
+  );
+  if (!isAiServiceError(fallbackResult)) return fallbackResult;
+  return {
+    error: {
+      ...fallbackResult.error,
+      message: [
+        `${getProviderLabel(provider)}: ${primaryResult.error.message}`,
+        `OpenRouter dự phòng: ${fallbackResult.error.message}`,
+      ].join(" | ").slice(0, 1000),
+    },
+  };
+}
+
+function shouldUseStructuredFallback(code: string) {
+  return new Set([
+    "AI_RATE_LIMITED",
+    "AI_REQUEST_TIMEOUT",
+    "AI_REQUEST_FAILED",
+    "AI_PROVIDER_UNAVAILABLE",
+    "AI_EMPTY_RESPONSE",
+    "AI_RESPONSE_TRUNCATED",
+    "AI_RESPONSE_INVALID",
+  ]).has(code);
+}
+
+async function executeStructuredProvider(
+  provider: AiProvider,
+  model: string,
+  apiKey: string,
+  request: StructuredAiRequest
+): Promise<StructuredAiResult | AiServiceError> {
   let raw: StructuredProviderOutput | AiServiceError;
   try {
     raw = await generateStructuredWithProvider(provider, model, apiKey, request);
@@ -529,7 +755,8 @@ export async function generateStructuredAi(
         code: error instanceof DOMException && error.name === "TimeoutError"
           ? "AI_REQUEST_TIMEOUT"
           : "AI_REQUEST_FAILED",
-        message: "Không thể kết nối tới dịch vụ AI để nhận kết quả chấm.",
+        message: `Không thể kết nối tới ${getProviderLabel(provider)} để nhận kết quả chấm.`,
+        provider,
       },
     };
   }
@@ -541,6 +768,7 @@ export async function generateStructuredAi(
         error: {
           code: "AI_SAFETY_BLOCKED",
           message: `Gemini đã chặn yêu cầu chấm (blockReason: ${raw.promptBlockReason}).`,
+          provider,
         },
       };
     }
@@ -549,6 +777,7 @@ export async function generateStructuredAi(
         error: {
           code: "AI_RESPONSE_TRUNCATED",
           message: "AI đã dùng hết giới hạn output trước khi trả đủ kết quả JSON.",
+          provider,
         },
       };
     }
@@ -558,12 +787,13 @@ export async function generateStructuredAi(
         message: raw.finishReason
           ? `AI không trả về nội dung (finishReason: ${raw.finishReason}).`
           : "AI không trả về nội dung chấm.",
+        provider,
       },
     };
   }
 
   try {
-    return { data: JSON.parse(raw.text), provider, model };
+    return { data: JSON.parse(raw.text), provider, model: raw.resolvedModel || model };
   } catch {
     return {
       error: {
@@ -572,6 +802,7 @@ export async function generateStructuredAi(
           raw.finishReason === "MAX_TOKENS"
             ? "AI đã dùng hết giới hạn output nên JSON bị cắt giữa chừng."
             : `AI trả về dữ liệu không phải JSON hợp lệ${raw.finishReason ? ` (finishReason: ${raw.finishReason})` : ""}.`,
+        provider,
       },
     };
   }
@@ -1026,7 +1257,7 @@ function getProviderOptions() {
     },
     {
       value: "openrouter" as const,
-      label: "OpenRouter",
+      label: "OpenRouter (Free Models Router)",
       defaultModel: DEFAULT_MODELS.openrouter,
       keyPlaceholder: "sk-or-v1-...",
     },
@@ -1075,6 +1306,7 @@ async function testProviderKey(
               headers: {
                 Authorization: `Bearer ${apiKey}`,
                 "Content-Type": "application/json",
+                ...openRouterAttributionHeaders(),
               },
               body: JSON.stringify({
                 model,
@@ -1145,6 +1377,7 @@ async function generateWithProvider(
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
+        ...(provider === "openrouter" ? openRouterAttributionHeaders() : {}),
       },
       body: JSON.stringify(buildOpenAiCompatibleChatRequest(model, input)),
     });
@@ -1264,6 +1497,7 @@ async function generateStructuredWithProvider(
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
+        ...(provider === "openrouter" ? openRouterAttributionHeaders() : {}),
       },
       signal,
       body: JSON.stringify({
@@ -1287,8 +1521,10 @@ async function generateStructuredWithProvider(
     if (!response.ok) {
       return readProviderFailure(response, provider);
     }
+    const payload = (await response.json()) as Record<string, unknown>;
     return {
-      text: extractChatCompletionText((await response.json()) as Record<string, unknown>) || "",
+      text: extractChatCompletionText(payload) || "",
+      resolvedModel: provider === "openrouter" ? extractResponseModel(payload) ?? undefined : undefined,
     };
   }
 
@@ -1402,6 +1638,7 @@ async function readProviderFailure(
       httpStatus: response.status,
       ...(providerStatus ? { providerStatus } : {}),
       ...(retryAfterMs ? { retryAfterMs } : {}),
+      provider,
     },
   };
 }
@@ -1458,6 +1695,19 @@ function extractChatCompletionText(payload: Record<string, unknown>): string | n
   }
 
   return null;
+}
+
+function extractResponseModel(payload: Record<string, unknown>): string | null {
+  return typeof payload.model === "string" && payload.model.trim()
+    ? payload.model
+    : null;
+}
+
+function openRouterAttributionHeaders() {
+  return {
+    "HTTP-Referer": "https://uetcodehub.xyz",
+    "X-Title": "UETCodehub",
+  };
 }
 
 function extractGeminiText(payload: Record<string, unknown>): string | null {

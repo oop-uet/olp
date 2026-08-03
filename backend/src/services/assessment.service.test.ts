@@ -125,6 +125,7 @@ describe("Assessment service", () => {
     vi.unstubAllGlobals();
     vi.useRealTimers();
     delete process.env.ASSESSMENT_AI_GEMINI_RPM;
+    delete process.env.ASSESSMENT_AI_OPENROUTER_RPM;
     getTestSqlite().exec("DELETE FROM system_config WHERE key LIKE 'ai_generation_%';");
     process.env.JWT_SECRET = ORIGINAL_JWT_SECRET;
   });
@@ -598,10 +599,25 @@ describe("Assessment service", () => {
     );
   });
 
-  it("paces Gemini grading globally below the configured requests-per-minute limit", async () => {
+  it.each([
+    {
+      provider: "gemini" as const,
+      environmentKey: "ASSESSMENT_AI_GEMINI_RPM",
+      apiKey: "AIza-test-assessment-key",
+    },
+    {
+      provider: "openrouter" as const,
+      environmentKey: "ASSESSMENT_AI_OPENROUTER_RPM",
+      apiKey: "sk-or-v1-test-assessment-key",
+    },
+  ])("paces $provider grading globally below the configured requests-per-minute limit", async ({
+    provider,
+    environmentKey,
+    apiKey,
+  }) => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(Date.now() + 60_000));
-    process.env.ASSESSMENT_AI_GEMINI_RPM = "15";
+    process.env[environmentKey] = "15";
     const db = getDb();
     const sqlite = getTestSqlite();
     const { instructorId, studentId, sectionId } = seedUsersAndSection();
@@ -620,7 +636,7 @@ describe("Assessment service", () => {
       )
       .run(randomUUID(), sectionId, secondStudentId, now);
     await updateAiConfig(
-      { provider: "gemini", apiKey: "AIza-test-assessment-key" },
+      { provider, apiKey },
       instructorId,
       db
     );
@@ -640,9 +656,14 @@ describe("Assessment service", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ models: [] }) })
       .mockResolvedValue({
         ok: true,
-        json: async () => ({
-          candidates: [{ finishReason: "STOP", content: { parts: [{ text: JSON.stringify(grade) }] } }],
-        }),
+        json: async () => provider === "gemini"
+          ? {
+              candidates: [{ finishReason: "STOP", content: { parts: [{ text: JSON.stringify(grade) }] } }],
+            }
+          : {
+              model: "openai/gpt-oss-20b:free",
+              choices: [{ message: { content: JSON.stringify(grade) } }],
+            },
       });
     vi.stubGlobal("fetch", fetchMock);
     await testAiConfig(instructorId, db);

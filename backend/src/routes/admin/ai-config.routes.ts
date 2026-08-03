@@ -5,13 +5,22 @@ import {
   getAiConfigStatus,
   isAiServiceError,
   testAiConfig,
+  testOpenRouterFallbackConfig,
   updateAiConfig,
+  updateOpenRouterFallbackConfig,
 } from "../../services/ai-exercise.service.js";
 
 const router = Router();
 
 const updateAiConfigSchema = z.object({
   provider: z.enum(["openai", "anthropic", "gemini", "groq", "openrouter"]).optional(),
+  model: z.string().min(3).max(120).optional(),
+  apiKey: z.string().max(300).optional(),
+  enabled: z.boolean().optional(),
+  clearApiKey: z.boolean().optional(),
+});
+
+const updateOpenRouterFallbackSchema = z.object({
   model: z.string().min(3).max(120).optional(),
   apiKey: z.string().max(300).optional(),
   enabled: z.boolean().optional(),
@@ -68,6 +77,40 @@ router.post("/test", async (req: Request, res: Response) => {
         code: "INTERNAL_ERROR",
         message: "An unexpected error occurred",
       },
+    });
+  }
+});
+
+router.put(
+  "/fallback/openrouter",
+  validate(updateOpenRouterFallbackSchema),
+  async (req: Request, res: Response) => {
+    try {
+      const result = await updateOpenRouterFallbackConfig(req.body, req.user!.userId);
+      if (isAiServiceError(result)) {
+        res.status(400).json({ error: result.error });
+        return;
+      }
+      res.status(200).json({ data: result });
+    } catch {
+      res.status(500).json({
+        error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" },
+      });
+    }
+  }
+);
+
+router.post("/fallback/openrouter/test", async (req: Request, res: Response) => {
+  try {
+    const result = await testOpenRouterFallbackConfig(req.user!.userId);
+    if (isAiServiceError(result)) {
+      res.status(400).json({ error: result.error });
+      return;
+    }
+    res.status(200).json({ data: result });
+  } catch {
+    res.status(500).json({
+      error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" },
     });
   }
 });

@@ -1629,18 +1629,24 @@ const AI_GRADING_RETRY_BASE_MS = 15_000;
 const AI_GRADING_RATE_LIMIT_RETRY_BASE_MS = 60_000;
 const AI_GRADING_RATE_LIMIT_RETRY_MAX_MS = 30 * 60_000;
 const AI_QUEUE_PAUSE_KEY = "assessment_ai_queue_pause_until";
-let lastGeminiAssessmentRequestAt = 0;
+const lastAssessmentProviderRequestAt: Partial<Record<"gemini" | "openrouter", number>> = {};
 
-function configuredGeminiAssessmentRpm() {
-  const configured = Number(process.env.ASSESSMENT_AI_GEMINI_RPM || "12");
+function configuredAssessmentRpm(provider: "gemini" | "openrouter") {
+  const environmentKey = provider === "gemini"
+    ? "ASSESSMENT_AI_GEMINI_RPM"
+    : "ASSESSMENT_AI_OPENROUTER_RPM";
+  const configured = Number(process.env[environmentKey] || "12");
   return Number.isFinite(configured) && configured >= 1 && configured <= 60
     ? configured
     : 12;
 }
 
-function geminiAssessmentMinIntervalMs() {
-  if (process.env.NODE_ENV === "test" && !process.env.ASSESSMENT_AI_GEMINI_RPM) return 0;
-  return Math.ceil(60_000 / configuredGeminiAssessmentRpm());
+function assessmentProviderMinIntervalMs(provider: "gemini" | "openrouter") {
+  const environmentKey = provider === "gemini"
+    ? "ASSESSMENT_AI_GEMINI_RPM"
+    : "ASSESSMENT_AI_OPENROUTER_RPM";
+  if (process.env.NODE_ENV === "test" && !process.env[environmentKey]) return 0;
+  return Math.ceil(60_000 / configuredAssessmentRpm(provider));
 }
 
 async function readAssessmentAiQueuePause(database: Database): Promise<string | null> {
@@ -1838,6 +1844,7 @@ async function processAiRun(runId: string, database: Database): Promise<boolean>
       {
         code: "AI_RESPONSE_INVALID",
         message: "AI trả dữ liệu chấm không đúng schema.",
+        provider: result.provider,
       },
       database
     );
@@ -1870,6 +1877,7 @@ async function processAiRun(runId: string, database: Database): Promise<boolean>
       {
         code: "AI_SCORE_OUT_OF_RANGE",
         message: "Điểm AI không khớp rubric hoặc vượt điểm câu.",
+        provider: result.provider,
       },
       database
     );
@@ -1921,6 +1929,7 @@ async function handleAiRunError(
       .update(assessmentAiGradingRuns)
       .set({
         status: "queued",
+        provider: error.provider ?? run.provider,
         nextAttemptAt: pauseUntil,
         lockedUntil: null,
         finishedAt: null,
@@ -1954,11 +1963,16 @@ async function handleAiRunError(
   }
 
   if (isRetryableAiGradingError(error.code) && run.attemptCount < AI_GRADING_MAX_ATTEMPTS) {
+    const nextAttemptAt = nextAiRetryAt(run.attemptCount, error.retryAfterMs);
+    const effectiveNextAttemptAt = error.retryAfterMs
+      ? await pauseAssessmentAiQueueUntil(nextAttemptAt, database)
+      : nextAttemptAt;
     await database
       .update(assessmentAiGradingRuns)
       .set({
         status: "queued",
-        nextAttemptAt: nextAiRetryAt(run.attemptCount),
+        provider: error.provider ?? run.provider,
+        nextAttemptAt: effectiveNextAttemptAt,
         lockedUntil: null,
         errorCode: error.code,
         errorMessage: error.message.slice(0, 1000),
@@ -1973,19 +1987,31 @@ async function handleAiRunError(
     return;
   }
 
-  await failAiRun(run.id, answer.id, error.code, error.message, database);
+  await failAiRun(
+    run.id,
+    answer.id,
+    error.code,
+    error.message,
+    database,
+    error.provider
+  );
   await refreshPredictedScoreForAnswer(answer.id, database);
 }
 
-function aiFailureFeedback(code: string) {
+function aiFailureFeedback(code: string, provider?: string) {
+  const providerLabel = provider === "openrouter"
+    ? "OpenRouter"
+    : provider === "gemini"
+      ? "Gemini"
+      : "Dịch vụ AI";
   if (code === "AI_AUTH_FAILED") {
     return "API key AI không hợp lệ hoặc không có quyền dùng model. Cần quản trị viên kiểm tra cấu hình.";
   }
   if (code === "AI_REQUEST_INVALID") {
-    return "Gemini từ chối cấu hình yêu cầu chấm. Cần kiểm tra model hoặc rubric.";
+    return `${providerLabel} từ chối cấu hình yêu cầu chấm. Cần kiểm tra model hoặc rubric.`;
   }
   if (code === "AI_SAFETY_BLOCKED") {
-    return "Gemini đã chặn nội dung theo bộ lọc an toàn. Cần giảng viên chấm thủ công.";
+    return `${providerLabel} đã chặn nội dung theo bộ lọc an toàn. Cần giảng viên chấm thủ công.`;
   }
   if (code === "AI_RESPONSE_TRUNCATED") {
     return "Kết quả AI bị cắt trước khi hoàn tất. Có thể chạy lại AI hoặc chấm thủ công.";
@@ -2004,7 +2030,8 @@ async function failAiRun(
   answerId: string,
   code: string,
   message: string,
-  database: Database
+  database: Database,
+  provider?: string
 ) {
   const answer = await database.query.assessmentAnswers.findFirst({
     where: eq(assessmentAnswers.id, answerId),
@@ -2013,6 +2040,7 @@ async function failAiRun(
     .update(assessmentAiGradingRuns)
     .set({
       status: "failed",
+      ...(provider ? { provider } : {}),
       errorCode: code,
       errorMessage: message.slice(0, 1000),
       nextAttemptAt: null,
@@ -2028,7 +2056,7 @@ async function failAiRun(
         ? { gradingState: answer.gradingState }
         : {
             gradingState: "ungraded",
-            aiFeedback: aiFailureFeedback(code),
+            aiFeedback: aiFailureFeedback(code, provider),
           }
     )
     .where(eq(assessmentAnswers.id, answerId));
@@ -2225,19 +2253,19 @@ export async function processPendingAssessmentAiRuns(
   database: Database = defaultDb
 ) {
   const availability = await getAiAvailability(database);
-  const isGemini = availability.provider === "gemini";
-  if (isGemini) {
-    const nowMs = Date.now();
-    const persistedPause = await readAssessmentAiQueuePause(database);
-    const persistedPauseMs = persistedPause ? Date.parse(persistedPause) : 0;
-    const minIntervalMs = geminiAssessmentMinIntervalMs();
-    const intervalPauseMs = minIntervalMs > 0
-      ? lastGeminiAssessmentRequestAt + minIntervalMs
-      : 0;
-    const pausedUntilMs = Math.max(persistedPauseMs, intervalPauseMs);
-    if (pausedUntilMs > nowMs) {
-      return { processed: 0, pausedUntil: new Date(pausedUntilMs).toISOString() };
-    }
+  const pacedProvider = availability.provider === "gemini" || availability.provider === "openrouter"
+    ? availability.provider
+    : null;
+  const nowMs = Date.now();
+  const persistedPause = await readAssessmentAiQueuePause(database);
+  const persistedPauseMs = persistedPause ? Date.parse(persistedPause) : 0;
+  const minIntervalMs = pacedProvider ? assessmentProviderMinIntervalMs(pacedProvider) : 0;
+  const intervalPauseMs = pacedProvider && minIntervalMs > 0
+    ? (lastAssessmentProviderRequestAt[pacedProvider] ?? 0) + minIntervalMs
+    : 0;
+  const pausedUntilMs = Math.max(persistedPauseMs, intervalPauseMs);
+  if (pausedUntilMs > nowMs) {
+    return { processed: 0, pausedUntil: new Date(pausedUntilMs).toISOString() };
   }
 
   const now = new Date().toISOString();
@@ -2249,10 +2277,10 @@ export async function processPendingAssessmentAiRuns(
       asc(assessmentAiGradingRuns.nextAttemptAt),
       asc(assessmentAiGradingRuns.createdAt)
     )
-    .limit(isGemini ? 1 : Math.max(1, Math.min(limit, 10)));
+    .limit(pacedProvider ? 1 : Math.max(1, Math.min(limit, 10)));
   let processed = 0;
   for (const run of runs) {
-    if (isGemini) lastGeminiAssessmentRequestAt = Date.now();
+    if (pacedProvider) lastAssessmentProviderRequestAt[pacedProvider] = Date.now();
     if (await processAiRun(run.id, database)) processed += 1;
   }
   return { processed, pausedUntil: null };

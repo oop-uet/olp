@@ -65,6 +65,23 @@ describe('Config Service', () => {
       expect(warningThreshold!.value).toBe('3');
       expect(warningThreshold!.validRange).toBe('1-10');
     });
+
+    it('should not expose AI credentials or internal queue state', async () => {
+      const sqlite = getTestSqlite();
+      const now = new Date().toISOString();
+      sqlite
+        .prepare(
+          `INSERT INTO system_config (key, value, valid_range, updated_at)
+           VALUES ('ai_openrouter_fallback_api_key_encrypted', 'ciphertext', 'secret', ?),
+                  ('assessment_ai_queue_pause_until', '2099-01-01T00:00:00.000Z', 'iso-datetime', ?)`
+        )
+        .run(now, now);
+
+      const configs = await getConfig(getDb());
+
+      expect(configs.some((config) => config.key.includes('api_key'))).toBe(false);
+      expect(configs.some((config) => config.key.startsWith('assessment_ai_'))).toBe(false);
+    });
   });
 
   describe('updateConfig', () => {

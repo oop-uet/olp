@@ -8,7 +8,9 @@ import {
   getAiConfigStatus,
   isAiServiceError,
   testAiConfig,
+  testOpenRouterFallbackConfig,
   updateAiConfig,
+  updateOpenRouterFallbackConfig,
 } from "./ai-exercise.service.js";
 
 function getDb() {
@@ -21,7 +23,9 @@ const ORIGINAL_SECRET = process.env.JWT_SECRET;
 function resetAiConfigRows() {
   const sqlite = getTestSqlite();
   sqlite.exec("PRAGMA foreign_keys = OFF;");
-  sqlite.exec("DELETE FROM system_config WHERE key LIKE 'ai_generation_%';");
+  sqlite.exec(
+    "DELETE FROM system_config WHERE key LIKE 'ai_generation_%' OR key LIKE 'ai_openrouter_%';"
+  );
 }
 
 function createDraft() {
@@ -84,6 +88,13 @@ describe("AI Exercise Service", () => {
       keyLast4: "",
       lastCheckStatus: "missing",
       encryptionReady: true,
+      openRouterFallback: {
+        provider: "openrouter",
+        model: "openrouter/free",
+        enabled: false,
+        keyConfigured: false,
+        lastCheckStatus: "missing",
+      },
     });
     expect(status.providers.map((provider) => provider.value)).toEqual([
       "openai",
@@ -482,6 +493,136 @@ describe("AI Exercise Service", () => {
         httpStatus: 429,
         providerStatus: "RESOURCE_EXHAUSTED",
         retryAfterMs: 16_500,
+        provider: "gemini",
+      },
+    });
+  });
+
+  it("uses the separately encrypted OpenRouter free router when Gemini is rate limited", async () => {
+    const db = getDb();
+    await updateAiConfig(
+      { provider: "gemini", model: "gemini-2.5-flash", apiKey: "AIza-test-key" },
+      ADMIN_ID,
+      db as never
+    );
+    const savedFallback = await updateOpenRouterFallbackConfig(
+      { model: "openrouter/free", apiKey: "sk-or-v1-fallback-key", enabled: true },
+      ADMIN_ID,
+      db as never
+    );
+    expect(isAiServiceError(savedFallback)).toBe(false);
+    expect((savedFallback as any).openRouterFallback).toMatchObject({
+      enabled: false,
+      keyConfigured: true,
+      lastCheckStatus: "untested",
+    });
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ models: [] }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: "OK" } }] }),
+      })
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: {
+              message: "Gemini quota exceeded. Retry in 60s.",
+              status: "RESOURCE_EXHAUSTED",
+              details: [{ retryDelay: "60s" }],
+            },
+          }),
+          { status: 429, headers: { "Content-Type": "application/json" } }
+        )
+      )
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          model: "openai/gpt-oss-20b:free",
+          choices: [{ message: { content: JSON.stringify({ score: 4.5 }) } }],
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    await testAiConfig(ADMIN_ID, db as never);
+    const testedFallback = await testOpenRouterFallbackConfig(ADMIN_ID, db as never);
+    expect(isAiServiceError(testedFallback)).toBe(false);
+    expect((testedFallback as any).openRouterFallback).toMatchObject({
+      enabled: true,
+      lastCheckStatus: "ok",
+    });
+
+    const result = await generateStructuredAi(
+      {
+        schemaName: "grade",
+        schema: {
+          type: "object",
+          properties: { score: { type: "number" } },
+          required: ["score"],
+        },
+        instructions: "Chấm theo rubric.",
+        input: { answer: "Nội dung" },
+      },
+      db as never
+    );
+
+    expect(result).toEqual({
+      data: { score: 4.5 },
+      provider: "openrouter",
+      model: "openai/gpt-oss-20b:free",
+    });
+    const [url, request] = fetchMock.mock.calls[3];
+    expect(url).toBe("https://openrouter.ai/api/v1/chat/completions");
+    expect(request.headers).toMatchObject({
+      Authorization: "Bearer sk-or-v1-fallback-key",
+      "HTTP-Referer": "https://uetcodehub.xyz",
+      "X-Title": "UETCodehub",
+    });
+    expect(JSON.parse(String(request.body))).toMatchObject({
+      model: "openrouter/free",
+      response_format: { type: "json_schema" },
+    });
+  });
+
+  it("honors OpenRouter Retry-After metadata when no free model is available", async () => {
+    const db = getDb();
+    await updateAiConfig(
+      { provider: "openrouter", model: "openrouter/free", apiKey: "sk-or-v1-test-key" },
+      ADMIN_ID,
+      db as never
+    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ error: { message: "No available free model provider." } }),
+          {
+            status: 503,
+            headers: { "Content-Type": "application/json", "Retry-After": "120" },
+          }
+        )
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    await testAiConfig(ADMIN_ID, db as never);
+
+    const result = await generateStructuredAi(
+      {
+        schemaName: "grade",
+        schema: { type: "object", properties: {}, required: [] },
+        instructions: "Chấm.",
+        input: {},
+      },
+      db as never
+    );
+
+    expect(result).toEqual({
+      error: {
+        code: "AI_PROVIDER_UNAVAILABLE",
+        message: "No available free model provider.",
+        httpStatus: 503,
+        retryAfterMs: 120_000,
+        provider: "openrouter",
       },
     });
   });

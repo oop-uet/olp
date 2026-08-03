@@ -90,11 +90,17 @@ function answerText(answer: ReviewAnswer) {
 
 function aiRunPresentation(run: ReviewAnswer['latestAiRun']) {
   if (!run) return null
+  const providerLabel = run.provider === 'openrouter'
+    ? 'OpenRouter'
+    : run.provider === 'gemini'
+      ? 'Gemini'
+      : 'Dịch vụ AI'
+  const quotaProvider = run.provider ? ` ${providerLabel}` : ''
   const legacyQuotaError = /quota|rate limit|resource_exhausted/i.test(run.errorMessage ?? '')
   if (run.status === 'queued' && (run.errorCode === 'AI_RATE_LIMITED' || legacyQuotaError)) {
     return {
       label: 'Đang chờ quota',
-      message: 'Hệ thống đã tạm dừng hàng đợi và sẽ tự động chấm tiếp khi quota phục hồi.',
+      message: `Hệ thống đã tạm dừng hàng đợi và sẽ tự động chấm tiếp khi quota${quotaProvider} phục hồi.`,
       className: 'border-amber-200 bg-amber-50 text-amber-900',
     }
   }
@@ -108,22 +114,22 @@ function aiRunPresentation(run: ReviewAnswer['latestAiRun']) {
   if (run.status === 'running') {
     return {
       label: 'AI đang chấm',
-      message: 'Gemini đang xử lý câu trả lời này.',
+      message: `${providerLabel} đang xử lý câu trả lời này.`,
       className: 'border-cyan-200 bg-cyan-50 text-cyan-900',
     }
   }
   if (run.status === 'succeeded') return null
 
   const messages: Record<string, string> = {
-    AI_RATE_LIMITED: 'Gemini đã vượt quota. Lượt này sẽ được đưa lại vào hàng đợi tự động.',
+    AI_RATE_LIMITED: `${providerLabel} đã vượt quota. Lượt này sẽ được đưa lại vào hàng đợi tự động.`,
     AI_AUTH_FAILED: 'API key không hợp lệ hoặc không có quyền sử dụng model đã chọn.',
-    AI_REQUEST_INVALID: 'Gemini từ chối cấu hình request. Cần kiểm tra model, đáp án hoặc rubric.',
-    AI_SAFETY_BLOCKED: 'Gemini chặn nội dung theo bộ lọc an toàn.',
+    AI_REQUEST_INVALID: `${providerLabel} từ chối cấu hình request. Cần kiểm tra model, đáp án hoặc rubric.`,
+    AI_SAFETY_BLOCKED: `${providerLabel} chặn nội dung theo bộ lọc an toàn.`,
     AI_RESPONSE_TRUNCATED: 'Kết quả bị cắt trước khi JSON hoàn tất.',
-    AI_RESPONSE_INVALID: 'Gemini trả kết quả không đúng định dạng JSON yêu cầu.',
-    AI_SCORE_OUT_OF_RANGE: 'Điểm Gemini trả về không khớp rubric hoặc vượt điểm tối đa.',
-    AI_PROVIDER_UNAVAILABLE: 'Dịch vụ Gemini tạm thời không khả dụng.',
-    AI_REQUEST_TIMEOUT: 'Gemini không phản hồi trong thời gian cho phép.',
+    AI_RESPONSE_INVALID: `${providerLabel} trả kết quả không đúng định dạng JSON yêu cầu.`,
+    AI_SCORE_OUT_OF_RANGE: `Điểm ${providerLabel} trả về không khớp rubric hoặc vượt điểm tối đa.`,
+    AI_PROVIDER_UNAVAILABLE: `${providerLabel} tạm thời không khả dụng.`,
+    AI_REQUEST_TIMEOUT: `${providerLabel} không phản hồi trong thời gian cho phép.`,
     GRADING_GUIDE_MISSING: 'Câu hỏi thiếu đáp án gợi ý hoặc rubric.',
   }
   return {
@@ -378,6 +384,12 @@ export function AssessmentReviewPage() {
                         <span className="badge-blue text-[10px] font-bold uppercase">Độ tin cậy: {answer.aiConfidence}</span>
                       )}
                     </div>
+                    {answer.latestAiRun?.status === 'succeeded' && answer.latestAiRun.provider && (
+                      <p className="text-[11px] font-semibold text-cyan-800">
+                        Chấm bởi {answer.latestAiRun.provider === 'openrouter' ? 'OpenRouter' : answer.latestAiRun.provider}
+                        {answer.latestAiRun.model ? ` · ${answer.latestAiRun.model}` : ''}
+                      </p>
+                    )}
                     <div className="flex items-baseline gap-2">
                       <span className="text-3xl font-black text-cyan-900">
                         {answer.aiSuggestedPoints === null ? '—' : answer.aiSuggestedPoints}

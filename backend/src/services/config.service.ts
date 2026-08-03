@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { db as defaultDb } from '../db/index.js';
 import { systemConfig } from '../db/schema.js';
 
@@ -85,7 +85,12 @@ type Database = any;
  */
 export async function getConfig(database: Database = defaultDb): Promise<ConfigEntry[]> {
   await ensureDefaultConfigRows(database);
-  const configs = await database.select().from(systemConfig);
+  // Only expose public, editable settings. AI credentials, queue pauses and
+  // other internal rows share this table but must never be returned here.
+  const configs = await database
+    .select()
+    .from(systemConfig)
+    .where(inArray(systemConfig.key, DEFAULT_CONFIGS.map((config) => config.key)));
   return configs;
 }
 

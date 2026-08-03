@@ -43,6 +43,29 @@ interface AiConfigStatus {
   lastCheckError: string
   lastCheckedAt: string
   encryptionReady: boolean
+  openRouterFallback?: OpenRouterFallbackStatus
+}
+
+interface OpenRouterFallbackStatus {
+  provider: 'openrouter'
+  model: string
+  enabled: boolean
+  keyConfigured: boolean
+  keyLast4: string
+  lastCheckStatus: 'missing' | 'untested' | 'ok' | 'error'
+  lastCheckError: string
+  lastCheckedAt: string
+}
+
+const DEFAULT_OPENROUTER_FALLBACK: OpenRouterFallbackStatus = {
+  provider: 'openrouter',
+  model: 'openrouter/free',
+  enabled: false,
+  keyConfigured: false,
+  keyLast4: '',
+  lastCheckStatus: 'missing',
+  lastCheckError: '',
+  lastCheckedAt: '',
 }
 
 // ─── Config Parameter Metadata ───────────────────────────────────────────────
@@ -169,6 +192,11 @@ export function ConfigPage() {
   const [aiEnabled, setAiEnabled] = useState(false)
   const [aiSaving, setAiSaving] = useState(false)
   const [aiTesting, setAiTesting] = useState(false)
+  const [openRouterModel, setOpenRouterModel] = useState('openrouter/free')
+  const [openRouterApiKey, setOpenRouterApiKey] = useState('')
+  const [openRouterEnabled, setOpenRouterEnabled] = useState(false)
+  const [openRouterSaving, setOpenRouterSaving] = useState(false)
+  const [openRouterTesting, setOpenRouterTesting] = useState(false)
 
   useEffect(() => {
     fetchConfig()
@@ -191,6 +219,10 @@ export function ConfigPage() {
       setAiModel(aiData.model)
       setAiEnabled(aiData.enabled)
       setAiApiKey('')
+      const fallback = aiData.openRouterFallback ?? DEFAULT_OPENROUTER_FALLBACK
+      setOpenRouterModel(fallback.model)
+      setOpenRouterEnabled(fallback.enabled)
+      setOpenRouterApiKey('')
 
       // Initialize form values from current config
       const values: Record<string, string> = {}
@@ -404,12 +436,93 @@ export function ConfigPage() {
     }
   }
 
+  function applyOpenRouterFallback(nextConfig: AiConfigStatus) {
+    const fallback = nextConfig.openRouterFallback ?? DEFAULT_OPENROUTER_FALLBACK
+    setAiConfig(nextConfig)
+    setOpenRouterModel(fallback.model)
+    setOpenRouterEnabled(fallback.enabled)
+    setOpenRouterApiKey('')
+    return fallback
+  }
+
+  async function handleSaveOpenRouterFallback() {
+    const model = openRouterModel.trim()
+    if (model.length < 3) {
+      toast.error('Tên model OpenRouter không hợp lệ.')
+      return
+    }
+    setOpenRouterSaving(true)
+    try {
+      const response = await api.put('/api/admin/ai-config/fallback/openrouter', {
+        model,
+        apiKey: openRouterApiKey.trim() || undefined,
+        enabled: openRouterEnabled,
+      })
+      const fallback = applyOpenRouterFallback(response.data.data as AiConfigStatus)
+      toast.success(
+        fallback.enabled
+          ? 'Đã lưu và bật OpenRouter dự phòng.'
+          : 'Đã lưu OpenRouter. Hãy kiểm tra key thành công trước khi bật.'
+      )
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
+      toast.error(axiosErr.response?.data?.error?.message || 'Không thể lưu OpenRouter dự phòng.')
+    } finally {
+      setOpenRouterSaving(false)
+    }
+  }
+
+  async function handleTestOpenRouterFallback() {
+    setOpenRouterTesting(true)
+    try {
+      const response = await api.post('/api/admin/ai-config/fallback/openrouter/test')
+      const fallback = applyOpenRouterFallback(response.data.data as AiConfigStatus)
+      if (fallback.lastCheckStatus === 'ok') {
+        toast.success('OpenRouter API key hoạt động và kênh dự phòng đã được bật.')
+      } else {
+        toast.error(fallback.lastCheckError || 'OpenRouter API key chưa kiểm tra thành công.')
+      }
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
+      toast.error(axiosErr.response?.data?.error?.message || 'Không thể kiểm tra OpenRouter API key.')
+    } finally {
+      setOpenRouterTesting(false)
+    }
+  }
+
+  async function handleClearOpenRouterFallback() {
+    setOpenRouterSaving(true)
+    try {
+      const response = await api.put('/api/admin/ai-config/fallback/openrouter', {
+        clearApiKey: true,
+        enabled: false,
+      })
+      applyOpenRouterFallback(response.data.data as AiConfigStatus)
+      toast.success('Đã xóa OpenRouter API key và tắt kênh dự phòng.')
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
+      toast.error(axiosErr.response?.data?.error?.message || 'Không thể xóa OpenRouter API key.')
+    } finally {
+      setOpenRouterSaving(false)
+    }
+  }
+
   function getAiStatusLabel() {
     if (!aiConfig?.keyConfigured) return 'Chưa có API key'
     if (aiConfig.lastCheckStatus === 'ok') return 'Key hoạt động'
     if (aiConfig.lastCheckStatus === 'untested') return 'Key chưa kiểm tra'
     if (aiConfig.lastCheckStatus === 'error') return 'Key lỗi'
     return 'Chưa có API key'
+  }
+
+  function getOpenRouterStatusLabel() {
+    if (!openRouterFallback.keyConfigured) return 'Chưa có key dự phòng'
+    if (openRouterFallback.lastCheckStatus === 'ok') {
+      return openRouterFallback.enabled ? 'Dự phòng đang bật' : 'Key hợp lệ, đang tắt'
+    }
+    if (openRouterFallback.lastCheckStatus === 'untested') return 'Key chưa kiểm tra'
+    if (openRouterFallback.lastCheckStatus === 'error') return 'Key lỗi'
+    return 'Chưa có key dự phòng'
   }
 
   function handleAiProviderChange(provider: AiConfigStatus['provider']) {
@@ -422,6 +535,7 @@ export function ConfigPage() {
   }
 
   const selectedAiProvider = aiConfig?.providers.find((option) => option.value === aiProvider)
+  const openRouterFallback = aiConfig?.openRouterFallback ?? DEFAULT_OPENROUTER_FALLBACK
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -694,6 +808,160 @@ export function ConfigPage() {
             Lần kiểm tra gần nhất: {new Date(aiConfig.lastCheckedAt).toLocaleString('vi-VN')}
           </p>
         )}
+
+        <section className="mt-6 border-t border-slate-200 pt-5" aria-labelledby="openrouter-fallback-title">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-2xl">
+              <h3 id="openrouter-fallback-title" className="text-sm font-bold uppercase tracking-wide text-slate-800">
+                OpenRouter Free Models Router — dự phòng chấm tự luận
+              </h3>
+              <p className="mt-1 text-xs font-medium leading-relaxed text-slate-600">
+                Khi provider chính bị quota, timeout, tạm ngừng hoặc trả JSON lỗi, hệ thống thử
+                <span className="mx-1 font-mono font-bold">openrouter/free</span>
+                trước khi đưa bài lại vào hàng đợi. Provider chính vẫn được ưu tiên.
+              </p>
+            </div>
+            <div className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-800">
+              {getOpenRouterStatusLabel()}
+              {openRouterFallback.keyLast4 && (
+                <span className="ml-1 font-mono">••••{openRouterFallback.keyLast4}</span>
+              )}
+            </div>
+          </div>
+
+          {aiProvider === 'openrouter' && (
+            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+              OpenRouter đang là provider chính, nên kênh OpenRouter dự phòng sẽ được bỏ qua để tránh gọi lặp cùng dịch vụ.
+            </div>
+          )}
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div>
+              <label htmlFor="openrouter-fallback-model" className="block text-sm font-semibold text-gray-800">
+                Model/router dự phòng
+              </label>
+              <input
+                id="openrouter-fallback-model"
+                value={openRouterModel}
+                onChange={(event) => setOpenRouterModel(event.target.value)}
+                className="input mt-2"
+                placeholder="openrouter/free"
+              />
+            </div>
+            <div>
+              <label htmlFor="openrouter-fallback-key" className="block text-sm font-semibold text-gray-800">
+                OpenRouter API key
+              </label>
+              <input
+                id="openrouter-fallback-key"
+                type="password"
+                value={openRouterApiKey}
+                onChange={(event) => setOpenRouterApiKey(event.target.value)}
+                className="input mt-2"
+                placeholder={openRouterFallback.keyConfigured ? 'Để trống nếu không đổi key' : 'sk-or-v1-...'}
+                autoComplete="off"
+              />
+            </div>
+          </div>
+
+          {openRouterFallback.lastCheckError && (
+            <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+              {openRouterFallback.lastCheckError}
+            </div>
+          )}
+
+          <div className="mt-4 rounded-xl border border-violet-200 bg-violet-50/70 p-4 text-xs text-violet-950">
+            <p className="font-black">Free Models Router phù hợp làm dự phòng lưu lượng thấp, không phải năng lực production.</p>
+            <p className="mt-1.5 font-medium leading-relaxed">
+              OpenRouter tự chọn model miễn phí có hỗ trợ structured output. Tài khoản miễn phí thường chỉ có
+              50 request/ngày; tài khoản đã mua ít nhất 10 USD credit có thể dùng tới 1.000 request free/ngày.
+              Hàng đợi mặc định giới hạn 12 request/phút và luôn tôn trọng Retry-After khi bị 429/503.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-bold">
+              <a
+                href="https://openrouter.ai/settings/keys"
+                target="_blank"
+                rel="noreferrer"
+                className="text-violet-700 underline underline-offset-2 hover:text-violet-900"
+              >
+                Tạo OpenRouter API key
+              </a>
+              <a
+                href="https://openrouter.ai/activity"
+                target="_blank"
+                rel="noreferrer"
+                className="text-violet-700 underline underline-offset-2 hover:text-violet-900"
+              >
+                Xem usage
+              </a>
+              <a
+                href="https://openrouter.ai/docs/guides/routing/routers/free-router"
+                target="_blank"
+                rel="noreferrer"
+                className="text-violet-700 underline underline-offset-2 hover:text-violet-900"
+              >
+                Tài liệu Free Router
+              </a>
+            </div>
+          </div>
+
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={openRouterEnabled}
+                aria-label="Bật OpenRouter dự phòng"
+                onClick={() => setOpenRouterEnabled((value) => !value)}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  openRouterEnabled ? 'bg-violet-600' : 'bg-gray-200'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    openRouterEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+              <span className="min-w-[2rem] select-none text-sm font-semibold text-slate-700">
+                {openRouterEnabled ? 'Bật' : 'Tắt'}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleSaveOpenRouterFallback}
+              disabled={openRouterSaving || !aiConfig?.encryptionReady}
+              className="btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {openRouterSaving ? 'Đang lưu...' : 'Lưu OpenRouter'}
+            </button>
+            <button
+              type="button"
+              onClick={handleTestOpenRouterFallback}
+              disabled={openRouterTesting || !openRouterFallback.keyConfigured || !aiConfig?.encryptionReady}
+              className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {openRouterTesting ? 'Đang kiểm tra...' : 'Kiểm tra key OpenRouter'}
+            </button>
+            {openRouterFallback.keyConfigured && (
+              <button
+                type="button"
+                onClick={handleClearOpenRouterFallback}
+                disabled={openRouterSaving}
+                className="btn-ghost btn-sm text-danger-600"
+              >
+                Xóa key OpenRouter
+              </button>
+            )}
+          </div>
+
+          {openRouterFallback.lastCheckedAt && (
+            <p className="mt-3 text-xs text-gray-400">
+              OpenRouter kiểm tra gần nhất: {new Date(openRouterFallback.lastCheckedAt).toLocaleString('vi-VN')}
+            </p>
+          )}
+        </section>
       </div>
     </div>
   )
