@@ -253,13 +253,10 @@ export function AssessmentManagerPanel() {
           }}
         >
           <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-            <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-slate-50 px-5 py-4">
-              <div>
-                <h2 id="assessment-window-title" className="font-bold text-slate-900">
-                  Cài đặt thời gian mở và đóng
-                </h2>
-                <p className="mt-1 text-sm text-slate-600">{settingsItem.title}</p>
-              </div>
+            <div className="flex items-center justify-between gap-4 border-b border-slate-200 bg-slate-50 px-5 py-4">
+              <h2 id="assessment-window-title" className="font-bold text-slate-900">
+                Cài đặt thời gian mở và đóng
+              </h2>
               <button
                 type="button"
                 onClick={() => setSettingsItem(null)}
@@ -272,9 +269,6 @@ export function AssessmentManagerPanel() {
             </div>
 
             <div className="max-h-[70vh] space-y-4 overflow-y-auto p-5">
-              <p className="rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-slate-700">
-                Thời gian đóng chỉ cần sau thời gian mở và có thể kéo dài hơn thời lượng làm bài để dự phòng sự cố.
-              </p>
 
               {windowDrafts.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500">
