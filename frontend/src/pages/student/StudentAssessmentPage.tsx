@@ -4,7 +4,6 @@ import { api } from '../../lib/api'
 import { readApiError } from '../../lib/apiError'
 import { PageLoader } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
-import { AssessmentPromptContent } from '../../components/assessment/AssessmentPromptContent'
 
 interface Preflight {
   id: string
@@ -100,8 +99,25 @@ function hasAnswerValue(answer: Record<string, unknown> | undefined) {
 }
 
 function assessmentText(value: string | null | undefined) {
-  return String(value ?? '').replace(/\\([{}])/g, '$1')
+  return String(value ?? '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\\([{}])/g, '$1')
 }
+
+// CodeBlock renders pre-formatted code without JSX whitespace injection
+const CodeBlock = ({ content, className, 'data-assessment-protected-text': dataProtected }: {
+  content: string
+  className?: string
+  'data-assessment-protected-text'?: string
+}) => {
+  const text = assessmentText(content).trim()
+  return (
+    <pre
+      className={className}
+      style={{ tabSize: 4 }}
+      data-assessment-protected-text={dataProtected}
+    >{text}</pre>
+  )
+}
+
 
 export function StudentAssessmentPage() {
   const { assignmentId } = useParams<{ assignmentId: string }>()
@@ -1017,7 +1033,11 @@ export function StudentAssessmentPage() {
               </div>
               {section.introContent && (
                 <div className="p-5 pb-0">
-                  <AssessmentPromptContent text={section.introContent} />
+                  <CodeBlock
+                    content={section.introContent}
+                    className="overflow-x-auto whitespace-pre-wrap rounded-xl border border-slate-800 bg-slate-900 p-4 font-mono text-xs leading-6 text-emerald-400 shadow-inner"
+                    data-assessment-protected-text="true"
+                  />
                 </div>
               )}
               <div className="divide-y divide-slate-100">
@@ -1059,12 +1079,12 @@ function QuestionInput({
   return (
     <article id={`question-${question.id}`} className="scroll-mt-24 p-6 space-y-4">
       <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1 text-sm font-bold leading-relaxed text-slate-900 flex items-start gap-2.5">
+        <div className="min-w-0 whitespace-pre-wrap break-words text-sm font-bold leading-relaxed text-slate-900 flex items-start gap-2.5">
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs font-black text-teal-800">
             {number}
           </span>
-          <div className="min-w-0 flex-1" data-assessment-protected-text="true">
-            <AssessmentPromptContent text={question.prompt} className="min-w-0 flex-1" />
+          <div className="mt-0.5" data-assessment-protected-text="true">
+            {assessmentText(question.prompt)}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -1082,7 +1102,7 @@ function QuestionInput({
             <span aria-hidden="true">⚑</span>
             {flagged ? 'Đã gắn cờ' : 'Gắn cờ'}
           </button>
-          <span className="inline-flex items-center rounded-md bg-cyan-500/10 text-cyan-800 border border-cyan-500/20 px-2.5 py-1 text-xs font-extrabold shadow-2xs">
+          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600">
             {question.points} điểm
           </span>
         </div>
@@ -1339,9 +1359,10 @@ function AssessmentSubmissionReview({
             <span className="badge-blue">{formatAssessmentScore(section.points)} điểm</span>
           </div>
           {section.introContent && (
-            <div className="p-5 pb-0">
-              <AssessmentPromptContent text={section.introContent} protectedText={false} />
-            </div>
+            <CodeBlock
+              content={section.introContent}
+              className="m-5 overflow-x-auto whitespace-pre-wrap rounded-xl bg-slate-900 p-4 font-mono text-xs leading-6 text-emerald-300"
+            />
           )}
           <div className="divide-y divide-slate-100">
             {section.questions.map((question, index) => (
@@ -1358,13 +1379,13 @@ function ReviewQuestionCard({ question, number }: { question: ReviewQuestion; nu
   return (
     <article className="space-y-4 p-5 sm:p-6">
       <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 flex-1 items-start gap-2.5 text-sm font-bold leading-relaxed text-slate-900">
+        <div className="flex min-w-0 items-start gap-2.5 whitespace-pre-wrap break-words text-sm font-bold leading-relaxed text-slate-900">
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs font-black text-teal-800">
             {number}
           </span>
-          <AssessmentPromptContent text={question.prompt} className="min-w-0 flex-1" />
+          <span>{assessmentText(question.prompt)}</span>
         </div>
-        <span className="inline-flex shrink-0 items-center rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 text-xs font-extrabold shadow-2xs">
+        <span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
           {formatAssessmentScore(question.awardedPoints)}/{formatAssessmentScore(question.points)} điểm
         </span>
       </div>
