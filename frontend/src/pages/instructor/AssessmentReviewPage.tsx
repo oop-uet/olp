@@ -49,6 +49,7 @@ interface ReviewData {
     predictedScore: number | null
     officialScore: number | null
     reviewStatus: string
+    attemptNumber: number
   }
   assessment: { title: string; totalPoints: number }
   student: { username: string; fullName?: string | null }
@@ -178,7 +179,7 @@ export function AssessmentReviewPage() {
           </Link>
           <h1 className="mt-2 text-2xl font-bold text-slate-900">{data.assessment.title}</h1>
           <p className="text-sm text-slate-500">
-            {data.student.fullName || data.student.username} · {data.student.username}
+            {data.student.fullName || data.student.username} · {data.student.username} · Lượt {data.session.attemptNumber}
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2 text-center">

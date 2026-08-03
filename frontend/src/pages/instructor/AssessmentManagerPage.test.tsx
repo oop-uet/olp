@@ -34,6 +34,7 @@ const assessment: InstructorAssessmentListItem = {
       opensAt: '2026-08-10T01:00:00.000Z',
       closesAt: '2026-08-10T03:00:00.000Z',
       durationMinutes: 90,
+      maxAttempts: 1,
     },
   ],
 }
@@ -74,7 +75,9 @@ describe('AssessmentManagerPanel', () => {
     const opensAtInput = screen.getByLabelText('Thời gian mở') as HTMLInputElement
     const closesAtInput = screen.getByLabelText('Thời gian đóng') as HTMLInputElement
     fireEvent.change(closesAtInput, { target: { value: '2026-08-17T08:00' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Lưu thời gian' }))
+    const attemptsInput = screen.getByLabelText('Số lần làm')
+    fireEvent.change(attemptsInput, { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu cài đặt' }))
 
     await waitFor(() => {
       expect(api.put).toHaveBeenCalledWith(
@@ -82,9 +85,10 @@ describe('AssessmentManagerPanel', () => {
         {
           opensAt: new Date(opensAtInput.value).toISOString(),
           closesAt: new Date('2026-08-17T08:00').toISOString(),
+          maxAttempts: 3,
         }
       )
     })
-    expect(toast.success).toHaveBeenCalledWith('Đã cập nhật thời gian cho lớp INT2204 80.')
+    expect(toast.success).toHaveBeenCalledWith('Đã cập nhật cài đặt cho lớp INT2204 80.')
   })
 })

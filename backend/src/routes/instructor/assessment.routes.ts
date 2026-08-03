@@ -72,11 +72,13 @@ const assignSchema = z.object({
   requireFullscreen: z.boolean().optional().default(true),
   warningThreshold: z.number().int().min(1).max(20).optional().default(3),
   showPredictedScore: z.boolean().optional().default(true),
+  maxAttempts: z.number().int().min(1).max(20).optional().default(1),
 });
 
 const assignmentWindowSchema = z.object({
   opensAt: z.string().datetime(),
   closesAt: z.string().datetime(),
+  maxAttempts: z.number().int().min(1).max(20).optional(),
 });
 
 const reviewSchema = z.object({

@@ -27,6 +27,8 @@ function assessment(id: string, title: string): StudentAssessmentListItem {
     closesAt: new Date(Date.now() + 60 * 60_000).toISOString(),
     durationMinutes: 60,
     totalPoints: 10,
+    maxAttempts: 1,
+    attemptsUsed: 0,
     week: 2,
     session: null,
   }

@@ -15,6 +15,7 @@ interface SubmissionRow {
   predictedScore: number | null
   officialScore: number | null
   integrityEventCount?: number
+  attemptNumber: number
   student: { id: string; username: string; fullName?: string | null; email: string }
 }
 
@@ -116,6 +117,7 @@ export function AssessmentSubmissionsPage() {
           <thead className="bg-slate-50">
             <tr>
               <th className="table-th">Sinh viên</th>
+              <th className="table-th text-center">Lượt</th>
               <th className="table-th">Nộp lúc</th>
               <th className="table-th text-center">Điểm tự động</th>
               <th className="table-th text-center">Điểm dự kiến</th>
@@ -134,6 +136,9 @@ export function AssessmentSubmissionsPage() {
                   <td className="table-td">
                     <p className="font-bold text-slate-800">{row.student.fullName || row.student.username}</p>
                     <p className="text-[11px] text-slate-500">{row.student.username}</p>
+                  </td>
+                  <td className="table-td text-center font-bold text-slate-700">
+                    {row.attemptNumber}
                   </td>
                   <td className="table-td text-slate-600">
                     {row.submittedAt ? new Date(row.submittedAt).toLocaleString('vi-VN') : 'Chưa nộp'}
@@ -162,7 +167,7 @@ export function AssessmentSubmissionsPage() {
               )
             })}
             {data.submissions.length === 0 && (
-              <tr><td colSpan={8} className="p-10 text-center text-sm text-slate-500">Chưa có sinh viên bắt đầu làm bài.</td></tr>
+              <tr><td colSpan={9} className="p-10 text-center text-sm text-slate-500">Chưa có sinh viên bắt đầu làm bài.</td></tr>
             )}
           </tbody>
         </table>

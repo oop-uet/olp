@@ -84,13 +84,34 @@ describe("database compatibility", () => {
     expect(assignment.isAssessment).toBe(0);
     expect(assessmentColumns).toContain("shuffle_questions");
     expect(sessionColumns).toContain("question_order_json");
-    expect(assessmentAssignmentColumns).toContain("week");
+    expect(sessionColumns).toContain("attempt_number");
+    expect(assessmentAssignmentColumns).toEqual(
+      expect.arrayContaining(["week", "max_attempts"])
+    );
     expect(aiRunColumns).toEqual(expect.arrayContaining(["next_attempt_at", "locked_until"]));
     expect(assessmentIndexes).toEqual(
       expect.arrayContaining([
         "assessment_ai_grading_runs_queue_idx",
         "assessment_integrity_events_session_occurred_idx",
+        "assessment_sessions_assignment_student_attempt_unique",
       ])
     );
+
+    sqlite.exec(`
+      DROP INDEX assessment_sessions_assignment_student_attempt_unique;
+      CREATE UNIQUE INDEX assessment_sessions_assignment_student_unique
+        ON assessment_sessions(assignment_id, student_id);
+    `);
+    await ensureDatabaseCompatibility(getTestDb() as never);
+    const upgradedSessionIndexes = sqlite
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'assessment_sessions_%'"
+      )
+      .all()
+      .map((row) => (row as { name: string }).name);
+    expect(upgradedSessionIndexes).toContain(
+      "assessment_sessions_assignment_student_attempt_unique"
+    );
+    expect(upgradedSessionIndexes).not.toContain("assessment_sessions_assignment_student_unique");
   });
 });

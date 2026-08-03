@@ -17,8 +17,11 @@ interface Preflight {
   requireFullscreen: boolean
   warningThreshold: number
   showPredictedScore: boolean
+  maxAttempts: number
+  attemptsUsed: number
+  attemptsRemaining: number
   questionCount: number
-  session: { id: string; status: string } | null
+  session: { id: string; status: string; reviewStatus?: string; attemptNumber: number } | null
 }
 interface Question {
   id: string
@@ -29,7 +32,7 @@ interface Question {
 }
 interface Section { id: string; title: string; introContent: string | null; points: number; questions: Question[] }
 interface SessionPayload {
-  session: { id: string; status: string; expiresAt: string; flaggedQuestionIds: string[] }
+  session: { id: string; status: string; expiresAt: string; flaggedQuestionIds: string[]; attemptNumber: number }
   assessment: { title: string; instructions: string; totalPoints: number; sections: Section[] }
   answers: Array<{ questionId: string; answer: Record<string, unknown>; clientRevision: number }>
   integrity?: { warningCount: number; warningThreshold: number; requireFullscreen: boolean }
@@ -53,6 +56,7 @@ interface ResultPayload {
   predictedReady: boolean
   predictedScore: number | null
   officialScore: number | null
+  attemptNumber: number
   submittedAt: string
   answers: Array<{ id: string; feedback: string | null; gradingState: string }>
 }
@@ -71,6 +75,7 @@ interface ReviewPayload {
   submittedAt: string
   officialAt: string
   officialScore: number
+  attemptNumber: number
   sections: ReviewSection[]
 }
 
@@ -168,7 +173,18 @@ export function StudentAssessmentPage() {
       if (response.data.serverNow) {
         serverOffsetRef.current = new Date(response.data.serverNow).getTime() - Date.now()
       }
-      const next: Preflight = response.data.data
+      const raw = response.data.data
+      const maxAttempts = raw.maxAttempts ?? 1
+      const attemptsUsed = raw.attemptsUsed ?? raw.session?.attemptNumber ?? (raw.session ? 1 : 0)
+      const next: Preflight = {
+        ...raw,
+        maxAttempts,
+        attemptsUsed,
+        attemptsRemaining: raw.attemptsRemaining ?? Math.max(0, maxAttempts - attemptsUsed),
+        session: raw.session
+          ? { ...raw.session, attemptNumber: raw.session.attemptNumber ?? attemptsUsed }
+          : null,
+      }
       setPreflight(next)
       if (next.session) {
         if (next.session.status === 'in_progress') await loadSession(next.session.id)
@@ -350,6 +366,22 @@ export function StudentAssessmentPage() {
         }
       }
       const response = await api.post(`/api/students/assessments/${assignmentId}/start`)
+      const attemptNumber = response.data.data.attemptNumber ?? preflight.attemptsUsed + 1
+      setPreflight((current) =>
+        current
+          ? {
+              ...current,
+              attemptsUsed: Math.max(current.attemptsUsed, attemptNumber),
+              attemptsRemaining: Math.max(0, current.maxAttempts - attemptNumber),
+              session: {
+                id: response.data.data.id,
+                status: response.data.data.status,
+                reviewStatus: response.data.data.reviewStatus,
+                attemptNumber,
+              },
+            }
+          : current
+      )
       await loadSession(response.data.data.id)
     } catch (error: unknown) {
       toast.error(readApiError(error).message ?? 'Không thể bắt đầu bài kiểm tra.')
@@ -554,11 +586,24 @@ export function StudentAssessmentPage() {
   if (!preflight) return <div className="card p-8 text-center text-slate-500 font-semibold">Không tìm thấy bài kiểm tra.</div>
   if (review) return <AssessmentSubmissionReview review={review} onBack={() => setReview(null)} />
   if (result) {
+    const now = Date.now() + serverOffsetRef.current
+    const canRetry =
+      preflight.attemptsRemaining > 0 &&
+      now >= new Date(preflight.opensAt).getTime() &&
+      now < new Date(preflight.closesAt).getTime()
     return (
       <AssessmentResult
         result={result}
+        attemptNumber={result.attemptNumber ?? preflight.session?.attemptNumber ?? preflight.attemptsUsed}
+        maxAttempts={preflight.maxAttempts}
+        attemptsRemaining={preflight.attemptsRemaining}
+        canRetry={canRetry}
         reviewLoading={reviewLoading}
         onReview={() => void loadReview(result.id)}
+        onRetry={() => {
+          setReview(null)
+          setResult(null)
+        }}
       />
     )
   }
@@ -567,6 +612,7 @@ export function StudentAssessmentPage() {
     const now = Date.now() + serverOffsetRef.current
     const notOpen = now < new Date(preflight.opensAt).getTime()
     const closed = now >= new Date(preflight.closesAt).getTime()
+    const noAttempts = preflight.attemptsRemaining <= 0
     return (
       <div className="mx-auto max-w-3xl space-y-5">
         <Link
@@ -592,7 +638,7 @@ export function StudentAssessmentPage() {
 
           <div className="space-y-6 p-6 sm:p-8 bg-white">
             {/* Stat Cards */}
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 text-center transition-all hover:bg-slate-50">
                 <span className="text-xl">⏱️</span>
                 <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">Thời lượng</p>
@@ -607,6 +653,13 @@ export function StudentAssessmentPage() {
                 <span className="text-xl">🏆</span>
                 <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">Tổng điểm</p>
                 <p className="mt-0.5 text-lg font-black text-slate-900">{preflight.totalPoints} điểm</p>
+              </div>
+              <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 text-center transition-all hover:bg-slate-50">
+                <span className="text-xl">🔁</span>
+                <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">Lượt làm</p>
+                <p className="mt-0.5 text-lg font-black text-slate-900">
+                  {preflight.attemptsUsed + 1}/{preflight.maxAttempts}
+                </p>
               </div>
             </div>
 
@@ -634,6 +687,10 @@ export function StudentAssessmentPage() {
                   <span className="h-2 w-2 rounded-full bg-cyan-500 shrink-0" />
                   <span>Câu trả lời được tự động lưu; tải lại trang không làm mất bài thi.</span>
                 </li>
+                <li className="flex items-center gap-2.5">
+                  <span className="h-2 w-2 rounded-full bg-violet-500 shrink-0" />
+                  <span>Bạn được làm tối đa <strong>{preflight.maxAttempts} lượt</strong>; đây là lượt {preflight.attemptsUsed + 1}.</span>
+                </li>
                 {preflight.showPredictedScore && (
                   <li className="flex items-center gap-2.5">
                     <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
@@ -660,10 +717,18 @@ export function StudentAssessmentPage() {
             {/* Start CTA Button */}
             <button
               onClick={() => void start()}
-              disabled={starting || notOpen || closed}
+              disabled={starting || notOpen || closed || noAttempts}
               className="btn-primary btn-lg w-full text-sm font-bold shadow-md hover:shadow-lg transition-all h-12"
             >
-              {notOpen ? 'Bài kiểm tra chưa mở' : closed ? 'Bài kiểm tra đã đóng' : starting ? 'Đang khởi tạo bài thi...' : 'Bắt đầu làm bài'}
+              {notOpen
+                ? 'Bài kiểm tra chưa mở'
+                : closed
+                  ? 'Bài kiểm tra đã đóng'
+                  : noAttempts
+                    ? 'Đã sử dụng hết lượt làm'
+                    : starting
+                      ? 'Đang khởi tạo bài thi...'
+                      : `Bắt đầu lượt ${preflight.attemptsUsed + 1}`}
             </button>
           </div>
         </div>
@@ -701,7 +766,7 @@ export function StudentAssessmentPage() {
         <div>
           <h1 className="text-base font-extrabold text-slate-900">{session.assessment.title}</h1>
           <p className="text-xs font-semibold text-slate-500 mt-0.5">
-            Đã trả lời <strong className="text-teal-700">{answeredCount}</strong>/{questions.length} câu · Gắn cờ <strong className="text-amber-600">{flaggedQuestionIds.length}</strong> ·{' '}
+            Lượt {session.session.attemptNumber ?? Math.max(1, preflight.attemptsUsed)}/{preflight.maxAttempts} · Đã trả lời <strong className="text-teal-700">{answeredCount}</strong>/{questions.length} câu · Gắn cờ <strong className="text-amber-600">{flaggedQuestionIds.length}</strong> ·{' '}
             {saveState === 'saved'
               ? '✓ Đã lưu'
               : saveState === 'saving'
@@ -907,12 +972,22 @@ function QuestionInput({
 
 function AssessmentResult({
   result,
+  attemptNumber,
+  maxAttempts,
+  attemptsRemaining,
+  canRetry,
   reviewLoading,
   onReview,
+  onRetry,
 }: {
   result: ResultPayload
+  attemptNumber: number
+  maxAttempts: number
+  attemptsRemaining: number
+  canRetry: boolean
   reviewLoading: boolean
   onReview: () => void
+  onRetry: () => void
 }) {
   const official = result.reviewStatus === 'official' && result.officialScore !== null
   const hasVisiblePredicted =
@@ -974,24 +1049,37 @@ function AssessmentResult({
             </div>
           )}
 
-          <div className="grid gap-3 sm:grid-cols-2 pt-2 border-t border-slate-100">
+          <div className="grid gap-3 sm:grid-cols-3 pt-2 border-t border-slate-100">
             <Meta label="Điểm trắc nghiệm tự động" value={`${result.autoScore}/${result.totalPoints}`} />
             <Meta label="Trạng thái duyệt" value={official ? 'Chính thức' : 'Chờ GV duyệt'} />
+            <Meta label="Lượt làm" value={`${attemptNumber}/${maxAttempts}`} />
           </div>
 
           <p className="text-xs font-semibold text-slate-400">
             Thời gian nộp bài: {new Date(result.submittedAt).toLocaleString('vi-VN')}
           </p>
 
-          {official && (
-            <button
-              type="button"
-              onClick={onReview}
-              disabled={reviewLoading}
-              className="btn-primary mx-auto"
-            >
-              {reviewLoading ? 'Đang tải bài nộp...' : 'Xem lại bài nộp'}
-            </button>
+          <div className="flex flex-wrap justify-center gap-3">
+            {official && (
+              <button
+                type="button"
+                onClick={onReview}
+                disabled={reviewLoading}
+                className="btn-secondary"
+              >
+                {reviewLoading ? 'Đang tải bài nộp...' : 'Xem lại bài nộp'}
+              </button>
+            )}
+            {canRetry && (
+              <button type="button" onClick={onRetry} className="btn-primary">
+                Làm lượt tiếp theo
+              </button>
+            )}
+          </div>
+          {!canRetry && attemptsRemaining > 0 && (
+            <p className="text-xs font-semibold text-slate-500">
+              Bạn còn {attemptsRemaining} lượt nhưng thời gian làm bài hiện đã đóng.
+            </p>
           )}
         </div>
       </div>
@@ -1026,7 +1114,7 @@ function AssessmentSubmissionReview({
 
       <header className="overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 p-6 text-white shadow-md sm:p-8">
         <p className="text-xs font-black uppercase tracking-wider text-emerald-100">
-          Bài nộp đã chấm
+          Bài nộp đã chấm · Lượt {review.attemptNumber}
         </p>
         <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
           <div>

@@ -237,6 +237,7 @@ beforeAll(() => {
       require_fullscreen INTEGER NOT NULL DEFAULT 1,
       warning_threshold INTEGER NOT NULL DEFAULT 3,
       show_predicted_score INTEGER NOT NULL DEFAULT 1,
+      max_attempts INTEGER NOT NULL DEFAULT 1,
       week INTEGER,
       sort_order INTEGER NOT NULL DEFAULT 0,
       assigned_by TEXT NOT NULL REFERENCES users(id),
@@ -261,7 +262,8 @@ beforeAll(() => {
       review_status TEXT NOT NULL DEFAULT 'not_ready',
       official_at TEXT,
       official_by TEXT REFERENCES users(id),
-      UNIQUE(assignment_id, student_id)
+      attempt_number INTEGER NOT NULL DEFAULT 1,
+      UNIQUE(assignment_id, student_id, attempt_number)
     );
 
     CREATE TABLE IF NOT EXISTS assessment_answers (

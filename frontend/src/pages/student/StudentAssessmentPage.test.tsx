@@ -222,6 +222,7 @@ describe('StudentAssessmentPage integrity controls', () => {
 
     expect(await screen.findByText('Kết quả dự kiến')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Xem lại bài nộp' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Làm lượt tiếp theo' })).not.toBeInTheDocument()
     expect(mockedApi.get).not.toHaveBeenCalledWith(
       '/api/students/assessments/sessions/session-1/review'
     )
@@ -239,9 +240,12 @@ describe('StudentAssessmentPage integrity controls', () => {
               instructions: 'Không dùng tài liệu',
               totalPoints: 2,
               durationMinutes: 60,
+              maxAttempts: 2,
+              attemptsUsed: 1,
+              attemptsRemaining: 1,
               opensAt: new Date(Date.now() - 60_000).toISOString(),
               closesAt: new Date(Date.now() + 60 * 60_000).toISOString(),
-              session: { id: 'session-1', status: 'graded' },
+              session: { id: 'session-1', status: 'graded', attemptNumber: 1 },
             },
           },
         }
@@ -259,6 +263,7 @@ describe('StudentAssessmentPage integrity controls', () => {
               predictedReady: true,
               predictedScore: 2,
               officialScore: 2,
+              attemptNumber: 1,
               submittedAt: '2026-08-03T01:00:00.000Z',
               answers: [],
             },
@@ -276,6 +281,7 @@ describe('StudentAssessmentPage integrity controls', () => {
               submittedAt: '2026-08-03T01:00:00.000Z',
               officialAt: '2026-08-03T02:00:00.000Z',
               officialScore: 2,
+              attemptNumber: 1,
               sections: [
                 {
                   id: 'section-1',
@@ -309,7 +315,7 @@ describe('StudentAssessmentPage integrity controls', () => {
     renderPage()
 
     await user.click(await screen.findByRole('button', { name: 'Xem lại bài nộp' }))
-    expect(await screen.findByText('Bài nộp đã chấm')).toBeInTheDocument()
+    expect(await screen.findByText(/Bài nộp đã chấm/)).toBeInTheDocument()
     expect(screen.getByText('Phương thức nào được gọi?')).toBeInTheDocument()
     expect(screen.getByText('Phương án B')).toBeInTheDocument()
     expect(screen.getByText('Đã chọn')).toBeInTheDocument()
@@ -317,5 +323,62 @@ describe('StudentAssessmentPage integrity controls', () => {
     expect(mockedApi.get).toHaveBeenCalledWith(
       '/api/students/assessments/sessions/session-1/review'
     )
+  })
+
+  it('offers the next attempt while attempts and exam time remain', async () => {
+    const user = userEvent.setup()
+    mockedApi.get.mockImplementation(async (url: string) => {
+      if (url.endsWith('/preflight')) {
+        return {
+          data: {
+            data: {
+              id: 'assignment-1',
+              title: 'Kiểm tra OOP',
+              instructions: '',
+              totalPoints: 2,
+              durationMinutes: 60,
+              shuffleQuestions: true,
+              opensAt: new Date(Date.now() - 60_000).toISOString(),
+              closesAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+              requireFullscreen: true,
+              warningThreshold: 3,
+              showPredictedScore: true,
+              maxAttempts: 2,
+              attemptsUsed: 1,
+              attemptsRemaining: 1,
+              questionCount: 1,
+              session: { id: 'session-1', status: 'pending_review', attemptNumber: 1 },
+            },
+          },
+        }
+      }
+      if (url.endsWith('/sessions/session-1/result')) {
+        return {
+          data: {
+            data: {
+              id: 'session-1',
+              title: 'Kiểm tra OOP',
+              totalPoints: 2,
+              autoScore: 2,
+              reviewStatus: 'pending_review',
+              showPredictedScore: true,
+              predictedReady: true,
+              predictedScore: 2,
+              officialScore: null,
+              attemptNumber: 1,
+              submittedAt: '2026-08-03T01:00:00.000Z',
+              answers: [],
+            },
+          },
+        }
+      }
+      throw new Error(`Unexpected GET ${url}`)
+    })
+
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: 'Làm lượt tiếp theo' }))
+    expect(screen.getByRole('button', { name: 'Bắt đầu lượt 2' })).toBeInTheDocument()
+    expect(screen.getByText('2/2')).toBeInTheDocument()
   })
 })

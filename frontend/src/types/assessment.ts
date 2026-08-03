@@ -49,6 +49,7 @@ export interface AssessmentAssignmentSummary {
   closesAt: string
   durationMinutes?: number
   showPredictedScore?: number
+  maxAttempts: number
 }
 
 export interface InstructorAssessmentListItem {
@@ -72,6 +73,8 @@ export interface StudentAssessmentListItem {
   closesAt: string
   durationMinutes: number
   totalPoints: number
+  maxAttempts: number
+  attemptsUsed: number
   week: number | null
   session: {
     id: string
@@ -79,5 +82,6 @@ export interface StudentAssessmentListItem {
     reviewStatus: string
     predictedScore: number | null
     officialScore: number | null
+    attemptNumber: number
   } | null
 }

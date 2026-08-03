@@ -12,9 +12,12 @@ import {
   getAssessmentReview,
   getInstructorAssessment,
   getStudentAssessmentReview,
+  getStudentAssessmentPreflight,
   getStudentAssessmentResult,
   getStudentAssessmentSession,
   isAssessmentError,
+  listAssessmentSubmissions,
+  listStudentAssessments,
   processPendingAssessmentAiRuns,
   recordAssessmentIntegrityEvent,
   reviewAssessmentAnswer,
@@ -234,6 +237,74 @@ describe("Assessment service", () => {
       opensAt: "2026-08-10T01:00:00.000Z",
       closesAt: "2026-08-10T03:00:00.000Z",
     });
+  });
+
+  it("defaults to one attempt and creates separate sessions up to the configured limit", async () => {
+    const db = getDb();
+    const { instructorId, studentId, sectionId } = seedUsersAndSection();
+    const created = await createAssessment(validDraft(), instructorId, db);
+    const opensAt = new Date(Date.now() - 60_000).toISOString();
+    const closesAt = new Date(Date.now() + 60 * 60_000).toISOString();
+    const assigned = await assignAssessment(
+      (created as any).data.id,
+      { sectionId, opensAt, closesAt },
+      instructorId,
+      db
+    );
+    const assignmentId = (assigned as any).data.id;
+    expect((assigned as any).data.maxAttempts).toBe(1);
+
+    const first = await startAssessmentSession(assignmentId, studentId, db);
+    expect((first as any).data.attemptNumber).toBe(1);
+    await submitAssessmentSession((first as any).data.id, studentId, "student", db);
+
+    const deniedSecond = await startAssessmentSession(assignmentId, studentId, db);
+    expect(isAssessmentError(deniedSecond)).toBe(true);
+    expect((deniedSecond as any).error.code).toBe("ATTEMPT_LIMIT_REACHED");
+
+    const updated = await updateAssessmentAssignmentWindow(
+      assignmentId,
+      { opensAt, closesAt, maxAttempts: 2 },
+      instructorId,
+      db
+    );
+    expect((updated as any).data.maxAttempts).toBe(2);
+
+    const second = await startAssessmentSession(assignmentId, studentId, db);
+    expect((second as any).data).toMatchObject({ attemptNumber: 2, status: "in_progress" });
+    expect((second as any).data.id).not.toBe((first as any).data.id);
+    const resumedSecond = await startAssessmentSession(assignmentId, studentId, db);
+    expect((resumedSecond as any).data.id).toBe((second as any).data.id);
+
+    const preflight = await getStudentAssessmentPreflight(assignmentId, studentId, db);
+    expect((preflight as any).data).toMatchObject({
+      maxAttempts: 2,
+      attemptsUsed: 2,
+      attemptsRemaining: 0,
+      session: { id: (second as any).data.id, attemptNumber: 2 },
+    });
+    const studentList = await listStudentAssessments(studentId, db);
+    expect((studentList as any).data[0]).toMatchObject({
+      maxAttempts: 2,
+      attemptsUsed: 2,
+      session: { id: (second as any).data.id, attemptNumber: 2 },
+    });
+    const submissions = await listAssessmentSubmissions(assignmentId, instructorId, db);
+    expect((submissions as any).data.submissions.map((row: any) => row.attemptNumber).sort()).toEqual([1, 2]);
+
+    const invalidReduction = await updateAssessmentAssignmentWindow(
+      assignmentId,
+      { opensAt, closesAt, maxAttempts: 1 },
+      instructorId,
+      db
+    );
+    expect(isAssessmentError(invalidReduction)).toBe(true);
+    expect((invalidReduction as any).error.code).toBe("VALIDATION_ERROR");
+
+    await submitAssessmentSession((second as any).data.id, studentId, "student", db);
+    const deniedThird = await startAssessmentSession(assignmentId, studentId, db);
+    expect(isAssessmentError(deniedThird)).toBe(true);
+    expect((deniedThird as any).error.code).toBe("ATTEMPT_LIMIT_REACHED");
   });
 
   it("bulk-saves only the newest client revision for each answer", async () => {

@@ -127,6 +127,13 @@
       "when": 1785687000000,
       "tag": "0017_optimize_assessment_grading_queue",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1785688000000,
+      "tag": "0018_add_assessment_attempt_limits",
+      "breakpoints": true
     }
   ]
 }

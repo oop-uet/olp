@@ -395,6 +395,7 @@ export const assessmentAssignments = sqliteTable(
     requireFullscreen: integer("require_fullscreen").notNull().default(1),
     warningThreshold: integer("warning_threshold").notNull().default(3),
     showPredictedScore: integer("show_predicted_score").notNull().default(1),
+    maxAttempts: integer("max_attempts").notNull().default(1),
     week: integer("week"),
     sortOrder: integer("sort_order").notNull().default(0),
     assignedBy: text("assigned_by")
@@ -449,11 +450,15 @@ export const assessmentSessions = sqliteTable(
       .default("not_ready"),
     officialAt: text("official_at"),
     officialBy: text("official_by").references(() => users.id),
+    attemptNumber: integer("attempt_number").notNull().default(1),
   },
   (table) => ({
-    assignmentStudentIdx: uniqueIndex("assessment_sessions_assignment_student_unique").on(
+    assignmentStudentAttemptIdx: uniqueIndex(
+      "assessment_sessions_assignment_student_attempt_unique"
+    ).on(
       table.assignmentId,
-      table.studentId
+      table.studentId,
+      table.attemptNumber
     ),
   })
 );

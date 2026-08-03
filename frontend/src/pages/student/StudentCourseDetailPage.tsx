@@ -382,7 +382,7 @@ function ExerciseWeekCard({
                 </div>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-5 text-xs font-semibold text-slate-400">
                   <span>
-                    {assessment.durationMinutes} phút · {assessment.totalPoints} điểm · Đóng lúc{' '}
+                    {assessment.durationMinutes} phút · {assessment.totalPoints} điểm · {assessment.attemptsUsed}/{assessment.maxAttempts} lượt · Đóng lúc{' '}
                     {formatDeadline(assessment.closesAt)}
                   </span>
                 </div>

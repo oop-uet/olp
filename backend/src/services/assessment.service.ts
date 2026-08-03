@@ -460,6 +460,7 @@ export async function listInstructorAssessments(
         sectionName: classSections.name,
         opensAt: assessmentAssignments.opensAt,
         closesAt: assessmentAssignments.closesAt,
+        maxAttempts: assessmentAssignments.maxAttempts,
       })
       .from(assessmentAssignments)
       .innerJoin(classSections, eq(assessmentAssignments.sectionId, classSections.id))
@@ -486,6 +487,7 @@ export async function getInstructorAssessment(
       closesAt: assessmentAssignments.closesAt,
       durationMinutes: assessmentAssignments.durationMinutes,
       showPredictedScore: assessmentAssignments.showPredictedScore,
+      maxAttempts: assessmentAssignments.maxAttempts,
     })
     .from(assessmentAssignments)
     .innerJoin(classSections, eq(assessmentAssignments.sectionId, classSections.id))
@@ -577,6 +579,7 @@ export async function assignAssessment(
     requireFullscreen?: boolean;
     warningThreshold?: number;
     showPredictedScore?: boolean;
+    maxAttempts?: number;
   },
   instructorId: string,
   database: Database = defaultDb
@@ -595,6 +598,10 @@ export async function assignAssessment(
   if (durationMinutes < 1 || durationMinutes > 600) {
     return serviceError("VALIDATION_ERROR", "Thời lượng phải từ 1 đến 600 phút.");
   }
+  const maxAttempts = input.maxAttempts ?? 1;
+  if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 20) {
+    return serviceError("VALIDATION_ERROR", "Số lần làm phải là số nguyên từ 1 đến 20.");
+  }
   const id = crypto.randomUUID();
   const [assignment] = await database
     .insert(assessmentAssignments)
@@ -609,6 +616,7 @@ export async function assignAssessment(
       requireFullscreen: input.requireFullscreen === false ? 0 : 1,
       warningThreshold: input.warningThreshold ?? 3,
       showPredictedScore: input.showPredictedScore === false ? 0 : 1,
+      maxAttempts,
       assignedBy: instructorId,
       assignedAt: new Date().toISOString(),
     })
@@ -619,7 +627,7 @@ export async function assignAssessment(
 
 export async function updateAssessmentAssignmentWindow(
   assignmentId: string,
-  input: { opensAt: string; closesAt: string },
+  input: { opensAt: string; closesAt: string; maxAttempts?: number },
   instructorId: string,
   database: Database = defaultDb
 ) {
@@ -638,19 +646,36 @@ export async function updateAssessmentAssignmentWindow(
   if (Number.isNaN(opensAt.getTime()) || Number.isNaN(closesAt.getTime()) || closesAt <= opensAt) {
     return serviceError("VALIDATION_ERROR", "Thời gian đóng phải sau thời gian mở.");
   }
+  const maxAttempts = input.maxAttempts ?? assignment.maxAttempts;
+  if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 20) {
+    return serviceError("VALIDATION_ERROR", "Số lần làm phải là số nguyên từ 1 đến 20.");
+  }
+  const [highestAttempt] = await database
+    .select({ attemptNumber: assessmentSessions.attemptNumber })
+    .from(assessmentSessions)
+    .where(eq(assessmentSessions.assignmentId, assignmentId))
+    .orderBy(desc(assessmentSessions.attemptNumber))
+    .limit(1);
+  if (highestAttempt && maxAttempts < highestAttempt.attemptNumber) {
+    return serviceError(
+      "VALIDATION_ERROR",
+      `Không thể giảm xuống ${maxAttempts} lần vì đã có sinh viên làm tới lượt ${highestAttempt.attemptNumber}.`
+    );
+  }
 
   const [updated] = await database
     .update(assessmentAssignments)
     .set({
       opensAt: opensAt.toISOString(),
       closesAt: closesAt.toISOString(),
+      maxAttempts,
     })
     .where(eq(assessmentAssignments.id, assignmentId))
     .returning();
 
   await writeAudit(
     instructorId,
-    "assessment.assignment_window.update",
+    "assessment.assignment_settings.update",
     "assessment_assignment",
     assignmentId,
     assignment,
@@ -714,6 +739,7 @@ export async function listStudentAssessments(
         eq(assessmentSessions.assignmentId, row.assignment.id),
         eq(assessmentSessions.studentId, studentId)
       ),
+      orderBy: [desc(assessmentSessions.attemptNumber)],
     });
     result.push({
       id: row.assignment.id,
@@ -725,6 +751,8 @@ export async function listStudentAssessments(
       closesAt: row.assignment.closesAt,
       durationMinutes: row.assignment.durationMinutes,
       totalPoints: row.assessment.totalPoints,
+      maxAttempts: row.assignment.maxAttempts,
+      attemptsUsed: session?.attemptNumber ?? 0,
       week: row.assignment.week ?? null,
       session: session
         ? {
@@ -734,6 +762,7 @@ export async function listStudentAssessments(
             predictedScore:
               row.assignment.showPredictedScore === 1 ? session.predictedScore : null,
             officialScore: session.officialScore,
+            attemptNumber: session.attemptNumber,
           }
         : null,
     });
@@ -748,12 +777,18 @@ export async function getStudentAssessmentPreflight(
 ) {
   const row = await getStudentAssignment(assignmentId, studentId, database);
   if (!row) return serviceError("NOT_FOUND", "Không tìm thấy bài kiểm tra của lớp bạn.");
-  const session = await database.query.assessmentSessions.findFirst({
-    where: and(
-      eq(assessmentSessions.assignmentId, assignmentId),
-      eq(assessmentSessions.studentId, studentId)
-    ),
-  });
+  const sessions = await database
+    .select()
+    .from(assessmentSessions)
+    .where(
+      and(
+        eq(assessmentSessions.assignmentId, assignmentId),
+        eq(assessmentSessions.studentId, studentId)
+      )
+    )
+    .orderBy(desc(assessmentSessions.attemptNumber));
+  const session = sessions[0] ?? null;
+  const attemptsUsed = session?.attemptNumber ?? 0;
   const sections = await loadAssessmentContent(row.assessment.id, false, database);
   const questionCount = sections.reduce((sum, section) => sum + section.questions.length, 0);
   return {
@@ -769,12 +804,16 @@ export async function getStudentAssessmentPreflight(
       requireFullscreen: row.assignment.requireFullscreen === 1,
       warningThreshold: row.assignment.warningThreshold,
       showPredictedScore: row.assignment.showPredictedScore === 1,
+      maxAttempts: row.assignment.maxAttempts,
+      attemptsUsed,
+      attemptsRemaining: Math.max(0, row.assignment.maxAttempts - attemptsUsed),
       questionCount,
       session: session
         ? {
             id: session.id,
             status: session.status,
             reviewStatus: session.reviewStatus,
+            attemptNumber: session.attemptNumber,
           }
         : null,
     },
@@ -870,13 +909,25 @@ export async function startAssessmentSession(
 ) {
   const row = await getStudentAssignment(assignmentId, studentId, database);
   if (!row) return serviceError("NOT_FOUND", "Không tìm thấy bài kiểm tra của lớp bạn.");
-  const existing = await database.query.assessmentSessions.findFirst({
-    where: and(
-      eq(assessmentSessions.assignmentId, assignmentId),
-      eq(assessmentSessions.studentId, studentId)
-    ),
-  });
-  if (existing) return { data: existing, serverNow: new Date().toISOString() };
+  const existingSessions = await database
+    .select()
+    .from(assessmentSessions)
+    .where(
+      and(
+        eq(assessmentSessions.assignmentId, assignmentId),
+        eq(assessmentSessions.studentId, studentId)
+      )
+    )
+    .orderBy(desc(assessmentSessions.attemptNumber));
+  const activeSession = existingSessions.find((session) => session.status === "in_progress");
+  if (activeSession) return { data: activeSession, serverNow: new Date().toISOString() };
+  const attemptsUsed = existingSessions[0]?.attemptNumber ?? 0;
+  if (attemptsUsed >= row.assignment.maxAttempts) {
+    return serviceError(
+      "ATTEMPT_LIMIT_REACHED",
+      `Bạn đã sử dụng đủ ${row.assignment.maxAttempts} lượt làm bài.`
+    );
+  }
 
   const now = new Date();
   const opensAt = new Date(row.assignment.opensAt);
@@ -887,6 +938,7 @@ export async function startAssessmentSession(
   const expiresAt = durationEnd < closesAt ? durationEnd : closesAt;
   const initialSections = await loadAssessmentContent(row.assessment.id, false, database);
   const questionOrder = createQuestionOrder(initialSections, row.assessment.shuffleQuestions === 1);
+  const attemptNumber = attemptsUsed + 1;
   const id = crypto.randomUUID();
   try {
     const [session] = await database
@@ -901,6 +953,7 @@ export async function startAssessmentSession(
         questionOrderJson: JSON.stringify(questionOrder),
         autoScore: 0,
         reviewStatus: "not_ready",
+        attemptNumber,
       })
       .returning();
     return { data: session, serverNow: now.toISOString() };
@@ -908,7 +961,8 @@ export async function startAssessmentSession(
     const raced = await database.query.assessmentSessions.findFirst({
       where: and(
         eq(assessmentSessions.assignmentId, assignmentId),
-        eq(assessmentSessions.studentId, studentId)
+        eq(assessmentSessions.studentId, studentId),
+        eq(assessmentSessions.attemptNumber, attemptNumber)
       ),
     });
     if (raced) return { data: raced, serverNow: new Date().toISOString() };
@@ -1798,6 +1852,7 @@ export async function getStudentAssessmentResult(
       totalPoints: context.assessment.totalPoints,
       status: context.session.status,
       reviewStatus: context.session.reviewStatus,
+      attemptNumber: context.session.attemptNumber,
       autoScore: context.session.autoScore,
       showPredictedScore: context.assignment.showPredictedScore === 1,
       predictedReady: context.session.predictedScore !== null,
@@ -1858,6 +1913,7 @@ export async function getStudentAssessmentReview(
       submittedAt: context.session.submittedAt,
       officialAt: context.session.officialAt,
       officialScore: context.session.officialScore,
+      attemptNumber: context.session.attemptNumber,
       sections: sections.map((section) => ({
         id: section.id,
         title: section.title,
@@ -1919,7 +1975,7 @@ export async function listAssessmentSubmissions(
     .from(assessmentSessions)
     .innerJoin(users, eq(assessmentSessions.studentId, users.id))
     .where(eq(assessmentSessions.assignmentId, assignmentId))
-    .orderBy(asc(users.username));
+    .orderBy(asc(users.username), asc(assessmentSessions.attemptNumber));
   const eventRows = rows.length
     ? await database
         .select({ sessionId: assessmentIntegrityEvents.sessionId })

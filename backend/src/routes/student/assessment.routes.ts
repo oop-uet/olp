@@ -58,6 +58,7 @@ function sendResult(res: Response, result: unknown, successStatus = 200) {
               "SESSION_EXPIRED",
               "NOT_SUBMITTED",
               "REVIEW_NOT_READY",
+              "ATTEMPT_LIMIT_REACHED",
             ].includes(
               result.error.code
             )
