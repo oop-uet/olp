@@ -396,6 +396,7 @@ export const assessmentAssignments = sqliteTable(
     warningThreshold: integer("warning_threshold").notNull().default(3),
     showPredictedScore: integer("show_predicted_score").notNull().default(1),
     maxAttempts: integer("max_attempts").notNull().default(1),
+    passwordHash: text("password_hash"),
     week: integer("week"),
     sortOrder: integer("sort_order").notNull().default(0),
     assignedBy: text("assigned_by")

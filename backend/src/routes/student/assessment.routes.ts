@@ -33,6 +33,12 @@ const questionFlagSchema = z.object({
   flagged: z.boolean(),
 });
 
+const startAssessmentSchema = z
+  .object({
+    password: z.string().max(100).optional(),
+  })
+  .default({});
+
 const integrityEventSchema = z.object({
   eventType: z.enum([
     "fullscreen_exit",
@@ -49,22 +55,21 @@ const integrityEventSchema = z.object({
 
 function sendResult(res: Response, result: unknown, successStatus = 200) {
   if (isAssessmentError(result)) {
-    const status =
-      result.error.code === "NOT_FOUND"
-        ? 404
-        : [
-              "NOT_OPEN",
-              "CLOSED",
-              "SESSION_CLOSED",
-              "SESSION_EXPIRED",
-              "NOT_SUBMITTED",
-              "REVIEW_NOT_READY",
-              "ATTEMPT_LIMIT_REACHED",
-            ].includes(
-              result.error.code
-            )
-          ? 409
-          : 400;
+    const forbiddenCodes = ["ASSESSMENT_PASSWORD_REQUIRED", "ASSESSMENT_PASSWORD_INVALID"];
+    const conflictCodes = [
+      "NOT_OPEN",
+      "CLOSED",
+      "SESSION_CLOSED",
+      "SESSION_EXPIRED",
+      "NOT_SUBMITTED",
+      "REVIEW_NOT_READY",
+      "ATTEMPT_LIMIT_REACHED",
+    ];
+    let status = 400;
+    if (result.error.code === "NOT_FOUND") status = 404;
+    else if (result.error.code === "ASSESSMENT_PASSWORD_RATE_LIMITED") status = 429;
+    else if (forbiddenCodes.includes(result.error.code)) status = 403;
+    else if (conflictCodes.includes(result.error.code)) status = 409;
     res.status(status).json({ error: result.error });
     return;
   }
@@ -90,13 +95,26 @@ router.get("/:assignmentId/preflight", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/:assignmentId/start", async (req: Request, res: Response) => {
-  try {
-    sendResult(res, await startAssessmentSession(req.params.assignmentId, req.user!.userId), 201);
-  } catch {
-    res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Không thể bắt đầu bài kiểm tra." } });
+router.post(
+  "/:assignmentId/start",
+  validate(startAssessmentSchema),
+  async (req: Request, res: Response) => {
+    try {
+      sendResult(
+        res,
+        await startAssessmentSession(
+          req.params.assignmentId,
+          req.user!.userId,
+          undefined,
+          req.body
+        ),
+        201
+      );
+    } catch {
+      res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Không thể bắt đầu bài kiểm tra." } });
+    }
   }
-});
+);
 
 router.get("/sessions/:sessionId", async (req: Request, res: Response) => {
   try {

@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import bcrypt from "bcrypt";
 import { and, asc, count, desc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db as defaultDb } from "../db/index.js";
@@ -29,6 +30,21 @@ import {
 } from "./ai-exercise.service.js";
 
 type Database = typeof defaultDb;
+
+const ASSESSMENT_PASSWORD_MIN_LENGTH = 4;
+const ASSESSMENT_PASSWORD_MAX_LENGTH = 100;
+const ASSESSMENT_PASSWORD_BCRYPT_ROUNDS = 10;
+const ASSESSMENT_PASSWORD_FAILURE_LIMIT = 5;
+const ASSESSMENT_PASSWORD_FAILURE_WINDOW_MS = 5 * 60_000;
+const ASSESSMENT_PASSWORD_LOCK_MS = 5 * 60_000;
+
+interface AssessmentPasswordFailureState {
+  failures: number;
+  windowStartedAt: number;
+  blockedUntil: number;
+}
+
+const assessmentPasswordFailures = new Map<string, AssessmentPasswordFailureState>();
 
 export type AssessmentQuestionType =
   | "true_false"
@@ -86,6 +102,75 @@ export function isAssessmentError(value: unknown): value is AssessmentServiceErr
 
 function serviceError(code: string, message: string, details?: unknown): AssessmentServiceError {
   return { error: { code, message, ...(details === undefined ? {} : { details }) } };
+}
+
+function toPublicAssessmentAssignment<T extends { passwordHash?: string | null }>(assignment: T) {
+  const { passwordHash, ...safeAssignment } = assignment;
+  return { ...safeAssignment, hasPassword: Boolean(passwordHash) };
+}
+
+function normalizeAssessmentPassword(password: string) {
+  const normalized = password.trim();
+  if (
+    normalized.length < ASSESSMENT_PASSWORD_MIN_LENGTH ||
+    normalized.length > ASSESSMENT_PASSWORD_MAX_LENGTH
+  ) {
+    return serviceError(
+      "VALIDATION_ERROR",
+      `Mật khẩu bài kiểm tra phải có từ ${ASSESSMENT_PASSWORD_MIN_LENGTH} đến ${ASSESSMENT_PASSWORD_MAX_LENGTH} ký tự.`
+    );
+  }
+  return normalized;
+}
+
+function passwordFailureKey(assignmentId: string, studentId: string) {
+  return `${assignmentId}:${studentId}`;
+}
+
+function getAssessmentPasswordBlock(assignmentId: string, studentId: string, now = Date.now()) {
+  const key = passwordFailureKey(assignmentId, studentId);
+  const state = assessmentPasswordFailures.get(key);
+  if (!state) return null;
+  if (state.blockedUntil > now) {
+    return serviceError(
+      "ASSESSMENT_PASSWORD_RATE_LIMITED",
+      "Bạn đã nhập sai mật khẩu quá nhiều lần. Vui lòng đợi rồi thử lại.",
+      { retryAfterSeconds: Math.max(1, Math.ceil((state.blockedUntil - now) / 1000)) }
+    );
+  }
+  if (now - state.windowStartedAt >= ASSESSMENT_PASSWORD_FAILURE_WINDOW_MS) {
+    assessmentPasswordFailures.delete(key);
+  }
+  return null;
+}
+
+function recordAssessmentPasswordFailure(
+  assignmentId: string,
+  studentId: string,
+  now = Date.now()
+) {
+  const key = passwordFailureKey(assignmentId, studentId);
+  const current = assessmentPasswordFailures.get(key);
+  const state =
+    current && now - current.windowStartedAt < ASSESSMENT_PASSWORD_FAILURE_WINDOW_MS
+      ? current
+      : { failures: 0, windowStartedAt: now, blockedUntil: 0 };
+  state.failures += 1;
+  if (state.failures >= ASSESSMENT_PASSWORD_FAILURE_LIMIT) {
+    state.blockedUntil = now + ASSESSMENT_PASSWORD_LOCK_MS;
+  }
+  assessmentPasswordFailures.set(key, state);
+  if (assessmentPasswordFailures.size > 5_000) {
+    for (const [storedKey, storedState] of assessmentPasswordFailures) {
+      if (
+        storedState.blockedUntil <= now &&
+        now - storedState.windowStartedAt >= ASSESSMENT_PASSWORD_FAILURE_WINDOW_MS
+      ) {
+        assessmentPasswordFailures.delete(storedKey);
+      }
+    }
+  }
+  return getAssessmentPasswordBlock(assignmentId, studentId, now);
 }
 
 function parseJson<T>(raw: string | null | undefined, fallback: T): T {
@@ -616,11 +701,16 @@ export async function listInstructorAssessments(
         closesAt: assessmentAssignments.closesAt,
         durationMinutes: assessmentAssignments.durationMinutes,
         maxAttempts: assessmentAssignments.maxAttempts,
+        passwordHash: assessmentAssignments.passwordHash,
       })
       .from(assessmentAssignments)
       .innerJoin(classSections, eq(assessmentAssignments.sectionId, classSections.id))
       .where(eq(assessmentAssignments.assessmentId, assessment.id));
-    result.push({ ...assessment, creatorUsername: row.creatorUsername ?? null, assignments });
+    result.push({
+      ...assessment,
+      creatorUsername: row.creatorUsername ?? null,
+      assignments: assignments.map(toPublicAssessmentAssignment),
+    });
   }
   return { data: result };
 }
@@ -643,11 +733,18 @@ export async function getInstructorAssessment(
       durationMinutes: assessmentAssignments.durationMinutes,
       showPredictedScore: assessmentAssignments.showPredictedScore,
       maxAttempts: assessmentAssignments.maxAttempts,
+      passwordHash: assessmentAssignments.passwordHash,
     })
     .from(assessmentAssignments)
     .innerJoin(classSections, eq(assessmentAssignments.sectionId, classSections.id))
     .where(eq(assessmentAssignments.assessmentId, assessmentId));
-  return { data: { ...assessment, sections, assignments } };
+  return {
+    data: {
+      ...assessment,
+      sections,
+      assignments: assignments.map(toPublicAssessmentAssignment),
+    },
+  };
 }
 
 export async function publishAssessment(
@@ -735,6 +832,7 @@ export async function assignAssessment(
     warningThreshold?: number;
     showPredictedScore?: boolean;
     maxAttempts?: number;
+    password?: string;
   },
   instructorId: string,
   database: Database = defaultDb
@@ -757,6 +855,12 @@ export async function assignAssessment(
   if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 20) {
     return serviceError("VALIDATION_ERROR", "Số lần làm phải là số nguyên từ 1 đến 20.");
   }
+  let passwordHash: string | null = null;
+  if (input.password !== undefined) {
+    const password = normalizeAssessmentPassword(input.password);
+    if (isAssessmentError(password)) return password;
+    passwordHash = await bcrypt.hash(password, ASSESSMENT_PASSWORD_BCRYPT_ROUNDS);
+  }
   const id = crypto.randomUUID();
   const [assignment] = await database
     .insert(assessmentAssignments)
@@ -772,17 +876,34 @@ export async function assignAssessment(
       warningThreshold: input.warningThreshold ?? 3,
       showPredictedScore: input.showPredictedScore === false ? 0 : 1,
       maxAttempts,
+      passwordHash,
       assignedBy: instructorId,
       assignedAt: new Date().toISOString(),
     })
     .returning();
-  await writeAudit(instructorId, "assessment.assign", "assessment_assignment", id, null, assignment, database);
-  return { data: assignment };
+  const publicAssignment = toPublicAssessmentAssignment(assignment);
+  await writeAudit(
+    instructorId,
+    "assessment.assign",
+    "assessment_assignment",
+    id,
+    null,
+    publicAssignment,
+    database
+  );
+  return { data: publicAssignment };
 }
 
 export async function updateAssessmentAssignmentWindow(
   assignmentId: string,
-  input: { opensAt: string; closesAt: string; durationMinutes?: number; maxAttempts?: number },
+  input: {
+    opensAt: string;
+    closesAt: string;
+    durationMinutes?: number;
+    maxAttempts?: number;
+    password?: string;
+    clearPassword?: boolean;
+  },
   instructorId: string,
   database: Database = defaultDb
 ) {
@@ -809,6 +930,20 @@ export async function updateAssessmentAssignmentWindow(
   if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 20) {
     return serviceError("VALIDATION_ERROR", "Số lần làm phải là số nguyên từ 1 đến 20.");
   }
+  if (input.clearPassword && input.password !== undefined) {
+    return serviceError(
+      "VALIDATION_ERROR",
+      "Không thể đồng thời đặt mật khẩu mới và yêu cầu xóa mật khẩu."
+    );
+  }
+  let passwordHash = assignment.passwordHash;
+  if (input.clearPassword) {
+    passwordHash = null;
+  } else if (input.password !== undefined) {
+    const password = normalizeAssessmentPassword(input.password);
+    if (isAssessmentError(password)) return password;
+    passwordHash = await bcrypt.hash(password, ASSESSMENT_PASSWORD_BCRYPT_ROUNDS);
+  }
   const [highestAttempt] = await database
     .select({ attemptNumber: assessmentSessions.attemptNumber })
     .from(assessmentSessions)
@@ -829,6 +964,7 @@ export async function updateAssessmentAssignmentWindow(
       closesAt: closesAt.toISOString(),
       durationMinutes,
       maxAttempts,
+      passwordHash,
     })
     .where(eq(assessmentAssignments.id, assignmentId))
     .returning();
@@ -838,11 +974,11 @@ export async function updateAssessmentAssignmentWindow(
     "assessment.assignment_settings.update",
     "assessment_assignment",
     assignmentId,
-    assignment,
-    updated,
+    toPublicAssessmentAssignment(assignment),
+    toPublicAssessmentAssignment(updated),
     database
   );
-  return { data: updated };
+  return { data: toPublicAssessmentAssignment(updated) };
 }
 
 async function getStudentAssignment(
@@ -911,6 +1047,7 @@ export async function listStudentAssessments(
       closesAt: row.assignment.closesAt,
       durationMinutes: row.assignment.durationMinutes,
       maxAttempts: row.assignment.maxAttempts ?? 1,
+      requiresPassword: Boolean(row.assignment.passwordHash),
       attemptsUsed: session?.attemptNumber ?? 0,
       week: row.assignment.week ?? null,
       session: session
@@ -948,8 +1085,12 @@ export async function getStudentAssessmentPreflight(
     .orderBy(desc(assessmentSessions.attemptNumber));
   const session = sessions[0] ?? null;
   const attemptsUsed = session?.attemptNumber ?? 0;
-  const sections = await loadAssessmentContent(row.assessment.id, false, database);
-  const questionCount = sections.reduce((sum, section) => sum + section.questions.length, 0);
+  const [questionCountRow] = await database
+    .select({ value: count() })
+    .from(assessmentQuestions)
+    .innerJoin(assessmentSections, eq(assessmentQuestions.sectionId, assessmentSections.id))
+    .where(eq(assessmentSections.assessmentId, row.assessment.id));
+  const questionCount = Number(questionCountRow?.value ?? 0);
   return {
     data: {
       id: row.assignment.id,
@@ -966,6 +1107,7 @@ export async function getStudentAssessmentPreflight(
       maxAttempts: row.assignment.maxAttempts,
       attemptsUsed,
       attemptsRemaining: Math.max(0, row.assignment.maxAttempts - attemptsUsed),
+      requiresPassword: Boolean(row.assignment.passwordHash),
       questionCount,
       session: session
         ? {
@@ -1064,7 +1206,8 @@ async function loadSessionSectionsWithOrder(
 export async function startAssessmentSession(
   assignmentId: string,
   studentId: string,
-  database: Database = defaultDb
+  database: Database = defaultDb,
+  access: { password?: string } = {}
 ) {
   const row = await getStudentAssignment(assignmentId, studentId, database);
   if (!row) return serviceError("NOT_FOUND", "Không tìm thấy bài kiểm tra của lớp bạn.");
@@ -1093,6 +1236,29 @@ export async function startAssessmentSession(
   const closesAt = new Date(row.assignment.closesAt);
   if (now < opensAt) return serviceError("NOT_OPEN", "Bài kiểm tra chưa mở.");
   if (now >= closesAt) return serviceError("CLOSED", "Bài kiểm tra đã đóng.");
+  if (row.assignment.passwordHash) {
+    const blocked = getAssessmentPasswordBlock(assignmentId, studentId);
+    if (blocked) return blocked;
+    const suppliedPassword = access.password?.trim();
+    if (!suppliedPassword) {
+      return serviceError(
+        "ASSESSMENT_PASSWORD_REQUIRED",
+        "Vui lòng nhập mật khẩu bài kiểm tra để bắt đầu."
+      );
+    }
+    if (suppliedPassword.length > ASSESSMENT_PASSWORD_MAX_LENGTH) {
+      return serviceError("ASSESSMENT_PASSWORD_INVALID", "Mật khẩu bài kiểm tra không đúng.");
+    }
+    const passwordMatches = await bcrypt
+      .compare(suppliedPassword, row.assignment.passwordHash)
+      .catch(() => false);
+    if (!passwordMatches) {
+      const rateLimit = recordAssessmentPasswordFailure(assignmentId, studentId);
+      if (rateLimit) return rateLimit;
+      return serviceError("ASSESSMENT_PASSWORD_INVALID", "Mật khẩu bài kiểm tra không đúng.");
+    }
+    assessmentPasswordFailures.delete(passwordFailureKey(assignmentId, studentId));
+  }
   const durationEnd = new Date(now.getTime() + row.assignment.durationMinutes * 60_000);
   const expiresAt = durationEnd < closesAt ? durationEnd : closesAt;
   const initialSections = await loadAssessmentContent(row.assessment.id, false, database);

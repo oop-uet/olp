@@ -322,6 +322,127 @@ describe("Assessment service", () => {
     expect((deniedThird as any).error.code).toBe("ATTEMPT_LIMIT_REACHED");
   });
 
+  it("stores only a password hash and requires the correct password before starting", async () => {
+    const db = getDb();
+    const sqlite = getTestSqlite();
+    const { instructorId, studentId, sectionId } = seedUsersAndSection();
+    const created = await createAssessment(validDraft(), instructorId, db);
+    const opensAt = new Date(Date.now() - 60_000).toISOString();
+    const closesAt = new Date(Date.now() + 60 * 60_000).toISOString();
+    const assigned = await assignAssessment(
+      (created as any).data.id,
+      { sectionId, opensAt, closesAt },
+      instructorId,
+      db
+    );
+    const assignmentId = (assigned as any).data.id;
+
+    const protectedAssignment = await updateAssessmentAssignmentWindow(
+      assignmentId,
+      { opensAt, closesAt, password: "OOP-2026" },
+      instructorId,
+      db
+    );
+    expect(protectedAssignment).toMatchObject({ data: { id: assignmentId, hasPassword: true } });
+    expect((protectedAssignment as any).data).not.toHaveProperty("passwordHash");
+
+    const stored = sqlite
+      .prepare("SELECT password_hash AS passwordHash FROM assessment_assignments WHERE id = ?")
+      .get(assignmentId) as { passwordHash: string };
+    expect(stored.passwordHash).toMatch(/^\$2[aby]\$/);
+    expect(stored.passwordHash).not.toContain("OOP-2026");
+
+    const instructorList = await listInstructorAssessments(instructorId, db);
+    const publicAssignment = (instructorList as any).data[0].assignments[0];
+    expect(publicAssignment).toMatchObject({ id: assignmentId, hasPassword: true });
+    expect(publicAssignment).not.toHaveProperty("passwordHash");
+
+    const preflight = await getStudentAssessmentPreflight(assignmentId, studentId, db);
+    expect((preflight as any).data.requiresPassword).toBe(true);
+    const studentList = await listStudentAssessments(studentId, db);
+    expect((studentList as any).data[0].requiresPassword).toBe(true);
+
+    const missing = await startAssessmentSession(assignmentId, studentId, db);
+    expect((missing as any).error.code).toBe("ASSESSMENT_PASSWORD_REQUIRED");
+    const wrong = await startAssessmentSession(assignmentId, studentId, db, {
+      password: "wrong-password",
+    });
+    expect((wrong as any).error.code).toBe("ASSESSMENT_PASSWORD_INVALID");
+
+    const started = await startAssessmentSession(assignmentId, studentId, db, {
+      password: "OOP-2026",
+    });
+    expect((started as any).data).toMatchObject({ status: "in_progress", attemptNumber: 1 });
+    const resumed = await startAssessmentSession(assignmentId, studentId, db);
+    expect((resumed as any).data.id).toBe((started as any).data.id);
+
+    const cleared = await updateAssessmentAssignmentWindow(
+      assignmentId,
+      { opensAt, closesAt, clearPassword: true },
+      instructorId,
+      db
+    );
+    expect(cleared).toMatchObject({ data: { id: assignmentId, hasPassword: false } });
+    const clearedPreflight = await getStudentAssessmentPreflight(assignmentId, studentId, db);
+    expect((clearedPreflight as any).data.requiresPassword).toBe(false);
+    const clearedStored = sqlite
+      .prepare("SELECT password_hash AS passwordHash FROM assessment_assignments WHERE id = ?")
+      .get(assignmentId) as { passwordHash: string | null };
+    expect(clearedStored.passwordHash).toBeNull();
+
+    const passwordAuditRows = sqlite
+      .prepare(
+        `SELECT before_json AS beforeJson, after_json AS afterJson
+         FROM assessment_audit_logs
+         WHERE target_type = 'assessment_assignment' AND target_id = ?`
+      )
+      .all(assignmentId) as Array<{ beforeJson: string | null; afterJson: string | null }>;
+    expect(JSON.stringify(passwordAuditRows)).not.toContain("passwordHash");
+    expect(JSON.stringify(passwordAuditRows)).not.toContain(stored.passwordHash);
+  });
+
+  it("rate-limits repeated wrong assessment passwords per student", async () => {
+    const db = getDb();
+    const { instructorId, studentId, sectionId } = seedUsersAndSection();
+    const created = await createAssessment(validDraft(), instructorId, db);
+    const assigned = await assignAssessment(
+      (created as any).data.id,
+      {
+        sectionId,
+        opensAt: new Date(Date.now() - 60_000).toISOString(),
+        closesAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+        password: "OOP-secure",
+      },
+      instructorId,
+      db
+    );
+    const assignmentId = (assigned as any).data.id;
+    expect((assigned as any).data).toMatchObject({ hasPassword: true });
+    expect((assigned as any).data).not.toHaveProperty("passwordHash");
+
+    for (let attempt = 1; attempt <= 4; attempt += 1) {
+      const result = await startAssessmentSession(assignmentId, studentId, db, {
+        password: `wrong-${attempt}`,
+      });
+      expect((result as any).error.code).toBe("ASSESSMENT_PASSWORD_INVALID");
+    }
+    const limited = await startAssessmentSession(assignmentId, studentId, db, {
+      password: "wrong-5",
+    });
+    expect(limited).toMatchObject({
+      error: {
+        code: "ASSESSMENT_PASSWORD_RATE_LIMITED",
+        details: { retryAfterSeconds: expect.any(Number) },
+      },
+    });
+    const blockedCorrectPassword = await startAssessmentSession(assignmentId, studentId, db, {
+      password: "OOP-secure",
+    });
+    expect((blockedCorrectPassword as any).error.code).toBe(
+      "ASSESSMENT_PASSWORD_RATE_LIMITED"
+    );
+  });
+
   it("bulk-saves only the newest client revision for each answer", async () => {
     const db = getDb();
     const { instructorId, studentId, sectionId } = seedUsersAndSection();

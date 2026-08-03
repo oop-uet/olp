@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { readApiError } from '../../lib/apiError'
@@ -26,6 +26,9 @@ interface AssignmentWindowDraft extends AssessmentAssignmentSummary {
   opensAtInput: string
   closesAtInput: string
   durationMinutes: number
+  hasPassword: boolean
+  password: string
+  clearPassword: boolean
 }
 
 const SETTINGS_PERSISTENCE_ERROR =
@@ -36,6 +39,9 @@ function toWindowDrafts(item: InstructorAssessmentListItem): AssignmentWindowDra
     ...assignment,
     durationMinutes: assignment.durationMinutes ?? item.durationMinutes,
     maxAttempts: assignment.maxAttempts ?? 1,
+    hasPassword: assignment.hasPassword ?? false,
+    password: '',
+    clearPassword: false,
     opensAtInput: isoToLocalInput(assignment.opensAt),
     closesAtInput: isoToLocalInput(assignment.closesAt),
   }))
@@ -50,9 +56,25 @@ export function AssessmentManagerPanel() {
   const [windowDrafts, setWindowDrafts] = useState<AssignmentWindowDraft[]>([])
   const [savingAssignmentId, setSavingAssignmentId] = useState<string | null>(null)
 
+  const fetchAssessments = useCallback(async () => {
+    const assessmentResponse = await api.get('/api/instructor/assessments')
+    return (assessmentResponse.data.data ?? []) as InstructorAssessmentListItem[]
+  }, [])
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      setItems(await fetchAssessments())
+    } catch {
+      toast.error('Không thể tải danh sách bài kiểm tra.')
+    } finally {
+      setLoading(false)
+    }
+  }, [fetchAssessments])
+
   useEffect(() => {
     void load()
-  }, [])
+  }, [load])
 
   useEffect(() => {
     if (!settingsItem) return
@@ -62,22 +84,6 @@ export function AssessmentManagerPanel() {
     window.addEventListener('keydown', closeOnEscape)
     return () => window.removeEventListener('keydown', closeOnEscape)
   }, [savingAssignmentId, settingsItem])
-
-  async function fetchAssessments() {
-    const assessmentResponse = await api.get('/api/instructor/assessments')
-    return (assessmentResponse.data.data ?? []) as InstructorAssessmentListItem[]
-  }
-
-  async function load() {
-    setLoading(true)
-    try {
-      setItems(await fetchAssessments())
-    } catch {
-      toast.error('Không thể tải danh sách bài kiểm tra.')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   async function deleteAssessment(item: InstructorAssessmentListItem) {
     if (!window.confirm(`Xóa bài kiểm tra "${item.title}"? Thao tác này không thể hoàn tác.`)) return
@@ -114,6 +120,24 @@ export function AssessmentManagerPanel() {
     )
   }
 
+  function updateAssessmentPassword(assignmentId: string, password: string) {
+    setWindowDrafts((current) =>
+      current.map((draft) =>
+        draft.id === assignmentId
+          ? { ...draft, password, clearPassword: password ? false : draft.clearPassword }
+          : draft
+      )
+    )
+  }
+
+  function updateClearPassword(assignmentId: string, clearPassword: boolean) {
+    setWindowDrafts((current) =>
+      current.map((draft) =>
+        draft.id === assignmentId ? { ...draft, clearPassword, password: '' } : draft
+      )
+    )
+  }
+
   function updateWindowDraft(
     assignmentId: string,
     field: 'opensAtInput' | 'closesAtInput',
@@ -143,19 +167,39 @@ export function AssessmentManagerPanel() {
       toast.error('Số lần làm phải là số nguyên từ 1 đến 20.')
       return
     }
+    const password = draft.password.trim()
+    if (password && (password.length < 4 || password.length > 100)) {
+      toast.error('Mật khẩu bài kiểm tra phải có từ 4 đến 100 ký tự.')
+      return
+    }
+    const expectedHasPassword = draft.clearPassword ? false : Boolean(password) || draft.hasPassword
 
     setSavingAssignmentId(draft.id)
     try {
-      const updateResponse = await api.put(`/api/instructor/assessments/assignments/${draft.id}/window`, {
+      const payload: {
+        opensAt: string
+        closesAt: string
+        durationMinutes: number
+        maxAttempts: number
+        password?: string
+        clearPassword?: boolean
+      } = {
         opensAt,
         closesAt,
         durationMinutes: draft.durationMinutes,
         maxAttempts: draft.maxAttempts,
-      })
+      }
+      if (password) payload.password = password
+      if (draft.clearPassword) payload.clearPassword = true
+      const updateResponse = await api.put(
+        `/api/instructor/assessments/assignments/${draft.id}/window`,
+        payload
+      )
       const savedAssignment = updateResponse.data?.data
       if (
         Number(savedAssignment?.durationMinutes) !== draft.durationMinutes ||
-        Number(savedAssignment?.maxAttempts) !== draft.maxAttempts
+        Number(savedAssignment?.maxAttempts) !== draft.maxAttempts ||
+        Boolean(savedAssignment?.hasPassword) !== expectedHasPassword
       ) {
         throw new Error(SETTINGS_PERSISTENCE_ERROR)
       }
@@ -168,7 +212,8 @@ export function AssessmentManagerPanel() {
       if (
         !refreshedItem ||
         Number(refreshedAssignment?.durationMinutes) !== draft.durationMinutes ||
-        Number(refreshedAssignment?.maxAttempts) !== draft.maxAttempts
+        Number(refreshedAssignment?.maxAttempts) !== draft.maxAttempts ||
+        Boolean(refreshedAssignment?.hasPassword) !== expectedHasPassword
       ) {
         throw new Error(SETTINGS_PERSISTENCE_ERROR)
       }
@@ -240,6 +285,9 @@ export function AssessmentManagerPanel() {
                           <p className="text-[11px] font-semibold text-slate-500">
                             Tối đa {assignment.maxAttempts ?? 1} lượt làm
                           </p>
+                          {assignment.hasPassword && (
+                            <p className="text-[11px] font-semibold text-amber-700">🔒 Có mật khẩu vào thi</p>
+                          )}
                           <Link
                             to={`/instructor/assessment-assignments/${assignment.id}/submissions`}
                             className="mt-1 inline-block text-xs font-bold text-primary hover:underline"
@@ -398,6 +446,49 @@ export function AssessmentManagerPanel() {
                           className="input"
                         />
                         <p className="mt-1 text-xs text-slate-500">Mặc định 1, tối đa 20 lượt.</p>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="label" htmlFor={`assessment-password-${draft.id}`}>
+                          Mật khẩu vào thi (không bắt buộc)
+                        </label>
+                        <input
+                          id={`assessment-password-${draft.id}`}
+                          type="password"
+                          minLength={4}
+                          maxLength={100}
+                          value={draft.password}
+                          disabled={draft.clearPassword}
+                          onChange={(event) =>
+                            updateAssessmentPassword(draft.id, event.target.value)
+                          }
+                          className="input"
+                          autoComplete="new-password"
+                          placeholder={
+                            draft.hasPassword
+                              ? 'Để trống nếu không đổi mật khẩu hiện tại'
+                              : 'Để trống nếu không yêu cầu mật khẩu'
+                          }
+                        />
+                        <p className="mt-1 text-xs text-slate-500">
+                          {draft.clearPassword
+                            ? 'Mật khẩu hiện tại sẽ được gỡ khi lưu.'
+                            : draft.hasPassword
+                              ? 'Đang bảo vệ bằng mật khẩu. Nhập giá trị mới nếu muốn thay đổi.'
+                              : 'Sinh viên sẽ phải nhập mật khẩu này trước khi bắt đầu lượt làm.'}
+                        </p>
+                        {draft.hasPassword && (
+                          <label className="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-rose-700">
+                            <input
+                              type="checkbox"
+                              checked={draft.clearPassword}
+                              onChange={(event) =>
+                                updateClearPassword(draft.id, event.target.checked)
+                              }
+                              className="h-4 w-4 rounded border-slate-300"
+                            />
+                            Gỡ mật khẩu hiện tại
+                          </label>
+                        )}
                       </div>
                     </div>
                     <div className="mt-4 flex justify-end">

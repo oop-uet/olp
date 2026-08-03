@@ -238,6 +238,7 @@ beforeAll(() => {
       warning_threshold INTEGER NOT NULL DEFAULT 3,
       show_predicted_score INTEGER NOT NULL DEFAULT 1,
       max_attempts INTEGER NOT NULL DEFAULT 1,
+      password_hash TEXT,
       week INTEGER,
       sort_order INTEGER NOT NULL DEFAULT 0,
       assigned_by TEXT NOT NULL REFERENCES users(id),

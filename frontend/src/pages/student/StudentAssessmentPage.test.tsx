@@ -413,4 +413,110 @@ describe('StudentAssessmentPage integrity controls', () => {
     expect(screen.getByRole('button', { name: 'Bắt đầu lượt 2' })).toBeInTheDocument()
     expect(screen.getByText('2/2')).toBeInTheDocument()
   })
+
+  it('requires and submits the assessment password before loading exam content', async () => {
+    const user = userEvent.setup()
+    mockedApi.get.mockImplementation(async (url: string) => {
+      if (url.endsWith('/preflight')) {
+        return {
+          data: {
+            data: {
+              id: 'assignment-1',
+              title: 'Kiểm tra OOP có mật khẩu',
+              instructions: '',
+              totalPoints: 2,
+              durationMinutes: 60,
+              shuffleQuestions: true,
+              opensAt: new Date(Date.now() - 60_000).toISOString(),
+              closesAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+              requireFullscreen: true,
+              warningThreshold: 3,
+              showPredictedScore: true,
+              maxAttempts: 1,
+              attemptsUsed: 0,
+              attemptsRemaining: 1,
+              requiresPassword: true,
+              questionCount: 1,
+              session: null,
+            },
+          },
+        }
+      }
+      if (url.endsWith('/sessions/session-password')) {
+        return {
+          data: {
+            data: {
+              session: {
+                id: 'session-password',
+                status: 'in_progress',
+                expiresAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+                flaggedQuestionIds: [],
+                attemptNumber: 1,
+              },
+              assessment: {
+                title: 'Kiểm tra OOP có mật khẩu',
+                instructions: '',
+                totalPoints: 2,
+                sections: [
+                  {
+                    id: 'section-1',
+                    title: 'Phần 1',
+                    introContent: null,
+                    points: 2,
+                    questions: [
+                      {
+                        id: 'question-password',
+                        type: 'single_choice',
+                        prompt: 'Nội dung chỉ tải sau khi nhập đúng mật khẩu',
+                        points: 2,
+                        options: [{ id: 'option-1', content: 'Đúng' }],
+                      },
+                    ],
+                  },
+                ],
+              },
+              answers: [],
+              integrity: { warningCount: 0, warningThreshold: 3, requireFullscreen: true },
+            },
+          },
+        }
+      }
+      throw new Error(`Unexpected GET ${url}`)
+    })
+    mockedApi.post.mockImplementation(async (url: string) => {
+      if (url.endsWith('/start')) {
+        return {
+          data: {
+            data: {
+              id: 'session-password',
+              status: 'in_progress',
+              reviewStatus: 'not_ready',
+              attemptNumber: 1,
+            },
+          },
+        }
+      }
+      return { data: { data: { warningCount: 0, warningThreshold: 3, autoSubmitted: false } } }
+    })
+
+    renderPage()
+
+    const passwordInput = await screen.findByLabelText('🔒 Mật khẩu bài kiểm tra')
+    await user.click(screen.getByRole('button', { name: 'Bắt đầu lượt 1' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Vui lòng nhập mật khẩu bài kiểm tra.')
+    expect(mockedApi.post).not.toHaveBeenCalledWith(
+      '/api/students/assessments/assignment-1/start',
+      expect.anything()
+    )
+
+    await user.type(passwordInput, 'OOP-2026')
+    await user.click(screen.getByRole('button', { name: 'Bắt đầu lượt 1' }))
+    await waitFor(() => {
+      expect(mockedApi.post).toHaveBeenCalledWith(
+        '/api/students/assessments/assignment-1/start',
+        { password: 'OOP-2026' }
+      )
+    })
+    expect(await screen.findByText('Nội dung chỉ tải sau khi nhập đúng mật khẩu')).toBeInTheDocument()
+  })
 })

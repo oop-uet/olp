@@ -20,6 +20,7 @@ interface Preflight {
   maxAttempts: number
   attemptsUsed: number
   attemptsRemaining: number
+  requiresPassword: boolean
   questionCount: number
   session: { id: string; status: string; reviewStatus?: string; attemptNumber: number } | null
 }
@@ -112,6 +113,8 @@ export function StudentAssessmentPage() {
   const [remaining, setRemaining] = useState(0)
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
+  const [assessmentPassword, setAssessmentPassword] = useState('')
+  const [passwordError, setPasswordError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [saveState, setSaveState] = useState<'saved' | 'saving' | 'error'>('saved')
   const [flaggedQuestionIds, setFlaggedQuestionIds] = useState<string[]>([])
@@ -183,6 +186,7 @@ export function StudentAssessmentPage() {
         maxAttempts,
         attemptsUsed,
         attemptsRemaining: raw.attemptsRemaining ?? Math.max(0, maxAttempts - attemptsUsed),
+        requiresPassword: Boolean(raw.requiresPassword),
         session: raw.session
           ? { ...raw.session, attemptNumber: raw.session.attemptNumber ?? attemptsUsed }
           : null,
@@ -357,17 +361,28 @@ export function StudentAssessmentPage() {
 
   async function start() {
     if (!assignmentId || !preflight) return
+    const password = assessmentPassword.trim()
+    if (preflight.requiresPassword && !password) {
+      setPasswordError('Vui lòng nhập mật khẩu bài kiểm tra.')
+      return
+    }
     setStarting(true)
+    setPasswordError(null)
+    let enteredFullscreen = false
     try {
       if (!document.fullscreenElement) {
         try {
           await document.documentElement.requestFullscreen()
+          enteredFullscreen = true
         } catch {
           toast.error('Bạn cần cho phép chế độ toàn màn hình để bắt đầu làm bài.')
           return
         }
       }
-      const response = await api.post(`/api/students/assessments/${assignmentId}/start`)
+      const response = await api.post(
+        `/api/students/assessments/${assignmentId}/start`,
+        preflight.requiresPassword ? { password } : {}
+      )
       const attemptNumber = response.data.data.attemptNumber ?? preflight.attemptsUsed + 1
       setPreflight((current) =>
         current
@@ -384,9 +399,15 @@ export function StudentAssessmentPage() {
             }
           : current
       )
+      setAssessmentPassword('')
       await loadSession(response.data.data.id)
     } catch (error: unknown) {
-      toast.error(readApiError(error).message ?? 'Không thể bắt đầu bài kiểm tra.')
+      const message = readApiError(error).message ?? 'Không thể bắt đầu bài kiểm tra.'
+      if (preflight.requiresPassword) setPasswordError(message)
+      if (enteredFullscreen && document.fullscreenElement) {
+        await document.exitFullscreen().catch(() => undefined)
+      }
+      toast.error(message)
     } finally {
       setStarting(false)
     }
@@ -819,22 +840,62 @@ export function StudentAssessmentPage() {
               </ul>
             </div>
 
-            {/* Start CTA Button */}
-            <button
-              onClick={() => void start()}
-              disabled={starting || notOpen || closed || noAttempts}
-              className="btn-primary btn-lg w-full text-sm font-bold shadow-md hover:shadow-lg transition-all h-12"
+            <form
+              className="space-y-3"
+              onSubmit={(event) => {
+                event.preventDefault()
+                void start()
+              }}
             >
-              {notOpen
-                ? 'Bài kiểm tra chưa mở'
-                : closed
-                  ? 'Bài kiểm tra đã đóng'
-                  : noAttempts
-                    ? 'Đã sử dụng hết lượt làm'
-                    : starting
-                      ? 'Đang khởi tạo bài thi...'
-                      : `Bắt đầu lượt ${preflight.attemptsUsed + 1}`}
-            </button>
+              {preflight.requiresPassword && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+                  <label htmlFor="assessment-access-password" className="label text-amber-950">
+                    🔒 Mật khẩu bài kiểm tra
+                  </label>
+                  <input
+                    id="assessment-access-password"
+                    type="password"
+                    value={assessmentPassword}
+                    onChange={(event) => {
+                      setAssessmentPassword(event.target.value)
+                      if (passwordError) setPasswordError(null)
+                    }}
+                    maxLength={100}
+                    autoComplete="off"
+                    autoFocus
+                    className="input"
+                    aria-invalid={Boolean(passwordError)}
+                    aria-describedby={passwordError ? 'assessment-password-error' : undefined}
+                    placeholder="Nhập mật khẩu do giảng viên cung cấp"
+                  />
+                  {passwordError && (
+                    <p id="assessment-password-error" role="alert" className="mt-2 text-xs font-semibold text-rose-700">
+                      {passwordError}
+                    </p>
+                  )}
+                  <p className="mt-2 text-xs text-amber-800">
+                    Mật khẩu chỉ được gửi khi bạn bấm bắt đầu và không được lưu trên trình duyệt.
+                  </p>
+                </div>
+              )}
+
+              {/* Start CTA Button */}
+              <button
+                type="submit"
+                disabled={starting || notOpen || closed || noAttempts}
+                className="btn-primary btn-lg w-full text-sm font-bold shadow-md hover:shadow-lg transition-all h-12"
+              >
+                {notOpen
+                  ? 'Bài kiểm tra chưa mở'
+                  : closed
+                    ? 'Bài kiểm tra đã đóng'
+                    : noAttempts
+                      ? 'Đã sử dụng hết lượt làm'
+                      : starting
+                        ? 'Đang kiểm tra và khởi tạo bài thi...'
+                        : `Bắt đầu lượt ${preflight.attemptsUsed + 1}`}
+              </button>
+            </form>
           </div>
         </div>
       </div>

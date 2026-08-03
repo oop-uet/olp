@@ -82,6 +82,7 @@ describe("database compatibility", () => {
       .map((row) => (row as { name: string }).name);
 
     expect(assignmentColumns).toContain("max_attempts");
+    expect(assignmentColumns).toContain("password_hash");
     expect(sessionColumns).toContain("attempt_number");
     expect(sessionIndexes).toContain(
       "assessment_sessions_assignment_student_attempt_unique"
@@ -157,7 +158,7 @@ describe("database compatibility", () => {
     expect(sessionColumns).toContain("question_order_json");
     expect(sessionColumns).toContain("attempt_number");
     expect(assessmentAssignmentColumns).toEqual(
-      expect.arrayContaining(["week", "max_attempts"])
+      expect.arrayContaining(["week", "max_attempts", "password_hash"])
     );
     expect(aiRunColumns).toEqual(expect.arrayContaining(["next_attempt_at", "locked_until"]));
     expect(assessmentIndexes).toEqual(

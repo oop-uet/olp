@@ -139,4 +139,45 @@ describe('AssessmentManagerPanel', () => {
     expect(toast.success).not.toHaveBeenCalled()
     expect(api.get).toHaveBeenCalledTimes(1)
   })
+
+  it('sets an optional assessment password without receiving the password hash', async () => {
+    const protectedAssessment: InstructorAssessmentListItem = {
+      ...assessment,
+      assignments: assessment.assignments.map((assignment) => ({
+        ...assignment,
+        hasPassword: true,
+      })),
+    }
+    vi.mocked(api.get)
+      .mockResolvedValueOnce({ data: { data: [assessment] } })
+      .mockResolvedValueOnce({ data: { data: [protectedAssessment] } })
+    vi.mocked(api.put).mockResolvedValue({
+      data: { data: { durationMinutes: 90, maxAttempts: 1, hasPassword: true } },
+    })
+
+    render(
+      <MemoryRouter>
+        <AssessmentManagerPanel />
+      </MemoryRouter>
+    )
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: `Cài đặt thời gian ${assessment.title}` })
+    )
+    fireEvent.change(screen.getByLabelText('Mật khẩu vào thi (không bắt buộc)'), {
+      target: { value: 'OOP-2026' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu cài đặt' }))
+
+    await waitFor(() => {
+      expect(api.put).toHaveBeenCalledWith(
+        '/api/instructor/assessments/assignments/assignment-1/window',
+        expect.objectContaining({ password: 'OOP-2026' })
+      )
+    })
+    await waitFor(() => {
+      expect(screen.getByText('Đang bảo vệ bằng mật khẩu. Nhập giá trị mới nếu muốn thay đổi.')).toBeInTheDocument()
+    })
+    expect(JSON.stringify(vi.mocked(api.put).mock.calls)).not.toContain('passwordHash')
+  })
 })

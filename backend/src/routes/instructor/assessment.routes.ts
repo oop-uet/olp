@@ -74,14 +74,22 @@ const assignSchema = z.object({
   warningThreshold: z.number().int().min(1).max(20).optional().default(3),
   showPredictedScore: z.boolean().optional().default(true),
   maxAttempts: z.number().int().min(1).max(20).optional().default(1),
+  password: z.string().trim().min(4).max(100).optional(),
 });
 
-const assignmentWindowSchema = z.object({
-  opensAt: z.string().datetime(),
-  closesAt: z.string().datetime(),
-  durationMinutes: z.number().int().min(1).max(600).optional(),
-  maxAttempts: z.number().int().min(1).max(20).optional(),
-});
+const assignmentWindowSchema = z
+  .object({
+    opensAt: z.string().datetime(),
+    closesAt: z.string().datetime(),
+    durationMinutes: z.number().int().min(1).max(600).optional(),
+    maxAttempts: z.number().int().min(1).max(20).optional(),
+    password: z.string().trim().min(4).max(100).optional(),
+    clearPassword: z.boolean().optional(),
+  })
+  .refine((input) => !(input.clearPassword && input.password !== undefined), {
+    message: "Không thể đồng thời đặt và xóa mật khẩu bài kiểm tra.",
+    path: ["password"],
+  });
 
 const reviewSchema = z.object({
   decision: z.enum(["accept", "adjust", "manual"]),

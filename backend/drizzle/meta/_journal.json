@@ -134,6 +134,13 @@
       "when": 1785688000000,
       "tag": "0018_add_assessment_attempt_limits",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1785689000000,
+      "tag": "0019_add_assessment_password",
+      "breakpoints": true
     }
   ]
 }

@@ -50,6 +50,7 @@ export interface AssessmentAssignmentSummary {
   durationMinutes?: number
   showPredictedScore?: number
   maxAttempts: number
+  hasPassword?: boolean
 }
 
 export interface InstructorAssessmentListItem {
@@ -75,6 +76,7 @@ export interface StudentAssessmentListItem {
   totalPoints: number
   maxAttempts: number
   attemptsUsed: number
+  requiresPassword?: boolean
   week: number | null
   session: {
     id: string
