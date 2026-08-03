@@ -34,6 +34,32 @@ interface SectionExercise {
   assignedAt: string
 }
 
+interface SectionAssessment {
+  assignmentId: string
+  assessmentId: string
+  title: string
+  totalPoints: number
+  durationMinutes: number
+  creatorUsername: string | null
+  week: number | null
+  deadline: string | null
+  opensAt: string
+  closesAt: string
+  isVisible: boolean
+  sortOrder: number
+}
+
+interface ScheduleData {
+  weeks: Array<{
+    week: number
+    deadline: string | null
+    exercises: SectionExercise[]
+    assessments: SectionAssessment[]
+  }>
+  unscheduled: SectionExercise[]
+  assessmentUnscheduled: SectionAssessment[]
+}
+
 interface SectionDetail {
   section: SectionInfo
   exercises: SectionExercise[]
@@ -61,10 +87,9 @@ export function InstructorCourseDetailPage() {
   const { id } = useParams<{ id: string }>()
 
   const [detail, setDetail] = useState<SectionDetail | null>(null)
+  const [schedule, setSchedule] = useState<ScheduleData | null>(null)
   const [loading, setLoading] = useState(true)
   const [accessError, setAccessError] = useState<string | null>(null)
-
-
 
   // Mini-leaderboard state
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
@@ -91,8 +116,12 @@ export function InstructorCourseDetailPage() {
     setLoading(true)
     setAccessError(null)
     try {
-      const response = await cachedGet(`/api/instructor/sections/${id}/detail`, undefined, { ttlMs: 30_000 })
-      setDetail(response.data)
+      const [detailResponse, scheduleResponse] = await Promise.all([
+        cachedGet(`/api/instructor/sections/${id}/detail`, undefined, { ttlMs: 15_000 }),
+        cachedGet(`/api/instructor/sections/${id}/schedule`, undefined, { ttlMs: 15_000 }),
+      ])
+      setDetail(detailResponse.data)
+      setSchedule(scheduleResponse.data)
     } catch (error) {
       const status = (error as AxiosError)?.response?.status
       if (status === 403) {
@@ -201,9 +230,14 @@ export function InstructorCourseDetailPage() {
 
   const { section, exercises } = detail
 
-  // Group exercises by the default 10-week course timeline.
+  // Group exercises & assessments by the default 10-week course timeline.
   const exercisesByWeek: Record<number, SectionExercise[]> = {}
-  for (let i = 1; i <= TOTAL_WEEKS; i++) exercisesByWeek[i] = []
+  const assessmentsByWeek: Record<number, SectionAssessment[]> = {}
+  for (let i = 1; i <= TOTAL_WEEKS; i++) {
+    exercisesByWeek[i] = []
+    assessmentsByWeek[i] = []
+  }
+
   const unscheduledExercises: SectionExercise[] = []
   for (const ex of exercises) {
     const w = ex.week ?? 0
@@ -214,6 +248,15 @@ export function InstructorCourseDetailPage() {
     }
   }
 
+  const unscheduledAssessments: SectionAssessment[] = schedule?.assessmentUnscheduled ?? []
+  if (schedule?.weeks) {
+    for (const w of schedule.weeks) {
+      if (w.week >= 1 && w.week <= TOTAL_WEEKS && w.assessments) {
+        assessmentsByWeek[w.week] = w.assessments
+      }
+    }
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Breadcrumbs are global, we just render clean columns layout */}
@@ -221,11 +264,12 @@ export function InstructorCourseDetailPage() {
         
         {/* Left Column: Weekly list (75% width) */}
         <div className="space-y-5 lg:w-3/4">
-          {unscheduledExercises.length > 0 && (
+          {(unscheduledExercises.length > 0 || unscheduledAssessments.length > 0) && (
             <WeekPanel
               title="CHƯA XẾP TUẦN"
-              subtitle={`${unscheduledExercises.length} bài tập cần xếp lịch`}
+              subtitle=""
               exercises={unscheduledExercises}
+              assessments={unscheduledAssessments}
               sectionId={section.id}
               onUpdateSettings={handleUpdateAssignmentSettings}
             />
@@ -234,6 +278,7 @@ export function InstructorCourseDetailPage() {
           {[...Array(TOTAL_WEEKS)].map((_, i) => {
             const weekNum = i + 1
             const weekExercises = exercisesByWeek[weekNum] || []
+            const weekAssessments = assessmentsByWeek[weekNum] || []
 
             return (
               <WeekPanel
@@ -241,6 +286,7 @@ export function InstructorCourseDetailPage() {
                 title={`TUẦN ${weekNum}`}
                 subtitle=""
                 exercises={weekExercises}
+                assessments={weekAssessments}
                 sectionId={section.id}
                 onUpdateSettings={handleUpdateAssignmentSettings}
               />
@@ -344,6 +390,7 @@ interface WeekPanelProps {
   title: string
   subtitle: string
   exercises: SectionExercise[]
+  assessments?: SectionAssessment[]
   sectionId: string
   onUpdateSettings: (
     exerciseId: string,
@@ -355,10 +402,12 @@ function WeekPanel({
   title,
   subtitle,
   exercises,
+  assessments = [],
   sectionId,
   onUpdateSettings,
 }: WeekPanelProps) {
   const deadlineText = getWeekDeadline(exercises) || subtitle
+  const hasContent = exercises.length > 0 || assessments.length > 0
 
   return (
     <div className="space-y-2">
@@ -370,15 +419,55 @@ function WeekPanel({
         </div>
       </div>
 
-      {/* Exercises Stack */}
+      {/* Exercises & Assessments Stack */}
       <div className="space-y-2 pl-1.5">
-        {exercises.length === 0 ? (
+        {!hasContent ? (
           <p className="text-xs text-slate-400 py-3 italic pl-3">
-            Không có bài tập nào được phân lịch trong tuần này.
+            Không có bài tập hoặc bài kiểm tra nào trong tuần này.
           </p>
         ) : (
-          exercises.map((ex) => {
-            return (
+          <>
+            {/* Render Assigned Assessments first */}
+            {assessments.map((assessment) => (
+              <div
+                key={assessment.assignmentId}
+                className="flex flex-col sm:flex-row sm:items-center justify-between border border-cyan-200/90 rounded-xl p-3 bg-gradient-to-r from-cyan-50/70 via-sky-50/40 to-white hover:border-cyan-400 transition-all shadow-2xs gap-3"
+              >
+                <div className="flex items-start sm:items-center gap-2.5 min-w-0">
+                  <span className="rounded-md bg-cyan-600 px-2 py-0.5 text-xs font-black text-white shadow-2xs shrink-0">
+                    KT
+                  </span>
+                  <div className="min-w-0">
+                    <Link
+                      to={`/instructor/assessment-assignments/${assessment.assignmentId}/submissions`}
+                      className="text-sm font-extrabold text-slate-900 hover:text-cyan-700 hover:underline truncate block"
+                    >
+                      {assessment.title}
+                    </Link>
+                    <p className="text-[11px] font-semibold text-slate-500 mt-0.5 flex flex-wrap items-center gap-2">
+                      <span>⏱️ {assessment.durationMinutes} phút</span>
+                      <span>·</span>
+                      <span>🏆 {assessment.totalPoints} điểm</span>
+                      <span>·</span>
+                      <span>📅 {new Date(assessment.opensAt).toLocaleString('vi-VN')} – {new Date(assessment.closesAt).toLocaleString('vi-VN')}</span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                  <Link
+                    to={`/instructor/assessment-assignments/${assessment.assignmentId}/submissions`}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-300 bg-cyan-50 px-3 py-1.5 text-xs font-bold text-cyan-800 hover:bg-cyan-100 hover:text-cyan-900 transition-colors shadow-2xs"
+                  >
+                    <span>📊</span>
+                    <span>Xem bài nộp</span>
+                  </Link>
+                </div>
+              </div>
+            ))}
+
+            {/* Render Exercises */}
+            {exercises.map((ex) => (
               <div
                 key={ex.assignmentId}
                 className="flex items-center justify-between border border-slate-200/80 rounded-lg px-4 py-2 bg-[#f8f9fa] hover:bg-[#f1f3f5] transition-colors duration-150 shadow-sm"
@@ -469,8 +558,8 @@ function WeekPanel({
                   </button>
                 </div>
               </div>
-            )
-          })
+            ))}
+          </>
         )}
       </div>
     </div>
