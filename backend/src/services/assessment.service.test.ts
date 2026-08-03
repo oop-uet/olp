@@ -21,6 +21,7 @@ import {
   listStudentAssessments,
   processPendingAssessmentAiRuns,
   recordAssessmentIntegrityEvent,
+  regradeAssessmentAssignment,
   reviewAssessmentAnswer,
   retryAssessmentAiGrade,
   saveAssessmentAnswers,
@@ -580,6 +581,181 @@ describe("Assessment service", () => {
     const preservedOfficial = await getStudentAssessmentResult(sessionId, studentId, db);
     expect((preservedOfficial as any).data.officialScore).toBe(9);
     expect((preservedOfficial as any).data.reviewStatus).toBe("official");
+  });
+
+  it("edits a started assessment without breaking answers and regrades every submission", async () => {
+    const db = getDb();
+    const sqlite = getTestSqlite();
+    const { instructorId, studentId, sectionId } = seedUsersAndSection();
+    const created = await createAssessment(validDraft(), instructorId, db);
+    const assessmentId = (created as any).data.id;
+    const assigned = await assignAssessment(
+      assessmentId,
+      {
+        sectionId,
+        opensAt: new Date(Date.now() - 60_000).toISOString(),
+        closesAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+      },
+      instructorId,
+      db
+    );
+    const assignmentId = (assigned as any).data.id;
+    const started = await startAssessmentSession(assignmentId, studentId, db);
+    const sessionId = (started as any).data.id;
+    const studentView = await getStudentAssessmentSession(sessionId, studentId, db);
+    const originalQuestions = (studentView as any).data.assessment.sections[0].questions;
+    const originalQuestionIds = originalQuestions.map((question: any) => question.id);
+
+    await saveAssessmentAnswers(
+      sessionId,
+      studentId,
+      [
+        { questionId: originalQuestions[0].id, answer: { value: false }, clientRevision: 1 },
+        {
+          questionId: originalQuestions[1].id,
+          answer: { text: "Upcasting là chuyển tham chiếu lớp con lên lớp cha." },
+          clientRevision: 1,
+        },
+      ],
+      db
+    );
+    await submitAssessmentSession(sessionId, studentId, "student", db);
+
+    const structurallyChanged: AssessmentDraftInput = {
+      ...validDraft(),
+      sections: [
+        {
+          ...validDraft().sections[0],
+          questions: [
+            {
+              type: "single_choice",
+              prompt: "Câu đã đổi loại",
+              points: 5,
+              gradingMode: "auto",
+              options: ["Đúng", "Sai"],
+              answerKey: 0,
+            },
+            validDraft().sections[0].questions[1],
+          ],
+        },
+      ],
+    };
+    const locked = await updateAssessment(assessmentId, structurallyChanged, instructorId, db);
+    expect(isAssessmentError(locked)).toBe(true);
+    expect((locked as any).error.code).toBe("ASSESSMENT_STRUCTURE_LOCKED");
+
+    const revisedDraft: AssessmentDraftInput = {
+      ...validDraft(),
+      title: "Giữa kỳ OOP - đáp án đã hiệu chỉnh",
+      sections: [
+        {
+          title: "Phần 1 đã sửa",
+          questions: [
+            {
+              type: "true_false",
+              prompt: "Interface có thể không khai báo phương thức nào.",
+              points: 4,
+              gradingMode: "auto",
+              answerKey: true,
+            },
+            {
+              type: "essay",
+              prompt: "Phân biệt upcasting và downcasting, kèm ví dụ.",
+              points: 6,
+              gradingMode: "llm_assisted",
+              referenceAnswer: "Nêu đúng hai hướng ép kiểu và ví dụ an toàn.",
+              gradingPrompt: "Chấm lại theo đáp án và rubric mới.",
+              rubric: [
+                { id: "upcasting", criterion: "Giải thích upcasting", points: 3 },
+                { id: "downcasting", criterion: "Giải thích downcasting", points: 3 },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const updated = await updateAssessment(assessmentId, revisedDraft, instructorId, db);
+    expect(isAssessmentError(updated)).toBe(false);
+    expect((updated as any).data.title).toBe(revisedDraft.title);
+    expect(
+      (updated as any).data.sections[0].questions.map((question: any) => question.id)
+    ).toEqual(originalQuestionIds);
+    expect((updated as any).data.sections[0].questions[0]).toMatchObject({
+      prompt: "Interface có thể không khai báo phương thức nào.",
+      points: 4,
+      answerKey: true,
+    });
+    expect((updated as any).data.sections[0].questions[1]).toMatchObject({
+      points: 6,
+      gradingPrompt: "Chấm lại theo đáp án và rubric mới.",
+    });
+
+    sqlite
+      .prepare(
+        `UPDATE assessment_answers
+         SET final_points = 3, grading_state = 'human_adjusted', reviewed_by = ?, reviewed_at = ?
+         WHERE session_id = ? AND question_id = ?`
+      )
+      .run(instructorId, new Date().toISOString(), sessionId, originalQuestions[1].id);
+    sqlite
+      .prepare(
+        `UPDATE assessment_sessions
+         SET status = 'graded', review_status = 'official', official_score = 8,
+             official_by = ?, official_at = ? WHERE id = ?`
+      )
+      .run(instructorId, new Date().toISOString(), sessionId);
+
+    const regraded = await regradeAssessmentAssignment(assignmentId, instructorId, db);
+    expect(isAssessmentError(regraded)).toBe(false);
+    expect((regraded as any).data).toMatchObject({
+      sessionsRegraded: 1,
+      objectiveAnswersRescored: 1,
+      aiAnswersQueued: 1,
+      previousAiRunsSuperseded: 1,
+      sessionsSkippedInProgress: 0,
+    });
+    const storedSession = await db.query.assessmentSessions.findFirst({
+      where: (sessions: any, { eq }: any) => eq(sessions.id, sessionId),
+    });
+    expect(storedSession).toMatchObject({
+      autoScore: 0,
+      predictedScore: null,
+      officialScore: null,
+      status: "ai_grading",
+      reviewStatus: "ai_queued",
+    });
+    const storedAnswers = await db.query.assessmentAnswers.findMany({
+      where: (answers: any, { eq }: any) => eq(answers.sessionId, sessionId),
+    });
+    expect(storedAnswers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          questionId: originalQuestions[0].id,
+          autoPoints: 0,
+          finalPoints: 0,
+          gradingState: "auto_graded",
+        }),
+        expect.objectContaining({
+          questionId: originalQuestions[1].id,
+          aiSuggestedPoints: null,
+          finalPoints: null,
+          gradingState: "ai_queued",
+          reviewedBy: null,
+        }),
+      ])
+    );
+    const runStatuses = sqlite
+      .prepare(
+        `SELECT status, error_code AS errorCode
+         FROM assessment_ai_grading_runs WHERE answer_id = (
+           SELECT id FROM assessment_answers WHERE session_id = ? AND question_id = ?
+         ) ORDER BY rowid`
+      )
+      .all(sessionId, originalQuestions[1].id) as Array<{ status: string; errorCode: string | null }>;
+    expect(runStatuses).toEqual([
+      { status: "failed", errorCode: "SUPERSEDED_BY_FULL_REGRADE" },
+      { status: "queued", errorCode: null },
+    ]);
   });
 
   it("stores one shuffled objective-question order per session and preserves it on reload", async () => {

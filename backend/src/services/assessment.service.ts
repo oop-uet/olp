@@ -311,6 +311,135 @@ async function replaceDraftContent(
   }
 }
 
+async function updateStartedDraftContent(
+  assessmentId: string,
+  sectionsInput: AssessmentSectionInput[],
+  database: Database
+): Promise<AssessmentServiceError | null> {
+  const currentSections = await loadAssessmentContent(assessmentId, true, database);
+  const structureErrors: string[] = [];
+  const lockedMessage =
+    "Đề đã có sinh viên bắt đầu làm. Bạn vẫn có thể sửa nội dung, đáp án, điểm và hướng dẫn chấm; " +
+    "không thể thêm/xóa phần, câu hỏi, đổi loại câu hoặc đổi số lựa chọn.";
+
+  if (currentSections.length !== sectionsInput.length) {
+    structureErrors.push(
+      `Số phần phải giữ nguyên (${currentSections.length} phần).`
+    );
+  }
+
+  const comparableSectionCount = Math.min(currentSections.length, sectionsInput.length);
+  for (let sectionIndex = 0; sectionIndex < comparableSectionCount; sectionIndex += 1) {
+    const currentSection = currentSections[sectionIndex];
+    const nextSection = sectionsInput[sectionIndex];
+    if (currentSection.questions.length !== nextSection.questions.length) {
+      structureErrors.push(
+        `Phần ${sectionIndex + 1} phải giữ nguyên ${currentSection.questions.length} câu hỏi.`
+      );
+      continue;
+    }
+    for (let questionIndex = 0; questionIndex < currentSection.questions.length; questionIndex += 1) {
+      const currentQuestion = currentSection.questions[questionIndex];
+      const nextQuestion = nextSection.questions[questionIndex];
+      if (currentQuestion.type !== nextQuestion.type) {
+        structureErrors.push(
+          `Phần ${sectionIndex + 1}, câu ${questionIndex + 1} không thể đổi loại câu hỏi.`
+        );
+      }
+      if (
+        currentQuestion.type === "single_choice" &&
+        currentQuestion.options.length !== (nextQuestion.options ?? []).length
+      ) {
+        structureErrors.push(
+          `Phần ${sectionIndex + 1}, câu ${questionIndex + 1} phải giữ nguyên ${currentQuestion.options.length} lựa chọn.`
+        );
+      }
+    }
+  }
+
+  if (structureErrors.length > 0) {
+    return serviceError("ASSESSMENT_STRUCTURE_LOCKED", lockedMessage, structureErrors);
+  }
+
+  for (let sectionIndex = 0; sectionIndex < sectionsInput.length; sectionIndex += 1) {
+    const sectionInput = sectionsInput[sectionIndex];
+    const currentSection = currentSections[sectionIndex];
+    const sectionPoints = roundScore(
+      sectionInput.questions.reduce((sum, question) => sum + question.points, 0)
+    );
+    await database
+      .update(assessmentSections)
+      .set({
+        title: sectionInput.title.trim(),
+        introContent: sectionInput.introContent?.trim() || null,
+        points: sectionPoints,
+      })
+      .where(eq(assessmentSections.id, currentSection.id));
+
+    for (let questionIndex = 0; questionIndex < sectionInput.questions.length; questionIndex += 1) {
+      const questionInput = sectionInput.questions[questionIndex];
+      const currentQuestion = currentSection.questions[questionIndex];
+      await database
+        .update(assessmentQuestions)
+        .set({
+          prompt: questionInput.prompt.trim(),
+          points: questionInput.points,
+          gradingMode: questionInput.gradingMode,
+        })
+        .where(eq(assessmentQuestions.id, currentQuestion.id));
+
+      for (let optionIndex = 0; optionIndex < (questionInput.options ?? []).length; optionIndex += 1) {
+        await database
+          .update(assessmentOptions)
+          .set({ content: questionInput.options![optionIndex].trim() })
+          .where(eq(assessmentOptions.id, currentQuestion.options[optionIndex].id));
+      }
+
+      if (questionInput.type === "true_false") {
+        await database
+          .update(assessmentAnswerKeys)
+          .set({ answerJson: JSON.stringify({ value: questionInput.answerKey }) })
+          .where(eq(assessmentAnswerKeys.questionId, currentQuestion.id));
+      } else if (questionInput.type === "single_choice") {
+        const correctOption = currentQuestion.options[questionInput.answerKey as number];
+        await database
+          .update(assessmentAnswerKeys)
+          .set({ answerJson: JSON.stringify({ optionId: correctOption.id }) })
+          .where(eq(assessmentAnswerKeys.questionId, currentQuestion.id));
+      }
+
+      if (questionInput.gradingMode === "llm_assisted" || questionInput.gradingMode === "manual") {
+        const rubric = (questionInput.rubric ?? []).map((criterion, criterionIndex) => ({
+          id: criterion.id?.trim() || `criterion-${criterionIndex + 1}`,
+          criterion: criterion.criterion.trim(),
+          points: criterion.points,
+        }));
+        const guideValues = {
+          referenceAnswer: questionInput.referenceAnswer?.trim() || "",
+          rubricJson: JSON.stringify(rubric),
+          promptTemplate: questionInput.gradingPrompt?.trim() || "",
+        };
+        const existingGuide = await database.query.assessmentGradingGuides.findFirst({
+          where: eq(assessmentGradingGuides.questionId, currentQuestion.id),
+        });
+        if (existingGuide) {
+          await database
+            .update(assessmentGradingGuides)
+            .set(guideValues)
+            .where(eq(assessmentGradingGuides.questionId, currentQuestion.id));
+        } else {
+          await database.insert(assessmentGradingGuides).values({
+            questionId: currentQuestion.id,
+            ...guideValues,
+          });
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
 export async function createAssessment(
   input: AssessmentDraftInput,
   instructorId: string,
@@ -347,11 +476,10 @@ export async function updateAssessment(
   if (validation) return validation;
   const existing = await assertAssessmentOwner(assessmentId, instructorId, database);
   if (!existing) return serviceError("NOT_FOUND", "Không tìm thấy bài kiểm tra.");
-  if (await assessmentHasSessions(assessmentId, database)) {
-    return serviceError(
-      "ASSESSMENT_IN_USE",
-      "Không thể sửa nội dung vì đã có sinh viên bắt đầu làm bài kiểm tra này."
-    );
+  const hasSessions = await assessmentHasSessions(assessmentId, database);
+  if (hasSessions) {
+    const contentUpdate = await updateStartedDraftContent(assessmentId, input.sections, database);
+    if (contentUpdate) return contentUpdate;
   }
   const now = new Date().toISOString();
   await database
@@ -367,7 +495,27 @@ export async function updateAssessment(
       updatedAt: now,
     })
     .where(eq(assessments.id, assessmentId));
-  await replaceDraftContent(assessmentId, input.sections, database);
+  if (!hasSessions) await replaceDraftContent(assessmentId, input.sections, database);
+  await writeAudit(
+    instructorId,
+    "assessment.update",
+    "assessment",
+    assessmentId,
+    {
+      title: existing.title,
+      durationMinutes: existing.durationMinutes,
+      totalPoints: existing.totalPoints,
+      shuffleQuestions: existing.shuffleQuestions,
+    },
+    {
+      title: input.title.trim(),
+      durationMinutes: input.durationMinutes,
+      totalPoints: input.totalPoints,
+      shuffleQuestions: input.shuffleQuestions === false ? 0 : 1,
+      preservedQuestionIds: hasSessions,
+    },
+    database
+  );
   return getInstructorAssessment(assessmentId, instructorId, database);
 }
 
@@ -1595,6 +1743,16 @@ async function processAiRun(runId: string, database: Database): Promise<boolean>
     },
     database
   );
+  const activeRun = await database.query.assessmentAiGradingRuns.findFirst({
+    where: eq(assessmentAiGradingRuns.id, runId),
+    columns: { status: true },
+  });
+  if (activeRun?.status !== "running") {
+    // A lecturer may supersede this run by requesting a full regrade while the
+    // provider request is still in flight. Never let that stale result overwrite
+    // the newly queued grading pass.
+    return true;
+  }
   if (isAiServiceError(result)) {
     await handleAiRunError(
       claimed,
@@ -2263,6 +2421,224 @@ export async function approveAllPredictedScores(
       sessionsSkippedInProgress: sessions.length - eligibleSessions.length,
     },
   };
+}
+
+export async function regradeAssessmentAssignment(
+  assignmentId: string,
+  instructorId: string,
+  database: Database = defaultDb
+) {
+  const assignment = await assertInstructorAssignmentAccess(assignmentId, instructorId, database);
+  if (!assignment) return serviceError("FORBIDDEN", "Bạn không có quyền chấm lại ca thi này.");
+  const assessment = await database.query.assessments.findFirst({
+    where: eq(assessments.id, assignment.assessmentId),
+  });
+  if (!assessment) return serviceError("NOT_FOUND", "Không tìm thấy bài kiểm tra.");
+
+  const sections = await loadAssessmentContent(assessment.id, true, database);
+  const questions = sections.flatMap((section) => section.questions) as unknown as Array<{
+    id: string;
+    type: AssessmentQuestionType;
+    points: number;
+    gradingMode: AssessmentGradingMode;
+    answerKey: boolean | number | null;
+    options: Array<{ id: string; content: string }>;
+  }>;
+  const questionById = new Map(questions.map((question) => [question.id, question]));
+  const sessions = await database
+    .select()
+    .from(assessmentSessions)
+    .where(eq(assessmentSessions.assignmentId, assignmentId));
+  const eligibleSessions = sessions.filter(
+    (session) => session.status !== "in_progress" && session.status !== "voided"
+  );
+
+  let sessionsRegraded = 0;
+  let objectiveAnswersRescored = 0;
+  let aiAnswersQueued = 0;
+  let previousAiRunsSuperseded = 0;
+  const now = new Date().toISOString();
+
+  for (const session of eligibleSessions) {
+    let answers = await database
+      .select()
+      .from(assessmentAnswers)
+      .where(eq(assessmentAnswers.sessionId, session.id));
+    const answerByQuestion = new Map(answers.map((answer) => [answer.questionId, answer]));
+    const missingAnswers = questions
+      .filter((question) => !answerByQuestion.has(question.id))
+      .map((question) => ({
+        id: crypto.randomUUID(),
+        sessionId: session.id,
+        questionId: question.id,
+        answerJson: "{}",
+        clientRevision: 0,
+        savedAt: now,
+        gradingState: "ungraded" as const,
+      }));
+    if (missingAnswers.length > 0) {
+      const inserted = await database
+        .insert(assessmentAnswers)
+        .values(missingAnswers)
+        .returning();
+      answers = [...answers, ...inserted];
+    }
+
+    const answerIds = answers.map((answer) => answer.id);
+    if (answerIds.length > 0) {
+      const superseded = await database
+        .update(assessmentAiGradingRuns)
+        .set({
+          status: "failed",
+          errorCode: "SUPERSEDED_BY_FULL_REGRADE",
+          errorMessage: "Lượt chấm AI cũ đã được thay thế bởi yêu cầu chấm lại toàn bộ.",
+          nextAttemptAt: null,
+          lockedUntil: null,
+          finishedAt: now,
+        })
+        .where(
+          and(
+            inArray(assessmentAiGradingRuns.answerId, answerIds),
+            inArray(assessmentAiGradingRuns.status, ["queued", "running"])
+          )
+        )
+        .returning({ id: assessmentAiGradingRuns.id });
+      previousAiRunsSuperseded += superseded.length;
+    }
+
+    let autoScore = 0;
+    let hasUnpredictedSubjective = false;
+    const queuedRuns: Array<{ id: string; answerId: string }> = [];
+
+    for (const answer of answers) {
+      const question = questionById.get(answer.questionId);
+      if (!question) continue;
+      const parsedAnswer = parseJson(answer.answerJson, {});
+      if (question.gradingMode === "auto") {
+        const key =
+          question.type === "true_false"
+            ? { value: question.answerKey }
+            : {
+                optionId:
+                  typeof question.answerKey === "number"
+                    ? question.options[question.answerKey]?.id
+                    : undefined,
+              };
+        const points = objectivePassed(question.type, parsedAnswer, key) ? question.points : 0;
+        autoScore += points;
+        objectiveAnswersRescored += 1;
+        await database
+          .update(assessmentAnswers)
+          .set({
+            autoPoints: points,
+            aiSuggestedPoints: null,
+            aiFeedback: null,
+            aiConfidence: null,
+            finalPoints: points,
+            finalFeedback: null,
+            gradingState: "auto_graded",
+            reviewedBy: null,
+            reviewedAt: null,
+          })
+          .where(eq(assessmentAnswers.id, answer.id));
+        continue;
+      }
+
+      const commonReset = {
+        autoPoints: null,
+        finalPoints: null,
+        finalFeedback: null,
+        reviewedBy: null,
+        reviewedAt: null,
+      };
+      if (!answerHasContent(parsedAnswer)) {
+        await database
+          .update(assessmentAnswers)
+          .set({
+            ...commonReset,
+            aiSuggestedPoints: 0,
+            aiFeedback: "Không có câu trả lời.",
+            aiConfidence: "high",
+            gradingState: "ai_suggested",
+          })
+          .where(eq(assessmentAnswers.id, answer.id));
+      } else if (question.gradingMode === "llm_assisted") {
+        await database
+          .update(assessmentAnswers)
+          .set({
+            ...commonReset,
+            aiSuggestedPoints: null,
+            aiFeedback: null,
+            aiConfidence: null,
+            gradingState: "ai_queued",
+          })
+          .where(eq(assessmentAnswers.id, answer.id));
+        queuedRuns.push({ id: crypto.randomUUID(), answerId: answer.id });
+      } else {
+        hasUnpredictedSubjective = true;
+        await database
+          .update(assessmentAnswers)
+          .set({
+            ...commonReset,
+            aiSuggestedPoints: null,
+            aiFeedback: null,
+            aiConfidence: null,
+            gradingState: "ungraded",
+          })
+          .where(eq(assessmentAnswers.id, answer.id));
+      }
+    }
+
+    if (queuedRuns.length > 0) {
+      await database.insert(assessmentAiGradingRuns).values(
+        queuedRuns.map((run) => ({
+          id: run.id,
+          answerId: run.answerId,
+          status: "queued" as const,
+          promptVersion: "assessment-grading-v1",
+          attemptCount: 0,
+          needsHumanAttention: 0,
+          createdAt: now,
+        }))
+      );
+      aiAnswersQueued += queuedRuns.length;
+    }
+
+    const predictedScore =
+      queuedRuns.length === 0 && !hasUnpredictedSubjective ? roundScore(autoScore) : null;
+    await database
+      .update(assessmentSessions)
+      .set({
+        autoScore: roundScore(autoScore),
+        predictedScore,
+        officialScore: null,
+        officialAt: null,
+        officialBy: null,
+        status: queuedRuns.length > 0 ? "ai_grading" : "pending_review",
+        reviewStatus: queuedRuns.length > 0 ? "ai_queued" : "pending_review",
+      })
+      .where(eq(assessmentSessions.id, session.id));
+    sessionsRegraded += 1;
+  }
+
+  const result = {
+    sessionsRegraded,
+    objectiveAnswersRescored,
+    aiAnswersQueued,
+    previousAiRunsSuperseded,
+    sessionsSkippedInProgress: sessions.filter((session) => session.status === "in_progress").length,
+    sessionsSkippedVoided: sessions.filter((session) => session.status === "voided").length,
+  };
+  await writeAudit(
+    instructorId,
+    "assessment.assignment.regrade_all",
+    "assessment_assignment",
+    assignmentId,
+    null,
+    result,
+    database
+  );
+  return { data: result };
 }
 
 export async function retryAssessmentAiGrade(

@@ -12,6 +12,7 @@ import {
   listAssessmentSubmissions,
   listInstructorAssessments,
   publishAssessment,
+  regradeAssessmentAssignment,
   retryAssessmentAiGrade,
   reviewAssessmentAnswer,
   updateAssessment,
@@ -105,7 +106,8 @@ function sendResult(res: Response, result: unknown, successStatus = 200) {
           ? 403
           : result.error.code === "ASSESSMENT_LOCKED" ||
               result.error.code === "NOT_PUBLISHED" ||
-              result.error.code === "ASSESSMENT_IN_USE"
+              result.error.code === "ASSESSMENT_IN_USE" ||
+              result.error.code === "ASSESSMENT_STRUCTURE_LOCKED"
             ? 409
             : 400;
     res.status(status).json({ error: result.error });
@@ -207,6 +209,21 @@ router.post("/assignments/:assignmentId/approve-all", async (req: Request, res: 
     sendResult(res, await approveAllPredictedScores(req.params.assignmentId, req.user!.userId));
   } catch {
     res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Không thể duyệt điểm dự kiến." } });
+  }
+});
+
+router.post("/assignments/:assignmentId/regrade-all", async (req: Request, res: Response) => {
+  try {
+    sendResult(
+      res,
+      await regradeAssessmentAssignment(req.params.assignmentId, req.user!.userId),
+      202
+    );
+  } catch (error) {
+    console.error("[assessment] Failed to regrade assessment submissions", error);
+    res.status(500).json({
+      error: { code: "INTERNAL_ERROR", message: "Không thể xếp hàng chấm lại toàn bộ." },
+    });
   }
 });
 

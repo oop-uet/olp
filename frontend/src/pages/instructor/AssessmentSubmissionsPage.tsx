@@ -43,6 +43,8 @@ export function AssessmentSubmissionsPage() {
   const [data, setData] = useState<PageData | null>(null)
   const [loading, setLoading] = useState(true)
   const [approving, setApproving] = useState(false)
+  const [regrading, setRegrading] = useState(false)
+  const [regradeArmed, setRegradeArmed] = useState(false)
 
   const load = useCallback(async (showLoader = true) => {
     if (!assignmentId) return
@@ -63,6 +65,12 @@ export function AssessmentSubmissionsPage() {
     return () => window.clearInterval(timer)
   }, [load])
 
+  useEffect(() => {
+    if (!regradeArmed) return
+    const timer = window.setTimeout(() => setRegradeArmed(false), 6000)
+    return () => window.clearTimeout(timer)
+  }, [regradeArmed])
+
   async function approveAll() {
     if (!assignmentId || !window.confirm('Duyệt toàn bộ điểm dự kiến hiện đã có thành điểm chính thức?')) return
     setApproving(true)
@@ -78,6 +86,30 @@ export function AssessmentSubmissionsPage() {
     }
   }
 
+  async function regradeAll() {
+    if (!assignmentId) return
+    if (!regradeArmed) {
+      setRegradeArmed(true)
+      return
+    }
+    setRegrading(true)
+    setRegradeArmed(false)
+    try {
+      const response = await api.post(
+        `/api/instructor/assessments/assignments/${assignmentId}/regrade-all`
+      )
+      const result = response.data.data
+      toast.success(
+        `Đã chấm lại ${result.sessionsRegraded} bài: ${result.objectiveAnswersRescored} câu tự động, ${result.aiAnswersQueued} câu đã xếp hàng AI.`
+      )
+      await load(false)
+    } catch (error: unknown) {
+      toast.error(readApiError(error).message ?? 'Không thể chấm lại toàn bộ bài nộp.')
+    } finally {
+      setRegrading(false)
+    }
+  }
+
   if (loading) return <PageLoader label="Đang tải bài nộp kiểm tra..." />
   if (!data) return <div className="card p-8 text-center text-slate-500 font-semibold">Không tìm thấy ca thi.</div>
 
@@ -86,6 +118,9 @@ export function AssessmentSubmissionsPage() {
     (row) => row.reviewStatus === 'pending_review' && row.predictedScore !== null
   ).length
   const official = data.submissions.filter((row) => row.reviewStatus === 'official').length
+  const regradable = data.submissions.filter(
+    (row) => row.status !== 'in_progress' && row.status !== 'voided'
+  ).length
 
   return (
     <div className="space-y-6">
@@ -111,13 +146,43 @@ export function AssessmentSubmissionsPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => void approveAll()}
-          disabled={approving || ready === 0}
-          className="btn-primary relative z-10 shrink-0 h-10 px-4 text-xs font-bold shadow-md hover:shadow-lg transition-all"
-        >
-          {approving ? 'Đang duyệt...' : 'Duyệt toàn bộ điểm dự kiến'}
-        </button>
+        <div className="relative z-10 flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+          <div className="flex flex-wrap justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => void regradeAll()}
+              disabled={regrading || approving || regradable === 0}
+              aria-label="Chấm lại toàn bộ bài nộp"
+              title="Tính lại điểm tự động và xếp hàng chấm AI; điểm chính thức cũ sẽ trở về điểm dự kiến"
+              className={`inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border px-4 text-xs font-bold shadow-sm transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
+                regradeArmed
+                  ? 'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100'
+                  : 'border-white/40 bg-white/10 text-white hover:bg-white/20'
+              }`}
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7" />
+              </svg>
+              {regrading
+                ? 'Đang xếp hàng...'
+                : regradeArmed
+                  ? 'Bấm lần nữa để xác nhận'
+                  : 'Chấm lại toàn bộ'}
+            </button>
+            <button
+              onClick={() => void approveAll()}
+              disabled={approving || regrading || ready === 0}
+              className="btn-primary h-10 px-4 text-xs font-bold shadow-md hover:shadow-lg transition-all"
+            >
+              {approving ? 'Đang duyệt...' : 'Duyệt toàn bộ điểm dự kiến'}
+            </button>
+          </div>
+          {regradeArmed && (
+            <p className="max-w-md text-right text-[11px] font-semibold text-amber-100">
+              Điểm chính thức cũ sẽ chuyển về dự kiến để GV duyệt lại.
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Stat Cards */}
