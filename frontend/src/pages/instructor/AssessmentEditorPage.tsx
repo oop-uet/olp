@@ -333,7 +333,7 @@ export function AssessmentEditorPage() {
             </>
           )}
           <button type="submit" disabled={saving || importingTemplate} className="btn-primary">
-            {saving ? 'Đang lưu...' : 'Lưu bản nháp'}
+            {saving ? 'Đang lưu...' : 'Lưu'}
           </button>
         </div>
       </div>
@@ -482,7 +482,7 @@ export function AssessmentEditorPage() {
           + Thêm phần
         </button>
         <button type="submit" disabled={saving || importingTemplate} className="btn-primary">
-          {saving ? 'Đang lưu...' : 'Lưu bản nháp'}
+          {saving ? 'Đang lưu...' : 'Lưu'}
         </button>
       </div>
     </form>
