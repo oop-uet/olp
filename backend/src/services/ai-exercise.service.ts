@@ -6,6 +6,7 @@ import { systemConfig } from "../db/schema.js";
 
 type Database = typeof defaultDb;
 type AiProvider = "openai" | "anthropic" | "gemini" | "groq" | "openrouter";
+const AI_PROVIDERS: AiProvider[] = ["openai", "anthropic", "gemini", "groq", "openrouter"];
 
 const CONFIG_KEYS = {
   provider: "ai_generation_provider",
@@ -36,7 +37,41 @@ const DEFAULT_MODELS: Record<AiProvider, string> = {
   groq: "openai/gpt-oss-20b",
   openrouter: "openrouter/free",
 };
+const FALLBACK_PROVIDER_ORDER: AiProvider[] = [
+  "gemini",
+  "groq",
+  "openrouter",
+  "openai",
+  "anthropic",
+];
 const ENCRYPTION_PREFIX = "v1";
+
+function getFallbackConfigKeys(provider: AiProvider) {
+  if (provider === "openrouter") return OPENROUTER_FALLBACK_KEYS;
+  const prefix = `ai_${provider}_fallback`;
+  return {
+    model: `${prefix}_model`,
+    enabled: `${prefix}_enabled`,
+    encryptedApiKey: `${prefix}_api_key_encrypted`,
+    keyLast4: `${prefix}_api_key_last4`,
+    lastCheckStatus: `${prefix}_last_check_status`,
+    lastCheckError: `${prefix}_last_check_error`,
+    lastCheckedAt: `${prefix}_last_checked_at`,
+  } as const;
+}
+
+const FALLBACK_DEFAULT_CONFIGS = AI_PROVIDERS.flatMap((provider) => {
+  const keys = getFallbackConfigKeys(provider);
+  return [
+    { key: keys.model, value: DEFAULT_MODELS[provider], validRange: "text" },
+    { key: keys.enabled, value: "0", validRange: "0-1" },
+    { key: keys.encryptedApiKey, value: "", validRange: "secret" },
+    { key: keys.keyLast4, value: "", validRange: "text" },
+    { key: keys.lastCheckStatus, value: "missing", validRange: "enum:missing,untested,ok,error" },
+    { key: keys.lastCheckError, value: "", validRange: "text" },
+    { key: keys.lastCheckedAt, value: "", validRange: "text" },
+  ];
+});
 
 const DEFAULT_CONFIGS: Array<{ key: string; value: string; validRange: string }> = [
   { key: CONFIG_KEYS.provider, value: DEFAULT_PROVIDER, validRange: "enum:openai,anthropic,gemini,groq,openrouter" },
@@ -47,13 +82,7 @@ const DEFAULT_CONFIGS: Array<{ key: string; value: string; validRange: string }>
   { key: CONFIG_KEYS.lastCheckStatus, value: "missing", validRange: "enum:missing,untested,ok,error" },
   { key: CONFIG_KEYS.lastCheckError, value: "", validRange: "text" },
   { key: CONFIG_KEYS.lastCheckedAt, value: "", validRange: "text" },
-  { key: OPENROUTER_FALLBACK_KEYS.model, value: DEFAULT_MODELS.openrouter, validRange: "text" },
-  { key: OPENROUTER_FALLBACK_KEYS.enabled, value: "0", validRange: "0-1" },
-  { key: OPENROUTER_FALLBACK_KEYS.encryptedApiKey, value: "", validRange: "secret" },
-  { key: OPENROUTER_FALLBACK_KEYS.keyLast4, value: "", validRange: "text" },
-  { key: OPENROUTER_FALLBACK_KEYS.lastCheckStatus, value: "missing", validRange: "enum:missing,untested,ok,error" },
-  { key: OPENROUTER_FALLBACK_KEYS.lastCheckError, value: "", validRange: "text" },
-  { key: OPENROUTER_FALLBACK_KEYS.lastCheckedAt, value: "", validRange: "text" },
+  ...FALLBACK_DEFAULT_CONFIGS,
 ];
 
 export const aiGenerateExerciseSchema = z.object({
@@ -111,11 +140,14 @@ export interface AiConfigStatus {
   lastCheckError: string;
   lastCheckedAt: string;
   encryptionReady: boolean;
-  openRouterFallback: OpenRouterFallbackStatus;
+  fallbackProviders: AiFallbackStatus[];
+  /** Backward-compatible alias for the first OpenRouter-only rollout. */
+  openRouterFallback: AiFallbackStatus;
 }
 
-export interface OpenRouterFallbackStatus {
-  provider: "openrouter";
+export interface AiFallbackStatus {
+  provider: AiProvider;
+  label: string;
   model: string;
   enabled: boolean;
   keyConfigured: boolean;
@@ -304,6 +336,9 @@ function toStatus(config: Record<string, string>): AiConfigStatus {
       ? rawStatus
       : "missing";
 
+  const fallbackProviders = FALLBACK_PROVIDER_ORDER.map((fallbackProvider) =>
+    toFallbackStatus(config, fallbackProvider)
+  );
   return {
     provider,
     providers: getProviderOptions(),
@@ -315,31 +350,35 @@ function toStatus(config: Record<string, string>): AiConfigStatus {
     lastCheckError: config[CONFIG_KEYS.lastCheckError] || "",
     lastCheckedAt: config[CONFIG_KEYS.lastCheckedAt] || "",
     encryptionReady: Boolean(getEncryptionSecret()),
-    openRouterFallback: toOpenRouterFallbackStatus(config),
+    fallbackProviders,
+    openRouterFallback: fallbackProviders.find((fallback) => fallback.provider === "openrouter")!,
   };
 }
 
-function toOpenRouterFallbackStatus(
-  config: Record<string, string>
-): OpenRouterFallbackStatus {
-  const keyConfigured = Boolean(config[OPENROUTER_FALLBACK_KEYS.encryptedApiKey]);
-  const rawStatus = config[OPENROUTER_FALLBACK_KEYS.lastCheckStatus] || "missing";
+function toFallbackStatus(
+  config: Record<string, string>,
+  provider: AiProvider
+): AiFallbackStatus {
+  const keys = getFallbackConfigKeys(provider);
+  const keyConfigured = Boolean(config[keys.encryptedApiKey]);
+  const rawStatus = config[keys.lastCheckStatus] || "missing";
   const lastCheckStatus =
     rawStatus === "ok" || rawStatus === "error" || rawStatus === "untested"
       ? rawStatus
       : "missing";
   return {
-    provider: "openrouter",
-    model: config[OPENROUTER_FALLBACK_KEYS.model] || DEFAULT_MODELS.openrouter,
+    provider,
+    label: getProviderLabel(provider),
+    model: config[keys.model] || DEFAULT_MODELS[provider],
     enabled:
-      config[OPENROUTER_FALLBACK_KEYS.enabled] === "1" &&
+      config[keys.enabled] === "1" &&
       keyConfigured &&
       lastCheckStatus === "ok",
     keyConfigured,
-    keyLast4: config[OPENROUTER_FALLBACK_KEYS.keyLast4] || "",
+    keyLast4: config[keys.keyLast4] || "",
     lastCheckStatus: keyConfigured ? lastCheckStatus : "missing",
-    lastCheckError: config[OPENROUTER_FALLBACK_KEYS.lastCheckError] || "",
-    lastCheckedAt: config[OPENROUTER_FALLBACK_KEYS.lastCheckedAt] || "",
+    lastCheckError: config[keys.lastCheckError] || "",
+    lastCheckedAt: config[keys.lastCheckedAt] || "",
   };
 }
 
@@ -497,7 +536,8 @@ export async function testAiConfig(
   }
 }
 
-export async function updateOpenRouterFallbackConfig(
+export async function updateAiFallbackConfig(
+  provider: AiProvider,
   input: {
     model?: string;
     apiKey?: string;
@@ -508,45 +548,46 @@ export async function updateOpenRouterFallbackConfig(
   database: Database = defaultDb
 ): Promise<AiConfigStatus | AiServiceError> {
   await ensureAiConfigRows(database);
+  const keys = getFallbackConfigKeys(provider);
   const nextModel = input.model?.trim();
   if (nextModel !== undefined) {
     if (nextModel.length < 3 || nextModel.length > 120) {
       return {
         error: {
           code: "VALIDATION_ERROR",
-          message: "Tên model OpenRouter phải có từ 3 đến 120 ký tự.",
+          message: `Tên model ${getProviderLabel(provider)} phải có từ 3 đến 120 ký tự.`,
         },
       };
     }
-    await setConfigValue(OPENROUTER_FALLBACK_KEYS.model, nextModel, updatedBy, database);
+    await setConfigValue(keys.model, nextModel, updatedBy, database);
   }
 
   if (input.clearApiKey) {
-    await setConfigValue(OPENROUTER_FALLBACK_KEYS.encryptedApiKey, "", updatedBy, database);
-    await setConfigValue(OPENROUTER_FALLBACK_KEYS.keyLast4, "", updatedBy, database);
-    await setConfigValue(OPENROUTER_FALLBACK_KEYS.lastCheckStatus, "missing", updatedBy, database);
-    await setConfigValue(OPENROUTER_FALLBACK_KEYS.lastCheckError, "", updatedBy, database);
-    await setConfigValue(OPENROUTER_FALLBACK_KEYS.lastCheckedAt, "", updatedBy, database);
-    await setConfigValue(OPENROUTER_FALLBACK_KEYS.enabled, "0", updatedBy, database);
+    await setConfigValue(keys.encryptedApiKey, "", updatedBy, database);
+    await setConfigValue(keys.keyLast4, "", updatedBy, database);
+    await setConfigValue(keys.lastCheckStatus, "missing", updatedBy, database);
+    await setConfigValue(keys.lastCheckError, "", updatedBy, database);
+    await setConfigValue(keys.lastCheckedAt, "", updatedBy, database);
+    await setConfigValue(keys.enabled, "0", updatedBy, database);
   } else if (input.apiKey?.trim()) {
     const apiKey = input.apiKey.trim();
     const encrypted = encryptApiKey(apiKey);
     if (isAiServiceError(encrypted)) return encrypted;
-    await setConfigValue(OPENROUTER_FALLBACK_KEYS.encryptedApiKey, encrypted, updatedBy, database);
-    await setConfigValue(OPENROUTER_FALLBACK_KEYS.keyLast4, apiKey.slice(-4), updatedBy, database);
-    await setConfigValue(OPENROUTER_FALLBACK_KEYS.lastCheckStatus, "untested", updatedBy, database);
-    await setConfigValue(OPENROUTER_FALLBACK_KEYS.lastCheckError, "", updatedBy, database);
-    await setConfigValue(OPENROUTER_FALLBACK_KEYS.lastCheckedAt, "", updatedBy, database);
-    await setConfigValue(OPENROUTER_FALLBACK_KEYS.enabled, "0", updatedBy, database);
+    await setConfigValue(keys.encryptedApiKey, encrypted, updatedBy, database);
+    await setConfigValue(keys.keyLast4, apiKey.slice(-4), updatedBy, database);
+    await setConfigValue(keys.lastCheckStatus, "untested", updatedBy, database);
+    await setConfigValue(keys.lastCheckError, "", updatedBy, database);
+    await setConfigValue(keys.lastCheckedAt, "", updatedBy, database);
+    await setConfigValue(keys.enabled, "0", updatedBy, database);
   }
 
   if (typeof input.enabled === "boolean") {
     const config = await readConfigMap(database);
-    const fallback = toOpenRouterFallbackStatus(config);
+    const fallback = toFallbackStatus(config, provider);
     const canEnable =
       input.enabled && fallback.keyConfigured && fallback.lastCheckStatus === "ok";
     await setConfigValue(
-      OPENROUTER_FALLBACK_KEYS.enabled,
+      keys.enabled,
       canEnable ? "1" : "0",
       updatedBy,
       database
@@ -556,59 +597,76 @@ export async function updateOpenRouterFallbackConfig(
   return getAiConfigStatus(database);
 }
 
-export async function testOpenRouterFallbackConfig(
+export async function testAiFallbackConfig(
+  provider: AiProvider,
   updatedBy: string,
   database: Database = defaultDb
 ): Promise<AiConfigStatus | AiServiceError> {
   const config = await readConfigMap(database);
-  const apiKey = decryptApiKey(config[OPENROUTER_FALLBACK_KEYS.encryptedApiKey] || "");
+  const keys = getFallbackConfigKeys(provider);
+  const apiKey = decryptApiKey(config[keys.encryptedApiKey] || "");
   if (isAiServiceError(apiKey)) return apiKey;
-  const model = config[OPENROUTER_FALLBACK_KEYS.model] || DEFAULT_MODELS.openrouter;
+  const model = config[keys.model] || DEFAULT_MODELS[provider];
 
   try {
-    const testResult = await testProviderKey("openrouter", model, apiKey);
+    const testResult = await testProviderKey(provider, model, apiKey);
     await setConfigValue(
-      OPENROUTER_FALLBACK_KEYS.lastCheckStatus,
+      keys.lastCheckStatus,
       testResult.ok ? "ok" : "error",
       updatedBy,
       database
     );
     await setConfigValue(
-      OPENROUTER_FALLBACK_KEYS.lastCheckError,
+      keys.lastCheckError,
       testResult.ok ? "" : testResult.message,
       updatedBy,
       database
     );
     await setConfigValue(
-      OPENROUTER_FALLBACK_KEYS.lastCheckedAt,
+      keys.lastCheckedAt,
       new Date().toISOString(),
       updatedBy,
       database
     );
     await setConfigValue(
-      OPENROUTER_FALLBACK_KEYS.enabled,
+      keys.enabled,
       testResult.ok ? "1" : "0",
       updatedBy,
       database
     );
     return getAiConfigStatus(database);
   } catch {
-    await setConfigValue(OPENROUTER_FALLBACK_KEYS.lastCheckStatus, "error", updatedBy, database);
+    await setConfigValue(keys.lastCheckStatus, "error", updatedBy, database);
     await setConfigValue(
-      OPENROUTER_FALLBACK_KEYS.lastCheckError,
-      "Không thể kết nối tới OpenRouter để kiểm tra API key.",
+      keys.lastCheckError,
+      `Không thể kết nối tới ${getProviderLabel(provider)} để kiểm tra API key.`,
       updatedBy,
       database
     );
     await setConfigValue(
-      OPENROUTER_FALLBACK_KEYS.lastCheckedAt,
+      keys.lastCheckedAt,
       new Date().toISOString(),
       updatedBy,
       database
     );
-    await setConfigValue(OPENROUTER_FALLBACK_KEYS.enabled, "0", updatedBy, database);
+    await setConfigValue(keys.enabled, "0", updatedBy, database);
     return getAiConfigStatus(database);
   }
+}
+
+export function updateOpenRouterFallbackConfig(
+  input: Parameters<typeof updateAiFallbackConfig>[1],
+  updatedBy: string,
+  database: Database = defaultDb
+) {
+  return updateAiFallbackConfig("openrouter", input, updatedBy, database);
+}
+
+export function testOpenRouterFallbackConfig(
+  updatedBy: string,
+  database: Database = defaultDb
+) {
+  return testAiFallbackConfig("openrouter", updatedBy, database);
 }
 
 export async function generateExerciseDraft(
@@ -667,15 +725,16 @@ export async function generateExerciseDraft(
 
 /**
  * Provider-neutral structured-output call used by assessment grading.
- * It uses the encrypted primary credential and, for transient/format failures,
- * can fail over to the separately encrypted OpenRouter Free Models Router key.
+ * It tries the primary provider first, then every separately configured,
+ * tested and enabled fallback provider until one returns valid JSON.
  */
 export async function generateStructuredAi(
   request: StructuredAiRequest,
   database: Database = defaultDb
 ): Promise<StructuredAiResult | AiServiceError> {
   const config = await readConfigMap(database);
-  const availability = toAvailability(toStatus(config));
+  const status = toStatus(config);
+  const availability = toAvailability(status);
   if (!availability.enabled) {
     return {
       error: {
@@ -698,46 +757,70 @@ export async function generateStructuredAi(
   );
   if (!isAiServiceError(primaryResult)) return primaryResult;
 
-  const fallback = toOpenRouterFallbackStatus(config);
-  if (
-    provider === "openrouter" ||
-    !fallback.enabled ||
-    !shouldUseStructuredFallback(primaryResult.error.code)
-  ) {
-    return primaryResult;
+  const failures: Array<{ provider: AiProvider; result: AiServiceError }> = [
+    { provider, result: primaryResult },
+  ];
+  for (const fallback of status.fallbackProviders) {
+    if (!fallback.enabled || fallback.provider === provider) continue;
+    const keys = getFallbackConfigKeys(fallback.provider);
+    const fallbackApiKey = decryptApiKey(config[keys.encryptedApiKey] || "");
+    if (isAiServiceError(fallbackApiKey)) {
+      failures.push({
+        provider: fallback.provider,
+        result: {
+          error: { ...fallbackApiKey.error, provider: fallback.provider },
+        },
+      });
+      continue;
+    }
+    const fallbackResult = await executeStructuredProvider(
+      fallback.provider,
+      fallback.model,
+      fallbackApiKey,
+      request
+    );
+    if (!isAiServiceError(fallbackResult)) return fallbackResult;
+    failures.push({ provider: fallback.provider, result: fallbackResult });
   }
-  const fallbackApiKey = decryptApiKey(
-    config[OPENROUTER_FALLBACK_KEYS.encryptedApiKey] || ""
-  );
-  if (isAiServiceError(fallbackApiKey)) return primaryResult;
-  const fallbackResult = await executeStructuredProvider(
-    "openrouter",
-    fallback.model,
-    fallbackApiKey,
-    request
-  );
-  if (!isAiServiceError(fallbackResult)) return fallbackResult;
-  return {
-    error: {
-      ...fallbackResult.error,
-      message: [
-        `${getProviderLabel(provider)}: ${primaryResult.error.message}`,
-        `OpenRouter dự phòng: ${fallbackResult.error.message}`,
-      ].join(" | ").slice(0, 1000),
-    },
-  };
+  return combineStructuredProviderFailures(failures);
 }
 
-function shouldUseStructuredFallback(code: string) {
-  return new Set([
-    "AI_RATE_LIMITED",
-    "AI_REQUEST_TIMEOUT",
-    "AI_REQUEST_FAILED",
-    "AI_PROVIDER_UNAVAILABLE",
-    "AI_EMPTY_RESPONSE",
-    "AI_RESPONSE_TRUNCATED",
-    "AI_RESPONSE_INVALID",
-  ]).has(code);
+function combineStructuredProviderFailures(
+  failures: Array<{ provider: AiProvider; result: AiServiceError }>
+): AiServiceError {
+  if (failures.length === 1) return failures[0].result;
+  const priority: Record<string, number> = {
+    AI_RATE_LIMITED: 100,
+    AI_PROVIDER_UNAVAILABLE: 90,
+    AI_REQUEST_TIMEOUT: 90,
+    AI_REQUEST_FAILED: 85,
+    AI_EMPTY_RESPONSE: 75,
+    AI_RESPONSE_TRUNCATED: 75,
+    AI_RESPONSE_INVALID: 70,
+  };
+  const selected = failures.reduce((best, current) =>
+    (priority[current.result.error.code] ?? 10) > (priority[best.result.error.code] ?? 10)
+      ? current
+      : best
+  );
+  const retryAfterMs = Math.max(
+    0,
+    ...failures.map((failure) => failure.result.error.retryAfterMs ?? 0)
+  );
+  return {
+    error: {
+      ...selected.result.error,
+      provider: selected.provider,
+      ...(retryAfterMs > 0 ? { retryAfterMs } : {}),
+      message: failures
+        .map(
+          (failure) =>
+            `${getProviderLabel(failure.provider)}: ${failure.result.error.message}`
+        )
+        .join(" | ")
+        .slice(0, 1000),
+    },
+  };
 }
 
 async function executeStructuredProvider(

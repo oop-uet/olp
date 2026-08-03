@@ -7,8 +7,10 @@ import {
   generateStructuredAi,
   getAiConfigStatus,
   isAiServiceError,
+  testAiFallbackConfig,
   testAiConfig,
   testOpenRouterFallbackConfig,
+  updateAiFallbackConfig,
   updateAiConfig,
   updateOpenRouterFallbackConfig,
 } from "./ai-exercise.service.js";
@@ -23,9 +25,7 @@ const ORIGINAL_SECRET = process.env.JWT_SECRET;
 function resetAiConfigRows() {
   const sqlite = getTestSqlite();
   sqlite.exec("PRAGMA foreign_keys = OFF;");
-  sqlite.exec(
-    "DELETE FROM system_config WHERE key LIKE 'ai_generation_%' OR key LIKE 'ai_openrouter_%';"
-  );
+  sqlite.exec("DELETE FROM system_config WHERE key LIKE 'ai_%';");
 }
 
 function createDraft() {
@@ -102,6 +102,13 @@ describe("AI Exercise Service", () => {
       "gemini",
       "groq",
       "openrouter",
+    ]);
+    expect(status.fallbackProviders.map((provider) => provider.provider)).toEqual([
+      "gemini",
+      "groq",
+      "openrouter",
+      "openai",
+      "anthropic",
     ]);
   });
 
@@ -498,7 +505,7 @@ describe("AI Exercise Service", () => {
     });
   });
 
-  it("uses the separately encrypted OpenRouter free router when Gemini is rate limited", async () => {
+  it("tries every enabled fallback in order until one succeeds", async () => {
     const db = getDb();
     await updateAiConfig(
       { provider: "gemini", model: "gemini-2.5-flash", apiKey: "AIza-test-key" },
@@ -516,9 +523,16 @@ describe("AI Exercise Service", () => {
       keyConfigured: true,
       lastCheckStatus: "untested",
     });
+    await updateAiFallbackConfig(
+      "groq",
+      { model: "openai/gpt-oss-20b", apiKey: "gsk-fallback-key" },
+      ADMIN_ID,
+      db as never
+    );
 
     const fetchMock = vi
       .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ models: [] }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ models: [] }) })
       .mockResolvedValueOnce({
         ok: true,
@@ -536,6 +550,12 @@ describe("AI Exercise Service", () => {
           { status: 429, headers: { "Content-Type": "application/json" } }
         )
       )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ error: { message: "Groq temporarily unavailable." } }),
+          { status: 503, headers: { "Content-Type": "application/json" } }
+        )
+      )
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -545,6 +565,8 @@ describe("AI Exercise Service", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
     await testAiConfig(ADMIN_ID, db as never);
+    const testedGroq = await testAiFallbackConfig("groq", ADMIN_ID, db as never);
+    expect(isAiServiceError(testedGroq)).toBe(false);
     const testedFallback = await testOpenRouterFallbackConfig(ADMIN_ID, db as never);
     expect(isAiServiceError(testedFallback)).toBe(false);
     expect((testedFallback as any).openRouterFallback).toMatchObject({
@@ -571,7 +593,8 @@ describe("AI Exercise Service", () => {
       provider: "openrouter",
       model: "openai/gpt-oss-20b:free",
     });
-    const [url, request] = fetchMock.mock.calls[3];
+    expect(fetchMock.mock.calls[4][0]).toBe("https://api.groq.com/openai/v1/chat/completions");
+    const [url, request] = fetchMock.mock.calls[5];
     expect(url).toBe("https://openrouter.ai/api/v1/chat/completions");
     expect(request.headers).toMatchObject({
       Authorization: "Bearer sk-or-v1-fallback-key",
@@ -625,6 +648,74 @@ describe("AI Exercise Service", () => {
         provider: "openrouter",
       },
     });
+  });
+
+  it("keeps the most retryable error when every configured provider fails", async () => {
+    const db = getDb();
+    await updateAiConfig(
+      { provider: "gemini", apiKey: "AIza-primary-key" },
+      ADMIN_ID,
+      db as never
+    );
+    await updateAiFallbackConfig(
+      "groq",
+      { apiKey: "gsk-fallback-key" },
+      ADMIN_ID,
+      db as never
+    );
+    await updateAiFallbackConfig(
+      "openrouter",
+      { apiKey: "sk-or-v1-fallback-key" },
+      ADMIN_ID,
+      db as never
+    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ error: { message: "Gemini quota.", status: "RESOURCE_EXHAUSTED" } }),
+          { status: 429, headers: { "Content-Type": "application/json", "Retry-After": "60" } }
+        )
+      )
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: "not-json" } }] }),
+      })
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ error: { message: "No free model available." } }),
+          { status: 503, headers: { "Content-Type": "application/json", "Retry-After": "120" } }
+        )
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    await testAiConfig(ADMIN_ID, db as never);
+    await testAiFallbackConfig("groq", ADMIN_ID, db as never);
+    await testAiFallbackConfig("openrouter", ADMIN_ID, db as never);
+
+    const result = await generateStructuredAi(
+      {
+        schemaName: "grade",
+        schema: { type: "object", properties: {}, required: [] },
+        instructions: "Chấm.",
+        input: {},
+      },
+      db as never
+    );
+
+    expect(isAiServiceError(result)).toBe(true);
+    expect(result).toMatchObject({
+      error: {
+        code: "AI_RATE_LIMITED",
+        provider: "gemini",
+        retryAfterMs: 120_000,
+      },
+    });
+    expect((result as any).error.message).toContain("Google Gemini: Gemini quota.");
+    expect((result as any).error.message).toContain("Groq:");
+    expect((result as any).error.message).toContain("OpenRouter (Free Models Router):");
   });
 
   it("reports a truncated Gemini response instead of a generic JSON error", async () => {

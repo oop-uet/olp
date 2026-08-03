@@ -43,11 +43,13 @@ interface AiConfigStatus {
   lastCheckError: string
   lastCheckedAt: string
   encryptionReady: boolean
-  openRouterFallback?: OpenRouterFallbackStatus
+  fallbackProviders?: AiFallbackStatus[]
+  openRouterFallback?: AiFallbackStatus
 }
 
-interface OpenRouterFallbackStatus {
-  provider: 'openrouter'
+interface AiFallbackStatus {
+  provider: AiProvider
+  label: string
   model: string
   enabled: boolean
   keyConfigured: boolean
@@ -57,15 +59,43 @@ interface OpenRouterFallbackStatus {
   lastCheckedAt: string
 }
 
-const DEFAULT_OPENROUTER_FALLBACK: OpenRouterFallbackStatus = {
-  provider: 'openrouter',
-  model: 'openrouter/free',
+const FALLBACK_PROVIDER_DEFAULTS: Array<Pick<AiFallbackStatus, 'provider' | 'label' | 'model'>> = [
+  { provider: 'gemini', label: 'Google Gemini', model: 'gemini-2.5-flash' },
+  { provider: 'groq', label: 'Groq', model: 'openai/gpt-oss-20b' },
+  { provider: 'openrouter', label: 'OpenRouter (Free Models Router)', model: 'openrouter/free' },
+  { provider: 'openai', label: 'OpenAI', model: 'gpt-4o-mini' },
+  { provider: 'anthropic', label: 'Anthropic Claude', model: 'claude-sonnet-4-5' },
+]
+
+const DEFAULT_FALLBACK_PROVIDERS: AiFallbackStatus[] = FALLBACK_PROVIDER_DEFAULTS.map((provider) => ({
+  ...provider,
   enabled: false,
   keyConfigured: false,
   keyLast4: '',
   lastCheckStatus: 'missing',
   lastCheckError: '',
   lastCheckedAt: '',
+}))
+
+type FallbackDraft = { model: string; apiKey: string; enabled: boolean }
+
+function createFallbackDrafts(providers: AiFallbackStatus[]): Record<AiProvider, FallbackDraft> {
+  return Object.fromEntries(
+    providers.map((provider) => [
+      provider.provider,
+      { model: provider.model, apiKey: '', enabled: provider.enabled },
+    ])
+  ) as Record<AiProvider, FallbackDraft>
+}
+
+function resolveFallbackProviders(config: AiConfigStatus): AiFallbackStatus[] {
+  if (config.fallbackProviders?.length) return config.fallbackProviders
+  if (!config.openRouterFallback) return DEFAULT_FALLBACK_PROVIDERS
+  return DEFAULT_FALLBACK_PROVIDERS.map((fallback) =>
+    fallback.provider === 'openrouter'
+      ? { ...fallback, ...config.openRouterFallback, label: fallback.label }
+      : fallback
+  )
 }
 
 // ─── Config Parameter Metadata ───────────────────────────────────────────────
@@ -192,11 +222,13 @@ export function ConfigPage() {
   const [aiEnabled, setAiEnabled] = useState(false)
   const [aiSaving, setAiSaving] = useState(false)
   const [aiTesting, setAiTesting] = useState(false)
-  const [openRouterModel, setOpenRouterModel] = useState('openrouter/free')
-  const [openRouterApiKey, setOpenRouterApiKey] = useState('')
-  const [openRouterEnabled, setOpenRouterEnabled] = useState(false)
-  const [openRouterSaving, setOpenRouterSaving] = useState(false)
-  const [openRouterTesting, setOpenRouterTesting] = useState(false)
+  const [fallbackDrafts, setFallbackDrafts] = useState<Record<AiProvider, FallbackDraft>>(
+    createFallbackDrafts(DEFAULT_FALLBACK_PROVIDERS)
+  )
+  const [fallbackBusy, setFallbackBusy] = useState<{
+    provider: AiProvider
+    action: 'save' | 'test' | 'clear'
+  } | null>(null)
 
   useEffect(() => {
     fetchConfig()
@@ -219,10 +251,8 @@ export function ConfigPage() {
       setAiModel(aiData.model)
       setAiEnabled(aiData.enabled)
       setAiApiKey('')
-      const fallback = aiData.openRouterFallback ?? DEFAULT_OPENROUTER_FALLBACK
-      setOpenRouterModel(fallback.model)
-      setOpenRouterEnabled(fallback.enabled)
-      setOpenRouterApiKey('')
+      const fallbacks = resolveFallbackProviders(aiData)
+      setFallbackDrafts(createFallbackDrafts(fallbacks))
 
       // Initialize form values from current config
       const values: Record<string, string> = {}
@@ -436,74 +466,84 @@ export function ConfigPage() {
     }
   }
 
-  function applyOpenRouterFallback(nextConfig: AiConfigStatus) {
-    const fallback = nextConfig.openRouterFallback ?? DEFAULT_OPENROUTER_FALLBACK
+  function applyFallbackConfig(nextConfig: AiConfigStatus, provider: AiProvider) {
+    const fallbacks = resolveFallbackProviders(nextConfig)
+    const fallback = fallbacks.find((item) => item.provider === provider)!
     setAiConfig(nextConfig)
-    setOpenRouterModel(fallback.model)
-    setOpenRouterEnabled(fallback.enabled)
-    setOpenRouterApiKey('')
+    setFallbackDrafts((current) => ({
+      ...current,
+      [provider]: { model: fallback.model, apiKey: '', enabled: fallback.enabled },
+    }))
     return fallback
   }
 
-  async function handleSaveOpenRouterFallback() {
-    const model = openRouterModel.trim()
+  function updateFallbackDraft(provider: AiProvider, patch: Partial<FallbackDraft>) {
+    setFallbackDrafts((current) => ({
+      ...current,
+      [provider]: { ...current[provider], ...patch },
+    }))
+  }
+
+  async function handleSaveFallback(provider: AiProvider) {
+    const draft = fallbackDrafts[provider]
+    const model = draft.model.trim()
     if (model.length < 3) {
-      toast.error('Tên model OpenRouter không hợp lệ.')
+      toast.error('Tên model fallback không hợp lệ.')
       return
     }
-    setOpenRouterSaving(true)
+    setFallbackBusy({ provider, action: 'save' })
     try {
-      const response = await api.put('/api/admin/ai-config/fallback/openrouter', {
+      const response = await api.put(`/api/admin/ai-config/fallback/${provider}`, {
         model,
-        apiKey: openRouterApiKey.trim() || undefined,
-        enabled: openRouterEnabled,
+        apiKey: draft.apiKey.trim() || undefined,
+        enabled: draft.enabled,
       })
-      const fallback = applyOpenRouterFallback(response.data.data as AiConfigStatus)
+      const fallback = applyFallbackConfig(response.data.data as AiConfigStatus, provider)
       toast.success(
         fallback.enabled
-          ? 'Đã lưu và bật OpenRouter dự phòng.'
-          : 'Đã lưu OpenRouter. Hãy kiểm tra key thành công trước khi bật.'
+          ? `Đã lưu và bật ${fallback.label} dự phòng.`
+          : `Đã lưu ${fallback.label}. Hãy kiểm tra key thành công trước khi bật.`
       )
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
-      toast.error(axiosErr.response?.data?.error?.message || 'Không thể lưu OpenRouter dự phòng.')
+      toast.error(axiosErr.response?.data?.error?.message || 'Không thể lưu provider dự phòng.')
     } finally {
-      setOpenRouterSaving(false)
+      setFallbackBusy(null)
     }
   }
 
-  async function handleTestOpenRouterFallback() {
-    setOpenRouterTesting(true)
+  async function handleTestFallback(provider: AiProvider) {
+    setFallbackBusy({ provider, action: 'test' })
     try {
-      const response = await api.post('/api/admin/ai-config/fallback/openrouter/test')
-      const fallback = applyOpenRouterFallback(response.data.data as AiConfigStatus)
+      const response = await api.post(`/api/admin/ai-config/fallback/${provider}/test`)
+      const fallback = applyFallbackConfig(response.data.data as AiConfigStatus, provider)
       if (fallback.lastCheckStatus === 'ok') {
-        toast.success('OpenRouter API key hoạt động và kênh dự phòng đã được bật.')
+        toast.success(`${fallback.label} API key hoạt động và kênh dự phòng đã được bật.`)
       } else {
-        toast.error(fallback.lastCheckError || 'OpenRouter API key chưa kiểm tra thành công.')
+        toast.error(fallback.lastCheckError || `${fallback.label} API key chưa kiểm tra thành công.`)
       }
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
-      toast.error(axiosErr.response?.data?.error?.message || 'Không thể kiểm tra OpenRouter API key.')
+      toast.error(axiosErr.response?.data?.error?.message || 'Không thể kiểm tra provider dự phòng.')
     } finally {
-      setOpenRouterTesting(false)
+      setFallbackBusy(null)
     }
   }
 
-  async function handleClearOpenRouterFallback() {
-    setOpenRouterSaving(true)
+  async function handleClearFallback(provider: AiProvider) {
+    setFallbackBusy({ provider, action: 'clear' })
     try {
-      const response = await api.put('/api/admin/ai-config/fallback/openrouter', {
+      const response = await api.put(`/api/admin/ai-config/fallback/${provider}`, {
         clearApiKey: true,
         enabled: false,
       })
-      applyOpenRouterFallback(response.data.data as AiConfigStatus)
-      toast.success('Đã xóa OpenRouter API key và tắt kênh dự phòng.')
+      const fallback = applyFallbackConfig(response.data.data as AiConfigStatus, provider)
+      toast.success(`Đã xóa ${fallback.label} API key và tắt kênh dự phòng.`)
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { error?: { message?: string } } } }
-      toast.error(axiosErr.response?.data?.error?.message || 'Không thể xóa OpenRouter API key.')
+      toast.error(axiosErr.response?.data?.error?.message || 'Không thể xóa provider dự phòng.')
     } finally {
-      setOpenRouterSaving(false)
+      setFallbackBusy(null)
     }
   }
 
@@ -515,14 +555,14 @@ export function ConfigPage() {
     return 'Chưa có API key'
   }
 
-  function getOpenRouterStatusLabel() {
-    if (!openRouterFallback.keyConfigured) return 'Chưa có key dự phòng'
-    if (openRouterFallback.lastCheckStatus === 'ok') {
-      return openRouterFallback.enabled ? 'Dự phòng đang bật' : 'Key hợp lệ, đang tắt'
+  function getFallbackStatusLabel(fallback: AiFallbackStatus) {
+    if (!fallback.keyConfigured) return 'Chưa có key'
+    if (fallback.lastCheckStatus === 'ok') {
+      return fallback.enabled ? 'Đang bật' : 'Key hợp lệ, đang tắt'
     }
-    if (openRouterFallback.lastCheckStatus === 'untested') return 'Key chưa kiểm tra'
-    if (openRouterFallback.lastCheckStatus === 'error') return 'Key lỗi'
-    return 'Chưa có key dự phòng'
+    if (fallback.lastCheckStatus === 'untested') return 'Key chưa kiểm tra'
+    if (fallback.lastCheckStatus === 'error') return 'Key lỗi'
+    return 'Chưa có key'
   }
 
   function handleAiProviderChange(provider: AiConfigStatus['provider']) {
@@ -535,7 +575,7 @@ export function ConfigPage() {
   }
 
   const selectedAiProvider = aiConfig?.providers.find((option) => option.value === aiProvider)
-  const openRouterFallback = aiConfig?.openRouterFallback ?? DEFAULT_OPENROUTER_FALLBACK
+  const fallbackProviders = aiConfig ? resolveFallbackProviders(aiConfig) : DEFAULT_FALLBACK_PROVIDERS
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -809,158 +849,154 @@ export function ConfigPage() {
           </p>
         )}
 
-        <section className="mt-6 border-t border-slate-200 pt-5" aria-labelledby="openrouter-fallback-title">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <div className="max-w-2xl">
-              <h3 id="openrouter-fallback-title" className="text-sm font-bold uppercase tracking-wide text-slate-800">
-                OpenRouter Free Models Router — dự phòng chấm tự luận
-              </h3>
-              <p className="mt-1 text-xs font-medium leading-relaxed text-slate-600">
-                Khi provider chính bị quota, timeout, tạm ngừng hoặc trả JSON lỗi, hệ thống thử
-                <span className="mx-1 font-mono font-bold">openrouter/free</span>
-                trước khi đưa bài lại vào hàng đợi. Provider chính vẫn được ưu tiên.
-              </p>
-            </div>
-            <div className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-800">
-              {getOpenRouterStatusLabel()}
-              {openRouterFallback.keyLast4 && (
-                <span className="ml-1 font-mono">••••{openRouterFallback.keyLast4}</span>
-              )}
-            </div>
+        <section className="mt-6 border-t border-slate-200 pt-5" aria-labelledby="fallback-pool-title">
+          <div className="max-w-3xl">
+            <h3 id="fallback-pool-title" className="text-sm font-bold uppercase tracking-wide text-slate-800">
+              Chuỗi API dự phòng chấm tự luận
+            </h3>
+            <p className="mt-1 text-xs font-medium leading-relaxed text-slate-600">
+              Provider chính luôn chạy trước. Nếu thất bại, hệ thống thử lần lượt mọi provider bên dưới
+              đã có key hợp lệ và đang bật; provider trùng với provider chính tự động được bỏ qua.
+            </p>
           </div>
 
-          {aiProvider === 'openrouter' && (
-            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
-              OpenRouter đang là provider chính, nên kênh OpenRouter dự phòng sẽ được bỏ qua để tránh gọi lặp cùng dịch vụ.
-            </div>
-          )}
+          <div className="mt-4 space-y-4">
+            {fallbackProviders.map((fallback, index) => {
+              const draft = fallbackDrafts[fallback.provider]
+              const providerOption = aiConfig?.providers.find((option) => option.value === fallback.provider)
+              const isPrimary = aiProvider === fallback.provider
+              const isBusy = fallbackBusy?.provider === fallback.provider
+              return (
+                <article key={fallback.provider} className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-[11px] font-black text-slate-700">
+                          {index + 1}
+                        </span>
+                        <h4 className="text-sm font-black text-slate-900">{fallback.label}</h4>
+                        {isPrimary && (
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase text-amber-800">
+                            Đang là provider chính — sẽ bỏ qua
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {getFallbackStatusLabel(fallback)}
+                        {fallback.keyLast4 && <span className="ml-1 font-mono">••••{fallback.keyLast4}</span>}
+                      </p>
+                    </div>
+                  </div>
 
-          <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            <div>
-              <label htmlFor="openrouter-fallback-model" className="block text-sm font-semibold text-gray-800">
-                Model/router dự phòng
-              </label>
-              <input
-                id="openrouter-fallback-model"
-                value={openRouterModel}
-                onChange={(event) => setOpenRouterModel(event.target.value)}
-                className="input mt-2"
-                placeholder="openrouter/free"
-              />
-            </div>
-            <div>
-              <label htmlFor="openrouter-fallback-key" className="block text-sm font-semibold text-gray-800">
-                OpenRouter API key
-              </label>
-              <input
-                id="openrouter-fallback-key"
-                type="password"
-                value={openRouterApiKey}
-                onChange={(event) => setOpenRouterApiKey(event.target.value)}
-                className="input mt-2"
-                placeholder={openRouterFallback.keyConfigured ? 'Để trống nếu không đổi key' : 'sk-or-v1-...'}
-                autoComplete="off"
-              />
-            </div>
+                  <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                    <div>
+                      <label htmlFor={`fallback-model-${fallback.provider}`} className="block text-xs font-bold text-slate-700">
+                        Model
+                      </label>
+                      <input
+                        id={`fallback-model-${fallback.provider}`}
+                        value={draft.model}
+                        onChange={(event) => updateFallbackDraft(fallback.provider, { model: event.target.value })}
+                        className="input mt-1.5"
+                        placeholder={fallback.model}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor={`fallback-key-${fallback.provider}`} className="block text-xs font-bold text-slate-700">
+                        API key
+                      </label>
+                      <input
+                        id={`fallback-key-${fallback.provider}`}
+                        type="password"
+                        value={draft.apiKey}
+                        onChange={(event) => updateFallbackDraft(fallback.provider, { apiKey: event.target.value })}
+                        className="input mt-1.5"
+                        placeholder={fallback.keyConfigured ? 'Để trống nếu không đổi key' : providerOption?.keyPlaceholder ?? 'API key'}
+                        autoComplete="off"
+                      />
+                    </div>
+                  </div>
+
+                  {fallback.lastCheckError && (
+                    <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+                      {fallback.lastCheckError}
+                    </div>
+                  )}
+
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={draft.enabled}
+                        aria-label={`Bật ${fallback.label} dự phòng`}
+                        onClick={() => updateFallbackDraft(fallback.provider, { enabled: !draft.enabled })}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          draft.enabled ? 'bg-violet-600' : 'bg-gray-200'
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                            draft.enabled ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                      <span className="select-none text-xs font-semibold text-slate-700">
+                        {draft.enabled ? 'Bật' : 'Tắt'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void handleSaveFallback(fallback.provider)}
+                      disabled={Boolean(fallbackBusy) || !aiConfig?.encryptionReady}
+                      className="btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isBusy && fallbackBusy.action === 'save' ? 'Đang lưu...' : 'Lưu'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleTestFallback(fallback.provider)}
+                      disabled={Boolean(fallbackBusy) || !fallback.keyConfigured || !aiConfig?.encryptionReady}
+                      className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isBusy && fallbackBusy.action === 'test' ? 'Đang kiểm tra...' : 'Kiểm tra key'}
+                    </button>
+                    {fallback.keyConfigured && (
+                      <button
+                        type="button"
+                        onClick={() => void handleClearFallback(fallback.provider)}
+                        disabled={Boolean(fallbackBusy)}
+                        className="btn-ghost btn-sm text-danger-600"
+                      >
+                        Xóa key
+                      </button>
+                    )}
+                    {fallback.lastCheckedAt && (
+                      <span className="text-[11px] text-gray-400">
+                        Kiểm tra: {new Date(fallback.lastCheckedAt).toLocaleString('vi-VN')}
+                      </span>
+                    )}
+                  </div>
+                </article>
+              )
+            })}
           </div>
-
-          {openRouterFallback.lastCheckError && (
-            <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
-              {openRouterFallback.lastCheckError}
-            </div>
-          )}
 
           <div className="mt-4 rounded-xl border border-violet-200 bg-violet-50/70 p-4 text-xs text-violet-950">
-            <p className="font-black">Free Models Router phù hợp làm dự phòng lưu lượng thấp, không phải năng lực production.</p>
+            <p className="font-black">Lưu ý quota của các API miễn phí</p>
             <p className="mt-1.5 font-medium leading-relaxed">
-              OpenRouter tự chọn model miễn phí có hỗ trợ structured output. Tài khoản miễn phí thường chỉ có
-              50 request/ngày; tài khoản đã mua ít nhất 10 USD credit có thể dùng tới 1.000 request free/ngày.
-              Hàng đợi mặc định giới hạn 12 request/phút và luôn tôn trọng Retry-After khi bị 429/503.
+              Hàng đợi giới hạn lưu lượng khi chuỗi có Gemini hoặc OpenRouter và luôn tôn trọng Retry-After.
+              OpenRouter Free Router phù hợp làm dự phòng lưu lượng thấp; tài khoản miễn phí thường có 50 request/ngày.
             </p>
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-bold">
-              <a
-                href="https://openrouter.ai/settings/keys"
-                target="_blank"
-                rel="noreferrer"
-                className="text-violet-700 underline underline-offset-2 hover:text-violet-900"
-              >
-                Tạo OpenRouter API key
+              <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noreferrer" className="text-violet-700 underline underline-offset-2 hover:text-violet-900">
+                Tạo OpenRouter key
               </a>
-              <a
-                href="https://openrouter.ai/activity"
-                target="_blank"
-                rel="noreferrer"
-                className="text-violet-700 underline underline-offset-2 hover:text-violet-900"
-              >
-                Xem usage
-              </a>
-              <a
-                href="https://openrouter.ai/docs/guides/routing/routers/free-router"
-                target="_blank"
-                rel="noreferrer"
-                className="text-violet-700 underline underline-offset-2 hover:text-violet-900"
-              >
-                Tài liệu Free Router
+              <a href="https://openrouter.ai/activity" target="_blank" rel="noreferrer" className="text-violet-700 underline underline-offset-2 hover:text-violet-900">
+                Xem OpenRouter usage
               </a>
             </div>
           </div>
-
-          <div className="mt-5 flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={openRouterEnabled}
-                aria-label="Bật OpenRouter dự phòng"
-                onClick={() => setOpenRouterEnabled((value) => !value)}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                  openRouterEnabled ? 'bg-violet-600' : 'bg-gray-200'
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                    openRouterEnabled ? 'translate-x-5' : 'translate-x-0'
-                  }`}
-                />
-              </button>
-              <span className="min-w-[2rem] select-none text-sm font-semibold text-slate-700">
-                {openRouterEnabled ? 'Bật' : 'Tắt'}
-              </span>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleSaveOpenRouterFallback}
-              disabled={openRouterSaving || !aiConfig?.encryptionReady}
-              className="btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {openRouterSaving ? 'Đang lưu...' : 'Lưu OpenRouter'}
-            </button>
-            <button
-              type="button"
-              onClick={handleTestOpenRouterFallback}
-              disabled={openRouterTesting || !openRouterFallback.keyConfigured || !aiConfig?.encryptionReady}
-              className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {openRouterTesting ? 'Đang kiểm tra...' : 'Kiểm tra key OpenRouter'}
-            </button>
-            {openRouterFallback.keyConfigured && (
-              <button
-                type="button"
-                onClick={handleClearOpenRouterFallback}
-                disabled={openRouterSaving}
-                className="btn-ghost btn-sm text-danger-600"
-              >
-                Xóa key OpenRouter
-              </button>
-            )}
-          </div>
-
-          {openRouterFallback.lastCheckedAt && (
-            <p className="mt-3 text-xs text-gray-400">
-              OpenRouter kiểm tra gần nhất: {new Date(openRouterFallback.lastCheckedAt).toLocaleString('vi-VN')}
-            </p>
-          )}
         </section>
       </div>
     </div>

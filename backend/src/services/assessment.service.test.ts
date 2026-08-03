@@ -118,7 +118,7 @@ describe("Assessment service", () => {
   beforeEach(() => {
     process.env.JWT_SECRET = "test-assessment-ai-secret";
     getTestSqlite().exec("PRAGMA foreign_keys = ON;");
-    getTestSqlite().exec("DELETE FROM system_config WHERE key LIKE 'ai_generation_%';");
+    getTestSqlite().exec("DELETE FROM system_config WHERE key LIKE 'ai_%';");
   });
 
   afterEach(() => {
@@ -126,7 +126,7 @@ describe("Assessment service", () => {
     vi.useRealTimers();
     delete process.env.ASSESSMENT_AI_GEMINI_RPM;
     delete process.env.ASSESSMENT_AI_OPENROUTER_RPM;
-    getTestSqlite().exec("DELETE FROM system_config WHERE key LIKE 'ai_generation_%';");
+    getTestSqlite().exec("DELETE FROM system_config WHERE key LIKE 'ai_%';");
     process.env.JWT_SECRET = ORIGINAL_JWT_SECRET;
   });
 

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '../../lib/api'
 import { ConfigPage } from './ConfigPage'
@@ -66,11 +66,16 @@ describe('ConfigPage OpenRouter fallback', () => {
     render(<ConfigPage />)
 
     expect(
-      await screen.findByRole('heading', { name: 'OpenRouter Free Models Router — dự phòng chấm tự luận' })
+      await screen.findByRole('heading', { name: 'Chuỗi API dự phòng chấm tự luận' })
     ).toBeInTheDocument()
+    expect(screen.getAllByRole('article')).toHaveLength(5)
     expect(screen.getByDisplayValue('openrouter/free')).toBeInTheDocument()
-    expect(screen.getByText(/Dự phòng đang bật/)).toHaveTextContent('••••5678')
-    expect(screen.getByRole('switch', { name: 'Bật OpenRouter dự phòng' })).toHaveAttribute(
+    const openRouterCard = screen
+      .getByRole('heading', { name: 'OpenRouter (Free Models Router)' })
+      .closest('article')
+    expect(openRouterCard).not.toBeNull()
+    expect(within(openRouterCard!).getByText(/Đang bật/)).toHaveTextContent('••••5678')
+    expect(screen.getByRole('switch', { name: 'Bật OpenRouter (Free Models Router) dự phòng' })).toHaveAttribute(
       'aria-checked',
       'true'
     )

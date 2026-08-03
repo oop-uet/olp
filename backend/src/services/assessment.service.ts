@@ -23,7 +23,7 @@ import {
 import { userCanAccessSection } from "./section.service.js";
 import {
   generateStructuredAi,
-  getAiAvailability,
+  getAiConfigStatus,
   isAiServiceError,
   type AiServiceError,
 } from "./ai-exercise.service.js";
@@ -2252,17 +2252,32 @@ export async function processPendingAssessmentAiRuns(
   limit = 1,
   database: Database = defaultDb
 ) {
-  const availability = await getAiAvailability(database);
-  const pacedProvider = availability.provider === "gemini" || availability.provider === "openrouter"
-    ? availability.provider
-    : null;
+  const aiStatus = await getAiConfigStatus(database);
+  const constrainedProviders = Array.from(
+    new Set(
+      [
+        aiStatus.provider,
+        ...aiStatus.fallbackProviders
+          .filter((fallback) => fallback.enabled)
+          .map((fallback) => fallback.provider),
+      ].filter(
+        (provider): provider is "gemini" | "openrouter" =>
+          provider === "gemini" || provider === "openrouter"
+      )
+    )
+  );
   const nowMs = Date.now();
   const persistedPause = await readAssessmentAiQueuePause(database);
   const persistedPauseMs = persistedPause ? Date.parse(persistedPause) : 0;
-  const minIntervalMs = pacedProvider ? assessmentProviderMinIntervalMs(pacedProvider) : 0;
-  const intervalPauseMs = pacedProvider && minIntervalMs > 0
-    ? (lastAssessmentProviderRequestAt[pacedProvider] ?? 0) + minIntervalMs
-    : 0;
+  const intervalPauseMs = Math.max(
+    0,
+    ...constrainedProviders.map((provider) => {
+      const minIntervalMs = assessmentProviderMinIntervalMs(provider);
+      return minIntervalMs > 0
+        ? (lastAssessmentProviderRequestAt[provider] ?? 0) + minIntervalMs
+        : 0;
+    })
+  );
   const pausedUntilMs = Math.max(persistedPauseMs, intervalPauseMs);
   if (pausedUntilMs > nowMs) {
     return { processed: 0, pausedUntil: new Date(pausedUntilMs).toISOString() };
@@ -2277,10 +2292,12 @@ export async function processPendingAssessmentAiRuns(
       asc(assessmentAiGradingRuns.nextAttemptAt),
       asc(assessmentAiGradingRuns.createdAt)
     )
-    .limit(pacedProvider ? 1 : Math.max(1, Math.min(limit, 10)));
+    .limit(constrainedProviders.length > 0 ? 1 : Math.max(1, Math.min(limit, 10)));
   let processed = 0;
   for (const run of runs) {
-    if (pacedProvider) lastAssessmentProviderRequestAt[pacedProvider] = Date.now();
+    for (const provider of constrainedProviders) {
+      lastAssessmentProviderRequestAt[provider] = Date.now();
+    }
     if (await processAiRun(run.id, database)) processed += 1;
   }
   return { processed, pausedUntil: null };
