@@ -97,6 +97,9 @@
   .badge-blue {
     @apply badge bg-sky-500 text-white border-transparent;
   }
+  .badge-cyan {
+    @apply badge bg-cyan-600 text-white border-transparent;
+  }
   .badge-green {
     @apply badge bg-emerald-500 text-white border-transparent;
   }

@@ -381,8 +381,8 @@ function ExerciseWeekCard({
                     {assessment.title}
                   </span>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-400">
-                  <span className="inline-flex items-center rounded-md bg-cyan-500 px-2 py-0.5 text-[10px] font-black text-white shadow-2xs">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-4 text-xs font-semibold text-slate-400">
+                  <span className="badge-cyan">
                     KT
                   </span>
                   <span>

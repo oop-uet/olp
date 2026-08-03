@@ -83,7 +83,7 @@ export function StudentAssessmentListPage() {
                         <span className="text-slate-300 text-sm font-bold">•</span>
                       )}
                       <span>{item.title}</span>
-                      <span className="inline-flex items-center rounded-md bg-cyan-500 px-2 py-0.5 text-[10px] font-black text-white shadow-2xs">KT</span>
+                      <span className="badge-cyan">KT</span>
                     </h2>
                   </div>
                   <span className={availability.className}>{availability.label}</span>
