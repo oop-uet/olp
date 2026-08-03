@@ -187,7 +187,7 @@ export function AssessmentReviewPage() {
             {data.assessment.title}
           </h1>
           <p className="text-xs font-bold text-cyan-100/90 mt-1">
-            Sinh viên: <span className="text-white">{data.student.fullName || data.student.username}</span> ({data.student.username}) · Lượt làm #{data.session.attemptNumber}
+            Sinh viên: <span className="text-white">{data.student.fullName || data.student.username}</span> ({data.student.username}) · Lượt làm #{data.session.attemptNumber ?? 1}
           </p>
         </div>
 

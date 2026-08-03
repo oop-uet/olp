@@ -2070,7 +2070,10 @@ export async function getAssessmentReview(
   }
   return {
     data: {
-      session: context.session,
+      session: {
+        ...context.session,
+        attemptNumber: context.session.attemptNumber ?? 1,
+      },
       assessment: { ...context.assessment, sections },
       student,
       answers: reviewAnswers,
