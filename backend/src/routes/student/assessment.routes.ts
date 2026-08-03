@@ -3,6 +3,7 @@ import { z } from "zod";
 import { validate } from "../../middleware/validate.js";
 import {
   getStudentAssessmentPreflight,
+  getStudentAssessmentReview,
   getStudentAssessmentResult,
   getStudentAssessmentSession,
   isAssessmentError,
@@ -50,7 +51,14 @@ function sendResult(res: Response, result: unknown, successStatus = 200) {
     const status =
       result.error.code === "NOT_FOUND"
         ? 404
-        : ["NOT_OPEN", "CLOSED", "SESSION_CLOSED", "SESSION_EXPIRED", "NOT_SUBMITTED"].includes(
+        : [
+              "NOT_OPEN",
+              "CLOSED",
+              "SESSION_CLOSED",
+              "SESSION_EXPIRED",
+              "NOT_SUBMITTED",
+              "REVIEW_NOT_READY",
+            ].includes(
               result.error.code
             )
           ? 409
@@ -171,6 +179,17 @@ router.get("/sessions/:sessionId/result", async (req: Request, res: Response) =>
     sendResult(res, await getStudentAssessmentResult(req.params.sessionId, req.user!.userId));
   } catch {
     res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Không thể tải kết quả." } });
+  }
+});
+
+router.get("/sessions/:sessionId/review", async (req: Request, res: Response) => {
+  try {
+    sendResult(res, await getStudentAssessmentReview(req.params.sessionId, req.user!.userId));
+  } catch (error) {
+    console.error("[assessment] Failed to load student assessment review", error);
+    res.status(500).json({
+      error: { code: "INTERNAL_ERROR", message: "Không thể tải bài nộp đã chấm." },
+    });
   }
 });
 

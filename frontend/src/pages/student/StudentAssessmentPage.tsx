@@ -57,6 +57,23 @@ interface ResultPayload {
   answers: Array<{ id: string; feedback: string | null; gradingState: string }>
 }
 
+interface ReviewQuestion extends Question {
+  answer: Record<string, unknown>
+  awardedPoints: number
+  feedback: string | null
+}
+interface ReviewSection extends Omit<Section, 'questions'> { questions: ReviewQuestion[] }
+interface ReviewPayload {
+  id: string
+  title: string
+  instructions: string
+  totalPoints: number
+  submittedAt: string
+  officialAt: string
+  officialScore: number
+  sections: ReviewSection[]
+}
+
 function formatRemaining(seconds: number) {
   const safe = Math.max(0, seconds)
   const hours = Math.floor(safe / 3600)
@@ -83,6 +100,8 @@ export function StudentAssessmentPage() {
   const [preflight, setPreflight] = useState<Preflight | null>(null)
   const [session, setSession] = useState<SessionPayload | null>(null)
   const [result, setResult] = useState<ResultPayload | null>(null)
+  const [review, setReview] = useState<ReviewPayload | null>(null)
+  const [reviewLoading, setReviewLoading] = useState(false)
   const [answers, setAnswers] = useState<Record<string, Record<string, unknown>>>({})
   const [remaining, setRemaining] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -161,6 +180,18 @@ export function StudentAssessmentPage() {
       setLoading(false)
     }
   }, [assignmentId, loadResult, loadSession])
+
+  async function loadReview(sessionId: string) {
+    setReviewLoading(true)
+    try {
+      const response = await api.get(`/api/students/assessments/sessions/${sessionId}/review`)
+      setReview(response.data.data)
+    } catch (error: unknown) {
+      toast.error(readApiError(error).message ?? 'Không thể tải bài nộp đã chấm.')
+    } finally {
+      setReviewLoading(false)
+    }
+  }
 
   useEffect(() => {
     void loadInitial()
@@ -521,7 +552,16 @@ export function StudentAssessmentPage() {
 
   if (loading) return <PageLoader label="Đang tải bài kiểm tra..." />
   if (!preflight) return <div className="card p-8 text-center text-slate-500 font-semibold">Không tìm thấy bài kiểm tra.</div>
-  if (result) return <AssessmentResult result={result} />
+  if (review) return <AssessmentSubmissionReview review={review} onBack={() => setReview(null)} />
+  if (result) {
+    return (
+      <AssessmentResult
+        result={result}
+        reviewLoading={reviewLoading}
+        onReview={() => void loadReview(result.id)}
+      />
+    )
+  }
 
   if (!session) {
     const now = Date.now() + serverOffsetRef.current
@@ -865,8 +905,16 @@ function QuestionInput({
   )
 }
 
-function AssessmentResult({ result }: { result: ResultPayload }) {
-  const official = result.officialScore !== null
+function AssessmentResult({
+  result,
+  reviewLoading,
+  onReview,
+}: {
+  result: ResultPayload
+  reviewLoading: boolean
+  onReview: () => void
+}) {
+  const official = result.reviewStatus === 'official' && result.officialScore !== null
   const hasVisiblePredicted =
     result.showPredictedScore && result.predictedReady && result.predictedScore !== null
 
@@ -934,10 +982,192 @@ function AssessmentResult({ result }: { result: ResultPayload }) {
           <p className="text-xs font-semibold text-slate-400">
             Thời gian nộp bài: {new Date(result.submittedAt).toLocaleString('vi-VN')}
           </p>
+
+          {official && (
+            <button
+              type="button"
+              onClick={onReview}
+              disabled={reviewLoading}
+              className="btn-primary mx-auto"
+            >
+              {reviewLoading ? 'Đang tải bài nộp...' : 'Xem lại bài nộp'}
+            </button>
+          )}
         </div>
       </div>
     </div>
   )
+}
+
+function AssessmentSubmissionReview({
+  review,
+  onBack,
+}: {
+  review: ReviewPayload
+  onBack: () => void
+}) {
+  return (
+    <div className="mx-auto max-w-4xl space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-teal-700 transition-colors hover:text-teal-900"
+        >
+          <span aria-hidden="true">←</span> Quay lại kết quả
+        </button>
+        <Link
+          to="/student/assessments"
+          className="text-xs font-bold text-slate-500 hover:text-primary"
+        >
+          Danh sách bài kiểm tra
+        </Link>
+      </div>
+
+      <header className="overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 p-6 text-white shadow-md sm:p-8">
+        <p className="text-xs font-black uppercase tracking-wider text-emerald-100">
+          Bài nộp đã chấm
+        </p>
+        <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-black leading-tight sm:text-3xl">{review.title}</h1>
+            <p className="mt-2 text-xs font-semibold text-emerald-100">
+              Nộp lúc {new Date(review.submittedAt).toLocaleString('vi-VN')} · Chấm xong lúc{' '}
+              {new Date(review.officialAt).toLocaleString('vi-VN')}
+            </p>
+          </div>
+          <div className="rounded-xl bg-white/15 px-5 py-3 text-center backdrop-blur-xs">
+            <p className="text-[10px] font-black uppercase tracking-wider text-emerald-100">
+              Điểm chính thức
+            </p>
+            <p className="text-3xl font-black">
+              {formatAssessmentScore(review.officialScore)}/{formatAssessmentScore(review.totalPoints)}
+            </p>
+          </div>
+        </div>
+      </header>
+
+      {review.instructions && (
+        <div className="card whitespace-pre-wrap p-5 text-sm leading-6 text-slate-700">
+          {assessmentText(review.instructions)}
+        </div>
+      )}
+
+      {review.sections.map((section) => (
+        <section key={section.id} className="card overflow-hidden border border-slate-200 shadow-sm">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-5 py-4">
+            <h2 className="font-black text-slate-900">{section.title}</h2>
+            <span className="badge-blue">{formatAssessmentScore(section.points)} điểm</span>
+          </div>
+          {section.introContent && (
+            <pre className="m-5 overflow-x-auto whitespace-pre-wrap rounded-xl bg-slate-900 p-4 font-mono text-xs leading-6 text-emerald-300">
+              {assessmentText(section.introContent)}
+            </pre>
+          )}
+          <div className="divide-y divide-slate-100">
+            {section.questions.map((question, index) => (
+              <ReviewQuestionCard key={question.id} question={question} number={index + 1} />
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  )
+}
+
+function ReviewQuestionCard({ question, number }: { question: ReviewQuestion; number: number }) {
+  return (
+    <article className="space-y-4 p-5 sm:p-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 items-start gap-2.5 whitespace-pre-wrap break-words text-sm font-bold leading-relaxed text-slate-900">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs font-black text-teal-800">
+            {number}
+          </span>
+          <span>{assessmentText(question.prompt)}</span>
+        </div>
+        <span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
+          {formatAssessmentScore(question.awardedPoints)}/{formatAssessmentScore(question.points)} điểm
+        </span>
+      </div>
+
+      <div className="pl-0 sm:pl-8">
+        <SubmittedAnswer question={question} />
+      </div>
+
+      {question.feedback && (
+        <div className="ml-0 rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-slate-700 sm:ml-8">
+          <p className="text-[10px] font-black uppercase tracking-wider text-sky-700">Nhận xét</p>
+          <p className="mt-1 whitespace-pre-wrap leading-6">{question.feedback}</p>
+        </div>
+      )}
+    </article>
+  )
+}
+
+function SubmittedAnswer({ question }: { question: ReviewQuestion }) {
+  const answer = question.answer
+  if (question.type === 'true_false') {
+    if (typeof answer.value !== 'boolean') return <EmptyAnswer />
+    return (
+      <div className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm font-bold text-teal-900">
+        Câu trả lời của bạn: {answer.value ? 'Đúng' : 'Sai'}
+      </div>
+    )
+  }
+
+  if (question.type === 'single_choice') {
+    const selectedOptionId = typeof answer.optionId === 'string' ? answer.optionId : null
+    return (
+      <div className="space-y-2">
+        {question.options.map((option, index) => {
+          const selected = option.id === selectedOptionId
+          return (
+            <div
+              key={option.id}
+              className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${
+                selected
+                  ? 'border-teal-400 bg-teal-50 font-bold text-teal-950 ring-1 ring-teal-200'
+                  : 'border-slate-200 bg-white text-slate-600'
+              }`}
+            >
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-slate-100 text-xs font-black text-slate-700">
+                {String.fromCharCode(65 + index)}
+              </span>
+              <span className="flex-1 whitespace-pre-wrap break-words">
+                {assessmentText(option.content)}
+              </span>
+              {selected && <span className="shrink-0 text-[10px] font-black uppercase text-teal-700">Đã chọn</span>}
+            </div>
+          )
+        })}
+        {!selectedOptionId && <EmptyAnswer />}
+      </div>
+    )
+  }
+
+  const text = typeof answer.text === 'string' ? answer.text : ''
+  if (!text.trim()) return <EmptyAnswer />
+  return (
+    <pre
+      className={`overflow-x-auto whitespace-pre-wrap break-words rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-800 ${
+        question.type === 'code_analysis' ? 'font-mono' : 'font-sans'
+      }`}
+    >
+      {assessmentText(text)}
+    </pre>
+  )
+}
+
+function EmptyAnswer() {
+  return (
+    <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm font-semibold italic text-slate-500">
+      Không có câu trả lời.
+    </p>
+  )
+}
+
+function formatAssessmentScore(value: number) {
+  return Number(value).toLocaleString('vi-VN', { maximumFractionDigits: 2 })
 }
 
 function Meta({ label, value }: { label: string; value: string }) {

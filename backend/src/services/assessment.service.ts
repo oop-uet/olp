@@ -826,18 +826,23 @@ function hasValidQuestionOrder(
   });
 }
 
-function applyQuestionOrder<T extends { id: string }>(
-  sections: Array<{ id: string; questions: T[] }>,
+function applyQuestionOrder<
+  TQuestion extends { id: string },
+  TSection extends { id: string; questions: TQuestion[] },
+>(
+  sections: TSection[],
   order: QuestionOrderMap
-) {
+): TSection[] {
   return sections.map((section) => {
     const ids = order[section.id];
     if (!ids) return section;
     const questionsById = new Map(section.questions.map((question) => [question.id, question]));
     return {
       ...section,
-      questions: ids.map((id) => questionsById.get(id)).filter((question): question is T => Boolean(question)),
-    };
+      questions: ids
+        .map((id) => questionsById.get(id))
+        .filter((question): question is TQuestion => Boolean(question)),
+    } as TSection;
   });
 }
 
@@ -1810,6 +1815,69 @@ export async function getStudentAssessmentResult(
           context.session.reviewStatus === "official"
             ? answer.finalFeedback ?? answer.aiFeedback
             : null,
+      })),
+    },
+  };
+}
+
+export async function getStudentAssessmentReview(
+  sessionId: string,
+  studentId: string,
+  database: Database = defaultDb
+) {
+  const context = await loadSessionContext(sessionId, database);
+  if (!context || context.session.studentId !== studentId) {
+    return serviceError("NOT_FOUND", "Không tìm thấy phiên làm bài.");
+  }
+  if (context.session.reviewStatus !== "official") {
+    return serviceError(
+      "REVIEW_NOT_READY",
+      "Bạn chỉ có thể xem lại bài sau khi giảng viên hoàn tất chấm và công bố điểm chính thức."
+    );
+  }
+
+  const sections = await loadSessionSectionsWithOrder(context, database);
+  const answerRows = await database
+    .select({
+      questionId: assessmentAnswers.questionId,
+      answerJson: assessmentAnswers.answerJson,
+      finalPoints: assessmentAnswers.finalPoints,
+      aiFeedback: assessmentAnswers.aiFeedback,
+      finalFeedback: assessmentAnswers.finalFeedback,
+    })
+    .from(assessmentAnswers)
+    .where(eq(assessmentAnswers.sessionId, sessionId));
+  const answersByQuestion = new Map(answerRows.map((answer) => [answer.questionId, answer]));
+
+  return {
+    data: {
+      id: context.session.id,
+      title: context.assessment.title,
+      instructions: context.assessment.instructions,
+      totalPoints: context.assessment.totalPoints,
+      submittedAt: context.session.submittedAt,
+      officialAt: context.session.officialAt,
+      officialScore: context.session.officialScore,
+      sections: sections.map((section) => ({
+        id: section.id,
+        title: section.title,
+        introContent: section.introContent,
+        points: section.points,
+        orderIndex: section.orderIndex,
+        questions: section.questions.map((question) => {
+          const answer = answersByQuestion.get(question.id);
+          return {
+            id: question.id,
+            type: question.type,
+            prompt: question.prompt,
+            points: question.points,
+            orderIndex: question.orderIndex,
+            options: question.options,
+            answer: parseJson(answer?.answerJson, {}),
+            awardedPoints: answer?.finalPoints ?? 0,
+            feedback: answer?.finalFeedback ?? answer?.aiFeedback ?? null,
+          };
+        }),
       })),
     },
   };

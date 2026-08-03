@@ -177,4 +177,145 @@ describe('StudentAssessmentPage integrity controls', () => {
     )
     expect(screen.getByText(/Đã lưu/)).toBeInTheDocument()
   })
+
+  it('does not show the submission review action before grading is official', async () => {
+    mockedApi.get.mockImplementation(async (url: string) => {
+      if (url.endsWith('/preflight')) {
+        return {
+          data: {
+            data: {
+              id: 'assignment-1',
+              title: 'Kiểm tra OOP',
+              instructions: '',
+              totalPoints: 2,
+              durationMinutes: 60,
+              opensAt: new Date(Date.now() - 60_000).toISOString(),
+              closesAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+              session: { id: 'session-1', status: 'pending_review' },
+            },
+          },
+        }
+      }
+      if (url.endsWith('/sessions/session-1/result')) {
+        return {
+          data: {
+            data: {
+              id: 'session-1',
+              title: 'Kiểm tra OOP',
+              totalPoints: 2,
+              autoScore: 2,
+              reviewStatus: 'pending_review',
+              showPredictedScore: true,
+              predictedReady: true,
+              predictedScore: 2,
+              officialScore: null,
+              submittedAt: '2026-08-03T01:00:00.000Z',
+              answers: [],
+            },
+          },
+        }
+      }
+      throw new Error(`Unexpected GET ${url}`)
+    })
+
+    renderPage()
+
+    expect(await screen.findByText('Kết quả dự kiến')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Xem lại bài nộp' })).not.toBeInTheDocument()
+    expect(mockedApi.get).not.toHaveBeenCalledWith(
+      '/api/students/assessments/sessions/session-1/review'
+    )
+  })
+
+  it('loads the submitted answers and official feedback after grading is complete', async () => {
+    const user = userEvent.setup()
+    mockedApi.get.mockImplementation(async (url: string) => {
+      if (url.endsWith('/preflight')) {
+        return {
+          data: {
+            data: {
+              id: 'assignment-1',
+              title: 'Kiểm tra OOP',
+              instructions: 'Không dùng tài liệu',
+              totalPoints: 2,
+              durationMinutes: 60,
+              opensAt: new Date(Date.now() - 60_000).toISOString(),
+              closesAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+              session: { id: 'session-1', status: 'graded' },
+            },
+          },
+        }
+      }
+      if (url.endsWith('/sessions/session-1/result')) {
+        return {
+          data: {
+            data: {
+              id: 'session-1',
+              title: 'Kiểm tra OOP',
+              totalPoints: 2,
+              autoScore: 2,
+              reviewStatus: 'official',
+              showPredictedScore: true,
+              predictedReady: true,
+              predictedScore: 2,
+              officialScore: 2,
+              submittedAt: '2026-08-03T01:00:00.000Z',
+              answers: [],
+            },
+          },
+        }
+      }
+      if (url.endsWith('/sessions/session-1/review')) {
+        return {
+          data: {
+            data: {
+              id: 'session-1',
+              title: 'Kiểm tra OOP',
+              instructions: 'Không dùng tài liệu',
+              totalPoints: 2,
+              submittedAt: '2026-08-03T01:00:00.000Z',
+              officialAt: '2026-08-03T02:00:00.000Z',
+              officialScore: 2,
+              sections: [
+                {
+                  id: 'section-1',
+                  title: 'Một lựa chọn',
+                  introContent: null,
+                  points: 2,
+                  questions: [
+                    {
+                      id: 'question-1',
+                      type: 'single_choice',
+                      prompt: 'Phương thức nào được gọi?',
+                      points: 2,
+                      options: [
+                        { id: 'option-1', content: 'Phương án A' },
+                        { id: 'option-2', content: 'Phương án B' },
+                      ],
+                      answer: { optionId: 'option-2' },
+                      awardedPoints: 2,
+                      feedback: 'Lập luận chính xác.',
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        }
+      }
+      throw new Error(`Unexpected GET ${url}`)
+    })
+
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: 'Xem lại bài nộp' }))
+    expect(await screen.findByText('Bài nộp đã chấm')).toBeInTheDocument()
+    expect(screen.getByText('Phương thức nào được gọi?')).toBeInTheDocument()
+    expect(screen.getByText('Phương án B')).toBeInTheDocument()
+    expect(screen.getByText('Đã chọn')).toBeInTheDocument()
+    expect(screen.getByText('Lập luận chính xác.')).toBeInTheDocument()
+    expect(mockedApi.get).toHaveBeenCalledWith(
+      '/api/students/assessments/sessions/session-1/review'
+    )
+  })
 })

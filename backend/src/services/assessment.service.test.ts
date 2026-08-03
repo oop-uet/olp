@@ -11,6 +11,7 @@ import {
   deleteAssessment,
   getAssessmentReview,
   getInstructorAssessment,
+  getStudentAssessmentReview,
   getStudentAssessmentResult,
   getStudentAssessmentSession,
   isAssessmentError,
@@ -428,6 +429,10 @@ describe("Assessment service", () => {
     expect(JSON.stringify(provisional)).not.toContain("aiSuggestedPoints");
     expect(JSON.stringify(provisional)).not.toContain("aiFeedback");
 
+    const reviewBeforeOfficial = await getStudentAssessmentReview(sessionId, studentId, db);
+    expect(isAssessmentError(reviewBeforeOfficial)).toBe(true);
+    expect((reviewBeforeOfficial as any).error.code).toBe("REVIEW_NOT_READY");
+
     getTestSqlite()
       .prepare("UPDATE assessment_assignments SET show_predicted_score = 0 WHERE id = ?")
       .run(assignment.id);
@@ -443,6 +448,27 @@ describe("Assessment service", () => {
     const official = await getStudentAssessmentResult(sessionId, studentId, db);
     expect((official as any).data.officialScore).toBe(5);
     expect((official as any).data.reviewStatus).toBe("official");
+
+    const studentReview = await getStudentAssessmentReview(sessionId, studentId, db);
+    expect(isAssessmentError(studentReview)).toBe(false);
+    expect((studentReview as any).data.sections[0].questions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "true_false",
+          answer: { value: false },
+          awardedPoints: 5,
+        }),
+        expect.objectContaining({
+          type: "essay",
+          answer: { text: "" },
+          awardedPoints: 0,
+          feedback: "Không có câu trả lời.",
+        }),
+      ])
+    );
+    expect(JSON.stringify(studentReview)).not.toContain("answerKey");
+    expect(JSON.stringify(studentReview)).not.toContain("referenceAnswer");
+    expect(JSON.stringify(studentReview)).not.toContain("gradingPrompt");
 
     const review = await getAssessmentReview(sessionId, instructorId, db);
     const essayAnswer = (review as any).data.answers.find(

@@ -89,8 +89,11 @@ export function StudentAssessmentListPage() {
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3.5">
                     <span className={progress.className}>{progress.label}</span>
                     <div className="text-right text-sm">
-                      {item.session?.officialScore !== null ? (
-                        <strong className="text-emerald-700 font-extrabold">Chính thức: {item.session?.officialScore}/{item.totalPoints}</strong>
+                      {item.session?.reviewStatus === 'official' && item.session.officialScore !== null ? (
+                        <div>
+                          <strong className="text-emerald-700 font-extrabold">Chính thức: {item.session?.officialScore}/{item.totalPoints}</strong>
+                          <p className="mt-0.5 text-xs font-bold text-primary">Xem lại bài nộp →</p>
+                        </div>
                       ) : item.session?.predictedScore !== null ? (
                         <strong className="text-cyan-700 font-extrabold">Dự kiến: {item.session?.predictedScore}/{item.totalPoints}</strong>
                       ) : (
