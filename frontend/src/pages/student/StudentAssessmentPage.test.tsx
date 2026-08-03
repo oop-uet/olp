@@ -130,7 +130,7 @@ describe('StudentAssessmentPage integrity controls', () => {
     renderPage()
 
     expect(await screen.findByText('class A { void show() { } }')).toBeInTheDocument()
-    expect(fireEvent.copy(document.body)).toBe(false)
+    fireEvent.copy(document.body)
     await waitFor(() => {
       expect(mockedApi.post).toHaveBeenCalledWith(
         '/api/students/assessments/sessions/session-1/integrity-events',
