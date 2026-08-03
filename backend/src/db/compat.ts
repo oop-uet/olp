@@ -247,7 +247,9 @@ async function ensureAssessmentTablesReady(database: Database) {
       error_code TEXT,
       error_message TEXT,
       created_at TEXT NOT NULL,
+      next_attempt_at TEXT,
       started_at TEXT,
+      locked_until TEXT,
       finished_at TEXT
     )`,
     `CREATE INDEX IF NOT EXISTS assessment_ai_grading_runs_answer_idx
@@ -300,6 +302,24 @@ async function ensureAssessmentTablesReady(database: Database) {
   await addColumnIfMissing(
     database,
     "ALTER TABLE assessment_assignments ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0"
+  );
+  await addColumnIfMissing(
+    database,
+    "ALTER TABLE assessment_ai_grading_runs ADD COLUMN next_attempt_at TEXT"
+  );
+  await addColumnIfMissing(
+    database,
+    "ALTER TABLE assessment_ai_grading_runs ADD COLUMN locked_until TEXT"
+  );
+  await executeRaw(
+    database,
+    `CREATE INDEX IF NOT EXISTS assessment_ai_grading_runs_queue_idx
+      ON assessment_ai_grading_runs(status, next_attempt_at, created_at)`
+  );
+  await executeRaw(
+    database,
+    `CREATE INDEX IF NOT EXISTS assessment_integrity_events_session_occurred_idx
+      ON assessment_integrity_events(session_id, occurred_at)`
   );
   await executeRaw(database, "UPDATE assessment_assignments SET require_fullscreen = 1");
   await executeRaw(

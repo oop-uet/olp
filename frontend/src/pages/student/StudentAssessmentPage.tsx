@@ -94,7 +94,11 @@ export function StudentAssessmentPage() {
   const [integrityNotice, setIntegrityNotice] = useState<string | null>(null)
   const [fullscreenRequired, setFullscreenRequired] = useState(false)
   const revisionsRef = useRef<Record<string, number>>({})
-  const timersRef = useRef<Record<string, number>>({})
+  const dirtyAnswersRef = useRef<
+    Record<string, { questionId: string; answer: Record<string, unknown>; clientRevision: number }>
+  >({})
+  const autosaveTimerRef = useRef<number | null>(null)
+  const flushPromiseRef = useRef<Promise<void> | null>(null)
   const submittingRef = useRef(false)
   const serverOffsetRef = useRef(0)
   const suppressFullscreenExitRef = useRef(false)
@@ -105,6 +109,8 @@ export function StudentAssessmentPage() {
 
   const loadResult = useCallback(async (sessionId: string) => {
     const response = await api.get(`/api/students/assessments/sessions/${sessionId}/result`)
+    dirtyAnswersRef.current = {}
+    if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current)
     setResult(response.data.data)
     setSession(null)
     setFullscreenRequired(false)
@@ -131,6 +137,8 @@ export function StudentAssessmentPage() {
     })
     setAnswers(loadedAnswers)
     revisionsRef.current = revisions
+    dirtyAnswersRef.current = {}
+    setSaveState('saved')
   }, [loadResult])
 
   const loadInitial = useCallback(async () => {
@@ -156,9 +164,8 @@ export function StudentAssessmentPage() {
 
   useEffect(() => {
     void loadInitial()
-    const answerTimers = timersRef.current
     return () => {
-      Object.values(answerTimers).forEach((timer) => window.clearTimeout(timer))
+      if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current)
       if (integrityNoticeTimerRef.current) window.clearTimeout(integrityNoticeTimerRef.current)
     }
   }, [loadInitial])
@@ -168,6 +175,93 @@ export function StudentAssessmentPage() {
     if (integrityNoticeTimerRef.current) window.clearTimeout(integrityNoticeTimerRef.current)
     integrityNoticeTimerRef.current = window.setTimeout(() => setIntegrityNotice(null), 4500)
   }, [])
+
+  const flushDirtyAnswers = useCallback(async (drain = false) => {
+    if (!session) return
+
+    do {
+      if (flushPromiseRef.current) {
+        await flushPromiseRef.current
+        if (!drain) return
+        continue
+      }
+
+      const batch = Object.values(dirtyAnswersRef.current)
+      if (batch.length === 0) {
+        setSaveState('saved')
+        return
+      }
+
+      setSaveState('saving')
+      const request = api
+        .put(`/api/students/assessments/sessions/${session.session.id}/answers`, { answers: batch })
+        .then(() => {
+          for (const sent of batch) {
+            const pending = dirtyAnswersRef.current[sent.questionId]
+            if (pending && pending.clientRevision <= sent.clientRevision) {
+              delete dirtyAnswersRef.current[sent.questionId]
+            }
+          }
+          setSaveState(Object.keys(dirtyAnswersRef.current).length === 0 ? 'saved' : 'saving')
+        })
+        .catch((error: unknown) => {
+          setSaveState('error')
+          throw error
+        })
+
+      flushPromiseRef.current = request
+      try {
+        await request
+      } finally {
+        if (flushPromiseRef.current === request) flushPromiseRef.current = null
+      }
+    } while (drain && Object.keys(dirtyAnswersRef.current).length > 0)
+  }, [session])
+
+  function updateAnswer(questionId: string, answer: Record<string, unknown>) {
+    setAnswers((current) => ({ ...current, [questionId]: answer }))
+    const revision = (revisionsRef.current[questionId] ?? 0) + 1
+    revisionsRef.current[questionId] = revision
+    dirtyAnswersRef.current[questionId] = {
+      questionId,
+      answer,
+      clientRevision: revision,
+    }
+    setSaveState('saving')
+
+    if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current)
+    const question = session?.assessment.sections
+      .flatMap((section) => section.questions)
+      .find((item) => item.id === questionId)
+    const debounceMs = question && ['true_false', 'single_choice'].includes(question.type)
+      ? 1_200
+      : 2_500
+    autosaveTimerRef.current = window.setTimeout(() => {
+      autosaveTimerRef.current = null
+      void flushDirtyAnswers().catch(() => undefined)
+    }, debounceMs)
+  }
+
+  useEffect(() => {
+    if (!session) return
+    const periodicFlush = window.setInterval(
+      () => void flushDirtyAnswers().catch(() => undefined),
+      5_000
+    )
+    const flushWhenBackgrounded = () => {
+      if (document.visibilityState === 'hidden') {
+        void flushDirtyAnswers().catch(() => undefined)
+      }
+    }
+    const flushOnPageHide = () => void flushDirtyAnswers().catch(() => undefined)
+    document.addEventListener('visibilitychange', flushWhenBackgrounded)
+    window.addEventListener('pagehide', flushOnPageHide)
+    return () => {
+      window.clearInterval(periodicFlush)
+      document.removeEventListener('visibilitychange', flushWhenBackgrounded)
+      window.removeEventListener('pagehide', flushOnPageHide)
+    }
+  }, [flushDirtyAnswers, session])
 
   const recordIntegrityEvent = useCallback((
     eventType: IntegrityEventType,
@@ -181,6 +275,7 @@ export function StudentAssessmentPage() {
     const sessionId = session.session.id
     showIntegrityNotice(message)
     const send = async () => {
+      await flushDirtyAnswers(true).catch(() => undefined)
       try {
         const response = await api.post(
           `/api/students/assessments/sessions/${sessionId}/integrity-events`,
@@ -209,7 +304,7 @@ export function StudentAssessmentPage() {
       }
     }
     integrityQueueRef.current = integrityQueueRef.current.then(send, send)
-  }, [loadResult, session, showIntegrityNotice])
+  }, [flushDirtyAnswers, loadResult, session, showIntegrityNotice])
 
   async function start() {
     if (!assignmentId || !preflight) return
@@ -254,32 +349,6 @@ export function StudentAssessmentPage() {
     }
   }
 
-  const saveAnswer = useCallback(
-    async (questionId: string, answer: Record<string, unknown>, revision: number) => {
-      if (!session) return
-      setSaveState('saving')
-      try {
-        await api.put(`/api/students/assessments/sessions/${session.session.id}/answers`, {
-          answers: [{ questionId, answer, clientRevision: revision }],
-        })
-        setSaveState('saved')
-      } catch {
-        setSaveState('error')
-      }
-    },
-    [session]
-  )
-
-  function updateAnswer(questionId: string, answer: Record<string, unknown>) {
-    setAnswers((current) => ({ ...current, [questionId]: answer }))
-    const revision = (revisionsRef.current[questionId] ?? 0) + 1
-    revisionsRef.current[questionId] = revision
-    if (timersRef.current[questionId]) window.clearTimeout(timersRef.current[questionId])
-    timersRef.current[questionId] = window.setTimeout(() => {
-      void saveAnswer(questionId, answer, revision)
-    }, 700)
-  }
-
   const submit = useCallback(
     async (askConfirmation = true) => {
       if (!session || submittingRef.current) return
@@ -289,15 +358,8 @@ export function StudentAssessmentPage() {
       submittingRef.current = true
       setSubmitting(true)
       try {
-        Object.values(timersRef.current).forEach((timer) => window.clearTimeout(timer))
-        const batch = Object.entries(answers).map(([questionId, answer]) => ({
-          questionId,
-          answer,
-          clientRevision: revisionsRef.current[questionId] ?? 1,
-        }))
-        if (batch.length > 0) {
-          await api.put(`/api/students/assessments/sessions/${session.session.id}/answers`, { answers: batch })
-        }
+        if (autosaveTimerRef.current) window.clearTimeout(autosaveTimerRef.current)
+        await flushDirtyAnswers(true)
         await api.post(`/api/students/assessments/sessions/${session.session.id}/submit`)
         suppressFullscreenExitRef.current = true
         if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined)
@@ -310,7 +372,7 @@ export function StudentAssessmentPage() {
         setSubmitting(false)
       }
     },
-    [answers, loadResult, session]
+    [answers, flushDirtyAnswers, loadResult, session]
   )
 
   useEffect(() => {
@@ -410,11 +472,35 @@ export function StudentAssessmentPage() {
     }
   }, [recordIntegrityEvent, session])
 
+  const resultId = result?.id
+  const resultReviewStatus = result?.reviewStatus
   useEffect(() => {
-    if (!result || result.reviewStatus === 'official') return
-    const timer = window.setInterval(() => void loadResult(result.id).catch(() => undefined), 5000)
-    return () => window.clearInterval(timer)
-  }, [loadResult, result])
+    if (!resultId || resultReviewStatus === 'official') return
+    const delays = [5_000, 10_000, 20_000, 30_000, 60_000]
+    let attempt = 0
+    let timer: number | null = null
+    let cancelled = false
+    const poll = async () => {
+      try {
+        await loadResult(resultId)
+      } catch {
+        // Giữ trang kết quả ổn định khi backend hoặc nhà cung cấp AI tạm thời chậm.
+      } finally {
+        if (!cancelled) {
+          attempt += 1
+          timer = window.setTimeout(poll, delays[Math.min(attempt, delays.length - 1)])
+        }
+      }
+    }
+    const refreshOnFocus = () => void loadResult(resultId).catch(() => undefined)
+    timer = window.setTimeout(poll, delays[0])
+    window.addEventListener('focus', refreshOnFocus)
+    return () => {
+      cancelled = true
+      if (timer) window.clearTimeout(timer)
+      window.removeEventListener('focus', refreshOnFocus)
+    }
+  }, [loadResult, resultId, resultReviewStatus])
 
   const answeredCount = useMemo(
     () => Object.values(answers).filter((answer) => hasAnswerValue(answer)).length,

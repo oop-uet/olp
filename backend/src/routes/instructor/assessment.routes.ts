@@ -11,7 +11,6 @@ import {
   isAssessmentError,
   listAssessmentSubmissions,
   listInstructorAssessments,
-  processPendingAssessmentAiRuns,
   publishAssessment,
   retryAssessmentAiGrade,
   reviewAssessmentAnswer,
@@ -225,9 +224,6 @@ router.post("/answers/:answerId/ai-grade", async (req: Request, res: Response) =
   try {
     const result = await retryAssessmentAiGrade(req.params.answerId, req.user!.userId);
     sendResult(res, result, 202);
-    if (!isAssessmentError(result)) {
-      void processPendingAssessmentAiRuns(1).catch(() => undefined);
-    }
   } catch {
     res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Không thể xếp hàng chấm AI." } });
   }

@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import * as schema from "../db/schema.js";
 import { getTestSqlite } from "../test/setup.js";
+import { testAiConfig, updateAiConfig } from "./ai-exercise.service.js";
 import {
   approveAllPredictedScores,
   assignAssessment,
@@ -28,6 +29,8 @@ import {
 function getDb() {
   return drizzle(getTestSqlite(), { schema }) as any;
 }
+
+const ORIGINAL_JWT_SECRET = process.env.JWT_SECRET;
 
 function seedUsersAndSection() {
   const sqlite = getTestSqlite();
@@ -105,7 +108,15 @@ function validDraft(): AssessmentDraftInput {
 
 describe("Assessment service", () => {
   beforeEach(() => {
+    process.env.JWT_SECRET = "test-assessment-ai-secret";
     getTestSqlite().exec("PRAGMA foreign_keys = ON;");
+    getTestSqlite().exec("DELETE FROM system_config WHERE key LIKE 'ai_generation_%';");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    getTestSqlite().exec("DELETE FROM system_config WHERE key LIKE 'ai_generation_%';");
+    process.env.JWT_SECRET = ORIGINAL_JWT_SECRET;
   });
 
   it("rejects a draft whose question points do not match total points", async () => {
@@ -114,6 +125,146 @@ describe("Assessment service", () => {
     const result = await createAssessment({ ...validDraft(), totalPoints: 9 }, instructorId, db);
     expect(isAssessmentError(result)).toBe(true);
     expect((result as any).error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("bulk-saves only the newest client revision for each answer", async () => {
+    const db = getDb();
+    const { instructorId, studentId, sectionId } = seedUsersAndSection();
+    const created = await createAssessment(validDraft(), instructorId, db);
+    const assignment = await assignAssessment(
+      (created as any).data.id,
+      {
+        sectionId,
+        opensAt: new Date(Date.now() - 60_000).toISOString(),
+        closesAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+      },
+      instructorId,
+      db
+    );
+    const started = await startAssessmentSession((assignment as any).data.id, studentId, db);
+    const sessionId = (started as any).data.id;
+    const studentView = await getStudentAssessmentSession(sessionId, studentId, db);
+    const questions = (studentView as any).data.assessment.sections[0].questions;
+
+    await saveAssessmentAnswers(
+      sessionId,
+      studentId,
+      [
+        { questionId: questions[0].id, answer: { value: false }, clientRevision: 1 },
+        { questionId: questions[1].id, answer: { text: "Bản nháp" }, clientRevision: 1 },
+        { questionId: questions[1].id, answer: { text: "Bản mới nhất" }, clientRevision: 3 },
+      ],
+      db
+    );
+    await saveAssessmentAnswers(
+      sessionId,
+      studentId,
+      [{ questionId: questions[1].id, answer: { text: "Bản cũ đến muộn" }, clientRevision: 2 }],
+      db
+    );
+
+    const storedAnswers = getTestSqlite()
+      .prepare(
+        `SELECT question_id AS questionId, answer_json AS answerJson,
+                client_revision AS clientRevision
+         FROM assessment_answers WHERE session_id = ? ORDER BY question_id`
+      )
+      .all(sessionId) as Array<{
+        questionId: string;
+        answerJson: string;
+        clientRevision: number;
+      }>;
+    expect(storedAnswers).toHaveLength(2);
+    const essay = storedAnswers.find((answer) => answer.questionId === questions[1].id);
+    expect(essay).toMatchObject({ clientRevision: 3 });
+    expect(JSON.parse(essay!.answerJson)).toEqual({ text: "Bản mới nhất" });
+  });
+
+  it("defers future AI jobs and safely reclaims an expired worker lease", async () => {
+    const db = getDb();
+    const { instructorId, studentId, sectionId } = seedUsersAndSection();
+    await updateAiConfig({ apiKey: "sk-test-assessment-key" }, instructorId, db);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        json: async () => ({ error: { message: "Tạm vượt giới hạn API." } }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    await testAiConfig(instructorId, db);
+    const created = await createAssessment(validDraft(), instructorId, db);
+    const assignment = await assignAssessment(
+      (created as any).data.id,
+      {
+        sectionId,
+        opensAt: new Date(Date.now() - 60_000).toISOString(),
+        closesAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+      },
+      instructorId,
+      db
+    );
+    const started = await startAssessmentSession((assignment as any).data.id, studentId, db);
+    const sessionId = (started as any).data.id;
+    const studentView = await getStudentAssessmentSession(sessionId, studentId, db);
+    const questions = (studentView as any).data.assessment.sections[0].questions;
+    await saveAssessmentAnswers(
+      sessionId,
+      studentId,
+      [
+        { questionId: questions[0].id, answer: { value: false }, clientRevision: 1 },
+        {
+          questionId: questions[1].id,
+          answer: { text: "Upcasting chuyển tham chiếu lớp con lên lớp cha." },
+          clientRevision: 1,
+        },
+      ],
+      db
+    );
+    await submitAssessmentSession(sessionId, studentId, "student", db);
+
+    const run = getTestSqlite()
+      .prepare("SELECT id FROM assessment_ai_grading_runs WHERE status = 'queued'")
+      .get() as { id: string };
+    getTestSqlite()
+      .prepare("UPDATE assessment_ai_grading_runs SET next_attempt_at = ? WHERE id = ?")
+      .run(new Date(Date.now() + 60_000).toISOString(), run.id);
+    expect((await processPendingAssessmentAiRuns(1, db)).processed).toBe(0);
+
+    getTestSqlite()
+      .prepare(
+        `UPDATE assessment_ai_grading_runs
+         SET status = 'running', next_attempt_at = NULL, locked_until = ? WHERE id = ?`
+      )
+      .run(new Date(Date.now() + 60_000).toISOString(), run.id);
+    expect((await processPendingAssessmentAiRuns(1, db)).processed).toBe(0);
+
+    getTestSqlite()
+      .prepare("UPDATE assessment_ai_grading_runs SET locked_until = ? WHERE id = ?")
+      .run(new Date(Date.now() - 1_000).toISOString(), run.id);
+    expect((await processPendingAssessmentAiRuns(1, db)).processed).toBe(1);
+    const reclaimed = getTestSqlite()
+      .prepare(
+        `SELECT status, attempt_count AS attemptCount, locked_until AS lockedUntil,
+                next_attempt_at AS nextAttemptAt, error_code AS errorCode
+         FROM assessment_ai_grading_runs WHERE id = ?`
+      )
+      .get(run.id) as {
+        status: string;
+        attemptCount: number;
+        lockedUntil: string | null;
+        nextAttemptAt: string;
+        errorCode: string;
+      };
+    expect(reclaimed).toMatchObject({
+      status: "queued",
+      attemptCount: 1,
+      lockedUntil: null,
+      errorCode: "AI_REQUEST_FAILED",
+    });
+    expect(new Date(reclaimed.nextAttemptAt).getTime()).toBeGreaterThan(Date.now());
+    expect((await processPendingAssessmentAiRuns(1, db)).processed).toBe(0);
   });
 
   it("supports provisional score, approve all, then instructor override as official", async () => {

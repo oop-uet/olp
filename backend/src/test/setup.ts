@@ -298,9 +298,14 @@ beforeAll(() => {
       error_code TEXT,
       error_message TEXT,
       created_at TEXT NOT NULL,
+      next_attempt_at TEXT,
       started_at TEXT,
+      locked_until TEXT,
       finished_at TEXT
     );
+
+    CREATE INDEX IF NOT EXISTS assessment_ai_grading_runs_queue_idx
+      ON assessment_ai_grading_runs(status, next_attempt_at, created_at);
 
     CREATE TABLE IF NOT EXISTS assessment_integrity_events (
       id TEXT PRIMARY KEY,
@@ -309,6 +314,9 @@ beforeAll(() => {
       occurred_at TEXT NOT NULL,
       metadata_json TEXT
     );
+
+    CREATE INDEX IF NOT EXISTS assessment_integrity_events_session_occurred_idx
+      ON assessment_integrity_events(session_id, occurred_at);
 
     CREATE TABLE IF NOT EXISTS assessment_audit_logs (
       id TEXT PRIMARY KEY,

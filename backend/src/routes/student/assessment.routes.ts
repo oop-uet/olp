@@ -7,7 +7,6 @@ import {
   getStudentAssessmentSession,
   isAssessmentError,
   listStudentAssessments,
-  processPendingAssessmentAiRuns,
   recordAssessmentIntegrityEvent,
   saveAssessmentAnswers,
   setAssessmentQuestionFlag,
@@ -148,9 +147,6 @@ router.post(
         req.body.metadata
       );
       sendResult(res, result, 201);
-      if (!isAssessmentError(result) && result.data.autoSubmitted) {
-        void processPendingAssessmentAiRuns(3).catch(() => undefined);
-      }
     } catch {
       res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Không thể ghi nhận sự kiện giám sát." } });
     }
@@ -165,9 +161,6 @@ router.post("/sessions/:sessionId/submit", async (req: Request, res: Response) =
       "student"
     );
     sendResult(res, result);
-    if (!isAssessmentError(result)) {
-      void processPendingAssessmentAiRuns(3).catch(() => undefined);
-    }
   } catch {
     res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Không thể nộp bài kiểm tra." } });
   }

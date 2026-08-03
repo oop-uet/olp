@@ -136,16 +136,16 @@ export function isAiServiceError(value: unknown): value is AiServiceError {
 
 async function ensureAiConfigRows(database: Database = defaultDb): Promise<void> {
   const now = new Date().toISOString();
-  for (const config of DEFAULT_CONFIGS) {
-    await database
-      .insert(systemConfig)
-      .values({
+  await database
+    .insert(systemConfig)
+    .values(
+      DEFAULT_CONFIGS.map((config) => ({
         ...config,
         updatedAt: now,
         updatedBy: null,
-      })
-      .onConflictDoNothing();
-  }
+      }))
+    )
+    .onConflictDoNothing();
 }
 
 async function readConfigMap(database: Database = defaultDb): Promise<Record<string, string>> {
@@ -285,6 +285,10 @@ export async function getAiConfigStatus(database: Database = defaultDb): Promise
 
 export async function getAiAvailability(database: Database = defaultDb): Promise<AiAvailability> {
   const status = await getAiConfigStatus(database);
+  return toAvailability(status);
+}
+
+function toAvailability(status: AiConfigStatus): AiAvailability {
   let reason: string | null = null;
 
   if (!status.keyConfigured) {
@@ -492,7 +496,7 @@ export async function generateStructuredAi(
   database: Database = defaultDb
 ): Promise<StructuredAiResult | AiServiceError> {
   const config = await readConfigMap(database);
-  const availability = await getAiAvailability(database);
+  const availability = toAvailability(toStatus(config));
   if (!availability.enabled) {
     return {
       error: {
@@ -1143,7 +1147,7 @@ async function generateStructuredWithProvider(
 ): Promise<string | AiServiceError> {
   const temperature = request.temperature ?? 0;
   const maxOutputTokens = request.maxOutputTokens ?? 1600;
-  const inputText = JSON.stringify(request.input, null, 2);
+  const inputText = JSON.stringify(request.input);
   const signal = AbortSignal.timeout(60_000);
 
   if (provider === "openai") {

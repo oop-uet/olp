@@ -96,7 +96,10 @@ describe('StudentAssessmentPage integrity controls', () => {
                         type: 'single_choice',
                         prompt: 'class A \\{ void show() \\{ \\} \\}',
                         points: 2,
-                        options: [{ id: 'option-1', content: 'A' }],
+                        options: [
+                          { id: 'option-1', content: 'A' },
+                          { id: 'option-2', content: 'B' },
+                        ],
                       },
                     ],
                   },
@@ -143,5 +146,35 @@ describe('StudentAssessmentPage integrity controls', () => {
       )
     })
     expect(screen.getByRole('button', { name: 'Đã gắn cờ' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('batches rapid answer changes and saves only the newest revision', async () => {
+    renderPage()
+
+    expect(await screen.findByText('class A { void show() { } }')).toBeInTheDocument()
+    const radios = screen.getAllByRole('radio')
+    fireEvent.click(radios[0])
+    fireEvent.click(radios[1])
+
+    expect(mockedApi.put).not.toHaveBeenCalled()
+    await waitFor(
+      () => {
+        const answerCalls = mockedApi.put.mock.calls.filter(([url]) =>
+          String(url).endsWith('/sessions/session-1/answers')
+        )
+        expect(answerCalls).toHaveLength(1)
+        expect(answerCalls[0][1]).toEqual({
+          answers: [
+            {
+              questionId: 'question-1',
+              answer: { optionId: 'option-2' },
+              clientRevision: 2,
+            },
+          ],
+        })
+      },
+      { timeout: 3_000 }
+    )
+    expect(screen.getByText(/Đã lưu/)).toBeInTheDocument()
   })
 })

@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { index, sqliteTable, text, integer, real, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { type InferSelectModel, type InferInsertModel, relations } from "drizzle-orm";
 
 // ─── Users ───────────────────────────────────────────────────────────────────
@@ -502,38 +502,63 @@ export const assessmentAnswers = sqliteTable(
   })
 );
 
-export const assessmentAiGradingRuns = sqliteTable("assessment_ai_grading_runs", {
-  id: text("id").primaryKey(),
-  answerId: text("answer_id")
-    .notNull()
-    .references(() => assessmentAnswers.id, { onDelete: "cascade" }),
-  status: text("status", { enum: ["queued", "running", "succeeded", "failed", "invalid"] })
-    .notNull()
-    .default("queued"),
-  provider: text("provider"),
-  model: text("model"),
-  promptVersion: text("prompt_version").notNull().default("assessment-grading-v1"),
-  suggestedPoints: real("suggested_points"),
-  resultJson: text("result_json"),
-  confidence: text("confidence", { enum: ["low", "medium", "high"] }),
-  needsHumanAttention: integer("needs_human_attention").notNull().default(0),
-  attemptCount: integer("attempt_count").notNull().default(0),
-  errorCode: text("error_code"),
-  errorMessage: text("error_message"),
-  createdAt: text("created_at").notNull(),
-  startedAt: text("started_at"),
-  finishedAt: text("finished_at"),
-});
+export const assessmentAiGradingRuns = sqliteTable(
+  "assessment_ai_grading_runs",
+  {
+    id: text("id").primaryKey(),
+    answerId: text("answer_id")
+      .notNull()
+      .references(() => assessmentAnswers.id, { onDelete: "cascade" }),
+    status: text("status", { enum: ["queued", "running", "succeeded", "failed", "invalid"] })
+      .notNull()
+      .default("queued"),
+    provider: text("provider"),
+    model: text("model"),
+    promptVersion: text("prompt_version").notNull().default("assessment-grading-v1"),
+    suggestedPoints: real("suggested_points"),
+    resultJson: text("result_json"),
+    confidence: text("confidence", { enum: ["low", "medium", "high"] }),
+    needsHumanAttention: integer("needs_human_attention").notNull().default(0),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    errorCode: text("error_code"),
+    errorMessage: text("error_message"),
+    createdAt: text("created_at").notNull(),
+    nextAttemptAt: text("next_attempt_at"),
+    startedAt: text("started_at"),
+    lockedUntil: text("locked_until"),
+    finishedAt: text("finished_at"),
+  },
+  (table) => ({
+    answerIdx: index("assessment_ai_grading_runs_answer_idx").on(
+      table.answerId,
+      table.createdAt
+    ),
+    queueIdx: index("assessment_ai_grading_runs_queue_idx").on(
+      table.status,
+      table.nextAttemptAt,
+      table.createdAt
+    ),
+  })
+);
 
-export const assessmentIntegrityEvents = sqliteTable("assessment_integrity_events", {
-  id: text("id").primaryKey(),
-  sessionId: text("session_id")
-    .notNull()
-    .references(() => assessmentSessions.id, { onDelete: "cascade" }),
-  eventType: text("event_type").notNull(),
-  occurredAt: text("occurred_at").notNull(),
-  metadataJson: text("metadata_json"),
-});
+export const assessmentIntegrityEvents = sqliteTable(
+  "assessment_integrity_events",
+  {
+    id: text("id").primaryKey(),
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => assessmentSessions.id, { onDelete: "cascade" }),
+    eventType: text("event_type").notNull(),
+    occurredAt: text("occurred_at").notNull(),
+    metadataJson: text("metadata_json"),
+  },
+  (table) => ({
+    sessionOccurredIdx: index("assessment_integrity_events_session_occurred_idx").on(
+      table.sessionId,
+      table.occurredAt
+    ),
+  })
+);
 
 export const assessmentAuditLogs = sqliteTable("assessment_audit_logs", {
   id: text("id").primaryKey(),

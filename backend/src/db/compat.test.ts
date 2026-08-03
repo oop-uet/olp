@@ -69,11 +69,28 @@ describe("database compatibility", () => {
       .prepare("PRAGMA table_info(assessment_assignments)")
       .all()
       .map((row) => (row as { name: string }).name);
+    const aiRunColumns = sqlite
+      .prepare("PRAGMA table_info(assessment_ai_grading_runs)")
+      .all()
+      .map((row) => (row as { name: string }).name);
+    const assessmentIndexes = sqlite
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'assessment_%'"
+      )
+      .all()
+      .map((row) => (row as { name: string }).name);
 
     expect(tables).toEqual(ASSESSMENT_TABLES);
     expect(assignment.isAssessment).toBe(0);
     expect(assessmentColumns).toContain("shuffle_questions");
     expect(sessionColumns).toContain("question_order_json");
     expect(assessmentAssignmentColumns).toContain("week");
+    expect(aiRunColumns).toEqual(expect.arrayContaining(["next_attempt_at", "locked_until"]));
+    expect(assessmentIndexes).toEqual(
+      expect.arrayContaining([
+        "assessment_ai_grading_runs_queue_idx",
+        "assessment_integrity_events_session_occurred_idx",
+      ])
+    );
   });
 });
