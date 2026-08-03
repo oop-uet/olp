@@ -166,8 +166,14 @@ export function AssessmentPromptContent({
             <div
               key={blockIdx}
               className="my-3 overflow-x-auto rounded-xl border border-slate-800 bg-slate-900 p-4 font-mono text-xs leading-relaxed text-slate-100 shadow-sm"
+              {...(protectedText ? { 'data-assessment-protected-text': 'true' } : {})}
             >
-              <pre className="font-mono whitespace-pre-wrap">{block.lines.join('\n')}</pre>
+              <pre
+                className="font-mono whitespace-pre-wrap"
+                {...(protectedText ? { 'data-assessment-protected-text': 'true' } : {})}
+              >
+                {block.lines.join('\n')}
+              </pre>
             </div>
           )
         }
@@ -176,7 +182,11 @@ export function AssessmentPromptContent({
         if (!textContent) return null
 
         return (
-          <p key={blockIdx} className="text-sm font-bold text-slate-900 leading-relaxed whitespace-pre-line">
+          <p
+            key={blockIdx}
+            className="text-sm font-bold text-slate-900 leading-relaxed whitespace-pre-line"
+            {...(protectedText ? { 'data-assessment-protected-text': 'true' } : {})}
+          >
             {renderInlineFormatting(textContent)}
           </p>
         )
