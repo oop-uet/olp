@@ -25,6 +25,7 @@ function localInputToIso(value: string) {
 interface AssignmentWindowDraft extends AssessmentAssignmentSummary {
   opensAtInput: string
   closesAtInput: string
+  durationMinutes: number
 }
 
 export function AssessmentManagerPanel() {
@@ -80,10 +81,19 @@ export function AssessmentManagerPanel() {
     setWindowDrafts(
       item.assignments.map((assignment) => ({
         ...assignment,
+        durationMinutes: assignment.durationMinutes ?? item.durationMinutes,
         maxAttempts: assignment.maxAttempts ?? 1,
         opensAtInput: isoToLocalInput(assignment.opensAt),
         closesAtInput: isoToLocalInput(assignment.closesAt),
       }))
+    )
+  }
+
+  function updateDurationMinutes(assignmentId: string, value: number) {
+    setWindowDrafts((current) =>
+      current.map((draft) =>
+        draft.id === assignmentId ? { ...draft, durationMinutes: value } : draft
+      )
     )
   }
 
@@ -116,6 +126,10 @@ export function AssessmentManagerPanel() {
       toast.error('Thời gian đóng phải sau thời gian mở.')
       return
     }
+    if (!Number.isInteger(draft.durationMinutes) || draft.durationMinutes < 1 || draft.durationMinutes > 600) {
+      toast.error('Thời gian làm bài phải là số nguyên từ 1 đến 600 phút.')
+      return
+    }
     if (!Number.isInteger(draft.maxAttempts) || draft.maxAttempts < 1 || draft.maxAttempts > 20) {
       toast.error('Số lần làm phải là số nguyên từ 1 đến 20.')
       return
@@ -126,6 +140,7 @@ export function AssessmentManagerPanel() {
       await api.put(`/api/instructor/assessments/assignments/${draft.id}/window`, {
         opensAt,
         closesAt,
+        durationMinutes: draft.durationMinutes,
         maxAttempts: draft.maxAttempts,
       })
       setItems((current) =>
@@ -136,7 +151,13 @@ export function AssessmentManagerPanel() {
                 ...item,
                 assignments: item.assignments.map((assignment) =>
                   assignment.id === draft.id
-                    ? { ...assignment, opensAt, closesAt, maxAttempts: draft.maxAttempts }
+                    ? {
+                        ...assignment,
+                        opensAt,
+                        closesAt,
+                        durationMinutes: draft.durationMinutes,
+                        maxAttempts: draft.maxAttempts,
+                      }
                     : assignment
                 ),
               }
@@ -148,7 +169,13 @@ export function AssessmentManagerPanel() {
               ...current,
               assignments: current.assignments.map((assignment) =>
                 assignment.id === draft.id
-                  ? { ...assignment, opensAt, closesAt, maxAttempts: draft.maxAttempts }
+                  ? {
+                      ...assignment,
+                      opensAt,
+                      closesAt,
+                      durationMinutes: draft.durationMinutes,
+                      maxAttempts: draft.maxAttempts,
+                    }
                   : assignment
               ),
             }
@@ -337,25 +364,43 @@ export function AssessmentManagerPanel() {
                           className="input"
                         />
                       </div>
-                    </div>
-                    <div className="mt-4 max-w-xs">
-                      <label className="label" htmlFor={`max-attempts-${draft.id}`}>
-                        Số lần làm
-                      </label>
-                      <input
-                        id={`max-attempts-${draft.id}`}
-                        type="number"
-                        min={1}
-                        max={20}
-                        step={1}
-                        required
-                        value={draft.maxAttempts}
-                        onChange={(event) =>
-                          updateMaxAttempts(draft.id, Number(event.target.value))
-                        }
-                        className="input"
-                      />
-                      <p className="mt-1 text-xs text-slate-500">Mặc định 1, tối đa 20 lượt.</p>
+                      <div>
+                        <label className="label" htmlFor={`duration-${draft.id}`}>
+                          Thời gian làm bài (phút)
+                        </label>
+                        <input
+                          id={`duration-${draft.id}`}
+                          type="number"
+                          min={1}
+                          max={600}
+                          step={1}
+                          required
+                          value={draft.durationMinutes}
+                          onChange={(event) =>
+                            updateDurationMinutes(draft.id, Number(event.target.value))
+                          }
+                          className="input"
+                        />
+                      </div>
+                      <div>
+                        <label className="label" htmlFor={`max-attempts-${draft.id}`}>
+                          Số lần làm
+                        </label>
+                        <input
+                          id={`max-attempts-${draft.id}`}
+                          type="number"
+                          min={1}
+                          max={20}
+                          step={1}
+                          required
+                          value={draft.maxAttempts}
+                          onChange={(event) =>
+                            updateMaxAttempts(draft.id, Number(event.target.value))
+                          }
+                          className="input"
+                        />
+                        <p className="mt-1 text-xs text-slate-500">Mặc định 1, tối đa 20 lượt.</p>
+                      </div>
                     </div>
                     <div className="mt-4 flex justify-end">
                       <button

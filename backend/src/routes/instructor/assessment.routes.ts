@@ -78,6 +78,7 @@ const assignSchema = z.object({
 const assignmentWindowSchema = z.object({
   opensAt: z.string().datetime(),
   closesAt: z.string().datetime(),
+  durationMinutes: z.number().int().min(1).max(600).optional(),
   maxAttempts: z.number().int().min(1).max(20).optional(),
 });
 

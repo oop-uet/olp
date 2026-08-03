@@ -357,21 +357,20 @@ function ExerciseWeekCard({
         ))}
         {assessments.map((assessment) => {
           const availability = assessmentAvailability(assessment)
-          const isCompleted = Boolean(
-            assessment.session && assessment.session.status !== 'in_progress'
-          )
+          const attemptsUsed = assessment.attemptsUsed ?? (assessment.session?.attemptNumber ?? 0)
+          const maxAttempts = assessment.maxAttempts ?? 1
           return (
             <Link
               key={assessment.id}
               to={`/student/assessments/${assessment.id}`}
-              className="group flex items-center justify-between gap-4 border-l-4 border-cyan-500 bg-cyan-50/20 px-5 py-4 transition hover:bg-cyan-50/60"
+              className="card group flex flex-col justify-between gap-3 border-l-4 border-l-cyan-500 bg-cyan-50/10 p-4 transition hover:-translate-y-0.5 hover:shadow-md hover:bg-cyan-50/30 sm:flex-row sm:items-center"
             >
-              <div className="min-w-0 flex-1 space-y-1">
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
-                  {isCompleted ? (
-                    <span className="text-emerald-500 text-sm font-bold" title="Đã nộp bài">✓</span>
-                  ) : (
-                    <span className="text-slate-300 text-sm font-bold">•</span>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  {assessment.sectionName && (
+                    <span className="rounded bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">
+                      {assessment.sectionName}
+                    </span>
                   )}
                   <span className="truncate text-sm font-bold text-slate-800 transition-colors group-hover:text-primary">
                     {assessment.title}
@@ -382,7 +381,7 @@ function ExerciseWeekCard({
                 </div>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-5 text-xs font-semibold text-slate-400">
                   <span>
-                    {assessment.durationMinutes} phút · {assessment.totalPoints} điểm · {assessment.attemptsUsed}/{assessment.maxAttempts} lượt · Đóng lúc{' '}
+                    {assessment.durationMinutes} phút · {assessment.totalPoints} điểm · {attemptsUsed}/{maxAttempts} lượt · Đóng lúc{' '}
                     {formatDeadline(assessment.closesAt)}
                   </span>
                 </div>

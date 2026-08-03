@@ -64,6 +64,8 @@ export function StudentAssessmentListPage() {
           {items.map((item) => {
             const availability = timeStatus(item)
             const progress = sessionStatus(item)
+            const attemptsUsed = item.attemptsUsed ?? (item.session?.attemptNumber ?? 0)
+            const maxAttempts = item.maxAttempts ?? 1
             return (
               <Link
                 key={item.id}
@@ -83,7 +85,7 @@ export function StudentAssessmentListPage() {
                 <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-slate-600">
                   <div><span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Thời lượng</span><p className="font-bold text-slate-800">{item.durationMinutes} phút</p></div>
                   <div><span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Tổng điểm</span><p className="font-bold text-slate-800">{item.totalPoints}</p></div>
-                  <div><span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Lượt làm</span><p className="font-bold text-slate-800">{item.attemptsUsed}/{item.maxAttempts}</p></div>
+                  <div><span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Lượt làm</span><p className="font-bold text-slate-800">{attemptsUsed}/{maxAttempts}</p></div>
                   <div><span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Thời gian thi</span><p className="font-semibold text-slate-700">{new Date(item.opensAt).toLocaleString('vi-VN')} - {new Date(item.closesAt).toLocaleString('vi-VN')}</p></div>
                 </div>
                 {progress && (

@@ -627,7 +627,7 @@ export async function assignAssessment(
 
 export async function updateAssessmentAssignmentWindow(
   assignmentId: string,
-  input: { opensAt: string; closesAt: string; maxAttempts?: number },
+  input: { opensAt: string; closesAt: string; durationMinutes?: number; maxAttempts?: number },
   instructorId: string,
   database: Database = defaultDb
 ) {
@@ -645,6 +645,10 @@ export async function updateAssessmentAssignmentWindow(
   const closesAt = new Date(input.closesAt);
   if (Number.isNaN(opensAt.getTime()) || Number.isNaN(closesAt.getTime()) || closesAt <= opensAt) {
     return serviceError("VALIDATION_ERROR", "Thời gian đóng phải sau thời gian mở.");
+  }
+  const durationMinutes = input.durationMinutes ?? assignment.durationMinutes;
+  if (!Number.isInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 600) {
+    return serviceError("VALIDATION_ERROR", "Thời gian làm bài phải là số nguyên từ 1 đến 600 phút.");
   }
   const maxAttempts = input.maxAttempts ?? assignment.maxAttempts;
   if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 20) {
@@ -668,6 +672,7 @@ export async function updateAssessmentAssignmentWindow(
     .set({
       opensAt: opensAt.toISOString(),
       closesAt: closesAt.toISOString(),
+      durationMinutes,
       maxAttempts,
     })
     .where(eq(assessmentAssignments.id, assignmentId))
@@ -750,8 +755,7 @@ export async function listStudentAssessments(
       opensAt: row.assignment.opensAt,
       closesAt: row.assignment.closesAt,
       durationMinutes: row.assignment.durationMinutes,
-      totalPoints: row.assessment.totalPoints,
-      maxAttempts: row.assignment.maxAttempts,
+      maxAttempts: row.assignment.maxAttempts ?? 1,
       attemptsUsed: session?.attemptNumber ?? 0,
       week: row.assignment.week ?? null,
       session: session
