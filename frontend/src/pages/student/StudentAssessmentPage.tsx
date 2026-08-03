@@ -1068,7 +1068,9 @@ function QuestionInput({
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs font-black text-teal-800">
             {number}
           </span>
-          <AssessmentPromptContent text={question.prompt} className="min-w-0 flex-1" />
+          <div className="min-w-0 flex-1" data-assessment-protected-text="true">
+            <AssessmentPromptContent text={question.prompt} className="min-w-0 flex-1" />
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <button

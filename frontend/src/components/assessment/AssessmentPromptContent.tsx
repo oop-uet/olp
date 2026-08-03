@@ -128,7 +128,14 @@ export function AssessmentPromptContent({
       )
     }
 
-    return <div className={`space-y-1.5 ${className}`}>{elements}</div>
+    return (
+      <div
+        className={`space-y-1.5 ${className}`}
+        {...(protectedText ? { 'data-assessment-protected-text': 'true' } : {})}
+      >
+        {elements}
+      </div>
+    )
   }
 
   // 2. Auto-detect line-by-line code blocks vs text paragraphs
