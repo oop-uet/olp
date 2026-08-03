@@ -1017,12 +1017,7 @@ export function StudentAssessmentPage() {
               </div>
               {section.introContent && (
                 <div className="p-5 pb-0">
-                  <pre
-                    className="overflow-x-auto whitespace-pre-wrap rounded-xl border border-slate-800 bg-slate-900 p-4 font-mono text-xs leading-6 text-emerald-400 shadow-inner"
-                    data-assessment-protected-text="true"
-                  >
-                    {assessmentText(section.introContent)}
-                  </pre>
+                  <AssessmentPromptContent text={section.introContent} />
                 </div>
               )}
               <div className="divide-y divide-slate-100">
@@ -1087,7 +1082,7 @@ function QuestionInput({
             <span aria-hidden="true">⚑</span>
             {flagged ? 'Đã gắn cờ' : 'Gắn cờ'}
           </button>
-          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600">
+          <span className="inline-flex items-center rounded-md bg-cyan-500/10 text-cyan-800 border border-cyan-500/20 px-2.5 py-1 text-xs font-extrabold shadow-2xs">
             {question.points} điểm
           </span>
         </div>
@@ -1344,9 +1339,9 @@ function AssessmentSubmissionReview({
             <span className="badge-blue">{formatAssessmentScore(section.points)} điểm</span>
           </div>
           {section.introContent && (
-            <pre className="m-5 overflow-x-auto whitespace-pre-wrap rounded-xl bg-slate-900 p-4 font-mono text-xs leading-6 text-emerald-300">
-              {assessmentText(section.introContent)}
-            </pre>
+            <div className="p-5 pb-0">
+              <AssessmentPromptContent text={section.introContent} protectedText={false} />
+            </div>
           )}
           <div className="divide-y divide-slate-100">
             {section.questions.map((question, index) => (
@@ -1369,7 +1364,7 @@ function ReviewQuestionCard({ question, number }: { question: ReviewQuestion; nu
           </span>
           <AssessmentPromptContent text={question.prompt} className="min-w-0 flex-1" />
         </div>
-        <span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
+        <span className="inline-flex shrink-0 items-center rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 text-xs font-extrabold shadow-2xs">
           {formatAssessmentScore(question.awardedPoints)}/{formatAssessmentScore(question.points)} điểm
         </span>
       </div>

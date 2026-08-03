@@ -16,7 +16,7 @@ function isLikelyCodeLine(line: string): boolean {
 
   // Explicit code statements / keywords in Java/OOP
   if (
-    /^(class\s|interface\s|enum\s|public\s|private\s|protected\s|static\s|void\s|int\s|double\s|float\s|boolean\s|char\s|String\s|import\s|package\s|for\s*\(|while\s*\(|if\s*\(|switch\s*\(|try\s*\{|catch\s*\(|new\s|return\s|@Override)/.test(
+    /^(abstract\s|class\s|interface\s|enum\s|public\s|private\s|protected\s|static\s|void\s|int\s|double\s|float\s|boolean\s|char\s|String\s|import\s|package\s|for\s*\(|while\s*\(|if\s*\(|switch\s*\(|try\s*\{|catch\s*\(|new\s|return\s|@Override)/.test(
       trimmed
     )
   ) {
@@ -45,6 +45,57 @@ function isLikelyCodeLine(line: string): boolean {
   }
 
   return false
+}
+
+function renderHighlightedCode(codeText: string): ReactNode[] {
+  const lines = codeText.split(/\r?\n/)
+  return lines.map((line, lineIdx) => {
+    const trimmed = line.trim()
+    if (trimmed.startsWith('//') || trimmed.startsWith('/*') || trimmed.startsWith('*')) {
+      return (
+        <div key={lineIdx} className="text-slate-500 italic">
+          {line}
+        </div>
+      )
+    }
+
+    const tokens = line.split(
+      /("[^"]*"|'[^']*')|\b(abstract|class|extends|implements|interface|enum|public|private|protected|static|final|void|int|double|float|boolean|char|String|long|short|byte|new|return|this|super|if|else|for|while|switch|case|default|break|continue|try|catch|finally|throw|throws|true|false|null)\b/g
+    )
+
+    return (
+      <div key={lineIdx}>
+        {tokens.filter(Boolean).map((token, tokIdx) => {
+          if (
+            (token.startsWith('"') && token.endsWith('"')) ||
+            (token.startsWith("'") && token.endsWith("'"))
+          ) {
+            return (
+              <span key={tokIdx} className="text-amber-300 font-medium">
+                {token}
+              </span>
+            )
+          }
+          if (
+            /^(abstract|class|extends|implements|interface|enum|public|private|protected|static|final|void|int|double|float|boolean|char|String|long|short|byte|new|return|this|super|if|else|for|while|switch|case|default|break|continue|try|catch|finally|throw|throws|true|false|null)$/.test(
+              token
+            )
+          ) {
+            return (
+              <span key={tokIdx} className="font-bold text-cyan-400">
+                {token}
+              </span>
+            )
+          }
+          return (
+            <span key={tokIdx} className="text-slate-100">
+              {token}
+            </span>
+          )
+        })}
+      </div>
+    )
+  })
 }
 
 function renderInlineFormatting(text: string): ReactNode[] {
@@ -107,10 +158,15 @@ export function AssessmentPromptContent({
       elements.push(
         <div
           key={`code-${match.index}`}
-          className="my-3 overflow-x-auto rounded-xl border border-slate-800 bg-slate-900 p-4 font-mono text-xs leading-relaxed text-slate-100 shadow-sm"
+          className="my-3 overflow-x-auto rounded-xl border border-slate-800 bg-slate-950 p-4 font-mono text-xs leading-6 text-slate-100 shadow-inner"
           {...(protectedText ? { 'data-assessment-protected-text': 'true' } : {})}
         >
-          <pre className="font-mono">{codeContent}</pre>
+          <pre
+            className="font-mono whitespace-pre"
+            {...(protectedText ? { 'data-assessment-protected-text': 'true' } : {})}
+          >
+            {renderHighlightedCode(codeContent)}
+          </pre>
         </div>
       )
 
@@ -165,14 +221,14 @@ export function AssessmentPromptContent({
           return (
             <div
               key={blockIdx}
-              className="my-3 overflow-x-auto rounded-xl border border-slate-800 bg-slate-900 p-4 font-mono text-xs leading-relaxed text-slate-100 shadow-sm"
+              className="my-3 overflow-x-auto rounded-xl border border-slate-800 bg-slate-950 p-4 font-mono text-xs leading-6 text-slate-100 shadow-inner"
               {...(protectedText ? { 'data-assessment-protected-text': 'true' } : {})}
             >
               <pre
                 className="font-mono whitespace-pre-wrap"
                 {...(protectedText ? { 'data-assessment-protected-text': 'true' } : {})}
               >
-                {block.lines.join('\n')}
+                {renderHighlightedCode(block.lines.join('\n'))}
               </pre>
             </div>
           )
