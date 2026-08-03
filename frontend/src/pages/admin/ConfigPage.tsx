@@ -942,7 +942,7 @@ export function ConfigPage() {
                         />
                       </button>
                       <span className="select-none text-xs font-bold text-slate-700">
-                        {draft.enabled ? 'Đang bật' : 'Đang tắt'}
+                        {draft.enabled ? 'Bật' : 'Tắt'}
                       </span>
                     </div>
 
