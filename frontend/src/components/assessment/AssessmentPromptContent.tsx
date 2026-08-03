@@ -16,7 +16,7 @@ function isLikelyCodeLine(line: string): boolean {
 
   // Explicit code statements / keywords in Java/OOP
   if (
-    /^(abstract\s|class\s|interface\s|enum\s|public\s|private\s|protected\s|static\s|void\s|int\s|double\s|float\s|boolean\s|char\s|String\s|import\s|package\s|for\s*\(|while\s*\(|if\s*\(|switch\s*\(|try\s*\{|catch\s*\(|new\s|return\s|@Override)/.test(
+    /^(class\s|interface\s|enum\s|public\s|private\s|protected\s|static\s|void\s|int\s|double\s|float\s|boolean\s|char\s|String\s|import\s|package\s|for\s*\(|while\s*\(|if\s*\(|switch\s*\(|try\s*\{|catch\s*\(|new\s|return\s|@Override)/.test(
       trimmed
     )
   ) {
@@ -47,55 +47,112 @@ function isLikelyCodeLine(line: string): boolean {
   return false
 }
 
-function renderHighlightedCode(codeText: string): ReactNode[] {
-  const lines = codeText.split(/\r?\n/)
-  return lines.map((line, lineIdx) => {
-    const trimmed = line.trim()
-    if (trimmed.startsWith('//') || trimmed.startsWith('/*') || trimmed.startsWith('*')) {
-      return (
-        <div key={lineIdx} className="text-slate-500 italic">
-          {line}
-        </div>
+function renderHighlightedJavaLine(line: string, key: number | string): ReactNode {
+  const regex =
+    /(\/\/.*|\/\*[\s\S]*?\*\/|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\b(?:abstract|assert|boolean|break|byte|case|catch|char|class|const|continue|default|do|double|else|enum|extends|final|finally|float|for|goto|if|implements|import|instanceof|int|interface|long|native|new|package|private|protected|public|return|short|static|strictfp|super|switch|synchronized|this|throw|throws|transient|try|void|volatile|while|record|sealed|non-sealed|permits)\b|\b(?:System\.out\.println|System\.out\.print|System\.err\.println|System\.out|System|String|Object|Integer|Double|Float|Boolean|Math|Scanner|List|ArrayList|Map|HashMap|Set|HashSet|Exception|Override)\b|\b\d+(?:\.\d+)?\b)/g
+
+  const tokens: ReactNode[] = []
+  let lastIdx = 0
+  let match: RegExpExecArray | null
+
+  regex.lastIndex = 0
+  while ((match = regex.exec(line)) !== null) {
+    if (match.index > lastIdx) {
+      tokens.push(
+        <span key={tokens.length} className="text-slate-200">
+          {line.slice(lastIdx, match.index)}
+        </span>
       )
     }
 
-    const tokens = line.split(
-      /("[^"]*"|'[^']*')|\b(abstract|class|extends|implements|interface|enum|public|private|protected|static|final|void|int|double|float|boolean|char|String|long|short|byte|new|return|this|super|if|else|for|while|switch|case|default|break|continue|try|catch|finally|throw|throws|true|false|null)\b/g
-    )
+    const token = match[0]
+    if (token.startsWith('//') || token.startsWith('/*')) {
+      tokens.push(
+        <span key={tokens.length} className="text-slate-400 italic font-normal">
+          {token}
+        </span>
+      )
+    } else if (token.startsWith('"') || token.startsWith("'")) {
+      tokens.push(
+        <span key={tokens.length} className="text-amber-300 font-medium">
+          {token}
+        </span>
+      )
+    } else if (/^\d/.test(token)) {
+      tokens.push(
+        <span key={tokens.length} className="text-purple-300 font-bold">
+          {token}
+        </span>
+      )
+    } else if (
+      [
+        'System.out.println',
+        'System.out.print',
+        'System.err.println',
+        'System.out',
+        'System',
+        'String',
+        'Object',
+        'Integer',
+        'Double',
+        'Float',
+        'Boolean',
+        'Math',
+        'Scanner',
+        'List',
+        'ArrayList',
+        'Map',
+        'HashMap',
+        'Set',
+        'HashSet',
+        'Exception',
+        'Override',
+      ].includes(token)
+    ) {
+      tokens.push(
+        <span key={tokens.length} className="text-cyan-300 font-bold">
+          {token}
+        </span>
+      )
+    } else {
+      // Keyword
+      tokens.push(
+        <span key={tokens.length} className="text-emerald-400 font-black">
+          {token}
+        </span>
+      )
+    }
 
-    return (
-      <div key={lineIdx}>
-        {tokens.filter(Boolean).map((token, tokIdx) => {
-          if (
-            (token.startsWith('"') && token.endsWith('"')) ||
-            (token.startsWith("'") && token.endsWith("'"))
-          ) {
-            return (
-              <span key={tokIdx} className="text-amber-300 font-medium">
-                {token}
-              </span>
-            )
-          }
-          if (
-            /^(abstract|class|extends|implements|interface|enum|public|private|protected|static|final|void|int|double|float|boolean|char|String|long|short|byte|new|return|this|super|if|else|for|while|switch|case|default|break|continue|try|catch|finally|throw|throws|true|false|null)$/.test(
-              token
-            )
-          ) {
-            return (
-              <span key={tokIdx} className="font-bold text-cyan-400">
-                {token}
-              </span>
-            )
-          }
-          return (
-            <span key={tokIdx} className="text-slate-100">
-              {token}
-            </span>
-          )
-        })}
-      </div>
+    lastIdx = match.index + token.length
+  }
+
+  if (lastIdx < line.length) {
+    tokens.push(
+      <span key={tokens.length} className="text-slate-200">
+        {line.slice(lastIdx)}
+      </span>
     )
-  })
+  }
+
+  return <div key={key}>{tokens.length > 0 ? tokens : ' '}</div>
+}
+
+function renderCodeBlock(codeText: string, key: number | string, protectedText = true): ReactNode {
+  const lines = codeText.split(/\r?\n/)
+  return (
+    <div
+      key={key}
+      className="my-3 overflow-x-auto rounded-2xl border border-slate-800/80 bg-[#0b132b] p-4 font-mono text-xs leading-relaxed text-slate-100 shadow-md"
+      {...(protectedText ? { 'data-assessment-protected-text': 'true' } : {})}
+    >
+      <pre
+        className="font-mono whitespace-pre"
+        {...(protectedText ? { 'data-assessment-protected-text': 'true' } : {})}
+      >
+        {lines.map((line, idx) => renderHighlightedJavaLine(line, idx))}
+      </pre>
+    </div>
+  )
 }
 
 function renderInlineFormatting(text: string): ReactNode[] {
@@ -155,20 +212,7 @@ export function AssessmentPromptContent({
       }
 
       const codeContent = match[1].trimEnd()
-      elements.push(
-        <div
-          key={`code-${match.index}`}
-          className="my-3 overflow-x-auto rounded-xl border border-slate-800 bg-slate-950 p-4 font-mono text-xs leading-6 text-slate-100 shadow-inner"
-          {...(protectedText ? { 'data-assessment-protected-text': 'true' } : {})}
-        >
-          <pre
-            className="font-mono whitespace-pre"
-            {...(protectedText ? { 'data-assessment-protected-text': 'true' } : {})}
-          >
-            {renderHighlightedCode(codeContent)}
-          </pre>
-        </div>
-      )
+      elements.push(renderCodeBlock(codeContent, `code-${match.index}`, protectedText))
 
       lastIndex = match.index + match[0].length
     }
@@ -218,20 +262,7 @@ export function AssessmentPromptContent({
     >
       {blocks.map((block, blockIdx) => {
         if (block.type === 'code') {
-          return (
-            <div
-              key={blockIdx}
-              className="my-3 overflow-x-auto rounded-xl border border-slate-800 bg-slate-950 p-4 font-mono text-xs leading-6 text-slate-100 shadow-inner"
-              {...(protectedText ? { 'data-assessment-protected-text': 'true' } : {})}
-            >
-              <pre
-                className="font-mono whitespace-pre-wrap"
-                {...(protectedText ? { 'data-assessment-protected-text': 'true' } : {})}
-              >
-                {renderHighlightedCode(block.lines.join('\n'))}
-              </pre>
-            </div>
-          )
+          return renderCodeBlock(block.lines.join('\n'), blockIdx, protectedText)
         }
 
         const textContent = block.lines.join('\n').trim()
