@@ -66,6 +66,7 @@ export function StudentAssessmentListPage() {
             const progress = sessionStatus(item)
             const attemptsUsed = item.attemptsUsed ?? (item.session?.attemptNumber ?? 0)
             const maxAttempts = item.maxAttempts ?? 1
+            const isCompleted = Boolean(item.session && item.session.status !== 'in_progress')
             return (
               <Link
                 key={item.id}
@@ -76,6 +77,11 @@ export function StudentAssessmentListPage() {
                   <div>
                     <p className="text-xs font-bold uppercase tracking-wide text-cyan-700">{item.sectionName}</p>
                     <h2 className="mt-1 flex flex-wrap items-center gap-2 text-base font-extrabold text-slate-900 group-hover:text-primary transition-colors">
+                      {isCompleted ? (
+                        <span className="text-emerald-500 text-sm font-bold" title="Đã nộp bài">✓</span>
+                      ) : (
+                        <span className="text-slate-300 text-sm font-bold">•</span>
+                      )}
                       <span>{item.title}</span>
                       <span className="inline-flex items-center rounded-md bg-cyan-500 px-2 py-0.5 text-[10px] font-black text-white shadow-2xs">KT</span>
                     </h2>
