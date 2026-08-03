@@ -164,169 +164,245 @@ export function AssessmentReviewPage() {
   }
 
   if (loading) return <PageLoader label="Đang tải bài tự luận..." />
-  if (!data) return <div className="card p-8 text-center text-slate-500">Không tìm thấy bài nộp.</div>
+  if (!data) return <div className="card p-8 text-center text-slate-500 font-semibold">Không tìm thấy bài nộp.</div>
   const integrityEvents = data.integrityEvents ?? []
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <Link
-            to={`/instructor/assessment-assignments/${data.session.assignmentId}/submissions`}
-            className="text-sm font-semibold text-primary hover:underline"
-          >
-            ← Danh sách bài nộp
-          </Link>
-          <h1 className="mt-2 text-2xl font-bold text-slate-900">{data.assessment.title}</h1>
-          <p className="text-sm text-slate-500">
-            {data.student.fullName || data.student.username} · {data.student.username} · Lượt {data.session.attemptNumber}
+      <Link
+        to={`/instructor/assessment-assignments/${data.session.assignmentId}/submissions`}
+        className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-teal-700 hover:text-teal-800 transition-colors"
+      >
+        <span>←</span> Quay lại danh sách bài nộp
+      </Link>
+
+      {/* Signature Gradient Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-teal-700 via-cyan-700 to-blue-800 p-6 sm:p-8 text-white shadow-md border-b-4 border-secondary flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="absolute right-0 top-0 h-44 w-44 translate-x-12 -translate-y-12 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+        <div className="relative z-10 space-y-1.5 min-w-0">
+          <span className="inline-block rounded-full bg-white/15 px-3 py-0.5 text-[11px] font-black uppercase tracking-wider text-cyan-100 backdrop-blur-xs">
+            Chấm & Duyệt bài làm
+          </span>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight truncate">
+            {data.assessment.title}
+          </h1>
+          <p className="text-xs font-bold text-cyan-100/90 mt-1">
+            Sinh viên: <span className="text-white">{data.student.fullName || data.student.username}</span> ({data.student.username}) · Lượt làm #{data.session.attemptNumber}
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-2 text-center">
-          <ScoreBox label="Dự kiến" value={data.session.predictedScore} total={data.assessment.totalPoints} tone="blue" />
-          <ScoreBox label="Chính thức" value={data.session.officialScore} total={data.assessment.totalPoints} tone="green" />
+
+        {/* Header Scores */}
+        <div className="relative z-10 flex items-center gap-3 shrink-0 self-start sm:self-center">
+          <div className="rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-center backdrop-blur-xs">
+            <p className="text-[10px] font-extrabold uppercase text-cyan-200">Điểm dự kiến</p>
+            <p className="text-lg font-black text-white">{data.session.predictedScore === null ? '—' : `${data.session.predictedScore}/${data.assessment.totalPoints}`}</p>
+          </div>
+          <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/20 px-4 py-2 text-center backdrop-blur-xs">
+            <p className="text-[10px] font-extrabold uppercase text-emerald-200">Điểm chính thức</p>
+            <p className="text-lg font-black text-emerald-300">{data.session.officialScore === null ? '—' : `${data.session.officialScore}/${data.assessment.totalPoints}`}</p>
+          </div>
         </div>
       </div>
 
-      <div className="rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-800">
-        Điểm AI chỉ là gợi ý. Chọn <strong>Chấp nhận gợi ý</strong> hoặc sửa điểm/feedback rồi
-        chọn <strong>Lưu điểm GV</strong>. Khi tất cả câu tự luận đã duyệt, tổng điểm tự động
-        trở thành điểm chính thức.
-      </div>
-
-      <div className={`rounded-xl border p-4 ${integrityEvents.length > 0 ? 'border-amber-200 bg-amber-50' : 'border-emerald-200 bg-emerald-50'}`}>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className={`font-black ${integrityEvents.length > 0 ? 'text-amber-900' : 'text-emerald-900'}`}>
-            Giám sát phiên thi
-          </p>
-          <span className={integrityEvents.length > 0 ? 'badge-yellow' : 'badge-green'}>
-            {integrityEvents.length} cảnh báo
+      {/* Session Monitoring Box */}
+      <div className={`rounded-xl border p-4 transition-all ${integrityEvents.length > 0 ? 'border-amber-200 bg-amber-50/80' : 'border-slate-200/80 bg-slate-50/70'}`}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-slate-800">Giám sát phiên thi</span>
+            <span className={integrityEvents.length > 0 ? 'badge-yellow font-bold' : 'badge-green font-bold'}>
+              {integrityEvents.length > 0 ? `${integrityEvents.length} cảnh báo` : 'An toàn (0 cảnh báo)'}
+            </span>
+          </div>
+          <span className="text-xs font-semibold text-slate-500">
+            {integrityEvents.length === 0 ? 'Không ghi nhận thao tác bất thường nào trong quá trình thi.' : 'Có ghi nhận các cảnh báo gián đoạn.'}
           </span>
         </div>
-        {integrityEvents.length > 0 ? (
-          <ul className="mt-3 space-y-2 text-sm text-amber-950">
+        {integrityEvents.length > 0 && (
+          <ul className="mt-3 space-y-1.5 text-xs text-amber-950 border-t border-amber-200/60 pt-3">
             {integrityEvents.map((event) => (
-              <li key={event.id} className="flex flex-wrap justify-between gap-2 rounded-lg bg-white/70 px-3 py-2">
-                <span className="font-semibold">{integrityEventLabels[event.eventType] ?? event.eventType}</span>
-                <time className="text-xs text-amber-700">{new Date(event.occurredAt).toLocaleString('vi-VN')}</time>
+              <li key={event.id} className="flex items-center justify-between rounded-md bg-white/80 px-3 py-1.5 border border-amber-200/50">
+                <span className="font-bold text-slate-800">{integrityEventLabels[event.eventType] ?? event.eventType}</span>
+                <time className="font-semibold text-slate-500">{new Date(event.occurredAt).toLocaleString('vi-VN')}</time>
               </li>
             ))}
           </ul>
-        ) : (
-          <p className="mt-2 text-sm text-emerald-800">Không ghi nhận thao tác vi phạm trong phiên làm bài.</p>
         )}
       </div>
 
+      {/* Subjective Questions Grading Stack */}
       {subjective.map((answer, index) => {
         const form = draftScores[answer.id] ?? { points: 0, feedback: '', reason: '' }
         const hasSuggestion = answer.aiSuggestedPoints !== null
         const reviewed = ['human_accepted', 'human_adjusted', 'manually_graded'].includes(answer.gradingState)
         return (
-          <article key={answer.id} className="card overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-5 py-4">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Câu tự luận {index + 1}</p>
-                <h2 className="mt-1 font-bold text-slate-900">{answer.question.prompt}</h2>
+          <article key={answer.id} className="card overflow-hidden border border-slate-200/90 shadow-sm">
+            {/* Question Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/80 px-5 py-3.5">
+              <div className="flex items-center gap-2.5">
+                <span className="rounded-md bg-teal-700 px-2 py-0.5 text-xs font-black text-white">
+                  Câu {index + 1}
+                </span>
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tự luận</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className={reviewed ? 'badge-green' : hasSuggestion ? 'badge-yellow' : 'badge-red'}>
+                <span className={reviewed ? 'badge-green font-bold' : hasSuggestion ? 'badge-yellow font-bold' : 'badge-red font-bold'}>
                   {reviewed ? 'Đã duyệt' : hasSuggestion ? 'Chờ duyệt' : 'Cần chấm tay'}
                 </span>
-                <span className="badge-blue">Tối đa {answer.question.points}</span>
+                <span className="badge-blue font-bold">Tối đa {answer.question.points} điểm</span>
               </div>
             </div>
-            <div className="grid gap-5 p-5 lg:grid-cols-2">
-              <div className="space-y-4">
-                <div>
-                  <p className="label">Bài làm sinh viên</p>
-                  <pre className="mt-2 min-h-28 whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-950 p-4 font-mono text-xs leading-6 text-slate-100">
-                    {answerText(answer)}
-                  </pre>
-                </div>
-                <div>
-                  <p className="label">Đáp án gợi ý</p>
-                  <div className="mt-2 whitespace-pre-wrap rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-950">
-                    {answer.question.referenceAnswer || 'Không có đáp án gợi ý.'}
-                  </div>
-                </div>
-                <div>
-                  <p className="label">Rubric</p>
-                  <ul className="mt-2 divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
-                    {(answer.question.rubric ?? []).map((criterion) => (
-                      <li key={criterion.id} className="flex justify-between gap-3 px-3 py-2 text-sm">
-                        <span>{criterion.criterion}</span>
-                        <strong>{criterion.points}đ</strong>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+
+            <div className="p-5 space-y-4">
+              {/* Question Text */}
+              <div className="rounded-xl border border-slate-200/80 bg-slate-50/50 p-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Đề bài</p>
+                <p className="text-sm font-bold text-slate-900 leading-relaxed">{answer.question.prompt}</p>
               </div>
 
-              <div className="space-y-4">
-                <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
-                  <div className="flex items-center justify-between">
-                    <p className="font-bold text-blue-900">Gợi ý từ LLM</p>
-                    {answer.aiConfidence && <span className="badge-blue">Tin cậy: {answer.aiConfidence}</span>}
+              {/* Grid: Left (Answer & Rubric) vs Right (Grading & AI) */}
+              <div className="grid gap-5 lg:grid-cols-2 items-start">
+                {/* Left Column: Student Answer, Reference Answer & Rubric */}
+                <div className="space-y-4">
+                  {/* Student Answer */}
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1.5">
+                      Bài làm sinh viên
+                    </label>
+                    <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 font-mono text-xs leading-relaxed text-slate-100 max-h-80 overflow-y-auto whitespace-pre-wrap">
+                      {answerText(answer)}
+                    </div>
                   </div>
-                  <p className="mt-3 text-3xl font-black text-blue-800">
-                    {answer.aiSuggestedPoints === null ? 'Đang chờ' : `${answer.aiSuggestedPoints}/${answer.question.points}`}
-                  </p>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-blue-900">
-                    {answer.aiFeedback || 'Chưa có feedback từ AI.'}
-                  </p>
-                  {answer.aiCriteria.length > 0 && (
-                    <ul className="mt-3 space-y-2 border-t border-blue-200 pt-3 text-xs text-blue-950">
-                      {answer.aiCriteria.map((criterion) => {
-                        const rubric = answer.question.rubric.find((item) => item.id === criterion.criterionId)
-                        return (
-                          <li key={criterion.criterionId}>
-                            <div className="flex justify-between gap-3 font-bold">
-                              <span>{rubric?.criterion ?? criterion.criterionId}</span>
-                              <span>{criterion.awardedPoints}/{rubric?.points ?? '—'}</span>
-                            </div>
-                            <p className="mt-1 text-blue-800">Bằng chứng: {criterion.evidence}</p>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  )}
-                  {answer.latestAiRun && ['queued', 'running'].includes(answer.latestAiRun.status) && (
-                    <p className="mt-3 rounded-md bg-white/70 px-3 py-2 text-xs font-bold text-blue-700">
-                      AI đang chấm lại; điểm chính thức hiện tại vẫn được giữ nguyên.
-                    </p>
-                  )}
-                  {answer.latestAiRun?.status === 'failed' && (
-                    <p className="mt-3 rounded-md bg-rose-50 px-3 py-2 text-xs text-rose-700">
-                      AI chưa chấm được: {answer.latestAiRun.errorMessage || answer.latestAiRun.errorCode}. GV vẫn có thể chấm tay.
-                    </p>
+
+                  {/* Reference Answer */}
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1.5">
+                      Đáp án gợi ý
+                    </label>
+                    <div className="rounded-xl border-l-4 border-l-teal-500 border border-slate-200 bg-teal-50/20 p-4 text-xs font-medium leading-relaxed text-slate-800 whitespace-pre-wrap">
+                      {answer.question.referenceAnswer || 'Không có đáp án gợi ý.'}
+                    </div>
+                  </div>
+
+                  {/* Rubric */}
+                  {answer.question.rubric && answer.question.rubric.length > 0 && (
+                    <div>
+                      <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1.5">
+                        Rubric chấm điểm
+                      </label>
+                      <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
+                        <table className="min-w-full divide-y divide-slate-100 text-xs">
+                          <thead className="bg-slate-50 text-slate-500 font-bold">
+                            <tr>
+                              <th className="px-3.5 py-2 text-left">Tiêu chí</th>
+                              <th className="px-3.5 py-2 text-right w-20">Điểm</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-slate-700">
+                            {answer.question.rubric.map((criterion) => (
+                              <tr key={criterion.id}>
+                                <td className="px-3.5 py-2 font-medium">{criterion.criterion}</td>
+                                <td className="px-3.5 py-2 text-right font-black text-slate-900">{criterion.points}đ</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
                   )}
                 </div>
 
-                <div className="rounded-xl border border-slate-200 p-4">
-                  <p className="font-bold text-slate-900">Điểm chính thức của giảng viên</p>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-[120px_1fr]">
-                    <label>
-                      <span className="label">Điểm</span>
-                      <input
-                        type="number"
-                        min={0}
-                        max={answer.question.points}
-                        step={0.05}
-                        className="input mt-1"
-                        value={form.points}
-                        onChange={(event) =>
-                          setDraftScores((value) => ({
-                            ...value,
-                            [answer.id]: { ...form, points: Number(event.target.value) },
-                          }))
-                        }
-                      />
-                    </label>
-                    <label>
-                      <span className="label">Feedback</span>
+                {/* Right Column: AI Suggestion & Teacher Form */}
+                <div className="space-y-4">
+                  {/* AI Suggestion Card */}
+                  <div className="rounded-xl border border-cyan-200/90 bg-cyan-50/40 p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-cyan-800">Gợi ý từ AI (LLM)</span>
+                      {answer.aiConfidence && (
+                        <span className="badge-blue text-[10px] font-bold uppercase">Độ tin cậy: {answer.aiConfidence}</span>
+                      )}
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-black text-cyan-900">
+                        {answer.aiSuggestedPoints === null ? '—' : answer.aiSuggestedPoints}
+                      </span>
+                      <span className="text-sm font-bold text-cyan-700">/ {answer.question.points} điểm</span>
+                    </div>
+                    <p className="text-xs font-semibold leading-relaxed text-slate-700 bg-white/70 p-3 rounded-lg border border-cyan-100">
+                      {answer.aiFeedback || 'Chưa có nhận xét từ AI.'}
+                    </p>
+
+                    {answer.aiCriteria.length > 0 && (
+                      <div className="border-t border-cyan-200/60 pt-2.5 space-y-2 text-xs">
+                        <p className="font-bold text-cyan-900 text-[11px] uppercase tracking-wider">Chi tiết tiêu chí:</p>
+                        {answer.aiCriteria.map((criterion) => {
+                          const rubric = answer.question.rubric.find((item) => item.id === criterion.criterionId)
+                          return (
+                            <div key={criterion.criterionId} className="rounded-md bg-white p-2.5 border border-cyan-100 space-y-1">
+                              <div className="flex justify-between font-bold text-slate-800">
+                                <span>{rubric?.criterion ?? criterion.criterionId}</span>
+                                <span className="text-cyan-800">{criterion.awardedPoints}/{rubric?.points ?? '—'}đ</span>
+                              </div>
+                              <p className="text-[11px] text-slate-600">Bằng chứng: {criterion.evidence}</p>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Teacher Grading Form */}
+                  <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3.5 shadow-2xs">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-800">Chấm điểm của Giảng viên</p>
+                    
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className="label text-[11px]" htmlFor={`points-${answer.id}`}>
+                          Điểm số
+                        </label>
+                        <input
+                          id={`points-${answer.id}`}
+                          type="number"
+                          min={0}
+                          max={answer.question.points}
+                          step={0.05}
+                          className="input mt-1 h-9 text-xs font-bold text-slate-900"
+                          value={form.points}
+                          onChange={(event) =>
+                            setDraftScores((value) => ({
+                              ...value,
+                              [answer.id]: { ...form, points: Number(event.target.value) },
+                            }))
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label className="label text-[11px]" htmlFor={`reason-${answer.id}`}>
+                          Lý do điều chỉnh (nếu có)
+                        </label>
+                        <input
+                          id={`reason-${answer.id}`}
+                          className="input mt-1 h-9 text-xs"
+                          placeholder="VD: Trừ 0.1 do thiếu case..."
+                          value={form.reason}
+                          onChange={(event) =>
+                            setDraftScores((value) => ({
+                              ...value,
+                              [answer.id]: { ...form, reason: event.target.value },
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="label text-[11px]" htmlFor={`feedback-${answer.id}`}>
+                        Nhận xét của Giảng viên (Feedback)
+                      </label>
                       <textarea
-                        rows={3}
-                        className="input mt-1"
+                        id={`feedback-${answer.id}`}
+                        rows={2}
+                        className="input mt-1 text-xs"
+                        placeholder="Nhập nhận xét gửi cho sinh viên..."
                         value={form.feedback}
                         onChange={(event) =>
                           setDraftScores((value) => ({
@@ -335,46 +411,36 @@ export function AssessmentReviewPage() {
                           }))
                         }
                       />
-                    </label>
-                  </div>
-                  <label className="mt-3 block">
-                    <span className="label">Lý do điều chỉnh (để audit)</span>
-                    <input
-                      className="input mt-1"
-                      value={form.reason}
-                      onChange={(event) =>
-                        setDraftScores((value) => ({
-                          ...value,
-                          [answer.id]: { ...form, reason: event.target.value },
-                        }))
-                      }
-                      placeholder="Ví dụ: Trừ 0.1 do thiếu trường hợp ngoại lệ."
-                    />
-                  </label>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <button
-                      onClick={() => void review(answer, 'accept')}
-                      disabled={!hasSuggestion || busyId === answer.id}
-                      className="btn-primary"
-                    >
-                      Chấp nhận gợi ý
-                    </button>
-                    <button
-                      onClick={() => void review(answer, hasSuggestion ? 'adjust' : 'manual')}
-                      disabled={busyId === answer.id}
-                      className="btn-secondary"
-                    >
-                      Lưu điểm GV
-                    </button>
-                    {answer.question.gradingMode === 'llm_assisted' && (
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-3">
+                      {answer.question.gradingMode === 'llm_assisted' && (
+                        <button
+                          onClick={() => void retryAi(answer)}
+                          disabled={busyId === answer.id}
+                          className="btn-secondary h-8 px-3 text-xs font-semibold"
+                          title="Chạy lại AI"
+                        >
+                          Chạy lại AI
+                        </button>
+                      )}
                       <button
-                        onClick={() => void retryAi(answer)}
+                        onClick={() => void review(answer, hasSuggestion ? 'adjust' : 'manual')}
                         disabled={busyId === answer.id}
-                        className="btn-secondary"
+                        className="btn-secondary h-8 px-3 text-xs font-bold"
                       >
-                        Chạy lại AI
+                        Lưu điểm GV
                       </button>
-                    )}
+                      {hasSuggestion && (
+                        <button
+                          onClick={() => void review(answer, 'accept')}
+                          disabled={busyId === answer.id}
+                          className="btn-primary h-8 px-3 text-xs font-bold"
+                        >
+                          Chấp nhận gợi ý AI
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -384,17 +450,10 @@ export function AssessmentReviewPage() {
       })}
 
       {subjective.length === 0 && (
-        <div className="card p-10 text-center text-slate-500">Đề này không có câu tự luận cần duyệt.</div>
+        <div className="card p-12 text-center font-semibold text-slate-500">
+          Bài kiểm tra này không có câu hỏi tự luận nào cần duyệt.
+        </div>
       )}
-    </div>
-  )
-}
-
-function ScoreBox({ label, value, total, tone }: { label: string; value: number | null; total: number; tone: 'blue' | 'green' }) {
-  return (
-    <div className={`rounded-lg border px-4 py-2 ${tone === 'blue' ? 'border-blue-200 bg-blue-50 text-blue-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>
-      <p className="text-[10px] font-bold uppercase">{label}</p>
-      <p className="text-lg font-black">{value === null ? '—' : `${value}/${total}`}</p>
     </div>
   )
 }
