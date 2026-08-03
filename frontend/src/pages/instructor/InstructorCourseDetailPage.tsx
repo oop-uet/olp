@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useCallback, useState, useEffect, useRef } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AxiosError } from 'axios'
-import { api, cachedGet } from '../../lib/api'
+import { api, cachedGet, invalidateCachedGet } from '../../lib/api'
 import { PageLoader, Spinner } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { formatSectionDisplayName } from '../../utils/semester'
@@ -95,24 +95,12 @@ export function InstructorCourseDetailPage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false)
   const [maxPossibleScore, setMaxPossibleScore] = useState<number>(0)
+  const [assessmentVisibilitySavingId, setAssessmentVisibilitySavingId] = useState<string | null>(null)
   const settingsSaveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const pendingSettingsPatches = useRef<Record<string, AssignmentSettingsPatch>>({})
   const settingsSaveVersions = useRef<Record<string, number>>({})
 
-  useEffect(() => {
-    if (id) {
-      fetchDetail()
-      fetchLeaderboard()
-    }
-  }, [id])
-
-  useEffect(() => {
-    return () => {
-      Object.values(settingsSaveTimers.current).forEach(clearTimeout)
-    }
-  }, [])
-
-  async function fetchDetail() {
+  const fetchDetail = useCallback(async () => {
     setLoading(true)
     setAccessError(null)
     try {
@@ -134,9 +122,9 @@ export function InstructorCourseDetailPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [id])
 
-  async function fetchLeaderboard() {
+  const fetchLeaderboard = useCallback(async () => {
     if (!id) return
     setLoadingLeaderboard(true)
     try {
@@ -149,7 +137,21 @@ export function InstructorCourseDetailPage() {
     } finally {
       setLoadingLeaderboard(false)
     }
-  }
+  }, [id])
+
+  useEffect(() => {
+    if (id) {
+      void fetchDetail()
+      void fetchLeaderboard()
+    }
+  }, [fetchDetail, fetchLeaderboard, id])
+
+  useEffect(() => {
+    const timers = settingsSaveTimers.current
+    return () => {
+      Object.values(timers).forEach(clearTimeout)
+    }
+  }, [])
 
   function handleUpdateAssignmentSettings(exerciseId: string, patch: AssignmentSettingsPatch) {
     if (!id) return
@@ -205,6 +207,40 @@ export function InstructorCourseDetailPage() {
         }
       }
     }, 350)
+  }
+
+  function patchAssessmentVisibility(assessmentId: string, isVisible: boolean) {
+    setSchedule((current) => {
+      if (!current) return current
+      const patch = (assessment: SectionAssessment) =>
+        assessment.assessmentId === assessmentId ? { ...assessment, isVisible } : assessment
+      return {
+        ...current,
+        weeks: current.weeks.map((week) => ({
+          ...week,
+          assessments: week.assessments.map(patch),
+        })),
+        assessmentUnscheduled: current.assessmentUnscheduled.map(patch),
+      }
+    })
+  }
+
+  async function handleUpdateAssessmentVisibility(assessmentId: string, isVisible: boolean) {
+    if (!id || assessmentVisibilitySavingId) return
+    setAssessmentVisibilitySavingId(assessmentId)
+    patchAssessmentVisibility(assessmentId, isVisible)
+    try {
+      await api.put(`/api/instructor/sections/${id}/schedule/assessment-visibility`, {
+        assessment_id: assessmentId,
+        is_visible: isVisible,
+      })
+      invalidateCachedGet(`/api/instructor/sections/${id}/schedule`)
+    } catch {
+      patchAssessmentVisibility(assessmentId, !isVisible)
+      toast.error('Không thể lưu trạng thái hiển thị bài kiểm tra.')
+    } finally {
+      setAssessmentVisibilitySavingId(null)
+    }
   }
 
 
@@ -272,6 +308,8 @@ export function InstructorCourseDetailPage() {
               assessments={unscheduledAssessments}
               sectionId={section.id}
               onUpdateSettings={handleUpdateAssignmentSettings}
+              onUpdateAssessmentVisibility={handleUpdateAssessmentVisibility}
+              assessmentVisibilitySavingId={assessmentVisibilitySavingId}
             />
           )}
 
@@ -289,6 +327,8 @@ export function InstructorCourseDetailPage() {
                 assessments={weekAssessments}
                 sectionId={section.id}
                 onUpdateSettings={handleUpdateAssignmentSettings}
+                onUpdateAssessmentVisibility={handleUpdateAssessmentVisibility}
+                assessmentVisibilitySavingId={assessmentVisibilitySavingId}
               />
             )
           })}
@@ -396,6 +436,8 @@ interface WeekPanelProps {
     exerciseId: string,
     patch: AssignmentSettingsPatch
   ) => void
+  onUpdateAssessmentVisibility: (assessmentId: string, isVisible: boolean) => void
+  assessmentVisibilitySavingId: string | null
 }
 
 function WeekPanel({
@@ -405,6 +447,8 @@ function WeekPanel({
   assessments = [],
   sectionId,
   onUpdateSettings,
+  onUpdateAssessmentVisibility,
+  assessmentVisibilitySavingId,
 }: WeekPanelProps) {
   const deadlineText = getWeekDeadline(exercises) || subtitle
   const hasContent = exercises.length > 0 || assessments.length > 0
@@ -455,6 +499,29 @@ function WeekPanel({
                   >
                     Xem bài nộp
                   </Link>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onUpdateAssessmentVisibility(assessment.assessmentId, !assessment.isVisible)
+                    }
+                    disabled={
+                      assessment.week === null ||
+                      assessmentVisibilitySavingId !== null
+                    }
+                    className="flex h-6 w-6 items-center justify-center rounded border-none text-xs font-bold text-white shadow-sm outline-none transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                    style={{ backgroundColor: assessment.isVisible ? '#2ec4b6' : '#bdbdbd' }}
+                    title={
+                      assessment.week === null
+                        ? 'Hãy xếp bài kiểm tra vào tuần trước khi hiển thị'
+                        : assessment.isVisible
+                          ? 'Đang hiển thị cho sinh viên'
+                          : 'Đang ẩn với sinh viên'
+                    }
+                    aria-label={`${assessment.isVisible ? 'Ẩn' : 'Hiện'} bài kiểm tra ${assessment.title}`}
+                    aria-pressed={assessment.isVisible}
+                  >
+                    {assessment.isVisible ? '✓' : '×'}
+                  </button>
                 </div>
               </div>
             ))}

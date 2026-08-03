@@ -7,6 +7,7 @@ import {
   removeAssessmentAssignment,
   reorderScheduleWeek,
   setWeekDeadline,
+  toggleAssessmentVisibility,
   toggleExerciseVisibility,
   updateAssignmentSettings,
   isScheduleError,
@@ -38,6 +39,7 @@ function statusFor(code: string): number {
  *   POST   /:id/schedule/unassign-assessment { assessment_id }
  *   PUT    /:id/schedule/deadline    { week, deadline }
  *   PUT    /:id/schedule/visibility  { exercise_id, is_visible }
+ *   PUT    /:id/schedule/assessment-visibility { assessment_id, is_visible }
  *   PUT    /:id/schedule/settings    { exercise_id, is_visible?, allow_submission?, max_submissions?, is_assessment? }
  */
 export function registerScheduleRoutes(router: Router): void {
@@ -201,6 +203,38 @@ export function registerScheduleRoutes(router: Router): void {
       res.status(200).json(result);
     } catch {
       res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } });
+    }
+  });
+
+  router.put("/:id/schedule/assessment-visibility", async (req: Request, res: Response) => {
+    try {
+      const { userId, role } = req.user!;
+      const { assessment_id, is_visible } = req.body;
+      if (!assessment_id || typeof is_visible !== "boolean") {
+        res.status(400).json({
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "assessment_id và is_visible là bắt buộc.",
+          },
+        });
+        return;
+      }
+      const result = await toggleAssessmentVisibility(
+        req.params.id,
+        assessment_id,
+        is_visible,
+        userId,
+        role
+      );
+      if (isScheduleError(result)) {
+        res.status(statusFor(result.error.code)).json({ error: result.error });
+        return;
+      }
+      res.status(200).json(result);
+    } catch {
+      res.status(500).json({
+        error: { code: "INTERNAL_ERROR", message: "Không thể cập nhật hiển thị bài kiểm tra." },
+      });
     }
   });
 

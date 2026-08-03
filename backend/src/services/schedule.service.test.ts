@@ -12,6 +12,7 @@ import {
   isScheduleError,
   removeAssessmentAssignment,
   reorderScheduleWeek,
+  toggleAssessmentVisibility,
 } from "./schedule.service.js";
 
 function getDb() {
@@ -88,7 +89,7 @@ describe("Schedule Service", () => {
     );
   });
 
-  it("lists assessments by creator and assigns them to a week immediately", async () => {
+  it("assigns assessments hidden by default and exposes them only after instructor approval", async () => {
     const db = getDb();
     const instructorId = seedUser("gv_de_thi");
     const studentId = seedUser("sv_de_thi", "student");
@@ -139,12 +140,28 @@ describe("Schedule Service", () => {
     expect(isScheduleError(after)).toBe(false);
     if (isScheduleError(after)) return;
     expect(after.weeks[7].assessments).toEqual([
-      expect.objectContaining({ title: "Giữa kỳ OOP - Tuần 8", creatorUsername: "gv_de_thi" }),
+      expect.objectContaining({
+        title: "Giữa kỳ OOP - Tuần 8",
+        creatorUsername: "gv_de_thi",
+        isVisible: false,
+      }),
     ]);
     expect(after.assessmentPool).toHaveLength(0);
 
-    const studentAssessments = await listStudentAssessments(studentId, db);
-    expect(studentAssessments.data).toEqual([
+    const hiddenStudentAssessments = await listStudentAssessments(studentId, db);
+    expect(hiddenStudentAssessments.data).toEqual([]);
+
+    const shown = await toggleAssessmentVisibility(
+      sectionId,
+      created.data.id,
+      true,
+      instructorId,
+      "instructor",
+      db
+    );
+    expect(shown).toEqual({ success: true, assessmentId: created.data.id, isVisible: true });
+    const visibleStudentAssessments = await listStudentAssessments(studentId, db);
+    expect(visibleStudentAssessments.data).toEqual([
       expect.objectContaining({ title: "Giữa kỳ OOP - Tuần 8", sectionId, week: 8 }),
     ]);
 
@@ -154,7 +171,7 @@ describe("Schedule Service", () => {
     expect(isScheduleError(afterMove)).toBe(false);
     if (isScheduleError(afterMove)) return;
     expect(afterMove.weeks[2].assessments).toEqual([
-      expect.objectContaining({ title: "Giữa kỳ OOP - Tuần 8" }),
+      expect.objectContaining({ title: "Giữa kỳ OOP - Tuần 8", isVisible: true }),
     ]);
     expect(afterMove.weeks[7].assessments).toHaveLength(0);
 
@@ -186,6 +203,18 @@ describe("Schedule Service", () => {
       expect(removed.assessmentUnscheduled).toEqual(
         expect.arrayContaining([expect.objectContaining({ assessmentId: created.data.id })])
       );
+    }
+    const cannotShowUnscheduled = await toggleAssessmentVisibility(
+      sectionId,
+      created.data.id,
+      true,
+      instructorId,
+      "instructor",
+      db
+    );
+    expect(isScheduleError(cannotShowUnscheduled)).toBe(true);
+    if (isScheduleError(cannotShowUnscheduled)) {
+      expect(cannotShowUnscheduled.error.code).toBe("VALIDATION_ERROR");
     }
   });
 });

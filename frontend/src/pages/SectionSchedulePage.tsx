@@ -324,7 +324,7 @@ function toScheduleAssessment(
     deadline,
     opensAt: now,
     closesAt: deadline ?? now,
-    isVisible: true,
+    isVisible: false,
     sortOrder,
   }
 }

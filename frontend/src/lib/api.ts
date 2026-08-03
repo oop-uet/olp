@@ -93,6 +93,16 @@ export function clearApiCache() {
   }
 }
 
+export function invalidateCachedGet(url: string, config?: AxiosRequestConfig) {
+  const key = getCacheKey(url, config)
+  inflightGetRequests.delete(key)
+  try {
+    sessionStorage.removeItem(key)
+  } catch {
+    // Best-effort cache cleanup.
+  }
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function cachedGet<T = any>(
   url: string,

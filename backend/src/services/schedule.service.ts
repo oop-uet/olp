@@ -506,9 +506,10 @@ export async function assignAssessmentToWeek(
     const sortOrder = existing.week === week
       ? existing.sortOrder
       : await nextScheduleSortOrder(sectionId, week, database);
+    const isVisible = existing.week === null ? 0 : existing.isVisible;
     await database
       .update(assessmentAssignments)
-      .set({ week, closesAt, isVisible: 1, sortOrder })
+      .set({ week, closesAt, isVisible, sortOrder })
       .where(eq(assessmentAssignments.id, existing.id));
     return { success: true, assignmentId: existing.id, week };
   }
@@ -522,7 +523,7 @@ export async function assignAssessmentToWeek(
     opensAt,
     closesAt,
     durationMinutes: assessment.durationMinutes,
-    isVisible: 1,
+    isVisible: 0,
     requireFullscreen: 1,
     warningThreshold: 3,
     showPredictedScore: 1,
@@ -748,6 +749,45 @@ export async function toggleExerciseVisibility(
     .where(eq(exerciseAssignments.id, existing.id));
 
   return { success: true, exerciseId, isVisible };
+}
+
+/** Toggle whether a scheduled assessment is exposed to enrolled students. */
+export async function toggleAssessmentVisibility(
+  sectionId: string,
+  assessmentId: string,
+  isVisible: boolean,
+  userId: string,
+  role: string,
+  database: Database = defaultDb
+): Promise<{ success: true; assessmentId: string; isVisible: boolean } | ScheduleError> {
+  const loaded = await loadSectionForUser(sectionId, userId, role, database);
+  if (isScheduleError(loaded)) return loaded;
+
+  const existing = await database.query.assessmentAssignments.findFirst({
+    where: and(
+      eq(assessmentAssignments.assessmentId, assessmentId),
+      eq(assessmentAssignments.sectionId, sectionId)
+    ),
+  });
+
+  if (!existing) {
+    return { error: { code: "NOT_FOUND", message: "Bài kiểm tra chưa được gán vào lớp." } };
+  }
+  if (isVisible && existing.week === null) {
+    return {
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Hãy xếp bài kiểm tra vào một tuần trước khi hiển thị cho sinh viên.",
+      },
+    };
+  }
+
+  await database
+    .update(assessmentAssignments)
+    .set({ isVisible: isVisible ? 1 : 0 })
+    .where(eq(assessmentAssignments.id, existing.id));
+
+  return { success: true, assessmentId, isVisible };
 }
 
 export interface AssignmentSettingsInput {
