@@ -47,114 +47,6 @@ function isLikelyCodeLine(line: string): boolean {
   return false
 }
 
-function renderHighlightedJavaLine(line: string, key: number | string): ReactNode {
-  const regex =
-    /(\/\/.*|\/\*[\s\S]*?\*\/|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\b(?:abstract|assert|boolean|break|byte|case|catch|char|class|const|continue|default|do|double|else|enum|extends|final|finally|float|for|goto|if|implements|import|instanceof|int|interface|long|native|new|package|private|protected|public|return|short|static|strictfp|super|switch|synchronized|this|throw|throws|transient|try|void|volatile|while|record|sealed|non-sealed|permits)\b|\b(?:System\.out\.println|System\.out\.print|System\.err\.println|System\.out|System|String|Object|Integer|Double|Float|Boolean|Math|Scanner|List|ArrayList|Map|HashMap|Set|HashSet|Exception|Override)\b|\b\d+(?:\.\d+)?\b)/g
-
-  const tokens: ReactNode[] = []
-  let lastIdx = 0
-  let match: RegExpExecArray | null
-
-  regex.lastIndex = 0
-  while ((match = regex.exec(line)) !== null) {
-    if (match.index > lastIdx) {
-      tokens.push(
-        <span key={tokens.length} className="text-slate-200">
-          {line.slice(lastIdx, match.index)}
-        </span>
-      )
-    }
-
-    const token = match[0]
-    if (token.startsWith('//') || token.startsWith('/*')) {
-      tokens.push(
-        <span key={tokens.length} className="text-slate-400 italic font-normal">
-          {token}
-        </span>
-      )
-    } else if (token.startsWith('"') || token.startsWith("'")) {
-      tokens.push(
-        <span key={tokens.length} className="text-amber-300 font-medium">
-          {token}
-        </span>
-      )
-    } else if (/^\d/.test(token)) {
-      tokens.push(
-        <span key={tokens.length} className="text-purple-300 font-bold">
-          {token}
-        </span>
-      )
-    } else if (
-      [
-        'System.out.println',
-        'System.out.print',
-        'System.err.println',
-        'System.out',
-        'System',
-        'String',
-        'Object',
-        'Integer',
-        'Double',
-        'Float',
-        'Boolean',
-        'Math',
-        'Scanner',
-        'List',
-        'ArrayList',
-        'Map',
-        'HashMap',
-        'Set',
-        'HashSet',
-        'Exception',
-        'Override',
-      ].includes(token)
-    ) {
-      tokens.push(
-        <span key={tokens.length} className="text-cyan-300 font-bold">
-          {token}
-        </span>
-      )
-    } else {
-      // Keyword
-      tokens.push(
-        <span key={tokens.length} className="text-emerald-400 font-black">
-          {token}
-        </span>
-      )
-    }
-
-    lastIdx = match.index + token.length
-  }
-
-  if (lastIdx < line.length) {
-    tokens.push(
-      <span key={tokens.length} className="text-slate-200">
-        {line.slice(lastIdx)}
-      </span>
-    )
-  }
-
-  return <div key={key}>{tokens.length > 0 ? tokens : ' '}</div>
-}
-
-function renderCodeBlock(codeText: string, key: number | string, protectedText = true): ReactNode {
-  const lines = codeText.split(/\r?\n/)
-  return (
-    <div
-      key={key}
-      className="my-3 overflow-x-auto rounded-2xl border border-slate-800/80 bg-[#0b132b] p-4 font-mono text-xs leading-relaxed text-slate-100 shadow-md"
-      {...(protectedText ? { 'data-assessment-protected-text': 'true' } : {})}
-    >
-      <pre
-        className="font-mono whitespace-pre"
-        {...(protectedText ? { 'data-assessment-protected-text': 'true' } : {})}
-      >
-        {lines.map((line, idx) => renderHighlightedJavaLine(line, idx))}
-      </pre>
-    </div>
-  )
-}
-
 function renderInlineFormatting(text: string): ReactNode[] {
   const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g)
   return parts
@@ -212,7 +104,20 @@ export function AssessmentPromptContent({
       }
 
       const codeContent = match[1].trimEnd()
-      elements.push(renderCodeBlock(codeContent, `code-${match.index}`, protectedText))
+      elements.push(
+        <div
+          key={`code-${match.index}`}
+          className="my-3 overflow-x-auto rounded-xl border border-slate-800 bg-slate-900 p-4 font-mono text-xs leading-6 text-emerald-400 shadow-inner"
+          {...(protectedText ? { 'data-assessment-protected-text': 'true' } : {})}
+        >
+          <pre
+            className="font-mono whitespace-pre-wrap text-emerald-400"
+            {...(protectedText ? { 'data-assessment-protected-text': 'true' } : {})}
+          >
+            {codeContent}
+          </pre>
+        </div>
+      )
 
       lastIndex = match.index + match[0].length
     }
@@ -262,7 +167,20 @@ export function AssessmentPromptContent({
     >
       {blocks.map((block, blockIdx) => {
         if (block.type === 'code') {
-          return renderCodeBlock(block.lines.join('\n'), blockIdx, protectedText)
+          return (
+            <div
+              key={blockIdx}
+              className="my-3 overflow-x-auto rounded-xl border border-slate-800 bg-slate-900 p-4 font-mono text-xs leading-6 text-emerald-400 shadow-inner"
+              {...(protectedText ? { 'data-assessment-protected-text': 'true' } : {})}
+            >
+              <pre
+                className="font-mono whitespace-pre-wrap text-emerald-400"
+                {...(protectedText ? { 'data-assessment-protected-text': 'true' } : {})}
+              >
+                {block.lines.join('\n')}
+              </pre>
+            </div>
+          )
         }
 
         const textContent = block.lines.join('\n').trim()
