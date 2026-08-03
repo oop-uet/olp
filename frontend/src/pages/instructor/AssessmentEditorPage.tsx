@@ -4,6 +4,7 @@ import { api } from '../../lib/api'
 import { readApiError } from '../../lib/apiError'
 import { PageLoader } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
+import { AssessmentPromptContent } from '../../components/assessment/AssessmentPromptContent'
 import type {
   AssessmentDraft,
   AssessmentGradingMode,
@@ -545,6 +546,12 @@ function QuestionEditor({
           onChange={(event) => onChange({ ...question, prompt: event.target.value })}
         />
       </label>
+      {question.prompt?.trim() && (
+        <div className="mt-2 rounded-xl border border-slate-200/80 bg-slate-50/70 p-3">
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Hiển thị trực tiếp đề bài</p>
+          <AssessmentPromptContent text={question.prompt} protectedText={false} />
+        </div>
+      )}
 
       {question.type === 'true_false' && (
         <label className="mt-4 block max-w-xs">

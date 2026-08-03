@@ -4,6 +4,7 @@ import { api } from '../../lib/api'
 import { readApiError } from '../../lib/apiError'
 import { PageLoader } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
+import { AssessmentPromptContent } from '../../components/assessment/AssessmentPromptContent'
 
 interface RubricItem { id: string; criterion: string; points: number }
 interface AiCriterion { criterionId: string; awardedPoints: number; evidence: string }
@@ -318,8 +319,8 @@ export function AssessmentReviewPage() {
             <div className="p-5 space-y-4">
               {/* Question Text */}
               <div className="rounded-xl border border-slate-200/80 bg-slate-50/50 p-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Đề bài</p>
-                <p className="text-sm font-bold text-slate-900 leading-relaxed">{answer.question.prompt}</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Đề bài</p>
+                <AssessmentPromptContent text={answer.question.prompt} protectedText={false} />
               </div>
 
               {/* Grid: Left (Answer & Rubric) vs Right (Grading & AI) */}

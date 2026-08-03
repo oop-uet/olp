@@ -4,6 +4,7 @@ import { api } from '../../lib/api'
 import { readApiError } from '../../lib/apiError'
 import { PageLoader } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
+import { AssessmentPromptContent } from '../../components/assessment/AssessmentPromptContent'
 
 interface Preflight {
   id: string
@@ -1063,13 +1064,11 @@ function QuestionInput({
   return (
     <article id={`question-${question.id}`} className="scroll-mt-24 p-6 space-y-4">
       <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 whitespace-pre-wrap break-words text-sm font-bold leading-relaxed text-slate-900 flex items-start gap-2.5">
+        <div className="min-w-0 flex-1 text-sm font-bold leading-relaxed text-slate-900 flex items-start gap-2.5">
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs font-black text-teal-800">
             {number}
           </span>
-          <div className="mt-0.5" data-assessment-protected-text="true">
-            {assessmentText(question.prompt)}
-          </div>
+          <AssessmentPromptContent text={question.prompt} className="min-w-0 flex-1" />
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <button
@@ -1362,11 +1361,11 @@ function ReviewQuestionCard({ question, number }: { question: ReviewQuestion; nu
   return (
     <article className="space-y-4 p-5 sm:p-6">
       <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 items-start gap-2.5 whitespace-pre-wrap break-words text-sm font-bold leading-relaxed text-slate-900">
+        <div className="flex min-w-0 flex-1 items-start gap-2.5 text-sm font-bold leading-relaxed text-slate-900">
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs font-black text-teal-800">
             {number}
           </span>
-          <span>{assessmentText(question.prompt)}</span>
+          <AssessmentPromptContent text={question.prompt} className="min-w-0 flex-1" />
         </div>
         <span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
           {formatAssessmentScore(question.awardedPoints)}/{formatAssessmentScore(question.points)} điểm
