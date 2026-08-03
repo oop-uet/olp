@@ -107,6 +107,9 @@ export interface AiServiceError {
   error: {
     code: string;
     message: string;
+    httpStatus?: number;
+    providerStatus?: string;
+    retryAfterMs?: number;
   };
 }
 
@@ -123,6 +126,12 @@ export interface StructuredAiResult {
   data: unknown;
   provider: AiProvider;
   model: string;
+}
+
+interface StructuredProviderOutput {
+  text: string;
+  finishReason?: string;
+  promptBlockReason?: string;
 }
 
 export function isAiServiceError(value: unknown): value is AiServiceError {
@@ -511,7 +520,7 @@ export async function generateStructuredAi(
   const provider = parseProvider(config[CONFIG_KEYS.provider]);
   const model = config[CONFIG_KEYS.model] || DEFAULT_MODELS[provider];
 
-  let raw: string | AiServiceError;
+  let raw: StructuredProviderOutput | AiServiceError;
   try {
     raw = await generateStructuredWithProvider(provider, model, apiKey, request);
   } catch (error) {
@@ -526,13 +535,43 @@ export async function generateStructuredAi(
   }
   if (isAiServiceError(raw)) return raw;
 
+  if (!raw.text) {
+    if (raw.promptBlockReason) {
+      return {
+        error: {
+          code: "AI_SAFETY_BLOCKED",
+          message: `Gemini đã chặn yêu cầu chấm (blockReason: ${raw.promptBlockReason}).`,
+        },
+      };
+    }
+    if (raw.finishReason === "MAX_TOKENS") {
+      return {
+        error: {
+          code: "AI_RESPONSE_TRUNCATED",
+          message: "AI đã dùng hết giới hạn output trước khi trả đủ kết quả JSON.",
+        },
+      };
+    }
+    return {
+      error: {
+        code: "AI_EMPTY_RESPONSE",
+        message: raw.finishReason
+          ? `AI không trả về nội dung (finishReason: ${raw.finishReason}).`
+          : "AI không trả về nội dung chấm.",
+      },
+    };
+  }
+
   try {
-    return { data: JSON.parse(raw), provider, model };
+    return { data: JSON.parse(raw.text), provider, model };
   } catch {
     return {
       error: {
-        code: "AI_RESPONSE_INVALID",
-        message: "AI trả về dữ liệu không phải JSON hợp lệ.",
+        code: raw.finishReason === "MAX_TOKENS" ? "AI_RESPONSE_TRUNCATED" : "AI_RESPONSE_INVALID",
+        message:
+          raw.finishReason === "MAX_TOKENS"
+            ? "AI đã dùng hết giới hạn output nên JSON bị cắt giữa chừng."
+            : `AI trả về dữ liệu không phải JSON hợp lệ${raw.finishReason ? ` (finishReason: ${raw.finishReason})` : ""}.`,
       },
     };
   }
@@ -1144,7 +1183,7 @@ async function generateStructuredWithProvider(
   model: string,
   apiKey: string,
   request: StructuredAiRequest
-): Promise<string | AiServiceError> {
+): Promise<StructuredProviderOutput | AiServiceError> {
   const temperature = request.temperature ?? 0;
   const maxOutputTokens = request.maxOutputTokens ?? 1600;
   const inputText = JSON.stringify(request.input);
@@ -1175,11 +1214,11 @@ async function generateStructuredWithProvider(
       }),
     });
     if (!response.ok) {
-      return {
-        error: { code: "AI_REQUEST_FAILED", message: await readProviderError(response, provider) },
-      };
+      return readProviderFailure(response, provider);
     }
-    return extractOpenAiOutputText((await response.json()) as Record<string, unknown>) || "";
+    return {
+      text: extractOpenAiOutputText((await response.json()) as Record<string, unknown>) || "",
+    };
   }
 
   if (provider === "anthropic") {
@@ -1208,11 +1247,11 @@ async function generateStructuredWithProvider(
       }),
     });
     if (!response.ok) {
-      return {
-        error: { code: "AI_REQUEST_FAILED", message: await readProviderError(response, provider) },
-      };
+      return readProviderFailure(response, provider);
     }
-    return JSON.stringify(extractAnthropicToolInput((await response.json()) as Record<string, unknown>));
+    return {
+      text: JSON.stringify(extractAnthropicToolInput((await response.json()) as Record<string, unknown>)),
+    };
   }
 
   if (provider === "groq" || provider === "openrouter") {
@@ -1246,11 +1285,11 @@ async function generateStructuredWithProvider(
       }),
     });
     if (!response.ok) {
-      return {
-        error: { code: "AI_REQUEST_FAILED", message: await readProviderError(response, provider) },
-      };
+      return readProviderFailure(response, provider);
     }
-    return extractChatCompletionText((await response.json()) as Record<string, unknown>) || "";
+    return {
+      text: extractChatCompletionText((await response.json()) as Record<string, unknown>) || "",
+    };
   }
 
   const response = await fetch(
@@ -1269,6 +1308,7 @@ async function generateStructuredWithProvider(
         generationConfig: {
           temperature,
           maxOutputTokens,
+          thinkingConfig: { thinkingBudget: 0 },
           responseMimeType: "application/json",
           responseSchema: toGeminiResponseSchema(request.schema),
         },
@@ -1276,22 +1316,98 @@ async function generateStructuredWithProvider(
     }
   );
   if (!response.ok) {
-    return {
-      error: { code: "AI_REQUEST_FAILED", message: await readProviderError(response, provider) },
-    };
+    return readProviderFailure(response, provider);
   }
-  return extractGeminiText((await response.json()) as Record<string, unknown>) || "";
+  const payload = (await response.json()) as Record<string, unknown>;
+  return {
+    text: extractGeminiText(payload) || "",
+    finishReason: extractGeminiFinishReason(payload) ?? undefined,
+    promptBlockReason: extractGeminiPromptBlockReason(payload) ?? undefined,
+  };
+}
+
+function parseRetryDelayMs(value: unknown): number | undefined {
+  if (typeof value !== "string") return undefined;
+  const seconds = Number(value.trim().match(/^([0-9]+(?:\.[0-9]+)?)s$/i)?.[1]);
+  if (!Number.isFinite(seconds) || seconds <= 0) return undefined;
+  return Math.min(Math.ceil(seconds * 1000), 24 * 60 * 60_000);
+}
+
+function retryAfterFromHeader(response: Response): number | undefined {
+  const raw = response.headers?.get?.("retry-after");
+  if (!raw) return undefined;
+  const seconds = Number(raw);
+  if (Number.isFinite(seconds) && seconds > 0) return Math.ceil(seconds * 1000);
+  const timestamp = Date.parse(raw);
+  return Number.isNaN(timestamp) ? undefined : Math.max(1_000, timestamp - Date.now());
+}
+
+function retryAfterFromPayload(payload: unknown, message: string): number | undefined {
+  if (payload && typeof payload === "object") {
+    const error = (payload as { error?: unknown }).error;
+    const details = error && typeof error === "object"
+      ? (error as { details?: unknown }).details
+      : undefined;
+    if (Array.isArray(details)) {
+      for (const detail of details) {
+        if (!detail || typeof detail !== "object") continue;
+        const parsed = parseRetryDelayMs((detail as { retryDelay?: unknown }).retryDelay);
+        if (parsed) return parsed;
+      }
+    }
+  }
+  const match = message.match(/(?:please\s+)?retry\s+in\s+([0-9]+(?:\.[0-9]+)?)s/i);
+  return match ? parseRetryDelayMs(`${match[1]}s`) : undefined;
+}
+
+async function readProviderFailure(
+  response: Response,
+  provider: AiProvider
+): Promise<AiServiceError> {
+  let payload: unknown = null;
+  let message = `${getProviderLabel(provider)} trả về lỗi HTTP ${response.status}.`;
+  let providerStatus: string | undefined;
+  try {
+    payload = await response.json();
+    const providerError = payload && typeof payload === "object"
+      ? (payload as { error?: unknown }).error
+      : undefined;
+    if (providerError && typeof providerError === "object") {
+      const typed = providerError as { message?: unknown; status?: unknown };
+      if (typeof typed.message === "string" && typed.message.trim()) message = typed.message;
+      if (typeof typed.status === "string" && typed.status.trim()) providerStatus = typed.status;
+    }
+  } catch {
+    // Keep the HTTP fallback without leaking a non-JSON provider body.
+  }
+
+  const retryAfterMs =
+    retryAfterFromHeader(response) ?? retryAfterFromPayload(payload, message);
+  const code =
+    response.status === 429
+      ? "AI_RATE_LIMITED"
+      : response.status === 401 || response.status === 403
+        ? "AI_AUTH_FAILED"
+        : response.status === 400 || response.status === 404 || response.status === 422
+          ? "AI_REQUEST_INVALID"
+          : response.status === 408 || response.status === 504
+            ? "AI_REQUEST_TIMEOUT"
+            : response.status >= 500
+              ? "AI_PROVIDER_UNAVAILABLE"
+              : "AI_REQUEST_FAILED";
+  return {
+    error: {
+      code,
+      message,
+      httpStatus: response.status,
+      ...(providerStatus ? { providerStatus } : {}),
+      ...(retryAfterMs ? { retryAfterMs } : {}),
+    },
+  };
 }
 
 async function readProviderError(response: Response, provider: AiProvider): Promise<string> {
-  try {
-    const payload = (await response.json()) as {
-      error?: { message?: string };
-    };
-    return payload.error?.message || `${getProviderLabel(provider)} trả về lỗi HTTP ${response.status}.`;
-  } catch {
-    return `${getProviderLabel(provider)} trả về lỗi HTTP ${response.status}.`;
-  }
+  return (await readProviderFailure(response, provider)).error.message;
 }
 
 function extractOpenAiOutputText(payload: Record<string, unknown>): string | null {
@@ -1362,4 +1478,18 @@ function extractGeminiText(payload: Record<string, unknown>): string | null {
   }
 
   return null;
+}
+
+function extractGeminiFinishReason(payload: Record<string, unknown>): string | null {
+  const candidate = Array.isArray(payload.candidates) ? payload.candidates[0] : null;
+  if (!candidate || typeof candidate !== "object") return null;
+  const finishReason = (candidate as { finishReason?: unknown }).finishReason;
+  return typeof finishReason === "string" ? finishReason : null;
+}
+
+function extractGeminiPromptBlockReason(payload: Record<string, unknown>): string | null {
+  const promptFeedback = payload.promptFeedback;
+  if (!promptFeedback || typeof promptFeedback !== "object") return null;
+  const blockReason = (promptFeedback as { blockReason?: unknown }).blockReason;
+  return typeof blockReason === "string" ? blockReason : null;
 }

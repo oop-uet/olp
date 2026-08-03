@@ -385,6 +385,7 @@ beforeAll(() => {
 afterEach(() => {
   // Clean user-created data between tests but preserve system_config defaults
   sqlite.exec(`
+    DELETE FROM system_config WHERE key LIKE 'assessment_ai_%';
     DELETE FROM assessment_audit_logs;
     DELETE FROM assessment_integrity_events;
     DELETE FROM assessment_ai_grading_runs;

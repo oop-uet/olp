@@ -21,6 +21,7 @@ import {
   listStudentAssessments,
   processPendingAssessmentAiRuns,
   recordAssessmentIntegrityEvent,
+  recoverAssessmentAiQueue,
   regradeAssessmentAssignment,
   reviewAssessmentAnswer,
   retryAssessmentAiGrade,
@@ -122,6 +123,8 @@ describe("Assessment service", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.useRealTimers();
+    delete process.env.ASSESSMENT_AI_GEMINI_RPM;
     getTestSqlite().exec("DELETE FROM system_config WHERE key LIKE 'ai_generation_%';");
     process.env.JWT_SECRET = ORIGINAL_JWT_SECRET;
   });
@@ -371,7 +374,7 @@ describe("Assessment service", () => {
     expect(JSON.parse(essay!.answerJson)).toEqual({ text: "Bản mới nhất" });
   });
 
-  it("defers future AI jobs and safely reclaims an expired worker lease", async () => {
+  it("defers future AI jobs, reclaims a lease, and keeps rate-limited work queued", async () => {
     const db = getDb();
     const { instructorId, studentId, sectionId } = seedUsersAndSection();
     await updateAiConfig({ apiKey: "sk-test-assessment-key" }, instructorId, db);
@@ -434,6 +437,9 @@ describe("Assessment service", () => {
     getTestSqlite()
       .prepare("UPDATE assessment_ai_grading_runs SET locked_until = ? WHERE id = ?")
       .run(new Date(Date.now() - 1_000).toISOString(), run.id);
+    getTestSqlite()
+      .prepare("UPDATE assessment_ai_grading_runs SET attempt_count = 4 WHERE id = ?")
+      .run(run.id);
     expect((await processPendingAssessmentAiRuns(1, db)).processed).toBe(1);
     const reclaimed = getTestSqlite()
       .prepare(
@@ -450,12 +456,240 @@ describe("Assessment service", () => {
       };
     expect(reclaimed).toMatchObject({
       status: "queued",
-      attemptCount: 1,
+      attemptCount: 5,
       lockedUntil: null,
-      errorCode: "AI_REQUEST_FAILED",
+      errorCode: "AI_RATE_LIMITED",
     });
     expect(new Date(reclaimed.nextAttemptAt).getTime()).toBeGreaterThan(Date.now());
+    const persistedPause = getTestSqlite()
+      .prepare("SELECT value FROM system_config WHERE key = 'assessment_ai_queue_pause_until'")
+      .get() as { value: string };
+    expect(persistedPause.value).toBe(reclaimed.nextAttemptAt);
     expect((await processPendingAssessmentAiRuns(1, db)).processed).toBe(0);
+  });
+
+  it("recovers legacy quota failures into a durable queue on worker startup", async () => {
+    const db = getDb();
+    const { instructorId, studentId, sectionId } = seedUsersAndSection();
+    const created = await createAssessment(validDraft(), instructorId, db);
+    const assignment = await assignAssessment(
+      (created as any).data.id,
+      {
+        sectionId,
+        opensAt: new Date(Date.now() - 60_000).toISOString(),
+        closesAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+      },
+      instructorId,
+      db
+    );
+    const started = await startAssessmentSession((assignment as any).data.id, studentId, db);
+    const sessionId = (started as any).data.id;
+    const studentView = await getStudentAssessmentSession(sessionId, studentId, db);
+    const questions = (studentView as any).data.assessment.sections[0].questions;
+    await saveAssessmentAnswers(
+      sessionId,
+      studentId,
+      [
+        { questionId: questions[0].id, answer: { value: false }, clientRevision: 1 },
+        { questionId: questions[1].id, answer: { text: "Upcasting đúng." }, clientRevision: 1 },
+      ],
+      db
+    );
+    await submitAssessmentSession(sessionId, studentId, "student", db);
+    const sqlite = getTestSqlite();
+    const originalRun = sqlite
+      .prepare("SELECT id, answer_id AS answerId FROM assessment_ai_grading_runs")
+      .get() as { id: string; answerId: string };
+    sqlite
+      .prepare(
+        `UPDATE assessment_ai_grading_runs
+         SET status = 'failed', error_code = 'AI_REQUEST_FAILED',
+             error_message = 'Quota exceeded: RESOURCE_EXHAUSTED', attempt_count = 4,
+             next_attempt_at = NULL, finished_at = ? WHERE id = ?`
+      )
+      .run(new Date().toISOString(), originalRun.id);
+    sqlite
+      .prepare(
+        `UPDATE assessment_answers
+         SET grading_state = 'ungraded', ai_feedback = 'AI chưa chấm được.' WHERE id = ?`
+      )
+      .run(originalRun.answerId);
+
+    const recovered = await recoverAssessmentAiQueue(db);
+
+    expect(recovered.recovered).toBe(1);
+    expect(recovered.recoveredRateLimited).toBe(1);
+    expect(recovered.recoveredInvalidResponse).toBe(0);
+    expect(new Date(recovered.pausedUntil!).getTime()).toBeGreaterThan(Date.now());
+    const runs = sqlite
+      .prepare(
+        `SELECT status, error_code AS errorCode, attempt_count AS attemptCount,
+                next_attempt_at AS nextAttemptAt
+         FROM assessment_ai_grading_runs WHERE answer_id = ? ORDER BY rowid`
+      )
+      .all(originalRun.answerId) as Array<{
+        status: string;
+        errorCode: string;
+        attemptCount: number;
+        nextAttemptAt: string | null;
+      }>;
+    expect(runs).toEqual([
+      expect.objectContaining({ status: "failed", errorCode: "AI_REQUEST_FAILED", attemptCount: 4 }),
+      expect.objectContaining({
+        status: "queued",
+        errorCode: "AI_RATE_LIMITED",
+        attemptCount: 0,
+        nextAttemptAt: recovered.pausedUntil,
+      }),
+    ]);
+    const answer = await db.query.assessmentAnswers.findFirst({
+      where: (answers: any, { eq }: any) => eq(answers.id, originalRun.answerId),
+    });
+    expect(answer).toMatchObject({
+      gradingState: "ai_queued",
+      aiFeedback: "AI đang tạm chờ quota và sẽ tự động chấm tiếp.",
+    });
+    const sessionAfterRecovery = await db.query.assessmentSessions.findFirst({
+      where: (sessions: any, { eq }: any) => eq(sessions.id, sessionId),
+    });
+    expect(sessionAfterRecovery).toMatchObject({
+      status: "ai_grading",
+      reviewStatus: "ai_queued",
+      predictedScore: null,
+    });
+    expect((await recoverAssessmentAiQueue(db)).recovered).toBe(0);
+
+    sqlite
+      .prepare("DELETE FROM assessment_ai_grading_runs WHERE status = 'queued' AND answer_id = ?")
+      .run(originalRun.answerId);
+    sqlite
+      .prepare(
+        `UPDATE assessment_ai_grading_runs
+         SET error_code = 'AI_RESPONSE_INVALID', error_message = 'AI trả JSON lỗi.',
+             prompt_version = 'assessment-grading-v1' WHERE id = ?`
+      )
+      .run(originalRun.id);
+    sqlite
+      .prepare("DELETE FROM system_config WHERE key = 'assessment_ai_queue_pause_until'")
+      .run();
+    const recoveredInvalid = await recoverAssessmentAiQueue(db);
+    expect(recoveredInvalid).toMatchObject({
+      recovered: 1,
+      recoveredRateLimited: 0,
+      recoveredInvalidResponse: 1,
+      pausedUntil: null,
+    });
+    const latestRun = sqlite
+      .prepare(
+        `SELECT status, error_code AS errorCode, prompt_version AS promptVersion
+         FROM assessment_ai_grading_runs WHERE answer_id = ? ORDER BY rowid DESC LIMIT 1`
+      )
+      .get(originalRun.answerId);
+    expect(latestRun).toEqual({
+      status: "queued",
+      errorCode: "AI_RESPONSE_INVALID",
+      promptVersion: "assessment-grading-v2",
+    });
+    const answerAfterInvalidRecovery = await db.query.assessmentAnswers.findFirst({
+      where: (answers: any, { eq }: any) => eq(answers.id, originalRun.answerId),
+    });
+    expect(answerAfterInvalidRecovery?.aiFeedback).toBe(
+      "AI sẽ tự động chấm lại bằng cấu hình JSON mới."
+    );
+  });
+
+  it("paces Gemini grading globally below the configured requests-per-minute limit", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(Date.now() + 60_000));
+    process.env.ASSESSMENT_AI_GEMINI_RPM = "15";
+    const db = getDb();
+    const sqlite = getTestSqlite();
+    const { instructorId, studentId, sectionId } = seedUsersAndSection();
+    const secondStudentId = randomUUID();
+    const now = new Date().toISOString();
+    sqlite
+      .prepare(
+        `INSERT INTO users (id, username, email, password_hash, role, created_at, updated_at)
+         VALUES (?, '24000002', '24000002@test.com', 'hash', 'student', ?, ?)`
+      )
+      .run(secondStudentId, now, now);
+    sqlite
+      .prepare(
+        `INSERT INTO section_enrollments (id, section_id, student_id, student_external_id, enrolled_at)
+         VALUES (?, ?, ?, '24000002', ?)`
+      )
+      .run(randomUUID(), sectionId, secondStudentId, now);
+    await updateAiConfig(
+      { provider: "gemini", apiKey: "AIza-test-assessment-key" },
+      instructorId,
+      db
+    );
+    const grade = {
+      suggestedPoints: 5,
+      criteria: [
+        { criterionId: "upcasting", awardedPoints: 2.5, evidence: "Đúng" },
+        { criterionId: "downcasting", awardedPoints: 2.5, evidence: "Đúng" },
+      ],
+      feedback: "Đạt yêu cầu.",
+      confidence: "high",
+      needsHumanAttention: false,
+      flags: [],
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ models: [] }) })
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          candidates: [{ finishReason: "STOP", content: { parts: [{ text: JSON.stringify(grade) }] } }],
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    await testAiConfig(instructorId, db);
+
+    const created = await createAssessment(validDraft(), instructorId, db);
+    const assignment = await assignAssessment(
+      (created as any).data.id,
+      {
+        sectionId,
+        opensAt: new Date(Date.now() - 60_000).toISOString(),
+        closesAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+      },
+      instructorId,
+      db
+    );
+    for (const currentStudentId of [studentId, secondStudentId]) {
+      const started = await startAssessmentSession((assignment as any).data.id, currentStudentId, db);
+      const sessionId = (started as any).data.id;
+      const studentView = await getStudentAssessmentSession(sessionId, currentStudentId, db);
+      const questions = (studentView as any).data.assessment.sections[0].questions;
+      await saveAssessmentAnswers(
+        sessionId,
+        currentStudentId,
+        [
+          { questionId: questions[0].id, answer: { value: false }, clientRevision: 1 },
+          {
+            questionId: questions[1].id,
+            answer: { text: "Upcasting và downcasting đều được giải thích." },
+            clientRevision: 1,
+          },
+        ],
+        db
+      );
+      await submitAssessmentSession(sessionId, currentStudentId, "student", db);
+    }
+
+    expect((await processPendingAssessmentAiRuns(10, db)).processed).toBe(1);
+    const throttled = await processPendingAssessmentAiRuns(10, db);
+    expect(throttled.processed).toBe(0);
+    expect(new Date(throttled.pausedUntil!).getTime() - Date.now()).toBe(4_000);
+    expect(
+      (sqlite.prepare("SELECT COUNT(*) AS total FROM assessment_ai_grading_runs WHERE status = 'queued'").get() as { total: number }).total
+    ).toBe(1);
+
+    vi.advanceTimersByTime(4_001);
+    expect((await processPendingAssessmentAiRuns(10, db)).processed).toBe(1);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it("supports provisional score, approve all, then instructor override as official", async () => {

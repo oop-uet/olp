@@ -536,10 +536,10 @@ export function ConfigPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-2xl">
             <h2 className="text-sm font-bold uppercase tracking-wide text-slate-800">
-              AI tạo bài tập
+              AI tạo bài tập và chấm bài kiểm tra
             </h2>
             <p className="mt-1 text-xs text-gray-500">
-              Cấu hình API key để bật nút tạo draft bài tập bằng AI trong form ra đề.
+              Cấu hình API key dùng chung cho tạo draft bài tập và hàng đợi chấm tự luận.
               Frontend chỉ thấy trạng thái, không bao giờ nhận API key.
             </p>
             {!aiConfig?.encryptionReady && (
@@ -606,6 +606,35 @@ export function ConfigPage() {
         {aiConfig?.lastCheckError && (
           <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
             {aiConfig.lastCheckError}
+          </div>
+        )}
+
+        {aiProvider === 'gemini' && (
+          <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50/70 p-4 text-xs text-blue-950">
+            <p className="font-black">Quota Google AI Studio được tính theo project API, không theo gói Gemini cá nhân.</p>
+            <p className="mt-1.5 font-medium leading-relaxed">
+              Hàng đợi chấm đang tự giới hạn mặc định 12 request/phút, tắt thinking cho Gemini 2.5 Flash
+              và tự tiếp tục sau lỗi 429. Với nhiều bài nộp đồng thời, nên bật billing cho đúng project
+              chứa API key để chuyển khỏi Free Tier.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-bold">
+              <a
+                href="https://aistudio.google.com/usage"
+                target="_blank"
+                rel="noreferrer"
+                className="text-blue-700 underline underline-offset-2 hover:text-blue-900"
+              >
+                Xem usage và rate limit
+              </a>
+              <a
+                href="https://ai.google.dev/gemini-api/docs/billing"
+                target="_blank"
+                rel="noreferrer"
+                className="text-blue-700 underline underline-offset-2 hover:text-blue-900"
+              >
+                Hướng dẫn bật billing
+              </a>
+            </div>
           </div>
         )}
 

@@ -28,6 +28,11 @@ interface ReviewAnswer {
     needsHumanAttention: boolean
     errorCode: string | null
     errorMessage: string | null
+    attemptCount: number
+    nextAttemptAt: string | null
+    createdAt: string
+    startedAt: string | null
+    finishedAt: string | null
   } | null
   question: {
     id: string
@@ -81,6 +86,55 @@ function answerText(answer: ReviewAnswer) {
     return answer.question.options.find((option) => option.id === answer.answer.optionId)?.content ?? 'Không xác định'
   }
   return 'Không trả lời'
+}
+
+function aiRunPresentation(run: ReviewAnswer['latestAiRun']) {
+  if (!run) return null
+  const legacyQuotaError = /quota|rate limit|resource_exhausted/i.test(run.errorMessage ?? '')
+  if (run.status === 'queued' && (run.errorCode === 'AI_RATE_LIMITED' || legacyQuotaError)) {
+    return {
+      label: 'Đang chờ quota',
+      message: 'Hệ thống đã tạm dừng hàng đợi và sẽ tự động chấm tiếp khi quota phục hồi.',
+      className: 'border-amber-200 bg-amber-50 text-amber-900',
+    }
+  }
+  if (run.status === 'queued') {
+    return {
+      label: 'Đang chờ AI',
+      message: 'Câu trả lời đang nằm trong hàng đợi chấm tự động.',
+      className: 'border-blue-200 bg-blue-50 text-blue-900',
+    }
+  }
+  if (run.status === 'running') {
+    return {
+      label: 'AI đang chấm',
+      message: 'Gemini đang xử lý câu trả lời này.',
+      className: 'border-cyan-200 bg-cyan-50 text-cyan-900',
+    }
+  }
+  if (run.status === 'succeeded') return null
+
+  const messages: Record<string, string> = {
+    AI_RATE_LIMITED: 'Gemini đã vượt quota. Lượt này sẽ được đưa lại vào hàng đợi tự động.',
+    AI_AUTH_FAILED: 'API key không hợp lệ hoặc không có quyền sử dụng model đã chọn.',
+    AI_REQUEST_INVALID: 'Gemini từ chối cấu hình request. Cần kiểm tra model, đáp án hoặc rubric.',
+    AI_SAFETY_BLOCKED: 'Gemini chặn nội dung theo bộ lọc an toàn.',
+    AI_RESPONSE_TRUNCATED: 'Kết quả bị cắt trước khi JSON hoàn tất.',
+    AI_RESPONSE_INVALID: 'Gemini trả kết quả không đúng định dạng JSON yêu cầu.',
+    AI_SCORE_OUT_OF_RANGE: 'Điểm Gemini trả về không khớp rubric hoặc vượt điểm tối đa.',
+    AI_PROVIDER_UNAVAILABLE: 'Dịch vụ Gemini tạm thời không khả dụng.',
+    AI_REQUEST_TIMEOUT: 'Gemini không phản hồi trong thời gian cho phép.',
+    GRADING_GUIDE_MISSING: 'Câu hỏi thiếu đáp án gợi ý hoặc rubric.',
+  }
+  return {
+    label: 'AI chấm lỗi',
+    message:
+      messages[run.errorCode ?? ''] ??
+      (legacyQuotaError
+        ? 'Gemini đã vượt quota của project API.'
+        : 'AI chưa chấm được sau nhiều lần thử.'),
+    className: 'border-rose-200 bg-rose-50 text-rose-900',
+  }
 }
 
 export function AssessmentReviewPage() {
@@ -235,6 +289,8 @@ export function AssessmentReviewPage() {
         const form = draftScores[answer.id] ?? { points: 0, feedback: '', reason: '' }
         const hasSuggestion = answer.aiSuggestedPoints !== null
         const reviewed = ['human_accepted', 'human_adjusted', 'manually_graded'].includes(answer.gradingState)
+        const aiRunStatus = aiRunPresentation(answer.latestAiRun)
+        const aiPending = ['queued', 'running'].includes(answer.latestAiRun?.status ?? '')
         return (
           <article key={answer.id} className="card overflow-hidden border border-slate-200/90 shadow-sm">
             {/* Question Bar */}
@@ -332,6 +388,31 @@ export function AssessmentReviewPage() {
                       {answer.aiFeedback || 'Chưa có nhận xét từ AI.'}
                     </p>
 
+                    {aiRunStatus && (
+                      <div className={`rounded-lg border p-3 text-xs ${aiRunStatus.className}`}>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="font-black uppercase tracking-wide">{aiRunStatus.label}</span>
+                          <span className="font-semibold">
+                            Đã thử {answer.latestAiRun?.attemptCount ?? 0} lần
+                          </span>
+                        </div>
+                        <p className="mt-1.5 font-semibold leading-relaxed">{aiRunStatus.message}</p>
+                        {answer.latestAiRun?.nextAttemptAt && aiPending && (
+                          <p className="mt-1 font-bold">
+                            Thử lại dự kiến: {new Date(answer.latestAiRun.nextAttemptAt).toLocaleString('vi-VN')}
+                          </p>
+                        )}
+                        {answer.latestAiRun?.errorMessage && (
+                          <details className="mt-2">
+                            <summary className="cursor-pointer font-bold">Chi tiết kỹ thuật</summary>
+                            <p className="mt-1 whitespace-pre-wrap break-words font-mono text-[10px] leading-relaxed opacity-80">
+                              {answer.latestAiRun.errorCode ?? 'AI_ERROR'}: {answer.latestAiRun.errorMessage}
+                            </p>
+                          </details>
+                        )}
+                      </div>
+                    )}
+
                     {answer.aiCriteria.length > 0 && (
                       <div className="border-t border-cyan-200/60 pt-2.5 space-y-2 text-xs">
                         <p className="font-bold text-cyan-900 text-[11px] uppercase tracking-wider">Chi tiết tiêu chí:</p>
@@ -418,11 +499,11 @@ export function AssessmentReviewPage() {
                       {answer.question.gradingMode === 'llm_assisted' && (
                         <button
                           onClick={() => void retryAi(answer)}
-                          disabled={busyId === answer.id}
+                          disabled={busyId === answer.id || aiPending}
                           className="btn-secondary h-8 px-3 text-xs font-semibold"
-                          title="Chạy lại AI"
+                          title={aiPending ? 'Lượt chấm đã có trong hàng đợi' : 'Chạy lại AI'}
                         >
-                          Chạy lại AI
+                          {aiPending ? 'Đang trong hàng đợi' : 'Chạy lại AI'}
                         </button>
                       )}
                       <button

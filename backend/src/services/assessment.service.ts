@@ -15,12 +15,18 @@ import {
   assessmentAiGradingRuns,
   assessmentIntegrityEvents,
   assessmentAuditLogs,
+  systemConfig,
   classSections,
   sectionEnrollments,
   users,
 } from "../db/schema.js";
 import { userCanAccessSection } from "./section.service.js";
-import { generateStructuredAi, isAiServiceError } from "./ai-exercise.service.js";
+import {
+  generateStructuredAi,
+  getAiAvailability,
+  isAiServiceError,
+  type AiServiceError,
+} from "./ai-exercise.service.js";
 
 type Database = typeof defaultDb;
 
@@ -1533,7 +1539,7 @@ export async function submitAssessmentSession(
         id: answer.id,
         answerId: answer.answerId,
         status: "queued" as const,
-        promptVersion: "assessment-grading-v1",
+        promptVersion: "assessment-grading-v2",
         attemptCount: 0,
         needsHumanAttention: 0,
         createdAt: now,
@@ -1620,6 +1626,55 @@ const aiGradeJsonSchema = {
 const AI_GRADING_LEASE_MS = 2 * 60_000;
 const AI_GRADING_MAX_ATTEMPTS = 4;
 const AI_GRADING_RETRY_BASE_MS = 15_000;
+const AI_GRADING_RATE_LIMIT_RETRY_BASE_MS = 60_000;
+const AI_GRADING_RATE_LIMIT_RETRY_MAX_MS = 30 * 60_000;
+const AI_QUEUE_PAUSE_KEY = "assessment_ai_queue_pause_until";
+let lastGeminiAssessmentRequestAt = 0;
+
+function configuredGeminiAssessmentRpm() {
+  const configured = Number(process.env.ASSESSMENT_AI_GEMINI_RPM || "12");
+  return Number.isFinite(configured) && configured >= 1 && configured <= 60
+    ? configured
+    : 12;
+}
+
+function geminiAssessmentMinIntervalMs() {
+  if (process.env.NODE_ENV === "test" && !process.env.ASSESSMENT_AI_GEMINI_RPM) return 0;
+  return Math.ceil(60_000 / configuredGeminiAssessmentRpm());
+}
+
+async function readAssessmentAiQueuePause(database: Database): Promise<string | null> {
+  const row = await database.query.systemConfig.findFirst({
+    where: eq(systemConfig.key, AI_QUEUE_PAUSE_KEY),
+    columns: { value: true },
+  });
+  if (!row?.value || Number.isNaN(Date.parse(row.value))) return null;
+  return row.value;
+}
+
+async function pauseAssessmentAiQueueUntil(until: string, database: Database) {
+  const current = await readAssessmentAiQueuePause(database);
+  const effective = current && Date.parse(current) > Date.parse(until) ? current : until;
+  await database
+    .insert(systemConfig)
+    .values({
+      key: AI_QUEUE_PAUSE_KEY,
+      value: effective,
+      validRange: "iso-datetime",
+      updatedAt: new Date().toISOString(),
+      updatedBy: null,
+    })
+    .onConflictDoUpdate({
+      target: systemConfig.key,
+      set: {
+        value: effective,
+        validRange: "iso-datetime",
+        updatedAt: new Date().toISOString(),
+        updatedBy: null,
+      },
+    });
+  return effective;
+}
 
 function claimableAiRunCondition(now: string) {
   return or(
@@ -1644,19 +1699,31 @@ function isRetryableAiGradingError(code: string) {
   return new Set([
     "AI_REQUEST_TIMEOUT",
     "AI_REQUEST_FAILED",
+    "AI_PROVIDER_UNAVAILABLE",
     "AI_EMPTY_RESPONSE",
+    "AI_RESPONSE_TRUNCATED",
     "AI_RESPONSE_INVALID",
     "AI_SCORE_OUT_OF_RANGE",
   ]).has(code);
 }
 
-function nextAiRetryAt(attemptCount: number) {
+function nextAiRetryAt(attemptCount: number, minimumDelayMs = 0) {
   const exponentialDelay = Math.min(
     AI_GRADING_RETRY_BASE_MS * 2 ** Math.max(0, attemptCount - 1),
     10 * 60_000
   );
   const jitter = Math.floor(Math.random() * Math.min(5_000, exponentialDelay / 4));
-  return new Date(Date.now() + exponentialDelay + jitter).toISOString();
+  return new Date(Date.now() + Math.max(exponentialDelay, minimumDelayMs) + jitter).toISOString();
+}
+
+function nextRateLimitRetryAt(attemptCount: number, providerRetryAfterMs?: number) {
+  const exponentialDelay = Math.min(
+    AI_GRADING_RATE_LIMIT_RETRY_BASE_MS * 2 ** Math.max(0, attemptCount - 1),
+    AI_GRADING_RATE_LIMIT_RETRY_MAX_MS
+  );
+  const requestedDelay = Math.max(providerRetryAfterMs ?? 0, exponentialDelay);
+  const jitter = Math.floor(Math.random() * 5_000);
+  return new Date(Date.now() + requestedDelay + jitter).toISOString();
 }
 
 async function processAiRun(runId: string, database: Database): Promise<boolean> {
@@ -1739,7 +1806,7 @@ async function processAiRun(runId: string, database: Database): Promise<boolean>
         untrustedStudentAnswer: parseJson(answer.answerJson, {}),
       },
       temperature: 0,
-      maxOutputTokens: Math.min(1_200, Math.max(600, 360 + rubric.length * 140)),
+      maxOutputTokens: Math.min(4_000, Math.max(1_200, 500 + rubric.length * 180)),
     },
     database
   );
@@ -1757,8 +1824,7 @@ async function processAiRun(runId: string, database: Database): Promise<boolean>
     await handleAiRunError(
       claimed,
       answer,
-      result.error.code,
-      result.error.message,
+      result.error,
       database
     );
     return true;
@@ -1769,8 +1835,10 @@ async function processAiRun(runId: string, database: Database): Promise<boolean>
     await handleAiRunError(
       claimed,
       answer,
-      "AI_RESPONSE_INVALID",
-      "AI trả dữ liệu chấm không đúng schema.",
+      {
+        code: "AI_RESPONSE_INVALID",
+        message: "AI trả dữ liệu chấm không đúng schema.",
+      },
       database
     );
     return true;
@@ -1799,8 +1867,10 @@ async function processAiRun(runId: string, database: Database): Promise<boolean>
     await handleAiRunError(
       claimed,
       answer,
-      "AI_SCORE_OUT_OF_RANGE",
-      "Điểm AI không khớp rubric hoặc vượt điểm câu.",
+      {
+        code: "AI_SCORE_OUT_OF_RANGE",
+        message: "Điểm AI không khớp rubric hoặc vượt điểm câu.",
+      },
       database
     );
     return true;
@@ -1841,19 +1911,57 @@ async function processAiRun(runId: string, database: Database): Promise<boolean>
 async function handleAiRunError(
   run: typeof assessmentAiGradingRuns.$inferSelect,
   answer: typeof assessmentAnswers.$inferSelect,
-  code: string,
-  message: string,
+  error: AiServiceError["error"],
   database: Database
 ) {
-  if (isRetryableAiGradingError(code) && run.attemptCount < AI_GRADING_MAX_ATTEMPTS) {
+  if (error.code === "AI_RATE_LIMITED") {
+    const nextAttemptAt = nextRateLimitRetryAt(run.attemptCount, error.retryAfterMs);
+    const pauseUntil = await pauseAssessmentAiQueueUntil(nextAttemptAt, database);
+    await database
+      .update(assessmentAiGradingRuns)
+      .set({
+        status: "queued",
+        nextAttemptAt: pauseUntil,
+        lockedUntil: null,
+        finishedAt: null,
+        errorCode: error.code,
+        errorMessage: error.message.slice(0, 1000),
+      })
+      .where(eq(assessmentAiGradingRuns.id, run.id));
+    if (answer.finalPoints === null) {
+      await database
+        .update(assessmentAnswers)
+        .set({
+          gradingState: "ai_queued",
+          aiFeedback: "AI đang tạm chờ quota và sẽ tự động chấm tiếp.",
+        })
+        .where(eq(assessmentAnswers.id, answer.id));
+      await database
+        .update(assessmentSessions)
+        .set({
+          status: "ai_grading",
+          reviewStatus: "ai_queued",
+          predictedScore: null,
+        })
+        .where(
+          and(
+            eq(assessmentSessions.id, answer.sessionId),
+            sql`${assessmentSessions.reviewStatus} <> 'official'`
+          )
+        );
+    }
+    return;
+  }
+
+  if (isRetryableAiGradingError(error.code) && run.attemptCount < AI_GRADING_MAX_ATTEMPTS) {
     await database
       .update(assessmentAiGradingRuns)
       .set({
         status: "queued",
         nextAttemptAt: nextAiRetryAt(run.attemptCount),
         lockedUntil: null,
-        errorCode: code,
-        errorMessage: message.slice(0, 1000),
+        errorCode: error.code,
+        errorMessage: error.message.slice(0, 1000),
       })
       .where(eq(assessmentAiGradingRuns.id, run.id));
     if (answer.finalPoints === null) {
@@ -1865,8 +1973,30 @@ async function handleAiRunError(
     return;
   }
 
-  await failAiRun(run.id, answer.id, code, message, database);
+  await failAiRun(run.id, answer.id, error.code, error.message, database);
   await refreshPredictedScoreForAnswer(answer.id, database);
+}
+
+function aiFailureFeedback(code: string) {
+  if (code === "AI_AUTH_FAILED") {
+    return "API key AI không hợp lệ hoặc không có quyền dùng model. Cần quản trị viên kiểm tra cấu hình.";
+  }
+  if (code === "AI_REQUEST_INVALID") {
+    return "Gemini từ chối cấu hình yêu cầu chấm. Cần kiểm tra model hoặc rubric.";
+  }
+  if (code === "AI_SAFETY_BLOCKED") {
+    return "Gemini đã chặn nội dung theo bộ lọc an toàn. Cần giảng viên chấm thủ công.";
+  }
+  if (code === "AI_RESPONSE_TRUNCATED") {
+    return "Kết quả AI bị cắt trước khi hoàn tất. Có thể chạy lại AI hoặc chấm thủ công.";
+  }
+  if (code === "AI_RESPONSE_INVALID" || code === "AI_SCORE_OUT_OF_RANGE") {
+    return "Kết quả AI không đúng định dạng hoặc rubric. Cần giảng viên rà soát.";
+  }
+  if (code === "AI_PROVIDER_UNAVAILABLE" || code === "AI_REQUEST_TIMEOUT") {
+    return "Dịch vụ AI tạm thời không phản hồi sau nhiều lần thử. Có thể chạy lại sau.";
+  }
+  return "AI chưa chấm được sau nhiều lần thử. Cần giảng viên chấm thủ công.";
 }
 
 async function failAiRun(
@@ -1898,7 +2028,7 @@ async function failAiRun(
         ? { gradingState: answer.gradingState }
         : {
             gradingState: "ungraded",
-            aiFeedback: "AI chưa chấm được. Cần giảng viên chấm thủ công.",
+            aiFeedback: aiFailureFeedback(code),
           }
     )
     .where(eq(assessmentAnswers.id, answerId));
@@ -1947,10 +2077,169 @@ async function refreshPredictedScoreForAnswer(answerId: string, database: Databa
     .where(eq(assessmentSessions.id, session.id));
 }
 
+export async function recoverAssessmentAiQueue(
+  database: Database = defaultDb
+) {
+  const legacyFailures = await database
+    .select({
+      answerId: assessmentAiGradingRuns.answerId,
+      sessionId: assessmentAnswers.sessionId,
+      errorCode: assessmentAiGradingRuns.errorCode,
+      errorMessage: assessmentAiGradingRuns.errorMessage,
+      promptVersion: assessmentAiGradingRuns.promptVersion,
+    })
+    .from(assessmentAiGradingRuns)
+    .innerJoin(assessmentAnswers, eq(assessmentAiGradingRuns.answerId, assessmentAnswers.id))
+    .where(
+      and(
+        eq(assessmentAiGradingRuns.status, "failed"),
+        isNull(assessmentAnswers.finalPoints),
+        or(
+          eq(assessmentAiGradingRuns.errorCode, "AI_RATE_LIMITED"),
+          and(
+            eq(assessmentAiGradingRuns.errorCode, "AI_REQUEST_FAILED"),
+            or(
+              sql`lower(coalesce(${assessmentAiGradingRuns.errorMessage}, '')) like '%quota%'`,
+              sql`lower(coalesce(${assessmentAiGradingRuns.errorMessage}, '')) like '%rate limit%'`,
+              sql`lower(coalesce(${assessmentAiGradingRuns.errorMessage}, '')) like '%resource_exhausted%'`
+            )
+          ),
+          and(
+            eq(assessmentAiGradingRuns.errorCode, "AI_RESPONSE_INVALID"),
+            eq(assessmentAiGradingRuns.promptVersion, "assessment-grading-v1")
+          )
+        )
+      )
+    );
+  if (legacyFailures.length === 0) {
+    return { recovered: 0, recoveredRateLimited: 0, recoveredInvalidResponse: 0, pausedUntil: null };
+  }
+
+  const activeRuns = await database
+    .select({ answerId: assessmentAiGradingRuns.answerId })
+    .from(assessmentAiGradingRuns)
+    .where(inArray(assessmentAiGradingRuns.status, ["queued", "running"]));
+  const activeAnswerIds = new Set(activeRuns.map((run) => run.answerId));
+  const isRateLimitedFailure = (failure: (typeof legacyFailures)[number]) =>
+    failure.errorCode === "AI_RATE_LIMITED" ||
+    /quota|rate limit|resource_exhausted/i.test(failure.errorMessage ?? "");
+  const recoverableByAnswer = new Map<string, (typeof legacyFailures)[number]>();
+  for (const failure of legacyFailures) {
+    if (activeAnswerIds.has(failure.answerId)) continue;
+    const existing = recoverableByAnswer.get(failure.answerId);
+    if (!existing || isRateLimitedFailure(failure)) {
+      recoverableByAnswer.set(failure.answerId, failure);
+    }
+  }
+  const recoverable = Array.from(recoverableByAnswer.values());
+  if (recoverable.length === 0) {
+    return { recovered: 0, recoveredRateLimited: 0, recoveredInvalidResponse: 0, pausedUntil: null };
+  }
+
+  const now = Date.now();
+  const recoveredRateLimited = recoverable.filter(isRateLimitedFailure).length;
+  const recoveredInvalidResponse = recoverable.length - recoveredRateLimited;
+  const pausedUntil = recoveredRateLimited > 0
+    ? new Date(now + AI_GRADING_RATE_LIMIT_RETRY_BASE_MS).toISOString()
+    : null;
+  await database.insert(assessmentAiGradingRuns).values(
+    recoverable.map((failure, index) => ({
+      id: crypto.randomUUID(),
+      answerId: failure.answerId,
+      status: "queued" as const,
+      promptVersion: "assessment-grading-v2",
+      attemptCount: 0,
+      needsHumanAttention: 0,
+      errorCode: isRateLimitedFailure(failure) ? "AI_RATE_LIMITED" : "AI_RESPONSE_INVALID",
+      errorMessage:
+        failure.errorMessage?.slice(0, 1000) ||
+        "Lượt chấm cũ được khôi phục để chạy lại bằng cấu hình AI mới.",
+      createdAt: new Date(now + index).toISOString(),
+      nextAttemptAt: isRateLimitedFailure(failure)
+        ? pausedUntil
+        : new Date(now + index).toISOString(),
+    }))
+  );
+  const answerIds = recoverable.map((failure) => failure.answerId);
+  const rateLimitedAnswerIds = recoverable
+    .filter(isRateLimitedFailure)
+    .map((failure) => failure.answerId);
+  const invalidResponseAnswerIds = recoverable
+    .filter((failure) => !isRateLimitedFailure(failure))
+    .map((failure) => failure.answerId);
+  const sessionIds = Array.from(new Set(recoverable.map((failure) => failure.sessionId)));
+  await database
+    .update(assessmentAnswers)
+    .set({
+      gradingState: "ai_queued",
+    })
+    .where(and(inArray(assessmentAnswers.id, answerIds), isNull(assessmentAnswers.finalPoints)));
+  if (rateLimitedAnswerIds.length > 0) {
+    await database
+      .update(assessmentAnswers)
+      .set({ aiFeedback: "AI đang tạm chờ quota và sẽ tự động chấm tiếp." })
+      .where(
+        and(
+          inArray(assessmentAnswers.id, rateLimitedAnswerIds),
+          isNull(assessmentAnswers.finalPoints)
+        )
+      );
+  }
+  if (invalidResponseAnswerIds.length > 0) {
+    await database
+      .update(assessmentAnswers)
+      .set({ aiFeedback: "AI sẽ tự động chấm lại bằng cấu hình JSON mới." })
+      .where(
+        and(
+          inArray(assessmentAnswers.id, invalidResponseAnswerIds),
+          isNull(assessmentAnswers.finalPoints)
+        )
+      );
+  }
+  if (sessionIds.length > 0) {
+    await database
+      .update(assessmentSessions)
+      .set({
+        status: "ai_grading",
+        reviewStatus: "ai_queued",
+        predictedScore: null,
+      })
+      .where(
+        and(
+          inArray(assessmentSessions.id, sessionIds),
+          sql`${assessmentSessions.reviewStatus} <> 'official'`
+        )
+      );
+  }
+  if (pausedUntil) await pauseAssessmentAiQueueUntil(pausedUntil, database);
+  return {
+    recovered: recoverable.length,
+    recoveredRateLimited,
+    recoveredInvalidResponse,
+    pausedUntil,
+  };
+}
+
 export async function processPendingAssessmentAiRuns(
   limit = 1,
   database: Database = defaultDb
 ) {
+  const availability = await getAiAvailability(database);
+  const isGemini = availability.provider === "gemini";
+  if (isGemini) {
+    const nowMs = Date.now();
+    const persistedPause = await readAssessmentAiQueuePause(database);
+    const persistedPauseMs = persistedPause ? Date.parse(persistedPause) : 0;
+    const minIntervalMs = geminiAssessmentMinIntervalMs();
+    const intervalPauseMs = minIntervalMs > 0
+      ? lastGeminiAssessmentRequestAt + minIntervalMs
+      : 0;
+    const pausedUntilMs = Math.max(persistedPauseMs, intervalPauseMs);
+    if (pausedUntilMs > nowMs) {
+      return { processed: 0, pausedUntil: new Date(pausedUntilMs).toISOString() };
+    }
+  }
+
   const now = new Date().toISOString();
   const runs = await database
     .select({ id: assessmentAiGradingRuns.id })
@@ -1960,22 +2249,28 @@ export async function processPendingAssessmentAiRuns(
       asc(assessmentAiGradingRuns.nextAttemptAt),
       asc(assessmentAiGradingRuns.createdAt)
     )
-    .limit(Math.max(1, Math.min(limit, 10)));
+    .limit(isGemini ? 1 : Math.max(1, Math.min(limit, 10)));
   let processed = 0;
   for (const run of runs) {
+    if (isGemini) lastGeminiAssessmentRequestAt = Date.now();
     if (await processAiRun(run.id, database)) processed += 1;
   }
-  return { processed };
+  return { processed, pausedUntil: null };
 }
 
 let assessmentWorkerTimer: ReturnType<typeof setInterval> | null = null;
 let assessmentWorkerBusy = false;
+let assessmentQueueRecoveryComplete = false;
 export function startAssessmentAiWorker() {
   if (assessmentWorkerTimer) return;
   const run = async () => {
     if (assessmentWorkerBusy) return;
     assessmentWorkerBusy = true;
     try {
+      if (!assessmentQueueRecoveryComplete) {
+        await recoverAssessmentAiQueue();
+        assessmentQueueRecoveryComplete = true;
+      }
       await processPendingAssessmentAiRuns(1);
     } finally {
       assessmentWorkerBusy = false;
@@ -2222,7 +2517,10 @@ export async function getAssessmentReview(
               needsHumanAttention: latestAiRun.needsHumanAttention === 1,
               errorCode: latestAiRun.errorCode,
               errorMessage: latestAiRun.errorMessage,
+              attemptCount: latestAiRun.attemptCount,
+              nextAttemptAt: latestAiRun.nextAttemptAt,
               createdAt: latestAiRun.createdAt,
+              startedAt: latestAiRun.startedAt,
               finishedAt: latestAiRun.finishedAt,
             }
           : null,
@@ -2595,7 +2893,7 @@ export async function regradeAssessmentAssignment(
           id: run.id,
           answerId: run.answerId,
           status: "queued" as const,
-          promptVersion: "assessment-grading-v1",
+          promptVersion: "assessment-grading-v2",
           attemptCount: 0,
           needsHumanAttention: 0,
           createdAt: now,
@@ -2673,7 +2971,7 @@ export async function retryAssessmentAiGrade(
       id: crypto.randomUUID(),
       answerId,
       status: "queued",
-      promptVersion: "assessment-grading-v1",
+      promptVersion: "assessment-grading-v2",
       attemptCount: 0,
       needsHumanAttention: 0,
       createdAt: new Date().toISOString(),
@@ -2684,6 +2982,10 @@ export async function retryAssessmentAiGrade(
       .update(assessmentAnswers)
       .set({ gradingState: "ai_queued" })
       .where(eq(assessmentAnswers.id, answerId));
+    await database
+      .update(assessmentSessions)
+      .set({ status: "ai_grading", reviewStatus: "ai_queued", predictedScore: null })
+      .where(eq(assessmentSessions.id, answer.sessionId));
   }
   return { data: run };
 }

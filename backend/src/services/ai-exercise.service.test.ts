@@ -4,6 +4,7 @@ import * as schema from "../db/schema.js";
 import { getTestSqlite } from "../test/setup.js";
 import {
   generateExerciseDraft,
+  generateStructuredAi,
   getAiConfigStatus,
   isAiServiceError,
   testAiConfig,
@@ -382,6 +383,140 @@ describe("AI Exercise Service", () => {
     };
     expect(JSON.stringify(body.generationConfig.responseSchema)).not.toContain("additionalProperties");
     expect(JSON.stringify(body.generationConfig.responseSchema)).not.toContain("\"enum\":[1]");
+  });
+
+  it("disables Gemini thinking for grading and returns structured JSON", async () => {
+    const db = getDb();
+    await updateAiConfig(
+      { provider: "gemini", model: "gemini-2.5-flash", apiKey: "AIza-test-key" },
+      ADMIN_ID,
+      db as never
+    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ models: [] }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          candidates: [
+            {
+              finishReason: "STOP",
+              content: { parts: [{ text: JSON.stringify({ score: 4 }) }] },
+            },
+          ],
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    await testAiConfig(ADMIN_ID, db as never);
+
+    const result = await generateStructuredAi(
+      {
+        schemaName: "grade",
+        schema: {
+          type: "object",
+          properties: { score: { type: "number" } },
+          required: ["score"],
+        },
+        instructions: "Chấm theo rubric.",
+        input: { answer: "Nội dung" },
+        maxOutputTokens: 1200,
+      },
+      db as never
+    );
+
+    expect(isAiServiceError(result)).toBe(false);
+    expect(result).toMatchObject({ data: { score: 4 }, provider: "gemini" });
+    const [, request] = fetchMock.mock.calls[1];
+    const body = JSON.parse(String(request?.body)) as {
+      generationConfig: {
+        maxOutputTokens: number;
+        thinkingConfig: { thinkingBudget: number };
+      };
+    };
+    expect(body.generationConfig).toMatchObject({
+      maxOutputTokens: 1200,
+      thinkingConfig: { thinkingBudget: 0 },
+    });
+  });
+
+  it("classifies Gemini quota errors and reads the provider retry delay", async () => {
+    const db = getDb();
+    await updateAiConfig(
+      { provider: "gemini", model: "gemini-2.5-flash", apiKey: "AIza-test-key" },
+      ADMIN_ID,
+      db as never
+    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ models: [] }) })
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: {
+              message: "Quota exceeded for Gemini. Please retry in 16.5s.",
+              status: "RESOURCE_EXHAUSTED",
+              details: [{ retryDelay: "16.5s" }],
+            },
+          }),
+          { status: 429, headers: { "Content-Type": "application/json" } }
+        )
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    await testAiConfig(ADMIN_ID, db as never);
+
+    const result = await generateStructuredAi(
+      {
+        schemaName: "grade",
+        schema: { type: "object", properties: {}, required: [] },
+        instructions: "Chấm.",
+        input: {},
+      },
+      db as never
+    );
+
+    expect(isAiServiceError(result)).toBe(true);
+    expect(result).toEqual({
+      error: {
+        code: "AI_RATE_LIMITED",
+        message: "Quota exceeded for Gemini. Please retry in 16.5s.",
+        httpStatus: 429,
+        providerStatus: "RESOURCE_EXHAUSTED",
+        retryAfterMs: 16_500,
+      },
+    });
+  });
+
+  it("reports a truncated Gemini response instead of a generic JSON error", async () => {
+    const db = getDb();
+    await updateAiConfig(
+      { provider: "gemini", model: "gemini-2.5-flash", apiKey: "AIza-test-key" },
+      ADMIN_ID,
+      db as never
+    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ models: [] }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ candidates: [{ finishReason: "MAX_TOKENS" }] }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    await testAiConfig(ADMIN_ID, db as never);
+
+    const result = await generateStructuredAi(
+      {
+        schemaName: "grade",
+        schema: { type: "object", properties: {}, required: [] },
+        instructions: "Chấm.",
+        input: {},
+      },
+      db as never
+    );
+
+    expect(isAiServiceError(result)).toBe(true);
+    expect(result).toMatchObject({
+      error: { code: "AI_RESPONSE_TRUNCATED" },
+    });
   });
 
   it("normalizes Gemini legacy file payloads and compact JUnit tests", async () => {
