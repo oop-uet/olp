@@ -80,9 +80,18 @@ export function AssessmentManagerPanel() {
     setWindowDrafts(
       item.assignments.map((assignment) => ({
         ...assignment,
+        maxAttempts: assignment.maxAttempts ?? 1,
         opensAtInput: isoToLocalInput(assignment.opensAt),
         closesAtInput: isoToLocalInput(assignment.closesAt),
       }))
+    )
+  }
+
+  function updateMaxAttempts(assignmentId: string, value: number) {
+    setWindowDrafts((current) =>
+      current.map((draft) =>
+        draft.id === assignmentId ? { ...draft, maxAttempts: value } : draft
+      )
     )
   }
 
@@ -107,12 +116,17 @@ export function AssessmentManagerPanel() {
       toast.error('Thời gian đóng phải sau thời gian mở.')
       return
     }
+    if (!Number.isInteger(draft.maxAttempts) || draft.maxAttempts < 1 || draft.maxAttempts > 20) {
+      toast.error('Số lần làm phải là số nguyên từ 1 đến 20.')
+      return
+    }
 
     setSavingAssignmentId(draft.id)
     try {
       await api.put(`/api/instructor/assessments/assignments/${draft.id}/window`, {
         opensAt,
         closesAt,
+        maxAttempts: draft.maxAttempts,
       })
       setItems((current) =>
         current.map((item) =>
@@ -121,7 +135,9 @@ export function AssessmentManagerPanel() {
             : {
                 ...item,
                 assignments: item.assignments.map((assignment) =>
-                  assignment.id === draft.id ? { ...assignment, opensAt, closesAt } : assignment
+                  assignment.id === draft.id
+                    ? { ...assignment, opensAt, closesAt, maxAttempts: draft.maxAttempts }
+                    : assignment
                 ),
               }
         )
@@ -131,12 +147,14 @@ export function AssessmentManagerPanel() {
           ? {
               ...current,
               assignments: current.assignments.map((assignment) =>
-                assignment.id === draft.id ? { ...assignment, opensAt, closesAt } : assignment
+                assignment.id === draft.id
+                  ? { ...assignment, opensAt, closesAt, maxAttempts: draft.maxAttempts }
+                  : assignment
               ),
             }
           : current
       )
-      toast.success(`Đã cập nhật thời gian cho lớp ${draft.sectionName}.`)
+      toast.success(`Đã cập nhật cài đặt cho lớp ${draft.sectionName}.`)
     } catch (error: unknown) {
       toast.error(readApiError(error).message ?? 'Không thể cập nhật thời gian bài kiểm tra.')
     } finally {
@@ -194,6 +212,9 @@ export function AssessmentManagerPanel() {
                           <p className="text-[11px] text-slate-500">
                             {formatDate(assignment.opensAt)} - {formatDate(assignment.closesAt)}
                           </p>
+                          <p className="text-[11px] font-semibold text-slate-500">
+                            Tối đa {assignment.maxAttempts ?? 1} lượt làm
+                          </p>
                           <Link
                             to={`/instructor/assessment-assignments/${assignment.id}/submissions`}
                             className="mt-1 inline-block text-xs font-bold text-primary hover:underline"
@@ -219,7 +240,7 @@ export function AssessmentManagerPanel() {
                         onClick={() => openSettings(item)}
                         className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:border-primary/40 hover:bg-primary-50 hover:text-primary"
                         aria-label={`Cài đặt thời gian ${item.title}`}
-                        title="Cài đặt thời gian mở và đóng"
+                        title="Cài đặt bài kiểm tra"
                       >
                         <ConfigIcon className="h-4 w-4" />
                       </button>
@@ -255,7 +276,7 @@ export function AssessmentManagerPanel() {
           <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
             <div className="flex items-center justify-between gap-4 border-b border-slate-200 bg-slate-50 px-5 py-4">
               <h2 id="assessment-window-title" className="font-bold text-slate-900">
-                Cài đặt thời gian mở và đóng
+                Cài đặt bài kiểm tra
               </h2>
               <button
                 type="button"
@@ -317,6 +338,25 @@ export function AssessmentManagerPanel() {
                         />
                       </div>
                     </div>
+                    <div className="mt-4 max-w-xs">
+                      <label className="label" htmlFor={`max-attempts-${draft.id}`}>
+                        Số lần làm
+                      </label>
+                      <input
+                        id={`max-attempts-${draft.id}`}
+                        type="number"
+                        min={1}
+                        max={20}
+                        step={1}
+                        required
+                        value={draft.maxAttempts}
+                        onChange={(event) =>
+                          updateMaxAttempts(draft.id, Number(event.target.value))
+                        }
+                        className="input"
+                      />
+                      <p className="mt-1 text-xs text-slate-500">Mặc định 1, tối đa 20 lượt.</p>
+                    </div>
                     <div className="mt-4 flex justify-end">
                       <button
                         type="submit"
@@ -328,7 +368,7 @@ export function AssessmentManagerPanel() {
                             <Spinner /> Đang lưu...
                           </>
                         ) : (
-                          'Lưu thời gian'
+                          'Lưu cài đặt'
                         )}
                       </button>
                     </div>

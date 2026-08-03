@@ -431,36 +431,29 @@ function WeekPanel({
             {assessments.map((assessment) => (
               <div
                 key={assessment.assignmentId}
-                className="flex flex-col sm:flex-row sm:items-center justify-between border border-cyan-200/90 rounded-xl p-3 bg-gradient-to-r from-cyan-50/70 via-sky-50/40 to-white hover:border-cyan-400 transition-all shadow-2xs gap-3"
+                className="flex items-center justify-between border border-slate-200/80 rounded-lg px-4 py-2 bg-[#f8f9fa] hover:bg-[#f1f3f5] transition-colors duration-150 shadow-sm"
               >
-                <div className="flex items-start sm:items-center gap-2.5 min-w-0">
-                  <span className="rounded-md bg-cyan-600 px-2 py-0.5 text-xs font-black text-white shadow-2xs shrink-0">
-                    KT
-                  </span>
-                  <div className="min-w-0">
-                    <Link
-                      to={`/instructor/assessment-assignments/${assessment.assignmentId}/submissions`}
-                      className="text-sm font-extrabold text-slate-900 hover:text-cyan-700 hover:underline truncate block"
-                    >
-                      {assessment.title}
-                    </Link>
-                    <p className="text-[11px] font-semibold text-slate-500 mt-0.5 flex flex-wrap items-center gap-2">
-                      <span>⏱️ {assessment.durationMinutes} phút</span>
-                      <span>·</span>
-                      <span>🏆 {assessment.totalPoints} điểm</span>
-                      <span>·</span>
-                      <span>📅 {new Date(assessment.opensAt).toLocaleString('vi-VN')} – {new Date(assessment.closesAt).toLocaleString('vi-VN')}</span>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                <div className="flex items-center gap-2 text-xs min-w-0">
                   <Link
                     to={`/instructor/assessment-assignments/${assessment.assignmentId}/submissions`}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-300 bg-cyan-50 px-3 py-1.5 text-xs font-bold text-cyan-800 hover:bg-cyan-100 hover:text-cyan-900 transition-colors shadow-2xs"
+                    className="text-sm font-bold text-sky-700 hover:underline truncate"
                   >
-                    <span>📊</span>
-                    <span>Xem bài nộp</span>
+                    {assessment.title}
+                  </Link>
+                  <Link
+                    to={`/instructor/assessment-assignments/${assessment.assignmentId}/submissions`}
+                    className="badge-blue text-[9px] px-1 py-0.5 font-bold uppercase shrink-0"
+                  >
+                    KT
+                  </Link>
+                </div>
+
+                <div className="flex items-center gap-3 text-xs shrink-0">
+                  <Link
+                    to={`/instructor/assessment-assignments/${assessment.assignmentId}/submissions`}
+                    className="inline-flex items-center justify-center rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-700 hover:border-primary/40 hover:bg-primary-50 hover:text-primary transition-colors shadow-2xs"
+                  >
+                    Xem bài nộp
                   </Link>
                 </div>
               </div>
