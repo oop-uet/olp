@@ -182,6 +182,7 @@ export function AssessmentManagerPanel() {
           : current
       )
       toast.success(`Đã cập nhật cài đặt cho lớp ${draft.sectionName}.`)
+      await load()
     } catch (error: unknown) {
       toast.error(readApiError(error).message ?? 'Không thể cập nhật thời gian bài kiểm tra.')
     } finally {

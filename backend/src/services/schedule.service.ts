@@ -154,6 +154,7 @@ export interface ScheduleAssessment {
   title: string;
   totalPoints: number;
   durationMinutes: number;
+  maxAttempts: number;
   creatorUsername: string | null;
   week: number | null;
   deadline: string | null;
@@ -223,6 +224,7 @@ export async function getSectionSchedule(
       title: assessments.title,
       totalPoints: assessments.totalPoints,
       durationMinutes: assessmentAssignments.durationMinutes,
+      maxAttempts: assessmentAssignments.maxAttempts,
       creatorUsername: users.username,
       week: assessmentAssignments.week,
       opensAt: assessmentAssignments.opensAt,
@@ -241,6 +243,7 @@ export async function getSectionSchedule(
     title: a.title,
     totalPoints: Number(a.totalPoints) || 0,
     durationMinutes: Number(a.durationMinutes) || 0,
+    maxAttempts: Number(a.maxAttempts) || 1,
     creatorUsername: a.creatorUsername ?? null,
     week: a.week ?? null,
     deadline: a.closesAt ?? null,

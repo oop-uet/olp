@@ -460,6 +460,7 @@ export async function listInstructorAssessments(
         sectionName: classSections.name,
         opensAt: assessmentAssignments.opensAt,
         closesAt: assessmentAssignments.closesAt,
+        durationMinutes: assessmentAssignments.durationMinutes,
         maxAttempts: assessmentAssignments.maxAttempts,
       })
       .from(assessmentAssignments)
