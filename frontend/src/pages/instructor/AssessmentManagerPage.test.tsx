@@ -85,6 +85,7 @@ describe('AssessmentManagerPanel', () => {
         {
           opensAt: new Date(opensAtInput.value).toISOString(),
           closesAt: new Date('2026-08-17T08:00').toISOString(),
+          durationMinutes: 90,
           maxAttempts: 3,
         }
       )
