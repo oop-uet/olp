@@ -1054,7 +1054,8 @@ export type AssessmentIntegrityEventType =
   | "devtools_open"
   | "copy_attempt"
   | "paste_attempt"
-  | "context_menu";
+  | "context_menu"
+  | "dom_tampering";
 
 const assessmentIntegrityEventTypes = new Set<AssessmentIntegrityEventType>([
   "fullscreen_exit",
@@ -1064,6 +1065,7 @@ const assessmentIntegrityEventTypes = new Set<AssessmentIntegrityEventType>([
   "copy_attempt",
   "paste_attempt",
   "context_menu",
+  "dom_tampering",
 ]);
 
 export async function setAssessmentQuestionFlag(

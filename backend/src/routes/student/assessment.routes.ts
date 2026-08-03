@@ -42,6 +42,7 @@ const integrityEventSchema = z.object({
     "copy_attempt",
     "paste_attempt",
     "context_menu",
+    "dom_tampering",
   ]),
   metadata: z.record(z.unknown()).optional().default({}),
 });

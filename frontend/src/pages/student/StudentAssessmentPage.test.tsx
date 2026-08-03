@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -146,6 +146,38 @@ describe('StudentAssessmentPage integrity controls', () => {
       )
     })
     expect(screen.getByRole('button', { name: 'Đã gắn cờ' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('blocks selecting protected exam text and records protected DOM tampering', async () => {
+    renderPage()
+
+    const prompt = await screen.findByText('class A { void show() { } }')
+    const secureRoot = prompt.closest('[data-assessment-secure-root="true"]')
+    expect(secureRoot).toHaveClass('assessment-secure-content', 'select-none')
+    expect(prompt).toHaveAttribute('data-assessment-protected-text', 'true')
+    await waitFor(() => {
+      expect(secureRoot).toHaveAttribute('data-assessment-dom-monitor', 'active')
+    })
+
+    const selectStart = new Event('selectstart', { bubbles: true, cancelable: true })
+    await act(async () => {
+      expect(prompt.dispatchEvent(selectStart)).toBe(false)
+    })
+    expect(await screen.findByText('Không thể chọn hoặc đánh dấu nội dung đề thi.')).toBeInTheDocument()
+
+    const injectedElement = document.createElement('span')
+    injectedElement.textContent = 'Injected extension control'
+    await act(async () => {
+      prompt.appendChild(injectedElement)
+      await Promise.resolve()
+    })
+
+    await waitFor(() => {
+      expect(mockedApi.post).toHaveBeenCalledWith(
+        '/api/students/assessments/sessions/session-1/integrity-events',
+        expect.objectContaining({ eventType: 'dom_tampering' })
+      )
+    })
   })
 
   it('batches rapid answer changes and saves only the newest revision', async () => {

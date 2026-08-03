@@ -70,6 +70,7 @@ const integrityEventLabels: Record<string, string> = {
   copy_attempt: 'Thử copy/cắt',
   paste_attempt: 'Thử paste',
   context_menu: 'Thử mở menu chuột phải',
+  dom_tampering: 'Can thiệp nội dung đề / tiện ích trình duyệt',
 }
 
 function answerText(answer: ReviewAnswer) {

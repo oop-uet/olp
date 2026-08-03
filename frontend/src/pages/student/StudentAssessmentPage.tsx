@@ -46,6 +46,7 @@ type IntegrityEventType =
   | 'copy_attempt'
   | 'paste_attempt'
   | 'context_menu'
+  | 'dom_tampering'
 interface ResultPayload {
   id: string
   title: string
@@ -130,6 +131,7 @@ export function StudentAssessmentPage() {
   const integrityNoticeTimerRef = useRef<number | null>(null)
   const integrityQueueRef = useRef<Promise<void>>(Promise.resolve())
   const lastIntegrityEventRef = useRef<Partial<Record<IntegrityEventType, number>>>({})
+  const secureExamRootRef = useRef<HTMLDivElement>(null)
 
   const loadResult = useCallback(async (sessionId: string) => {
     const response = await api.get(`/api/students/assessments/sessions/${sessionId}/result`)
@@ -503,8 +505,48 @@ export function StudentAssessmentPage() {
       recordIntegrityEvent('context_menu', 'Menu chuột phải đã bị khóa trong khi làm bài.')
     }
 
+    const isEditableTarget = (target: EventTarget | null) => {
+      const element = target instanceof Element ? target : null
+      return Boolean(element?.closest('textarea, input, [contenteditable="true"]'))
+    }
+
+    const isInsideSecureExam = (target: EventTarget | null) => {
+      const element = target instanceof Element ? target : null
+      return Boolean(element?.closest('[data-assessment-secure-root="true"]'))
+    }
+
+    const handleSelectStart = (event: Event) => {
+      if (!isInsideSecureExam(event.target) || isEditableTarget(event.target)) return
+      event.preventDefault()
+      showIntegrityNotice('Không thể chọn hoặc đánh dấu nội dung đề thi.')
+    }
+
+    const handleDragStart = (event: DragEvent) => {
+      if (!isInsideSecureExam(event.target) || isEditableTarget(event.target)) return
+      event.preventDefault()
+      showIntegrityNotice('Không thể kéo nội dung ra khỏi đề thi.')
+    }
+
+    const handleDrop = (event: DragEvent) => {
+      if (!isInsideSecureExam(event.target)) return
+      event.preventDefault()
+      recordIntegrityEvent('paste_attempt', 'Không được kéo thả nội dung vào bài làm.')
+    }
+
+    const handleBeforeInput = (event: InputEvent) => {
+      if (!isInsideSecureExam(event.target)) return
+      if (!['insertFromPaste', 'insertFromDrop'].includes(event.inputType)) return
+      event.preventDefault()
+      recordIntegrityEvent('paste_attempt', 'Không được chèn nội dung từ clipboard hoặc kéo thả.')
+    }
+
     const handleDevToolsShortcut = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase()
+      if ((event.ctrlKey || event.metaKey) && key === 'a' && !isEditableTarget(event.target)) {
+        event.preventDefault()
+        showIntegrityNotice('Không thể chọn toàn bộ nội dung đề thi.')
+        return
+      }
       const windowsShortcut = event.ctrlKey && event.shiftKey && ['i', 'j', 'c', 'k'].includes(key)
       const macShortcut = event.metaKey && event.altKey && ['i', 'j', 'c', 'k'].includes(key)
       if (key !== 'f12' && !windowsShortcut && !macShortcut) return
@@ -520,6 +562,10 @@ export function StudentAssessmentPage() {
     document.addEventListener('cut', handleCopyOrCut)
     document.addEventListener('paste', handlePaste)
     document.addEventListener('contextmenu', handleContextMenu)
+    document.addEventListener('selectstart', handleSelectStart, true)
+    document.addEventListener('dragstart', handleDragStart, true)
+    document.addEventListener('drop', handleDrop, true)
+    document.addEventListener('beforeinput', handleBeforeInput, true)
     window.addEventListener('blur', handleWindowBlur)
     window.addEventListener('keydown', handleDevToolsShortcut, true)
     return () => {
@@ -529,11 +575,70 @@ export function StudentAssessmentPage() {
       document.removeEventListener('cut', handleCopyOrCut)
       document.removeEventListener('paste', handlePaste)
       document.removeEventListener('contextmenu', handleContextMenu)
+      document.removeEventListener('selectstart', handleSelectStart, true)
+      document.removeEventListener('dragstart', handleDragStart, true)
+      document.removeEventListener('drop', handleDrop, true)
+      document.removeEventListener('beforeinput', handleBeforeInput, true)
       window.removeEventListener('blur', handleWindowBlur)
       window.removeEventListener('keydown', handleDevToolsShortcut, true)
       fullscreenArmedRef.current = false
     }
-  }, [recordIntegrityEvent, session])
+  }, [recordIntegrityEvent, session, showIntegrityNotice])
+
+  useEffect(() => {
+    const root = secureExamRootRef.current
+    if (!session || !root || typeof MutationObserver === 'undefined') return
+
+    const protectedContentObserver = new MutationObserver((mutations) => {
+      const protectedMutations = mutations.filter((mutation) => {
+        const target = mutation.target instanceof Element
+          ? mutation.target
+          : mutation.target.parentElement
+        return Boolean(target?.closest('[data-assessment-protected-text="true"]'))
+      })
+      if (protectedMutations.length === 0) return
+      recordIntegrityEvent(
+        'dom_tampering',
+        'Phát hiện nội dung đề bị can thiệp bởi công cụ bên ngoài hoặc tiện ích trình duyệt.',
+        { mutationKinds: [...new Set(protectedMutations.map((mutation) => mutation.type))] }
+      )
+    })
+    protectedContentObserver.observe(root, {
+      attributes: true,
+      characterData: true,
+      childList: true,
+      subtree: true,
+    })
+
+    const extensionMarkerObserver = new MutationObserver((mutations) => {
+      const hasExtensionMarker = mutations.some((mutation) =>
+        [...mutation.addedNodes].some((node) => {
+          if (!(node instanceof Element)) return false
+          const markup = node.outerHTML.slice(0, 2_000).toLowerCase()
+          return (
+            markup.includes('chrome-extension://') ||
+            markup.includes('moz-extension://') ||
+            markup.includes('safari-web-extension://') ||
+            node.tagName.toLowerCase().includes('grammarly')
+          )
+        })
+      )
+      if (hasExtensionMarker) {
+        recordIntegrityEvent(
+          'dom_tampering',
+          'Phát hiện tiện ích trình duyệt chèn nội dung vào màn hình thi.'
+        )
+      }
+    })
+    extensionMarkerObserver.observe(root, { childList: true, subtree: true })
+    root.dataset.assessmentDomMonitor = 'active'
+
+    return () => {
+      protectedContentObserver.disconnect()
+      extensionMarkerObserver.disconnect()
+      delete root.dataset.assessmentDomMonitor
+    }
+  }, [loading, recordIntegrityEvent, session])
 
   const resultId = result?.id
   const resultReviewStatus = result?.reviewStatus
@@ -738,7 +843,11 @@ export function StudentAssessmentPage() {
 
   const questions = session.assessment.sections.flatMap((section) => section.questions)
   return (
-    <div className="space-y-5">
+    <div
+      ref={secureExamRootRef}
+      className="assessment-secure-content space-y-5 select-none"
+      data-assessment-secure-root="true"
+    >
       {integrityNotice && (
         <div className="fixed left-1/2 top-4 z-[70] w-[min(92vw,680px)] -translate-x-1/2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-center text-xs font-bold text-amber-900 shadow-xl animate-fade-in" role="alert">
           {integrityNotice}
@@ -764,7 +873,12 @@ export function StudentAssessmentPage() {
       {/* Sticky Active Exam Header */}
       <div className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200/90 bg-white/95 backdrop-blur-md px-5 py-3 shadow-md border-t-4 border-t-cyan-500">
         <div>
-          <h1 className="text-base font-extrabold text-slate-900">{session.assessment.title}</h1>
+          <h1
+            className="text-base font-extrabold text-slate-900"
+            data-assessment-protected-text="true"
+          >
+            {session.assessment.title}
+          </h1>
           <p className="text-xs font-semibold text-slate-500 mt-0.5">
             Lượt {session.session.attemptNumber ?? Math.max(1, preflight.attemptsUsed)}/{preflight.maxAttempts} · Đã trả lời <strong className="text-teal-700">{answeredCount}</strong>/{questions.length} câu · Gắn cờ <strong className="text-amber-600">{flaggedQuestionIds.length}</strong> ·{' '}
             {saveState === 'saved'
@@ -829,14 +943,22 @@ export function StudentAssessmentPage() {
           {session.assessment.sections.map((section) => (
             <section key={section.id} className="card overflow-hidden shadow-sm">
               <div className="flex items-center justify-between border-b border-slate-200/80 bg-slate-50/90 px-6 py-3.5 border-l-4 border-primary">
-                <h2 className="text-sm font-extrabold text-slate-900">{section.title}</h2>
+                <h2
+                  className="text-sm font-extrabold text-slate-900"
+                  data-assessment-protected-text="true"
+                >
+                  {section.title}
+                </h2>
                 <span className="inline-flex items-center rounded-md bg-cyan-500 px-2.5 py-0.5 text-xs font-black text-white shadow-2xs">
                   {section.points} điểm
                 </span>
               </div>
               {section.introContent && (
                 <div className="p-5 pb-0">
-                  <pre className="overflow-x-auto whitespace-pre-wrap rounded-xl border border-slate-800 bg-slate-900 p-4 font-mono text-xs leading-6 text-emerald-400 shadow-inner">
+                  <pre
+                    className="overflow-x-auto whitespace-pre-wrap rounded-xl border border-slate-800 bg-slate-900 p-4 font-mono text-xs leading-6 text-emerald-400 shadow-inner"
+                    data-assessment-protected-text="true"
+                  >
                     {assessmentText(section.introContent)}
                   </pre>
                 </div>
@@ -884,7 +1006,9 @@ function QuestionInput({
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs font-black text-teal-800">
             {number}
           </span>
-          <div className="mt-0.5">{assessmentText(question.prompt)}</div>
+          <div className="mt-0.5" data-assessment-protected-text="true">
+            {assessmentText(question.prompt)}
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <button
@@ -942,7 +1066,10 @@ function QuestionInput({
                 checked={value.optionId === option.id}
                 onChange={() => onChange({ optionId: option.id })}
               />
-              <span className="whitespace-pre-wrap break-words">
+              <span
+                className="whitespace-pre-wrap break-words"
+                data-assessment-protected-text="true"
+              >
                 <strong className="mr-2 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-slate-100 text-xs font-black text-slate-700">
                   {String.fromCharCode(65 + index)}
                 </strong>
@@ -957,9 +1084,16 @@ function QuestionInput({
         <div className="pl-8">
           <textarea
             rows={question.type === 'short_text' ? 3 : 8}
-            className={`input rounded-xl border-slate-200/90 p-3.5 focus:ring-teal-500/20 font-medium ${
+            className={`input select-text rounded-xl border-slate-200/90 p-3.5 focus:ring-teal-500/20 font-medium ${
               question.type === 'code_analysis' ? 'font-mono text-xs' : ''
             }`}
+            spellCheck={false}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            data-gramm="false"
+            data-gramm_editor="false"
+            data-enable-grammarly="false"
             value={typeof value.text === 'string' ? value.text : ''}
             onChange={(event) => onChange({ text: event.target.value })}
             placeholder="Nhập câu trả lời của bạn ở đây..."

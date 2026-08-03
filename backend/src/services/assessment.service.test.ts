@@ -696,7 +696,7 @@ describe("Assessment service", () => {
     const firstEvent = await recordAssessmentIntegrityEvent(
       sessionId,
       studentId,
-      "copy_attempt",
+      "dom_tampering",
       { clientTimestamp: new Date().toISOString() },
       db
     );
