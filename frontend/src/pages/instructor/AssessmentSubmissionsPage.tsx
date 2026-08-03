@@ -79,7 +79,7 @@ export function AssessmentSubmissionsPage() {
   }
 
   if (loading) return <PageLoader label="Đang tải bài nộp kiểm tra..." />
-  if (!data) return <div className="card p-8 text-center text-slate-500">Không tìm thấy ca thi.</div>
+  if (!data) return <div className="card p-8 text-center text-slate-500 font-semibold">Không tìm thấy ca thi.</div>
 
   const pendingAi = data.submissions.filter((row) => ['ai_queued', 'ai_running'].includes(row.reviewStatus)).length
   const ready = data.submissions.filter(
@@ -89,36 +89,61 @@ export function AssessmentSubmissionsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <Link to="/instructor/exercises?tab=assessments" className="text-sm font-semibold text-primary hover:underline">
-            ← Bài kiểm tra
-          </Link>
-          <h1 className="mt-2 text-2xl font-bold text-slate-900">{data.assessment.title}</h1>
+      <Link
+        to="/instructor/assessments"
+        className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-teal-700 hover:text-teal-800 transition-colors"
+      >
+        <span>←</span> Quay lại danh sách bài kiểm tra
+      </Link>
+
+      {/* Signature Gradient Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-teal-700 via-cyan-700 to-blue-800 p-6 sm:p-8 text-white shadow-md border-b-4 border-secondary flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="absolute right-0 top-0 h-44 w-44 translate-x-12 -translate-y-12 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+        <div className="relative z-10 space-y-1.5">
+          <span className="inline-block rounded-full bg-white/15 px-3 py-0.5 text-[11px] font-black uppercase tracking-wider text-cyan-100 backdrop-blur-xs">
+            Danh sách bài nộp
+          </span>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
+            {data.assessment.title}
+          </h1>
+          <p className="text-xs font-bold text-cyan-100/90 mt-1">
+            Tổng điểm: {data.assessment.totalPoints} điểm · Khung thời gian: {new Date(data.assignment.opensAt).toLocaleString('vi-VN')} – {new Date(data.assignment.closesAt).toLocaleString('vi-VN')}
+          </p>
         </div>
-        <button onClick={() => void approveAll()} disabled={approving || ready === 0} className="btn-primary">
-          {approving ? 'Đang duyệt...' : 'Approve toàn bộ điểm dự kiến'}
+
+        <button
+          onClick={() => void approveAll()}
+          disabled={approving || ready === 0}
+          className="btn-primary relative z-10 shrink-0 h-10 px-4 text-xs font-bold shadow-md hover:shadow-lg transition-all"
+        >
+          {approving ? 'Đang duyệt...' : 'Duyệt toàn bộ điểm dự kiến'}
         </button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <SummaryCard label="AI đang chấm" value={pendingAi} tone="blue" />
-        <SummaryCard label="Chờ giảng viên duyệt" value={ready} tone="amber" />
-        <SummaryCard label="Đã có điểm chính thức" value={official} tone="green" />
+      {/* Stat Cards */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 text-center transition-all hover:bg-slate-50">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">AI đang chấm</p>
+          <p className="mt-1 text-2xl font-black text-blue-600">{pendingAi}</p>
+        </div>
+        <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 text-center transition-all hover:bg-slate-50">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Chờ giảng viên duyệt</p>
+          <p className="mt-1 text-2xl font-black text-amber-600">{ready}</p>
+        </div>
+        <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 text-center transition-all hover:bg-slate-50">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Đã có điểm chính thức</p>
+          <p className="mt-1 text-2xl font-black text-emerald-600">{official}</p>
+        </div>
       </div>
 
-      <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-        <strong>Điểm dự kiến</strong> gồm điểm tự động và điểm LLM đề xuất. Chỉ sau khi GV
-        Approve hoặc chấm lại, điểm mới chuyển thành <strong>điểm chính thức</strong>.
-      </div>
-
-      <div className="card overflow-hidden">
+      {/* Submissions Table */}
+      <div className="card overflow-hidden border border-slate-200/90 shadow-sm">
         <table className="min-w-full divide-y divide-slate-200">
           <thead className="bg-slate-50">
             <tr>
               <th className="table-th">Sinh viên</th>
-              <th className="table-th text-center">Lượt</th>
-              <th className="table-th">Nộp lúc</th>
+              <th className="table-th text-center">Lượt làm</th>
+              <th className="table-th">Thời gian nộp</th>
               <th className="table-th text-center">Điểm tự động</th>
               <th className="table-th text-center">Điểm dự kiến</th>
               <th className="table-th text-center">Điểm chính thức</th>
@@ -132,33 +157,40 @@ export function AssessmentSubmissionsPage() {
               const status = statusLabel(row)
               const integrityCount = row.integrityEventCount ?? 0
               return (
-                <tr key={row.id} className="hover:bg-slate-50/70">
+                <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
                   <td className="table-td">
-                    <p className="font-bold text-slate-800">{row.student.fullName || row.student.username}</p>
-                    <p className="text-[11px] text-slate-500">{row.student.username}</p>
+                    <p className="font-bold text-slate-900">{row.student.fullName || row.student.username}</p>
+                    <p className="text-[11px] font-semibold text-slate-500">MSSV: {row.student.username}</p>
                   </td>
-                  <td className="table-td text-center font-bold text-slate-700">
+                  <td className="table-td text-center font-black text-slate-700">
                     {row.attemptNumber}
                   </td>
-                  <td className="table-td text-slate-600">
+                  <td className="table-td text-xs font-semibold text-slate-600">
                     {row.submittedAt ? new Date(row.submittedAt).toLocaleString('vi-VN') : 'Chưa nộp'}
                   </td>
-                  <td className="table-td text-center font-semibold">{score(row.autoScore, data.assessment.totalPoints)}</td>
+                  <td className="table-td text-center font-bold text-slate-700">
+                    {score(row.autoScore, data.assessment.totalPoints)}
+                  </td>
                   <td className="table-td text-center">
-                    <span className="font-black text-blue-700">{score(row.predictedScore, data.assessment.totalPoints)}</span>
+                    <span className="font-black text-teal-700">{score(row.predictedScore, data.assessment.totalPoints)}</span>
                   </td>
                   <td className="table-td text-center">
                     <span className="font-black text-emerald-700">{score(row.officialScore, data.assessment.totalPoints)}</span>
                   </td>
-                  <td className="table-td"><span className={status.className}>{status.label}</span></td>
+                  <td className="table-td">
+                    <span className={status.className}>{status.label}</span>
+                  </td>
                   <td className="table-td text-center">
-                    <span className={integrityCount > 0 ? 'badge-yellow' : 'badge-green'}>
+                    <span className={integrityCount > 0 ? 'badge-yellow font-bold' : 'badge-green font-bold'}>
                       {integrityCount > 0 ? `${integrityCount} cảnh báo` : 'Không cảnh báo'}
                     </span>
                   </td>
                   <td className="table-td text-right">
                     {row.status !== 'in_progress' && (
-                      <Link to={`/instructor/assessment-sessions/${row.id}/review`} className="btn-secondary btn-sm">
+                      <Link
+                        to={`/instructor/assessment-sessions/${row.id}/review`}
+                        className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:border-primary/40 hover:bg-primary-50 hover:text-primary transition-colors shadow-2xs"
+                      >
                         Xem & chấm lại
                       </Link>
                     )}
@@ -167,25 +199,15 @@ export function AssessmentSubmissionsPage() {
               )
             })}
             {data.submissions.length === 0 && (
-              <tr><td colSpan={9} className="p-10 text-center text-sm text-slate-500">Chưa có sinh viên bắt đầu làm bài.</td></tr>
+              <tr>
+                <td colSpan={9} className="p-12 text-center text-sm font-semibold text-slate-500">
+                  Chưa có sinh viên nào bắt đầu làm bài kiểm tra này.
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
       </div>
-    </div>
-  )
-}
-
-function SummaryCard({ label, value, tone }: { label: string; value: number; tone: 'blue' | 'amber' | 'green' }) {
-  const colors = {
-    blue: 'border-blue-200 bg-blue-50 text-blue-800',
-    amber: 'border-amber-200 bg-amber-50 text-amber-800',
-    green: 'border-emerald-200 bg-emerald-50 text-emerald-800',
-  }
-  return (
-    <div className={`rounded-xl border p-4 ${colors[tone]}`}>
-      <p className="text-xs font-bold uppercase tracking-wide">{label}</p>
-      <p className="mt-2 text-3xl font-black">{value}</p>
     </div>
   )
 }
