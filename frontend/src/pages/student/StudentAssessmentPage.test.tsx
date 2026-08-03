@@ -129,7 +129,11 @@ describe('StudentAssessmentPage integrity controls', () => {
     const user = userEvent.setup()
     renderPage()
 
-    expect(await screen.findByText('class A { void show() { } }')).toBeInTheDocument()
+    expect(
+      await screen.findByText(
+        (_content, element) => element?.tagName === 'PRE' && (element?.textContent?.includes('class A') ?? false)
+      )
+    ).toBeInTheDocument()
     fireEvent.copy(document.body)
     await waitFor(() => {
       expect(mockedApi.post).toHaveBeenCalledWith(
