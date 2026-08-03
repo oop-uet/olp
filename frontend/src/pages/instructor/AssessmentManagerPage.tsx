@@ -28,6 +28,19 @@ interface AssignmentWindowDraft extends AssessmentAssignmentSummary {
   durationMinutes: number
 }
 
+const SETTINGS_PERSISTENCE_ERROR =
+  'Máy chủ chưa lưu đúng cài đặt bài kiểm tra. Vui lòng thử lại sau khi hệ thống cập nhật xong.'
+
+function toWindowDrafts(item: InstructorAssessmentListItem): AssignmentWindowDraft[] {
+  return item.assignments.map((assignment) => ({
+    ...assignment,
+    durationMinutes: assignment.durationMinutes ?? item.durationMinutes,
+    maxAttempts: assignment.maxAttempts ?? 1,
+    opensAtInput: isoToLocalInput(assignment.opensAt),
+    closesAtInput: isoToLocalInput(assignment.closesAt),
+  }))
+}
+
 export function AssessmentManagerPanel() {
   const navigate = useNavigate()
   const [items, setItems] = useState<InstructorAssessmentListItem[]>([])
@@ -50,11 +63,15 @@ export function AssessmentManagerPanel() {
     return () => window.removeEventListener('keydown', closeOnEscape)
   }, [savingAssignmentId, settingsItem])
 
+  async function fetchAssessments() {
+    const assessmentResponse = await api.get('/api/instructor/assessments')
+    return (assessmentResponse.data.data ?? []) as InstructorAssessmentListItem[]
+  }
+
   async function load() {
     setLoading(true)
     try {
-      const assessmentResponse = await api.get('/api/instructor/assessments')
-      setItems(assessmentResponse.data.data ?? [])
+      setItems(await fetchAssessments())
     } catch {
       toast.error('Không thể tải danh sách bài kiểm tra.')
     } finally {
@@ -78,15 +95,7 @@ export function AssessmentManagerPanel() {
 
   function openSettings(item: InstructorAssessmentListItem) {
     setSettingsItem(item)
-    setWindowDrafts(
-      item.assignments.map((assignment) => ({
-        ...assignment,
-        durationMinutes: assignment.durationMinutes ?? item.durationMinutes,
-        maxAttempts: assignment.maxAttempts ?? 1,
-        opensAtInput: isoToLocalInput(assignment.opensAt),
-        closesAtInput: isoToLocalInput(assignment.closesAt),
-      }))
-    )
+    setWindowDrafts(toWindowDrafts(item))
   }
 
   function updateDurationMinutes(assignmentId: string, value: number) {
@@ -137,54 +146,42 @@ export function AssessmentManagerPanel() {
 
     setSavingAssignmentId(draft.id)
     try {
-      await api.put(`/api/instructor/assessments/assignments/${draft.id}/window`, {
+      const updateResponse = await api.put(`/api/instructor/assessments/assignments/${draft.id}/window`, {
         opensAt,
         closesAt,
         durationMinutes: draft.durationMinutes,
         maxAttempts: draft.maxAttempts,
       })
-      setItems((current) =>
-        current.map((item) =>
-          item.id !== settingsItem?.id
-            ? item
-            : {
-                ...item,
-                assignments: item.assignments.map((assignment) =>
-                  assignment.id === draft.id
-                    ? {
-                        ...assignment,
-                        opensAt,
-                        closesAt,
-                        durationMinutes: draft.durationMinutes,
-                        maxAttempts: draft.maxAttempts,
-                      }
-                    : assignment
-                ),
-              }
-        )
+      const savedAssignment = updateResponse.data?.data
+      if (
+        Number(savedAssignment?.durationMinutes) !== draft.durationMinutes ||
+        Number(savedAssignment?.maxAttempts) !== draft.maxAttempts
+      ) {
+        throw new Error(SETTINGS_PERSISTENCE_ERROR)
+      }
+
+      const refreshedItems = await fetchAssessments()
+      const refreshedItem = refreshedItems.find((item) => item.id === settingsItem?.id)
+      const refreshedAssignment = refreshedItem?.assignments.find(
+        (assignment) => assignment.id === draft.id
       )
-      setSettingsItem((current) =>
-        current
-          ? {
-              ...current,
-              assignments: current.assignments.map((assignment) =>
-                assignment.id === draft.id
-                  ? {
-                      ...assignment,
-                      opensAt,
-                      closesAt,
-                      durationMinutes: draft.durationMinutes,
-                      maxAttempts: draft.maxAttempts,
-                    }
-                  : assignment
-              ),
-            }
-          : current
-      )
+      if (
+        !refreshedItem ||
+        Number(refreshedAssignment?.durationMinutes) !== draft.durationMinutes ||
+        Number(refreshedAssignment?.maxAttempts) !== draft.maxAttempts
+      ) {
+        throw new Error(SETTINGS_PERSISTENCE_ERROR)
+      }
+
+      setItems(refreshedItems)
+      setSettingsItem(refreshedItem)
+      setWindowDrafts(toWindowDrafts(refreshedItem))
       toast.success(`Đã cập nhật cài đặt cho lớp ${draft.sectionName}.`)
-      await load()
     } catch (error: unknown) {
-      toast.error(readApiError(error).message ?? 'Không thể cập nhật thời gian bài kiểm tra.')
+      toast.error(
+        readApiError(error).message ??
+          (error instanceof Error ? error.message : 'Không thể cập nhật cài đặt bài kiểm tra.')
+      )
     } finally {
       setSavingAssignmentId(null)
     }

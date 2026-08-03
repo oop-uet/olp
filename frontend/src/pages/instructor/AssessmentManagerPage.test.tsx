@@ -43,7 +43,9 @@ describe('AssessmentManagerPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(api.get).mockResolvedValue({ data: { data: [assessment] } })
-    vi.mocked(api.put).mockResolvedValue({ data: { data: {} } })
+    vi.mocked(api.put).mockResolvedValue({
+      data: { data: { durationMinutes: 90, maxAttempts: 1 } },
+    })
   })
 
   it('uses compact accessible icons for edit, settings, and delete', async () => {
@@ -62,6 +64,21 @@ describe('AssessmentManagerPanel', () => {
   })
 
   it('allows a closing time much later than opening plus the assessment duration', async () => {
+    const savedAssessment: InstructorAssessmentListItem = {
+      ...assessment,
+      assignments: assessment.assignments.map((assignment) => ({
+        ...assignment,
+        closesAt: new Date('2026-08-17T08:00').toISOString(),
+        maxAttempts: 3,
+      })),
+    }
+    vi.mocked(api.get)
+      .mockResolvedValueOnce({ data: { data: [assessment] } })
+      .mockResolvedValueOnce({ data: { data: [savedAssessment] } })
+    vi.mocked(api.put).mockResolvedValue({
+      data: { data: { durationMinutes: 90, maxAttempts: 3 } },
+    })
+
     render(
       <MemoryRouter>
         <AssessmentManagerPanel />
@@ -90,6 +107,36 @@ describe('AssessmentManagerPanel', () => {
         }
       )
     })
-    expect(toast.success).toHaveBeenCalledWith('Đã cập nhật cài đặt cho lớp INT2204 80.')
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalledTimes(2)
+      expect(toast.success).toHaveBeenCalledWith('Đã cập nhật cài đặt cho lớp INT2204 80.')
+      expect(screen.getByLabelText('Số lần làm')).toHaveValue(3)
+    })
+  })
+
+  it('does not report success when the server ignores maxAttempts', async () => {
+    vi.mocked(api.put).mockResolvedValue({
+      data: { data: { durationMinutes: 90, maxAttempts: 1 } },
+    })
+
+    render(
+      <MemoryRouter>
+        <AssessmentManagerPanel />
+      </MemoryRouter>
+    )
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: `Cài đặt thời gian ${assessment.title}` })
+    )
+    fireEvent.change(screen.getByLabelText('Số lần làm'), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu cài đặt' }))
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(
+        'Máy chủ chưa lưu đúng cài đặt bài kiểm tra. Vui lòng thử lại sau khi hệ thống cập nhật xong.'
+      )
+    })
+    expect(toast.success).not.toHaveBeenCalled()
+    expect(api.get).toHaveBeenCalledTimes(1)
   })
 })

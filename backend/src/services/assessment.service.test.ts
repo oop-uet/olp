@@ -17,6 +17,7 @@ import {
   getStudentAssessmentSession,
   isAssessmentError,
   listAssessmentSubmissions,
+  listInstructorAssessments,
   listStudentAssessments,
   processPendingAssessmentAiRuns,
   recordAssessmentIntegrityEvent,
@@ -269,6 +270,15 @@ describe("Assessment service", () => {
       db
     );
     expect((updated as any).data.maxAttempts).toBe(2);
+
+    const reloaded = await listInstructorAssessments(instructorId, db);
+    expect((reloaded as any).data[0].assignments).toContainEqual(
+      expect.objectContaining({
+        id: assignmentId,
+        durationMinutes: 90,
+        maxAttempts: 2,
+      })
+    );
 
     const second = await startAssessmentSession(assignmentId, studentId, db);
     expect((second as any).data).toMatchObject({ attemptNumber: 2, status: "in_progress" });
