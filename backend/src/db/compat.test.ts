@@ -18,6 +18,77 @@ const ASSESSMENT_TABLES = [
 ];
 
 describe("database compatibility", () => {
+  it("adds attempt columns before replacing the legacy session index", async () => {
+    const sqlite = getTestSqlite();
+    sqlite.exec(`
+      DROP TABLE assessment_integrity_events;
+      DROP TABLE assessment_ai_grading_runs;
+      DROP TABLE assessment_answers;
+      DROP TABLE assessment_sessions;
+      DROP TABLE assessment_assignments;
+
+      CREATE TABLE assessment_assignments (
+        id TEXT PRIMARY KEY NOT NULL,
+        assessment_id TEXT NOT NULL REFERENCES assessments(id),
+        section_id TEXT NOT NULL REFERENCES class_sections(id),
+        opens_at TEXT NOT NULL,
+        closes_at TEXT NOT NULL,
+        duration_minutes INTEGER NOT NULL,
+        is_visible INTEGER NOT NULL DEFAULT 1,
+        require_fullscreen INTEGER NOT NULL DEFAULT 1,
+        warning_threshold INTEGER NOT NULL DEFAULT 3,
+        show_predicted_score INTEGER NOT NULL DEFAULT 1,
+        assigned_by TEXT NOT NULL REFERENCES users(id),
+        assigned_at TEXT NOT NULL
+      );
+      CREATE UNIQUE INDEX assessment_assignments_assessment_section_unique
+        ON assessment_assignments(assessment_id, section_id);
+
+      CREATE TABLE assessment_sessions (
+        id TEXT PRIMARY KEY NOT NULL,
+        assignment_id TEXT NOT NULL REFERENCES assessment_assignments(id),
+        student_id TEXT NOT NULL REFERENCES users(id),
+        status TEXT NOT NULL DEFAULT 'in_progress',
+        started_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        submitted_at TEXT,
+        submit_reason TEXT,
+        auto_score REAL NOT NULL DEFAULT 0,
+        predicted_score REAL,
+        official_score REAL,
+        review_status TEXT NOT NULL DEFAULT 'not_ready',
+        official_at TEXT,
+        official_by TEXT REFERENCES users(id)
+      );
+      CREATE UNIQUE INDEX assessment_sessions_assignment_student_unique
+        ON assessment_sessions(assignment_id, student_id);
+    `);
+
+    await ensureDatabaseCompatibility(getTestDb() as never);
+
+    const assignmentColumns = sqlite
+      .prepare("PRAGMA table_info(assessment_assignments)")
+      .all()
+      .map((row) => (row as { name: string }).name);
+    const sessionColumns = sqlite
+      .prepare("PRAGMA table_info(assessment_sessions)")
+      .all()
+      .map((row) => (row as { name: string }).name);
+    const sessionIndexes = sqlite
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'assessment_sessions_%'"
+      )
+      .all()
+      .map((row) => (row as { name: string }).name);
+
+    expect(assignmentColumns).toContain("max_attempts");
+    expect(sessionColumns).toContain("attempt_number");
+    expect(sessionIndexes).toContain(
+      "assessment_sessions_assignment_student_attempt_unique"
+    );
+    expect(sessionIndexes).not.toContain("assessment_sessions_assignment_student_unique");
+  });
+
   it("bootstraps assessment tables on a legacy database and retires old KT flags", async () => {
     const sqlite = getTestSqlite();
     sqlite.exec(`

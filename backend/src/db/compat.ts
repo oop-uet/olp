@@ -213,8 +213,6 @@ async function ensureAssessmentTablesReady(database: Database) {
       official_by TEXT REFERENCES users(id),
       attempt_number INTEGER NOT NULL DEFAULT 1
     )`,
-    `CREATE UNIQUE INDEX IF NOT EXISTS assessment_sessions_assignment_student_attempt_unique
-      ON assessment_sessions(assignment_id, student_id, attempt_number)`,
     `CREATE TABLE IF NOT EXISTS assessment_answers (
       id TEXT PRIMARY KEY NOT NULL,
       session_id TEXT NOT NULL REFERENCES assessment_sessions(id) ON DELETE CASCADE,
