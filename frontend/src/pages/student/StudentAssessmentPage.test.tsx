@@ -151,7 +151,11 @@ describe('StudentAssessmentPage integrity controls', () => {
   it('blocks selecting protected exam text and records protected DOM tampering', async () => {
     renderPage()
 
-    const prompt = await screen.findByText('class A { void show() { } }')
+    const prompt = await screen.findByText(
+      (content, element) =>
+        element?.textContent?.trim() === 'class A { void show() { } }' &&
+        element?.getAttribute('data-assessment-protected-text') === 'true'
+    )
     const secureRoot = prompt.closest('[data-assessment-secure-root="true"]')
     expect(secureRoot).toHaveClass('assessment-secure-content', 'select-none')
     expect(prompt).toHaveAttribute('data-assessment-protected-text', 'true')
@@ -183,7 +187,9 @@ describe('StudentAssessmentPage integrity controls', () => {
   it('batches rapid answer changes and saves only the newest revision', async () => {
     renderPage()
 
-    expect(await screen.findByText('class A { void show() { } }')).toBeInTheDocument()
+    expect(
+      await screen.findByText((_, el) => el?.textContent?.trim() === 'class A { void show() { } }')
+    ).toBeInTheDocument()
     const radios = screen.getAllByRole('radio')
     fireEvent.click(radios[0])
     fireEvent.click(radios[1])
