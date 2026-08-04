@@ -4,7 +4,6 @@ import { api, cachedGet } from '../../lib/api'
 import { PageLoader, ExerciseIcon } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 import { ExerciseLibrary } from '../../components/instructor/ExerciseLibrary'
-import { AssessmentManagerPanel } from './AssessmentManagerPage'
 
 export interface Exercise {
   id: string
@@ -66,9 +65,14 @@ export function ExerciseManagerPage() {
 
   const navigate = useNavigate()
   const requestedTab = searchParams.get('tab')
-  const activeTab: Tab = requestedTab === 'assessments' || requestedTab === 'library'
-    ? requestedTab
-    : 'my-exercises'
+
+  useEffect(() => {
+    if (requestedTab === 'assessments') {
+      navigate('/instructor/assessments', { replace: true })
+    }
+  }, [requestedTab, navigate])
+
+  const activeTab: Tab = requestedTab === 'library' ? 'library' : 'my-exercises'
 
   function selectTab(tab: Tab) {
     setSearchParams(tab === 'my-exercises' ? {} : { tab }, { replace: true })
@@ -154,9 +158,6 @@ export function ExerciseManagerPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold text-gray-800">Quản lý bài tập</h1>
         <div className="flex flex-wrap items-center gap-2">
-          <button onClick={() => navigate('/instructor/exercises/assessments/new')} className="btn-secondary">
-            Tạo bài kiểm tra
-          </button>
           <button onClick={() => navigate('/instructor/exercises/new')} className="btn-primary">
             Tạo bài tập
           </button>
@@ -175,16 +176,6 @@ export function ExerciseManagerPage() {
             }`}
           >
             Bài tập của tôi
-          </button>
-          <button
-            onClick={() => selectTab('assessments')}
-            className={`border-b-2 px-1 py-3 text-sm font-medium transition-colors ${
-              activeTab === 'assessments'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-            }`}
-          >
-            Bài kiểm tra
           </button>
           <button
             onClick={() => selectTab('library')}
@@ -390,8 +381,6 @@ export function ExerciseManagerPage() {
           )}
         </>
       )}
-
-      {activeTab === 'assessments' && <AssessmentManagerPanel />}
 
       {activeTab === 'library' && <ExerciseLibrary />}
     </div>

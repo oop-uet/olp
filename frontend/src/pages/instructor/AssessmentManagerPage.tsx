@@ -7,7 +7,7 @@ import { toast } from '../../stores/toast.store'
 import type { AssessmentAssignmentSummary, InstructorAssessmentListItem } from '../../types/assessment'
 
 function formatDate(value: string) {
-  return new Date(value).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })
+  return new Date(value).toLocaleString('vi-VN')
 }
 
 function isoToLocalInput(value: string) {
@@ -26,9 +26,9 @@ function assignmentTimeStatus(opensAt: string, closesAt: string) {
   const now = Date.now()
   const openTime = new Date(opensAt).getTime()
   const closeTime = new Date(closesAt).getTime()
-  if (now < openTime) return { label: 'Sắp mở', className: 'badge-blue' }
-  if (now >= closeTime) return { label: 'Đã đóng', className: 'badge-gray' }
-  return { label: 'Đang mở', className: 'badge-green' }
+  if (now < openTime) return { label: 'SẮP MỞ', className: 'badge-blue' }
+  if (now >= closeTime) return { label: 'ĐÃ ĐÓNG', className: 'badge-gray' }
+  return { label: 'ĐANG MỞ', className: 'badge-green' }
 }
 
 interface AssignmentWindowDraft extends AssessmentAssignmentSummary {
@@ -106,25 +106,6 @@ export function AssessmentManagerPanel() {
       return matchTitle || matchSection || matchCreator
     })
   }, [items, searchQuery])
-
-  // Overall Statistics
-  const stats = useMemo(() => {
-    const totalExams = items.length
-    let totalAssignments = 0
-    let activeAssignments = 0
-
-    const now = Date.now()
-    items.forEach((item) => {
-      totalAssignments += item.assignments.length
-      item.assignments.forEach((a) => {
-        const openTime = new Date(a.opensAt).getTime()
-        const closeTime = new Date(a.closesAt).getTime()
-        if (now >= openTime && now < closeTime) activeAssignments++
-      })
-    })
-
-    return { totalExams, totalAssignments, activeAssignments }
-  }, [items])
 
   async function deleteAssessment(item: InstructorAssessmentListItem) {
     if (!window.confirm(`Xóa bài kiểm tra "${item.title}"? Thao tác này không thể hoàn tác.`)) return
@@ -273,240 +254,166 @@ export function AssessmentManagerPanel() {
     }
   }
 
-  if (loading) return <PageLoader label="Đang tải danh sách bài kiểm tra..." />
+  if (loading) return <PageLoader label="Đang tải bài kiểm tra..." />
 
   return (
     <div className="space-y-6">
-      {/* Top Banner Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-700 via-purple-700 to-blue-800 p-6 text-white shadow-md border-b-4 border-indigo-400">
-        <div className="absolute right-0 top-0 h-48 w-48 translate-x-12 -translate-y-12 rounded-full bg-white/10 blur-2xl pointer-events-none" />
-        <div className="relative z-10 flex flex-col justify-between gap-4 md:flex-row md:items-center">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="rounded-md bg-white/20 px-2 py-0.5 text-xs font-black uppercase tracking-wider text-white">Giảng viên</span>
-              <h1 className="text-2xl font-black tracking-tight text-white drop-shadow-sm">
-                Quản lý bài kiểm tra
-              </h1>
-            </div>
-            <p className="mt-1 text-xs font-semibold text-purple-100/90">
-              Soạn đề thi, phân công cho các lớp học phần, đặt khung giờ, mật khẩu thi và theo dõi chấm điểm tự động AI
-            </p>
-          </div>
-
+      {/* Page Header - Clean System Style */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold text-gray-800">Quản lý bài kiểm tra</h1>
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => navigate('/instructor/exercises/assessments/new')}
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-black text-indigo-900 shadow-md transition-all hover:bg-indigo-50 hover:shadow-lg active:scale-95"
+            className="btn-primary"
           >
-            <span className="text-base font-black">+</span> Tạo đề thi mới
+            Tạo bài kiểm tra
           </button>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="card flex items-center gap-4 p-4 border border-slate-200/80 shadow-sm bg-white">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-            <ExerciseIcon className="h-6 w-6" />
-          </div>
-          <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Tổng đề thi</span>
-            <p className="text-2xl font-black text-slate-800">{stats.totalExams}</p>
-          </div>
-        </div>
-
-        <div className="card flex items-center gap-4 p-4 border border-slate-200/80 shadow-sm bg-white">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Ca thi đang mở</span>
-            <p className="text-2xl font-black text-emerald-600">{stats.activeAssignments}</p>
-          </div>
-        </div>
-
-        <div className="card flex items-center gap-4 p-4 border border-slate-200/80 shadow-sm bg-white">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-            </svg>
-          </div>
-          <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Tổng lượt gán lớp</span>
-            <p className="text-2xl font-black text-slate-800">{stats.totalAssignments}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Toolbar Search */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full sm:w-80">
+      {/* Filter / Search Bar */}
+      {items.length > 0 && (
+        <div className="flex items-center gap-3">
           <input
             type="text"
-            placeholder="Tìm theo tên đề thi hoặc tên lớp..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-xs font-medium text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
+            className="input max-w-sm"
+            placeholder="Tìm theo tiêu đề đề thi hoặc tên lớp..."
           />
-          <svg
-            className="absolute left-3 top-2.5 h-4 w-4 text-slate-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            strokeWidth="2"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs font-bold"
-            >
-              ✕
-            </button>
-          )}
         </div>
-      </div>
+      )}
 
       {/* Main Table Content */}
       {filteredItems.length === 0 ? (
-        <div className="card flex flex-col items-center justify-center p-12 text-center border border-slate-100 shadow-sm">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-            <ExerciseIcon className="h-7 w-7" />
-          </div>
-          <p className="mt-4 text-base font-bold text-slate-700">
-            {searchQuery ? 'Không tìm thấy bài kiểm tra nào phù hợp' : 'Chưa có bài kiểm tra nào.'}
+        <div className="card flex flex-col items-center justify-center p-12 text-center">
+          <ExerciseIcon className="mb-3 h-10 w-10 text-gray-300" />
+          <p className="text-gray-500">
+            {searchQuery ? 'Không tìm thấy bài kiểm tra nào.' : 'Chưa có bài kiểm tra nào.'}
           </p>
-          <button
-            onClick={() => navigate('/instructor/exercises/assessments/new')}
-            className="btn-primary mt-4 py-2 px-4 text-xs"
-          >
-            ＋ Tạo đề thi đầu tiên
-          </button>
+          {!searchQuery && (
+            <button
+              onClick={() => navigate('/instructor/exercises/assessments/new')}
+              className="btn-primary btn-sm mt-4"
+            >
+              Tạo bài kiểm tra đầu tiên
+            </button>
+          )}
         </div>
       ) : (
-        <div className="card overflow-hidden border border-slate-200 shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-50/90 text-slate-700">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-extrabold uppercase tracking-wider">Thông tin đề thi</th>
-                  <th className="px-4 py-3 text-center text-xs font-extrabold uppercase tracking-wider w-28">Thời lượng</th>
-                  <th className="px-4 py-3 text-center text-xs font-extrabold uppercase tracking-wider w-24">Tổng điểm</th>
-                  <th className="px-4 py-3 text-left text-xs font-extrabold uppercase tracking-wider">Các ca thi / Lớp học phần đã gán</th>
-                  <th className="px-4 py-3 text-right text-xs font-extrabold uppercase tracking-wider w-36">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
-                {filteredItems.map((item) => (
-                  <tr key={item.id} className="align-top hover:bg-slate-50/70 transition-colors">
-                    <td className="px-4 py-3.5">
-                      <div className="flex items-center gap-2">
-                        <span className="badge-blue shrink-0">KT</span>
-                        <p className="font-extrabold text-slate-900 text-sm leading-snug">{item.title}</p>
-                      </div>
-                      {item.creatorUsername && (
-                        <p className="mt-1 text-[11px] font-semibold text-slate-500">
-                          Người tạo: <span className="text-slate-700">@{item.creatorUsername}</span>
-                        </p>
-                      )}
-                      <p className="mt-1 text-[11px] text-slate-400">
-                        Cập nhật: {formatDate(item.updatedAt)}
+        <div className="card overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="table-th">Thông tin đề thi</th>
+                <th className="table-th">Thời lượng</th>
+                <th className="table-th">Tổng điểm</th>
+                <th className="table-th">Các ca thi / Lớp học phần đã gán</th>
+                <th className="table-th text-right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 bg-white">
+              {filteredItems.map((item) => (
+                <tr key={item.id} className="align-top hover:bg-gray-50/70 transition-colors">
+                  <td className="table-td">
+                    <div className="flex items-center gap-2">
+                      <span className="badge-blue shrink-0">KT</span>
+                      <p className="font-bold text-gray-900">{item.title}</p>
+                    </div>
+                    {item.creatorUsername && (
+                      <p className="mt-1 text-[11px] font-semibold text-gray-500">
+                        Người tạo: @{item.creatorUsername}
                       </p>
-                    </td>
-                    <td className="px-4 py-3.5 text-center font-extrabold text-slate-700 text-xs">
-                      {item.durationMinutes} phút
-                    </td>
-                    <td className="px-4 py-3.5 text-center font-black text-indigo-700 text-sm">
-                      {item.totalPoints}
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <div className="space-y-2">
-                        {item.assignments.length === 0 ? (
-                          <span className="inline-block text-xs font-semibold italic text-slate-400 bg-slate-50 px-2 py-1 rounded">
-                            Chưa gán cho lớp nào
-                          </span>
-                        ) : (
-                          item.assignments.map((assignment) => {
-                            const timeBadge = assignmentTimeStatus(assignment.opensAt, assignment.closesAt)
-                            return (
-                              <div
-                                key={assignment.id}
-                                className="rounded-xl border border-slate-200/80 bg-slate-50/50 p-2.5 transition-all hover:bg-slate-100/60"
-                              >
-                                <div className="flex items-center justify-between gap-2">
-                                  <p className="font-extrabold text-slate-800 text-xs">{assignment.sectionName}</p>
-                                  <span className={timeBadge.className}>{timeBadge.label}</span>
-                                </div>
-                                <p className="mt-1 text-[11px] font-medium text-slate-600">
-                                  {formatDate(assignment.opensAt)} – {formatDate(assignment.closesAt)}
-                                </p>
-                                <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200/50 pt-1.5">
-                                  <span className="text-[11px] font-bold text-slate-500">
-                                    Lượt làm: {assignment.maxAttempts ?? 1}
-                                  </span>
-                                  {assignment.hasPassword && (
-                                    <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
-                                      🔒 Có mật khẩu
-                                    </span>
-                                  )}
-                                  <Link
-                                    to={`/instructor/assessment-assignments/${assignment.id}/submissions`}
-                                    className="inline-flex items-center gap-1 text-xs font-extrabold text-indigo-600 hover:text-indigo-800 hover:underline ml-auto"
-                                  >
-                                    Xem bài nộp & Xuất Excel →
-                                  </Link>
-                                </div>
+                    )}
+                    <p className="mt-1 text-[11px] text-gray-400">
+                      Cập nhật {formatDate(item.updatedAt)}
+                    </p>
+                  </td>
+                  <td className="table-td font-medium text-gray-700">{item.durationMinutes} phút</td>
+                  <td className="table-td font-bold text-primary">{item.totalPoints}</td>
+                  <td className="table-td">
+                    <div className="space-y-2">
+                      {item.assignments.length === 0 ? (
+                        <span className="text-gray-400 text-xs italic">Chưa gán cho lớp nào</span>
+                      ) : (
+                        item.assignments.map((assignment) => {
+                          const timeBadge = assignmentTimeStatus(assignment.opensAt, assignment.closesAt)
+                          return (
+                            <div
+                              key={assignment.id}
+                              className="rounded-lg border border-gray-200 bg-gray-50/50 p-3"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="font-semibold text-gray-800 text-xs">{assignment.sectionName}</p>
+                                <span className={timeBadge.className}>{timeBadge.label}</span>
                               </div>
-                            )
-                          })
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5 text-right">
-                      <div className="flex justify-end gap-1.5">
-                        <Link
-                          to={`/instructor/exercises/assessments/${item.id}/edit`}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-600"
-                          aria-label={`Sửa đề ${item.title}`}
-                          title="Sửa nội dung đề thi"
-                        >
-                          <EditIcon className="h-4 w-4" />
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => openSettings(item)}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-600"
-                          aria-label={`Cài đặt thời gian ${item.title}`}
-                          title="Cài đặt thời gian & mật khẩu ca thi"
-                        >
-                          <ConfigIcon className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void deleteAssessment(item)}
-                          disabled={busyId === item.id}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-600 transition-colors hover:bg-rose-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-                          aria-label={`Xóa đề ${item.title}`}
-                          title="Xóa đề thi"
-                        >
-                          {busyId === item.id ? <Spinner /> : <TrashIcon className="h-4 w-4" />}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                              <p className="mt-1 text-[11px] text-gray-500">
+                                {formatDate(assignment.opensAt)} - {formatDate(assignment.closesAt)}
+                              </p>
+                              <div className="mt-1 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-1.5">
+                                <span className="text-[11px] font-medium text-gray-600">
+                                  Lượt làm: {assignment.maxAttempts ?? 1}
+                                </span>
+                                {assignment.hasPassword && (
+                                  <span className="text-[11px] font-semibold text-amber-700">
+                                    🔒 Có mật khẩu
+                                  </span>
+                                )}
+                                <Link
+                                  to={`/instructor/assessment-assignments/${assignment.id}/submissions`}
+                                  className="inline-block text-xs font-bold text-primary hover:underline ml-auto"
+                                >
+                                  Xem bài nộp & Xuất Excel →
+                                </Link>
+                              </div>
+                            </div>
+                          )
+                        })
+                      )}
+                    </div>
+                  </td>
+                  <td className="table-td">
+                    <div className="flex justify-end gap-2">
+                      <Link
+                        to={`/instructor/exercises/assessments/${item.id}/edit`}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition-colors hover:border-primary/40 hover:bg-primary-50 hover:text-primary"
+                        aria-label={`Sửa đề ${item.title}`}
+                        title="Sửa đề"
+                      >
+                        <EditIcon className="h-4 w-4" />
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => openSettings(item)}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition-colors hover:border-primary/40 hover:bg-primary-50 hover:text-primary"
+                        aria-label={`Cài đặt thời gian ${item.title}`}
+                        title="Cài đặt bài kiểm tra"
+                      >
+                        <ConfigIcon className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void deleteAssessment(item)}
+                        disabled={busyId === item.id}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-600 transition-colors hover:bg-red-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                        aria-label={`Xóa đề ${item.title}`}
+                        title="Xóa đề"
+                      >
+                        {busyId === item.id ? <Spinner /> : <TrashIcon className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
       {/* Settings Modal */}
       {settingsItem && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="assessment-window-title"
@@ -514,19 +421,16 @@ export function AssessmentManagerPanel() {
             if (event.target === event.currentTarget && !savingAssignmentId) setSettingsItem(null)
           }}
         >
-          <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl animate-fade-in">
-            <div className="flex items-center justify-between gap-4 border-b border-slate-200 bg-slate-50 px-5 py-4">
-              <div>
-                <h2 id="assessment-window-title" className="font-bold text-slate-900">
-                  Cài đặt ca thi cho các lớp
-                </h2>
-                <p className="text-xs text-slate-500 font-medium">{settingsItem.title}</p>
-              </div>
+          <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between gap-4 border-b border-gray-200 bg-gray-50 px-5 py-4">
+              <h2 id="assessment-window-title" className="font-bold text-gray-900">
+                Cài đặt bài kiểm tra
+              </h2>
               <button
                 type="button"
                 onClick={() => setSettingsItem(null)}
                 disabled={Boolean(savingAssignmentId)}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-xl text-slate-400 hover:bg-slate-200 hover:text-slate-700 disabled:opacity-50"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-xl text-gray-400 hover:bg-gray-200 hover:text-gray-700 disabled:opacity-50"
                 aria-label="Đóng cài đặt"
               >
                 ×
@@ -535,23 +439,23 @@ export function AssessmentManagerPanel() {
 
             <div className="max-h-[70vh] space-y-4 overflow-y-auto p-5">
               {windowDrafts.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500 font-medium">
-                  Đề chưa được gán vào lớp nào. Hãy gán đề thi tại màn hình Chi tiết lớp học phần để thiết lập thời gian làm bài.
+                <p className="rounded-xl border border-dashed border-gray-300 px-4 py-8 text-center text-sm text-gray-500">
+                  Đề chưa được gán vào lớp. Hãy gán đề tại màn hình Phân bài theo tuần trước khi đặt thời gian.
                 </p>
               ) : (
                 windowDrafts.map((draft) => (
                   <form
                     key={draft.id}
-                    className="rounded-xl border border-slate-200 p-4 bg-slate-50/50 space-y-3"
+                    className="rounded-xl border border-gray-200 p-4"
                     onSubmit={(event) => {
                       event.preventDefault()
                       void saveAssignmentWindow(draft)
                     }}
                   >
-                    <h3 className="font-extrabold text-slate-800 text-sm">{draft.sectionName}</h3>
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <h3 className="font-bold text-gray-800">{draft.sectionName}</h3>
+                    <div className="mt-3 grid gap-4 sm:grid-cols-2">
                       <div>
-                        <label className="label text-xs" htmlFor={`opens-at-${draft.id}`}>
+                        <label className="label" htmlFor={`opens-at-${draft.id}`}>
                           Thời gian mở
                         </label>
                         <input
@@ -562,11 +466,11 @@ export function AssessmentManagerPanel() {
                           onChange={(event) =>
                             updateWindowDraft(draft.id, 'opensAtInput', event.target.value)
                           }
-                          className="input text-xs"
+                          className="input"
                         />
                       </div>
                       <div>
-                        <label className="label text-xs" htmlFor={`closes-at-${draft.id}`}>
+                        <label className="label" htmlFor={`closes-at-${draft.id}`}>
                           Thời gian đóng
                         </label>
                         <input
@@ -577,11 +481,11 @@ export function AssessmentManagerPanel() {
                           onChange={(event) =>
                             updateWindowDraft(draft.id, 'closesAtInput', event.target.value)
                           }
-                          className="input text-xs"
+                          className="input"
                         />
                       </div>
                       <div>
-                        <label className="label text-xs" htmlFor={`duration-${draft.id}`}>
+                        <label className="label" htmlFor={`duration-${draft.id}`}>
                           Thời gian làm bài (phút)
                         </label>
                         <input
@@ -595,11 +499,11 @@ export function AssessmentManagerPanel() {
                           onChange={(event) =>
                             updateDurationMinutes(draft.id, Number(event.target.value))
                           }
-                          className="input text-xs"
+                          className="input"
                         />
                       </div>
                       <div>
-                        <label className="label text-xs" htmlFor={`max-attempts-${draft.id}`}>
+                        <label className="label" htmlFor={`max-attempts-${draft.id}`}>
                           Số lần làm
                         </label>
                         <input
@@ -613,11 +517,12 @@ export function AssessmentManagerPanel() {
                           onChange={(event) =>
                             updateMaxAttempts(draft.id, Number(event.target.value))
                           }
-                          className="input text-xs"
+                          className="input"
                         />
+                        <p className="mt-1 text-xs text-gray-500">Mặc định 1, tối đa 20 lượt.</p>
                       </div>
                       <div className="sm:col-span-2">
-                        <label className="label text-xs" htmlFor={`assessment-password-${draft.id}`}>
+                        <label className="label" htmlFor={`assessment-password-${draft.id}`}>
                           Mật khẩu vào thi (không bắt buộc)
                         </label>
                         <input
@@ -630,40 +535,40 @@ export function AssessmentManagerPanel() {
                           onChange={(event) =>
                             updateAssessmentPassword(draft.id, event.target.value)
                           }
-                          className="input text-xs"
+                          className="input"
                           autoComplete="new-password"
                           placeholder={
                             draft.hasPassword
-                              ? 'Để trống nếu giữ nguyên mật khẩu hiện tại'
-                              : 'Để trống nếu không đặt mật khẩu'
+                              ? 'Để trống nếu không đổi mật khẩu hiện tại'
+                              : 'Để trống nếu không yêu cầu mật khẩu'
                           }
                         />
-                        <p className="mt-1 text-[11px] text-slate-500">
+                        <p className="mt-1 text-xs text-gray-500">
                           {draft.clearPassword
                             ? 'Mật khẩu hiện tại sẽ được gỡ khi lưu.'
                             : draft.hasPassword
                             ? 'Đang bảo vệ bằng mật khẩu. Nhập giá trị mới nếu muốn thay đổi.'
-                            : 'Sinh viên phải nhập đúng mật khẩu này trước khi vào thi.'}
+                            : 'Sinh viên sẽ phải nhập mật khẩu này trước khi bắt đầu lượt làm.'}
                         </p>
                         {draft.hasPassword && (
-                          <label className="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-rose-700">
+                          <label className="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-red-700">
                             <input
                               type="checkbox"
                               checked={draft.clearPassword}
                               onChange={(event) =>
                                 updateClearPassword(draft.id, event.target.checked)
                               }
-                              className="h-4 w-4 rounded border-slate-300 text-rose-600"
+                              className="h-4 w-4 rounded border-gray-300"
                             />
                             Gỡ mật khẩu hiện tại
                           </label>
                         )}
                       </div>
                     </div>
-                    <div className="mt-3 flex justify-end">
+                    <div className="mt-4 flex justify-end">
                       <button
                         type="submit"
-                        className="btn-primary btn-sm text-xs font-bold"
+                        className="btn-primary btn-sm"
                         disabled={Boolean(savingAssignmentId)}
                       >
                         {savingAssignmentId === draft.id ? (
