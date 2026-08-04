@@ -129,11 +129,7 @@ describe('StudentAssessmentPage integrity controls', () => {
     const user = userEvent.setup()
     renderPage()
 
-    expect(
-      await screen.findByText(
-        (_content, element) => element?.tagName === 'PRE' && (element?.textContent?.includes('class A') ?? false)
-      )
-    ).toBeInTheDocument()
+    expect(await screen.findByText('class A { void show() { } }')).toBeInTheDocument()
     fireEvent.copy(document.body)
     await waitFor(() => {
       expect(mockedApi.post).toHaveBeenCalledWith(
@@ -155,9 +151,7 @@ describe('StudentAssessmentPage integrity controls', () => {
   it('blocks selecting protected exam text and records protected DOM tampering', async () => {
     renderPage()
 
-    const prompt = await screen.findByText(
-      (_content, element) => element?.tagName === 'PRE' && (element?.textContent?.includes('class A') ?? false)
-    )
+    const prompt = await screen.findByText('class A { void show() { } }')
     const secureRoot = prompt.closest('[data-assessment-secure-root="true"]')
     expect(secureRoot).toHaveClass('assessment-secure-content', 'select-none')
     expect(prompt).toHaveAttribute('data-assessment-protected-text', 'true')
@@ -189,11 +183,7 @@ describe('StudentAssessmentPage integrity controls', () => {
   it('batches rapid answer changes and saves only the newest revision', async () => {
     renderPage()
 
-    expect(
-      await screen.findByText(
-        (_content, element) => element?.tagName === 'PRE' && (element?.textContent?.includes('class A') ?? false)
-      )
-    ).toBeInTheDocument()
+    expect(await screen.findByText('class A { void show() { } }')).toBeInTheDocument()
     const radios = screen.getAllByRole('radio')
     fireEvent.click(radios[0])
     fireEvent.click(radios[1])
