@@ -7,7 +7,7 @@ import { users, type User } from "../db/schema.js";
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 export const BCRYPT_SALT_ROUNDS = 12;
-export const ACCESS_TOKEN_EXPIRY = "15m";
+export const ACCESS_TOKEN_EXPIRY = "2h";
 export const REFRESH_TOKEN_EXPIRY = "7d";
 export const MAX_FAILED_ATTEMPTS = 5;
 export const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
@@ -57,6 +57,7 @@ export interface LoginResult {
 
 export interface RefreshResult {
   accessToken: string;
+  refreshToken: string;
 }
 
 // ─── Database type ───────────────────────────────────────────────────────────
@@ -338,10 +339,11 @@ export async function refreshToken(
     );
   }
 
-  // Generate new access token
+  // Generate new tokens (rotating refresh token)
   const accessToken = signAccessToken(user.id, user.role);
+  const newRefreshToken = signRefreshToken(user.id);
 
-  return { accessToken };
+  return { accessToken, refreshToken: newRefreshToken };
 }
 
 /**

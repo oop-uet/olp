@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { api, cachedGet } from '../lib/api'
+import { api, cachedGet, startProactiveTokenRefresh } from '../lib/api'
+
 import { useAuthStore } from '../stores/auth.store'
 import { useRedirectStore } from '../stores/redirect.store'
 import { getRoleDashboardPath } from '../router/AuthGuard'
@@ -27,6 +28,7 @@ export function LoginPage() {
       const { accessToken, refreshToken, user } = response.data
 
       login(accessToken, refreshToken, user)
+      startProactiveTokenRefresh()
 
       const intendedDestination = clearIntendedDestination()
       const redirectPath = intendedDestination || getRoleDashboardPath(user.role)

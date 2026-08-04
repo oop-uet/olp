@@ -13,6 +13,62 @@ export const api = axios.create({
   },
 })
 
+// ── Proactive token refresh ───────────────────────────────────────────────────
+// Refresh the access token ~3 minutes before it expires so long-running pages
+// (e.g. an ongoing exam) never get a mid-session 401.
+
+let proactiveRefreshTimer: ReturnType<typeof setTimeout> | null = null
+
+function getTokenExpiryMs(token: string): number | null {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1])) as { exp?: number }
+    if (!payload.exp) return null
+    return payload.exp * 1000 // convert to ms
+  } catch {
+    return null
+  }
+}
+
+async function doProactiveRefresh() {
+  const { refreshToken, setTokens, clearAuth } = useAuthStore.getState()
+  if (!refreshToken) return
+  try {
+    const response = await axios.post(`${API_BASE_URL}/api/auth/refresh`, { refreshToken })
+    const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data
+    setTokens(newAccessToken, newRefreshToken ?? refreshToken)
+    // Schedule next refresh based on new token
+    scheduleProactiveRefresh(newAccessToken)
+  } catch {
+    // Silent fail — the 401 interceptor will handle it when a request fires
+    clearAuth()
+  }
+}
+
+function scheduleProactiveRefresh(accessToken: string) {
+  if (proactiveRefreshTimer) clearTimeout(proactiveRefreshTimer)
+  const expiryMs = getTokenExpiryMs(accessToken)
+  if (!expiryMs) return
+  const msUntilExpiry = expiryMs - Date.now()
+  const REFRESH_BEFORE_MS = 3 * 60 * 1000 // refresh 3 minutes early
+  const delay = Math.max(msUntilExpiry - REFRESH_BEFORE_MS, 10_000) // at least 10s
+  proactiveRefreshTimer = setTimeout(() => void doProactiveRefresh(), delay)
+}
+
+/** Call this once after login/page-load to arm the proactive refresh cycle. */
+export function startProactiveTokenRefresh() {
+  const { accessToken } = useAuthStore.getState()
+  if (accessToken) scheduleProactiveRefresh(accessToken)
+}
+
+/** Stop any pending proactive refresh (call on logout). */
+export function stopProactiveTokenRefresh() {
+  if (proactiveRefreshTimer) {
+    clearTimeout(proactiveRefreshTimer)
+    proactiveRefreshTimer = null
+  }
+}
+
+
 const CACHE_PREFIX = 'oop-api-cache:v1:'
 const DEFAULT_CACHE_TTL_MS = 60_000
 const LONG_CACHE_TTL_MS = 5 * 60_000
@@ -247,7 +303,8 @@ api.interceptors.response.use(
       const { accessToken: newAccessToken, refreshToken: newRefreshToken } =
         response.data
 
-      setTokens(newAccessToken, newRefreshToken)
+      // Use new refresh token if provided (rotating tokens), otherwise keep existing
+      setTokens(newAccessToken, newRefreshToken ?? refreshToken)
       processQueue(null, newAccessToken)
 
       if (originalRequest.headers) {

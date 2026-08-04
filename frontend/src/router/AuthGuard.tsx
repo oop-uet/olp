@@ -2,6 +2,7 @@ import { Navigate, useLocation } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useAuthStore, UserRole } from '../stores/auth.store'
 import { useRedirectStore } from '../stores/redirect.store'
+import { startProactiveTokenRefresh } from '../lib/api'
 
 interface AuthGuardProps {
   children: React.ReactNode
@@ -14,6 +15,13 @@ export function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
   const location = useLocation()
 
   const isUnauthenticated = !isAuthenticated || !user
+
+  // Arm proactive token refresh once on mount so a page reload restores the
+  // auto-refresh cycle from the persisted token.
+  useEffect(() => {
+    if (!isUnauthenticated) startProactiveTokenRefresh()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Save intended destination as a side-effect (not during render) to avoid
   // setState-during-render infinite loops.
