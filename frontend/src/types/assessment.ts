@@ -77,6 +77,7 @@ export interface StudentAssessmentListItem {
   maxAttempts: number
   attemptsUsed: number
   requiresPassword?: boolean
+  hasPassword?: boolean
   week: number | null
   session: {
     id: string

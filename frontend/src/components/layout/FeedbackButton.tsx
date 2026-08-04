@@ -3,11 +3,12 @@ import { FeedbackIcon } from '../ui/Icon'
 import { useAuthStore } from '../../stores/auth.store'
 
 interface FeedbackButtonProps {
+  variant?: 'button' | 'dropdown' | 'mobile'
   mobile?: boolean
   onClick?: () => void
 }
 
-export function FeedbackButton({ mobile = false, onClick }: FeedbackButtonProps) {
+export function FeedbackButton({ variant = 'button', mobile = false, onClick }: FeedbackButtonProps) {
   const { user } = useAuthStore()
   const isCustomLabel = user?.role === 'admin'
   const textLabel = isCustomLabel ? 'Xem phản hồi' : 'Gửi phản hồi'
@@ -19,7 +20,40 @@ export function FeedbackButton({ mobile = false, onClick }: FeedbackButtonProps)
       : 'Mở Google Docs để gửi phản hồi'
     : 'Chưa có link Google Docs phản hồi. Hãy cấu hình VITE_FEEDBACK_DOC_URL hoặc fallbackFeedbackDocUrl.'
 
-  if (mobile) {
+  const isDropdown = variant === 'dropdown' || (!mobile && variant !== 'button')
+  const isMobile = mobile || variant === 'mobile'
+
+  if (isDropdown) {
+    if (!isFeedbackEnabled) {
+      return (
+        <button
+          type="button"
+          disabled
+          title={title}
+          className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-gray-400 cursor-not-allowed font-medium"
+        >
+          <FeedbackIcon className="h-4 w-4 text-slate-300" />
+          <span>{label}</span>
+        </button>
+      )
+    }
+
+    return (
+      <a
+        href={feedbackDocUrl}
+        target="_blank"
+        rel="noreferrer"
+        onClick={onClick}
+        title={title}
+        className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors font-medium"
+      >
+        <FeedbackIcon className="h-4 w-4 text-slate-400" />
+        <span>{textLabel}</span>
+      </a>
+    )
+  }
+
+  if (isMobile) {
     if (!isFeedbackEnabled) {
       return (
         <button

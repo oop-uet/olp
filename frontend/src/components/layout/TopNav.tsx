@@ -37,6 +37,7 @@ const menusByRole: Record<UserRole, MenuItem[]> = {
   ],
   instructor: [
     { label: 'Bài tập', path: '/instructor/exercises', icon: ExerciseIcon },
+    { label: 'Bài kiểm tra', path: '/instructor/assessments', icon: SubmissionIcon },
     { label: 'Bài Nộp', path: '/instructor/submissions', icon: SubmissionIcon },
     { label: 'Xếp Hạng', path: '/instructor/leaderboard', icon: LeaderboardIcon },
     { label: 'Thống Kê', path: '/instructor/statistic', icon: ProgressIcon },
@@ -146,7 +147,6 @@ export function TopNav() {
         {/* Right side: user dropdown + mobile hamburger */}
         <div className="flex items-center gap-2">
           {user.role === 'student' && <LocalExecutorStatusButton />}
-          <FeedbackButton />
 
           <div className="relative" ref={userMenuRef}>
             <button
@@ -196,8 +196,6 @@ export function TopNav() {
                     </button>
                   )}
 
-
-
                   <button
                     onClick={() => {
                       setUserMenuOpen(false)
@@ -210,6 +208,8 @@ export function TopNav() {
                     </svg>
                     Hướng dẫn
                   </button>
+
+                  <FeedbackButton variant="dropdown" onClick={() => setUserMenuOpen(false)} />
 
                   {user.role === 'admin' && (
                     <button
