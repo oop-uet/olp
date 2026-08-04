@@ -28,6 +28,10 @@ import {
   type AssessmentPdfData,
 } from "../../services/assessment-pdf.service.js";
 import { createAssessmentAnswerDocx } from "../../services/assessment-docx.service.js";
+import {
+  createAssessmentResultsXlsx,
+  type SubmissionExportRow,
+} from "../../services/assessment-results-xlsx.service.js";
 
 const rubricCriterionSchema = z.object({
   id: z.string().max(100).optional(),
@@ -220,6 +224,43 @@ router.post("/assignments/:assignmentId/approve-all", async (req: Request, res: 
   }
 });
 
+router.get("/assignments/:assignmentId/export-xlsx", async (req: Request, res: Response) => {
+  try {
+    const result = await listAssessmentSubmissions(req.params.assignmentId, req.user!.userId);
+    if (isAssessmentError(result)) {
+      sendResult(res, result);
+      return;
+    }
+    const { assessment, assignment, submissions } = result.data as {
+      assessment: { id: string; title: string; totalPoints: number };
+      assignment: { id: string; opensAt: string; closesAt: string };
+      submissions: SubmissionExportRow[];
+    };
+    const buffer = await createAssessmentResultsXlsx({ assessment, assignment, submissions });
+    const safeName = String(assessment.title ?? "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^A-Za-z0-9 _-]/g, "-")
+      .trim()
+      .replace(/\s+/g, "-") || "ket-qua";
+    const fileName = encodeURIComponent(`Kết quả - ${assessment.title}.xlsx`);
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${safeName}-ket-qua.xlsx"; filename*=UTF-8''${fileName}`
+    );
+    res.send(buffer);
+  } catch (error) {
+    console.error("[assessment] Failed to export results xlsx", error);
+    res.status(500).json({
+      error: { code: "INTERNAL_ERROR", message: "Không thể xuất kết quả Excel." },
+    });
+  }
+});
+
 router.post("/assignments/:assignmentId/regrade-all", async (req: Request, res: Response) => {
   try {
     sendResult(
@@ -234,6 +275,7 @@ router.post("/assignments/:assignmentId/regrade-all", async (req: Request, res: 
     });
   }
 });
+
 
 router.put(
   "/assignments/:assignmentId/window",

@@ -5,6 +5,7 @@ import { readApiError } from '../../lib/apiError'
 import { PageLoader } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
 
+
 interface SubmissionRow {
   id: string
   status: string
@@ -45,6 +46,8 @@ export function AssessmentSubmissionsPage() {
   const [approving, setApproving] = useState(false)
   const [regrading, setRegrading] = useState(false)
   const [regradeArmed, setRegradeArmed] = useState(false)
+  const [exporting, setExporting] = useState(false)
+
 
   const load = useCallback(async (showLoader = true) => {
     if (!assignmentId) return
@@ -110,6 +113,40 @@ export function AssessmentSubmissionsPage() {
     }
   }
 
+  async function exportXlsx() {
+    if (!assignmentId) return
+    setExporting(true)
+    try {
+      const response = await api.get(
+        `/api/instructor/assessments/assignments/${assignmentId}/export-xlsx`,
+        { responseType: 'blob' }
+      )
+      const contentDisposition = response.headers['content-disposition'] as string | undefined
+      let fileName = `ket-qua-kiem-tra.xlsx`
+      if (contentDisposition) {
+        // Try filename*=UTF-8'' first, then plain filename="..."
+        const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
+        const plainMatch = contentDisposition.match(/filename="([^"]+)"/i)
+        if (utf8Match?.[1]) fileName = decodeURIComponent(utf8Match[1])
+        else if (plainMatch?.[1]) fileName = plainMatch[1]
+      }
+      const url = URL.createObjectURL(new Blob([response.data as BlobPart], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = fileName
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success('Đã xuất file Excel kết quả bài kiểm tra.')
+    } catch (error: unknown) {
+      toast.error(readApiError(error).message ?? 'Không thể xuất file Excel.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+
   if (loading) return <PageLoader label="Đang tải bài nộp kiểm tra..." />
   if (!data) return <div className="card p-8 text-center text-slate-500 font-semibold">Không tìm thấy ca thi.</div>
 
@@ -150,6 +187,30 @@ export function AssessmentSubmissionsPage() {
           <div className="flex flex-wrap justify-end gap-2">
             <button
               type="button"
+              onClick={() => void exportXlsx()}
+              disabled={exporting || data.submissions.length === 0}
+              aria-label="Xuất kết quả bài kiểm tra ra Excel"
+              title="Tải về file .xlsx chứa danh sách sinh viên và điểm"
+              className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-emerald-300/60 bg-emerald-500/20 px-4 text-xs font-bold text-white shadow-sm transition-all hover:bg-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {exporting ? (
+                <>
+                  <svg aria-hidden="true" className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83" />
+                  </svg>
+                  Đang xuất...
+                </>
+              ) : (
+                <>
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 16v-8m0 8-3-3m3 3 3-3M3 17v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2" />
+                  </svg>
+                  Xuất Excel
+                </>
+              )}
+            </button>
+            <button
+              type="button"
               onClick={() => void regradeAll()}
               disabled={regrading || approving || regradable === 0}
               aria-label="Chấm lại toàn bộ bài nộp"
@@ -177,6 +238,7 @@ export function AssessmentSubmissionsPage() {
               {approving ? 'Đang duyệt...' : 'Duyệt toàn bộ điểm dự kiến'}
             </button>
           </div>
+
           {regradeArmed && (
             <p className="max-w-md text-right text-[11px] font-semibold text-amber-100">
               Điểm chính thức cũ sẽ chuyển về dự kiến để GV duyệt lại.
