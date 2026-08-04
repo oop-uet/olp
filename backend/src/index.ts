@@ -106,22 +106,13 @@ async function seedMigrationHistoryIfNeeded() {
   try {
     const { libsqlClient } = await import('./db/client.js');
 
-    // Check if DB is a legacy install: has 'users' but no migration journal
-    const [usersResult, migrationsResult] = await Promise.all([
-      libsqlClient.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'"),
-      libsqlClient.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='__drizzle_migrations'"),
-    ]);
+    // Check if DB is a legacy install with 'users' table
+    const usersResult = await libsqlClient.execute(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='users'"
+    );
 
-    const hasUsers = usersResult.rows.length > 0;
-    const hasMigrationsTable = migrationsResult.rows.length > 0;
+    if (usersResult.rows.length === 0) return; // Fresh database, standard Drizzle migrate will handle it
 
-    if (!hasUsers || hasMigrationsTable) return; // Fresh DB or already seeded
-
-    console.log('[server] Legacy database detected — seeding Drizzle migration history...');
-
-    // Drizzle skips a migration if: lastRecord.created_at >= migration.folderMillis
-    // So we insert 1 record whose created_at equals the latest migration's 'when',
-    // with the correct SHA256 hash of its SQL content.
     const { readFileSync } = await import('fs');
     const { createHash } = await import('crypto');
 
@@ -129,15 +120,11 @@ async function seedMigrationHistoryIfNeeded() {
     try {
       journal = JSON.parse(readFileSync('./drizzle/meta/_journal.json', 'utf-8'));
     } catch {
-      console.warn('[server] Could not read migration journal; skipping history seed.');
       return;
     }
 
     const lastEntry = journal.entries.at(-1);
     if (!lastEntry) return;
-
-    const lastSql = readFileSync(`./drizzle/${lastEntry.tag}.sql`, 'utf-8');
-    const hash = createHash('sha256').update(lastSql).digest('hex');
 
     await libsqlClient.execute(`CREATE TABLE IF NOT EXISTS __drizzle_migrations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -145,12 +132,33 @@ async function seedMigrationHistoryIfNeeded() {
       created_at numeric
     )`);
 
-    await libsqlClient.execute({
-      sql: 'INSERT OR IGNORE INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)',
-      args: [hash, lastEntry.when],
-    });
+    // Check existing max created_at in __drizzle_migrations
+    const existing = await libsqlClient.execute(
+      'SELECT created_at FROM __drizzle_migrations ORDER BY created_at DESC LIMIT 1'
+    );
+    const maxCreatedAt = Number(existing.rows[0]?.created_at ?? 0);
 
-    console.log(`[server] Seeded __drizzle_migrations with last migration: ${lastEntry.tag}`);
+    if (maxCreatedAt < lastEntry.when) {
+      console.log('[server] Existing database missing current migration markers — seeding history...');
+      const stmts = journal.entries.map((entry) => {
+        let hash = '';
+        try {
+          const sql = readFileSync(`./drizzle/${entry.tag}.sql`, 'utf-8');
+          hash = createHash('sha256').update(sql).digest('hex');
+        } catch {
+          hash = entry.tag;
+        }
+        return {
+          sql: 'INSERT OR IGNORE INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)',
+          args: [hash, entry.when],
+        };
+      });
+
+      if (stmts.length > 0) {
+        await libsqlClient.batch(stmts, 'write');
+      }
+      console.log(`[server] Seeded ${stmts.length} migration markers into __drizzle_migrations.`);
+    }
   } catch (err) {
     // Non-fatal — migrate() try/catch below handles fallback
     console.warn('[server] seedMigrationHistoryIfNeeded failed (non-fatal):', err);
@@ -165,15 +173,19 @@ async function startServer() {
 
     try {
       await migrate(db, { migrationsFolder: './drizzle' });
-    } catch (migrateError) {
-      // Legacy databases predate Drizzle's journal — seeding may have failed due
-      // to client API differences. The compat bootstrap below covers those DBs.
-      console.warn('[server] Drizzle migrations could not be applied; using compatibility bootstrap.', migrateError);
+    } catch (migrateError: any) {
+      const msg = String(migrateError?.message || migrateError?.cause?.message || migrateError);
+      if (msg.includes('already exists')) {
+        console.log('[server] Drizzle automatic migration skipped: schema tables already exist.');
+      } else {
+        console.warn('[server] Drizzle migration note:', msg);
+      }
     }
 
     await ensureDatabaseCompatibility(db);
     console.log('[server] Database migrations and compatibility checks applied successfully');
     startAssessmentAiWorker();
+
 
     app.listen(PORT, () => {
       console.log(`[server] Backend running on port ${PORT}`);
