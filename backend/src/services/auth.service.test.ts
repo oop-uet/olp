@@ -18,6 +18,7 @@ import {
   isAuthError,
   AuthErrorCode,
   BCRYPT_SALT_ROUNDS,
+  ACCESS_TOKEN_EXPIRY,
 } from "./auth.service.js";
 
 // Set test environment variables
@@ -127,12 +128,16 @@ describe("Auth Service - JWT Token Management", () => {
     expect(decoded.role).toBe(role);
   });
 
-  it("should sign access token with 15min expiry", () => {
+  it("should sign access token with correct expiry", () => {
     const token = signAccessToken("user-1", "student");
     const decoded = jwt.decode(token) as any;
 
-    // exp - iat should be 15 minutes (900 seconds)
-    expect(decoded.exp - decoded.iat).toBe(900);
+    // Parse ACCESS_TOKEN_EXPIRY (e.g. "2h" → 7200, "15m" → 900)
+    const match = ACCESS_TOKEN_EXPIRY.match(/^(\d+)(\w)$/);
+    const value = match ? parseInt(match[1]) : 0;
+    const unit = match ? match[2] : "";
+    const expectedSeconds = unit === "h" ? value * 3600 : unit === "m" ? value * 60 : value;
+    expect(decoded.exp - decoded.iat).toBe(expectedSeconds);
   });
 
   it("should sign a refresh token with correct payload", () => {
