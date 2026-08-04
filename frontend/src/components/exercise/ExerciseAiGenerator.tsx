@@ -3,7 +3,7 @@ import { api } from '../../lib/api'
 import { toast } from '../../stores/toast.store'
 
 type Difficulty = 'easy' | 'medium' | 'hard'
-type AiProvider = 'openai' | 'anthropic' | 'gemini' | 'groq' | 'openrouter'
+type AiProvider = 'openai' | 'anthropic' | 'gemini' | 'groq' | 'openrouter' | 'nvidia'
 
 interface AiStatus {
   enabled: boolean

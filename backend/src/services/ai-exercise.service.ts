@@ -5,8 +5,8 @@ import { db as defaultDb } from "../db/index.js";
 import { systemConfig } from "../db/schema.js";
 
 type Database = typeof defaultDb;
-type AiProvider = "openai" | "anthropic" | "gemini" | "groq" | "openrouter";
-const AI_PROVIDERS: AiProvider[] = ["openai", "anthropic", "gemini", "groq", "openrouter"];
+type AiProvider = "openai" | "anthropic" | "gemini" | "groq" | "openrouter" | "nvidia";
+const AI_PROVIDERS: AiProvider[] = ["openai", "anthropic", "gemini", "groq", "openrouter", "nvidia"];
 
 const CONFIG_KEYS = {
   provider: "ai_generation_provider",
@@ -36,14 +36,17 @@ const DEFAULT_MODELS: Record<AiProvider, string> = {
   gemini: "gemini-2.5-flash",
   groq: "openai/gpt-oss-20b",
   openrouter: "openrouter/free",
+  nvidia: "qwen/qwen2.5-coder-32b-instruct",
 };
 const FALLBACK_PROVIDER_ORDER: AiProvider[] = [
   "gemini",
   "groq",
   "openrouter",
+  "nvidia",
   "openai",
   "anthropic",
 ];
+
 const ENCRYPTION_PREFIX = "v1";
 
 function getFallbackConfigKeys(provider: AiProvider) {
@@ -74,7 +77,8 @@ const FALLBACK_DEFAULT_CONFIGS = AI_PROVIDERS.flatMap((provider) => {
 });
 
 const DEFAULT_CONFIGS: Array<{ key: string; value: string; validRange: string }> = [
-  { key: CONFIG_KEYS.provider, value: DEFAULT_PROVIDER, validRange: "enum:openai,anthropic,gemini,groq,openrouter" },
+  { key: CONFIG_KEYS.provider, value: DEFAULT_PROVIDER, validRange: "enum:openai,anthropic,gemini,groq,openrouter,nvidia" },
+
   { key: CONFIG_KEYS.model, value: DEFAULT_MODELS.openai, validRange: "text" },
   { key: CONFIG_KEYS.enabled, value: "0", validRange: "0-1" },
   { key: CONFIG_KEYS.encryptedApiKey, value: "", validRange: "secret" },
@@ -1304,9 +1308,11 @@ function isSupportedProvider(value: string): value is AiProvider {
     value === "anthropic" ||
     value === "gemini" ||
     value === "groq" ||
-    value === "openrouter"
+    value === "openrouter" ||
+    value === "nvidia"
   );
 }
+
 
 function parseProvider(value: string | undefined): AiProvider {
   return value && isSupportedProvider(value) ? value : DEFAULT_PROVIDER;
@@ -1344,8 +1350,15 @@ function getProviderOptions() {
       defaultModel: DEFAULT_MODELS.openrouter,
       keyPlaceholder: "sk-or-v1-...",
     },
+    {
+      value: "nvidia" as const,
+      label: "NVIDIA NIM",
+      defaultModel: DEFAULT_MODELS.nvidia,
+      keyPlaceholder: "nvapi-...",
+    },
   ];
 }
+
 
 function getProviderLabel(provider: AiProvider): string {
   return getProviderOptions().find((option) => option.value === provider)?.label ?? provider;
@@ -1384,19 +1397,24 @@ async function testProviderKey(
                 "Content-Type": "application/json",
               },
             })
-            : await fetch("https://openrouter.ai/api/v1/chat/completions", {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${apiKey}`,
-                "Content-Type": "application/json",
-                ...openRouterAttributionHeaders(),
-              },
-              body: JSON.stringify({
-                model,
-                messages: [{ role: "user", content: "Reply OK" }],
-                max_tokens: 8,
-              }),
-            });
+            : provider === "nvidia"
+              ? await fetch("https://integrate.api.nvidia.com/v1/models", {
+                headers: { Authorization: `Bearer ${apiKey}` },
+              })
+              : await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${apiKey}`,
+                  "Content-Type": "application/json",
+                  ...openRouterAttributionHeaders(),
+                },
+                body: JSON.stringify({
+                  model,
+                  messages: [{ role: "user", content: "Reply OK" }],
+                  max_tokens: 8,
+                }),
+              });
+
 
   if (response.ok) return { ok: true };
   return { ok: false, message: await readProviderError(response, provider) };
@@ -1450,11 +1468,13 @@ async function generateWithProvider(
     return JSON.stringify(toolInput);
   }
 
-  if (provider === "groq" || provider === "openrouter") {
+  if (provider === "groq" || provider === "openrouter" || provider === "nvidia") {
     const endpoint =
       provider === "groq"
         ? "https://api.groq.com/openai/v1/chat/completions"
-        : "https://openrouter.ai/api/v1/chat/completions";
+        : provider === "nvidia"
+          ? "https://integrate.api.nvidia.com/v1/chat/completions"
+          : "https://openrouter.ai/api/v1/chat/completions";
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
@@ -1474,6 +1494,7 @@ async function generateWithProvider(
     }
     return extractChatCompletionText((await response.json()) as Record<string, unknown>) || "";
   }
+
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
@@ -1570,11 +1591,13 @@ async function generateStructuredWithProvider(
     };
   }
 
-  if (provider === "groq" || provider === "openrouter") {
+  if (provider === "groq" || provider === "openrouter" || provider === "nvidia") {
     const endpoint =
       provider === "groq"
         ? "https://api.groq.com/openai/v1/chat/completions"
-        : "https://openrouter.ai/api/v1/chat/completions";
+        : provider === "nvidia"
+          ? "https://integrate.api.nvidia.com/v1/chat/completions"
+          : "https://openrouter.ai/api/v1/chat/completions";
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
@@ -1610,6 +1633,7 @@ async function generateStructuredWithProvider(
       resolvedModel: provider === "openrouter" ? extractResponseModel(payload) ?? undefined : undefined,
     };
   }
+
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,

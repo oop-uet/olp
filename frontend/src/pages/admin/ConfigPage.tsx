@@ -25,7 +25,8 @@ interface ConfigParam {
   options?: Array<{ value: string; label: string }>
 }
 
-type AiProvider = 'openai' | 'anthropic' | 'gemini' | 'groq' | 'openrouter'
+type AiProvider = 'openai' | 'anthropic' | 'gemini' | 'groq' | 'openrouter' | 'nvidia'
+
 
 interface AiConfigStatus {
   provider: AiProvider
@@ -63,9 +64,11 @@ const FALLBACK_PROVIDER_DEFAULTS: Array<Pick<AiFallbackStatus, 'provider' | 'lab
   { provider: 'gemini', label: 'Google Gemini', model: 'gemini-2.5-flash' },
   { provider: 'groq', label: 'Groq', model: 'openai/gpt-oss-20b' },
   { provider: 'openrouter', label: 'OpenRouter (Free Models Router)', model: 'openrouter/free' },
+  { provider: 'nvidia', label: 'NVIDIA NIM', model: 'qwen/qwen2.5-coder-32b-instruct' },
   { provider: 'openai', label: 'OpenAI', model: 'gpt-4o-mini' },
   { provider: 'anthropic', label: 'Anthropic Claude', model: 'claude-sonnet-4-5' },
 ]
+
 
 const DEFAULT_FALLBACK_PROVIDERS: AiFallbackStatus[] = FALLBACK_PROVIDER_DEFAULTS.map((provider) => ({
   ...provider,
@@ -995,10 +998,14 @@ export function ConfigPage() {
               <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noreferrer" className="text-violet-700 underline underline-offset-2 hover:text-violet-900">
                 Tạo OpenRouter key
               </a>
+              <a href="https://build.nvidia.com/" target="_blank" rel="noreferrer" className="text-violet-700 underline underline-offset-2 hover:text-violet-900">
+                Tạo NVIDIA NIM key
+              </a>
               <a href="https://openrouter.ai/activity" target="_blank" rel="noreferrer" className="text-violet-700 underline underline-offset-2 hover:text-violet-900">
                 Xem OpenRouter usage
               </a>
             </div>
+
           </div>
         </section>
       </div>

@@ -88,13 +88,19 @@ function answerText(answer: ReviewAnswer) {
   return 'Không trả lời'
 }
 
+function getProviderDisplayName(provider?: string | null) {
+  if (provider === 'openrouter') return 'OpenRouter'
+  if (provider === 'gemini') return 'Gemini'
+  if (provider === 'nvidia') return 'NVIDIA NIM'
+  if (provider === 'groq') return 'Groq'
+  if (provider === 'anthropic') return 'Anthropic Claude'
+  if (provider === 'openai') return 'OpenAI'
+  return provider ?? 'Dịch vụ AI'
+}
+
 function aiRunPresentation(run: ReviewAnswer['latestAiRun']) {
   if (!run) return null
-  const providerLabel = run.provider === 'openrouter'
-    ? 'OpenRouter'
-    : run.provider === 'gemini'
-      ? 'Gemini'
-      : 'Dịch vụ AI'
+  const providerLabel = getProviderDisplayName(run.provider)
   const quotaProvider = run.provider ? ` ${providerLabel}` : ''
   const legacyQuotaError = /quota|rate limit|resource_exhausted/i.test(run.errorMessage ?? '')
   if (run.status === 'queued' && (run.errorCode === 'AI_RATE_LIMITED' || legacyQuotaError)) {
@@ -386,7 +392,7 @@ export function AssessmentReviewPage() {
                     </div>
                     {answer.latestAiRun?.status === 'succeeded' && answer.latestAiRun.provider && (
                       <p className="text-[11px] font-semibold text-cyan-800">
-                        Chấm bởi {answer.latestAiRun.provider === 'openrouter' ? 'OpenRouter' : answer.latestAiRun.provider}
+                        Chấm bởi {getProviderDisplayName(answer.latestAiRun.provider)}
                         {answer.latestAiRun.model ? ` · ${answer.latestAiRun.model}` : ''}
                       </p>
                     )}

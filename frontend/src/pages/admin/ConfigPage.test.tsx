@@ -68,7 +68,7 @@ describe('ConfigPage OpenRouter fallback', () => {
     expect(
       await screen.findByRole('heading', { name: 'Chuỗi API dự phòng chấm tự luận' })
     ).toBeInTheDocument()
-    expect(screen.getAllByRole('article')).toHaveLength(5)
+    expect(screen.getAllByRole('article')).toHaveLength(6)
     expect(screen.getByDisplayValue('openrouter/free')).toBeInTheDocument()
     const openRouterCard = screen
       .getByRole('heading', { name: 'OpenRouter (Free Models Router)' })

@@ -102,11 +102,13 @@ describe("AI Exercise Service", () => {
       "gemini",
       "groq",
       "openrouter",
+      "nvidia",
     ]);
     expect(status.fallbackProviders.map((provider) => provider.provider)).toEqual([
       "gemini",
       "groq",
       "openrouter",
+      "nvidia",
       "openai",
       "anthropic",
     ]);

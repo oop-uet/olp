@@ -1795,22 +1795,26 @@ const AI_GRADING_RETRY_BASE_MS = 15_000;
 const AI_GRADING_RATE_LIMIT_RETRY_BASE_MS = 60_000;
 const AI_GRADING_RATE_LIMIT_RETRY_MAX_MS = 30 * 60_000;
 const AI_QUEUE_PAUSE_KEY = "assessment_ai_queue_pause_until";
-const lastAssessmentProviderRequestAt: Partial<Record<"gemini" | "openrouter", number>> = {};
+const lastAssessmentProviderRequestAt: Partial<Record<"gemini" | "openrouter" | "nvidia", number>> = {};
 
-function configuredAssessmentRpm(provider: "gemini" | "openrouter") {
+function configuredAssessmentRpm(provider: "gemini" | "openrouter" | "nvidia") {
   const environmentKey = provider === "gemini"
     ? "ASSESSMENT_AI_GEMINI_RPM"
-    : "ASSESSMENT_AI_OPENROUTER_RPM";
+    : provider === "nvidia"
+      ? "ASSESSMENT_AI_NVIDIA_RPM"
+      : "ASSESSMENT_AI_OPENROUTER_RPM";
   const configured = Number(process.env[environmentKey] || "12");
   return Number.isFinite(configured) && configured >= 1 && configured <= 60
     ? configured
     : 12;
 }
 
-function assessmentProviderMinIntervalMs(provider: "gemini" | "openrouter") {
+function assessmentProviderMinIntervalMs(provider: "gemini" | "openrouter" | "nvidia") {
   const environmentKey = provider === "gemini"
     ? "ASSESSMENT_AI_GEMINI_RPM"
-    : "ASSESSMENT_AI_OPENROUTER_RPM";
+    : provider === "nvidia"
+      ? "ASSESSMENT_AI_NVIDIA_RPM"
+      : "ASSESSMENT_AI_OPENROUTER_RPM";
   if (process.env.NODE_ENV === "test" && !process.env[environmentKey]) return 0;
   return Math.ceil(60_000 / configuredAssessmentRpm(provider));
 }
@@ -2169,7 +2173,15 @@ function aiFailureFeedback(code: string, provider?: string) {
     ? "OpenRouter"
     : provider === "gemini"
       ? "Gemini"
-      : "Dịch vụ AI";
+      : provider === "nvidia"
+        ? "NVIDIA NIM"
+        : provider === "groq"
+          ? "Groq"
+          : provider === "anthropic"
+            ? "Anthropic Claude"
+            : provider === "openai"
+              ? "OpenAI"
+              : "Dịch vụ AI";
   if (code === "AI_AUTH_FAILED") {
     return "API key AI không hợp lệ hoặc không có quyền dùng model. Cần quản trị viên kiểm tra cấu hình.";
   }

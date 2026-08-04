@@ -13,7 +13,7 @@ import {
 const router = Router();
 
 const updateAiConfigSchema = z.object({
-  provider: z.enum(["openai", "anthropic", "gemini", "groq", "openrouter"]).optional(),
+  provider: z.enum(["openai", "anthropic", "gemini", "groq", "openrouter", "nvidia"]).optional(),
   model: z.string().min(3).max(120).optional(),
   apiKey: z.string().max(300).optional(),
   enabled: z.boolean().optional(),
@@ -26,7 +26,7 @@ const updateAiFallbackSchema = z.object({
   enabled: z.boolean().optional(),
   clearApiKey: z.boolean().optional(),
 });
-const fallbackProviderSchema = z.enum(["openai", "anthropic", "gemini", "groq", "openrouter"]);
+const fallbackProviderSchema = z.enum(["openai", "anthropic", "gemini", "groq", "openrouter", "nvidia"]);
 
 router.get("/", async (_req: Request, res: Response) => {
   try {
