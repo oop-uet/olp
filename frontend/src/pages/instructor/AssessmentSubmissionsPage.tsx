@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { readApiError } from '../../lib/apiError'
 import { PageLoader } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
-
 
 interface SubmissionRow {
   id: string
@@ -26,6 +25,17 @@ interface PageData {
   submissions: SubmissionRow[]
 }
 
+type SortField =
+  | 'index'
+  | 'student'
+  | 'attempt'
+  | 'submittedAt'
+  | 'autoScore'
+  | 'predictedScore'
+  | 'officialScore'
+  | 'status'
+  | 'integrity'
+
 function score(value: number | null, total: number) {
   return value === null ? '—' : `${value}/${total}`
 }
@@ -33,10 +43,22 @@ function score(value: number | null, total: number) {
 function statusLabel(row: SubmissionRow) {
   if (row.reviewStatus === 'official') return { label: 'Điểm chính thức', className: 'badge-green' }
   if (row.reviewStatus === 'pending_review') return { label: 'Chờ GV duyệt', className: 'badge-yellow' }
-  if (row.reviewStatus === 'ai_queued' || row.reviewStatus === 'ai_running') {
-    return { label: 'AI đang chấm', className: 'badge-blue' }
+  if (row.reviewStatus === 'ai_running') {
+    return { label: 'AI đang chấm...', className: 'badge-blue animate-pulse' }
+  }
+  if (row.reviewStatus === 'ai_queued') {
+    return { label: 'AI trong hàng đợi', className: 'badge-blue' }
   }
   return { label: row.status === 'in_progress' ? 'Đang làm bài' : 'Đã nộp', className: 'badge-gray' }
+}
+
+function statusPriority(row: SubmissionRow): number {
+  if (row.reviewStatus === 'ai_running') return 1
+  if (row.reviewStatus === 'ai_queued') return 2
+  if (row.reviewStatus === 'pending_review') return 3
+  if (row.reviewStatus === 'official') return 4
+  if (row.status === 'in_progress') return 5
+  return 6
 }
 
 export function AssessmentSubmissionsPage() {
@@ -48,19 +70,27 @@ export function AssessmentSubmissionsPage() {
   const [regradeArmed, setRegradeArmed] = useState(false)
   const [exporting, setExporting] = useState(false)
 
+  // Sort States
+  const [sortField, setSortField] = useState<SortField>('index')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
 
-  const load = useCallback(async (showLoader = true) => {
-    if (!assignmentId) return
-    if (showLoader) setLoading(true)
-    try {
-      const response = await api.get(`/api/instructor/assessments/assignments/${assignmentId}/submissions`)
-      setData(response.data.data)
-    } catch {
-      if (showLoader) toast.error('Không thể tải danh sách bài nộp.')
-    } finally {
-      if (showLoader) setLoading(false)
-    }
-  }, [assignmentId])
+  const load = useCallback(
+    async (showLoader = true) => {
+      if (!assignmentId) return
+      if (showLoader) setLoading(true)
+      try {
+        const response = await api.get(
+          `/api/instructor/assessments/assignments/${assignmentId}/submissions`
+        )
+        setData(response.data.data)
+      } catch {
+        if (showLoader) toast.error('Không thể tải danh sách bài nộp.')
+      } finally {
+        if (showLoader) setLoading(false)
+      }
+    },
+    [assignmentId]
+  )
 
   useEffect(() => {
     void load()
@@ -74,13 +104,71 @@ export function AssessmentSubmissionsPage() {
     return () => window.clearTimeout(timer)
   }, [regradeArmed])
 
+  // Sort logic
+  const sortedSubmissions = useMemo(() => {
+    if (!data?.submissions) return []
+    const list = [...data.submissions]
+
+    if (sortField === 'index') return list
+
+    return list.sort((a, b) => {
+      let result = 0
+
+      if (sortField === 'student') {
+        const nameA = (a.student.fullName || a.student.username).toLowerCase()
+        const nameB = (b.student.fullName || b.student.username).toLowerCase()
+        result = nameA.localeCompare(nameB, 'vi')
+      } else if (sortField === 'attempt') {
+        result = a.attemptNumber - b.attemptNumber
+      } else if (sortField === 'submittedAt') {
+        const timeA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0
+        const timeB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0
+        result = timeA - timeB
+      } else if (sortField === 'autoScore') {
+        result = (a.autoScore ?? 0) - (b.autoScore ?? 0)
+      } else if (sortField === 'predictedScore') {
+        result = (a.predictedScore ?? -1) - (b.predictedScore ?? -1)
+      } else if (sortField === 'officialScore') {
+        result = (a.officialScore ?? -1) - (b.officialScore ?? -1)
+      } else if (sortField === 'status') {
+        result = statusPriority(a) - statusPriority(b)
+      } else if (sortField === 'integrity') {
+        result = (a.integrityEventCount ?? 0) - (b.integrityEventCount ?? 0)
+      }
+
+      return sortOrder === 'asc' ? result : -result
+    })
+  }, [data?.submissions, sortField, sortOrder])
+
+  function toggleSort(field: SortField) {
+    if (sortField === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field)
+      setSortOrder('asc')
+    }
+  }
+
+  function renderSortIndicator(field: SortField) {
+    if (sortField !== field) return null
+    return <span className="ml-1 text-primary">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+  }
+
   async function approveAll() {
-    if (!assignmentId || !window.confirm('Duyệt toàn bộ điểm dự kiến hiện đã có thành điểm chính thức?')) return
+    if (
+      !assignmentId ||
+      !window.confirm('Duyệt toàn bộ điểm dự kiến hiện đã có thành điểm chính thức?')
+    )
+      return
     setApproving(true)
     try {
-      const response = await api.post(`/api/instructor/assessments/assignments/${assignmentId}/approve-all`)
+      const response = await api.post(
+        `/api/instructor/assessments/assignments/${assignmentId}/approve-all`
+      )
       const result = response.data.data
-      toast.success(`Đã duyệt ${result.answersApproved} câu trả lời; ${result.sessionsOfficial} bài đã có điểm chính thức.`)
+      toast.success(
+        `Đã duyệt ${result.answersApproved} câu trả lời; ${result.sessionsOfficial} bài đã có điểm chính thức.`
+      )
       await load(false)
     } catch (error: unknown) {
       toast.error(readApiError(error).message ?? 'Không thể duyệt điểm dự kiến.')
@@ -124,15 +212,16 @@ export function AssessmentSubmissionsPage() {
       const contentDisposition = response.headers['content-disposition'] as string | undefined
       let fileName = `ket-qua-kiem-tra.xlsx`
       if (contentDisposition) {
-        // Try filename*=UTF-8'' first, then plain filename="..."
         const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
         const plainMatch = contentDisposition.match(/filename="([^"]+)"/i)
         if (utf8Match?.[1]) fileName = decodeURIComponent(utf8Match[1])
         else if (plainMatch?.[1]) fileName = plainMatch[1]
       }
-      const url = URL.createObjectURL(new Blob([response.data as BlobPart], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      }))
+      const url = URL.createObjectURL(
+        new Blob([response.data as BlobPart], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        })
+      )
       const a = document.createElement('a')
       a.href = url
       a.download = fileName
@@ -146,11 +235,17 @@ export function AssessmentSubmissionsPage() {
     }
   }
 
-
   if (loading) return <PageLoader label="Đang tải bài nộp kiểm tra..." />
-  if (!data) return <div className="card p-8 text-center text-slate-500 font-semibold">Không tìm thấy ca thi.</div>
+  if (!data)
+    return (
+      <div className="card p-8 text-center font-semibold text-slate-500">
+        Không tìm thấy ca thi.
+      </div>
+    )
 
-  const pendingAi = data.submissions.filter((row) => ['ai_queued', 'ai_running'].includes(row.reviewStatus)).length
+  const pendingAi = data.submissions.filter((row) =>
+    ['ai_queued', 'ai_running'].includes(row.reviewStatus)
+  ).length
   const ready = data.submissions.filter(
     (row) => row.reviewStatus === 'pending_review' && row.predictedScore !== null
   ).length
@@ -168,7 +263,7 @@ export function AssessmentSubmissionsPage() {
         <span>←</span> Quay lại danh sách bài kiểm tra
       </Link>
 
-      {/* Signature Gradient Header */}
+      {/* Signature Header */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-teal-700 via-cyan-700 to-blue-800 p-6 sm:p-8 text-white shadow-md border-b-4 border-secondary flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="absolute right-0 top-0 h-44 w-44 translate-x-12 -translate-y-12 rounded-full bg-white/10 blur-2xl pointer-events-none" />
         <div className="relative z-10 space-y-1.5">
@@ -179,7 +274,9 @@ export function AssessmentSubmissionsPage() {
             {data.assessment.title}
           </h1>
           <p className="text-xs font-bold text-cyan-100/90 mt-1">
-            Tổng điểm: {data.assessment.totalPoints} điểm · Khung thời gian: {new Date(data.assignment.opensAt).toLocaleString('vi-VN')} – {new Date(data.assignment.closesAt).toLocaleString('vi-VN')}
+            Tổng điểm: {data.assessment.totalPoints} điểm · Khung thời gian:{' '}
+            {new Date(data.assignment.opensAt).toLocaleString('vi-VN')} –{' '}
+            {new Date(data.assignment.closesAt).toLocaleString('vi-VN')}
           </p>
         </div>
 
@@ -195,15 +292,37 @@ export function AssessmentSubmissionsPage() {
             >
               {exporting ? (
                 <>
-                  <svg aria-hidden="true" className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83" />
+                  <svg
+                    aria-hidden="true"
+                    className="h-4 w-4 animate-spin"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83"
+                    />
                   </svg>
                   Đang xuất...
                 </>
               ) : (
                 <>
-                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 16v-8m0 8-3-3m3 3 3-3M3 17v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2" />
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    className="h-4 w-4"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 16v-8m0 8-3-3m3 3 3-3M3 17v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2"
+                    />
                   </svg>
                   Xuất Excel
                 </>
@@ -221,14 +340,25 @@ export function AssessmentSubmissionsPage() {
                   : 'border-white/40 bg-white/10 text-white hover:bg-white/20'
               }`}
             >
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7" />
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                className="h-4 w-4"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"
+                />
               </svg>
               {regrading
                 ? 'Đang xếp hàng...'
                 : regradeArmed
-                  ? 'Bấm lần nữa để xác nhận'
-                  : 'Chấm lại toàn bộ'}
+                ? 'Bấm lần nữa để xác nhận'
+                : 'Chấm lại toàn bộ'}
             </button>
             <button
               onClick={() => void approveAll()}
@@ -250,90 +380,161 @@ export function AssessmentSubmissionsPage() {
       {/* Stat Cards */}
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 text-center transition-all hover:bg-slate-50">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">AI đang chấm</p>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            AI đang chấm / Hàng đợi
+          </p>
           <p className="mt-1 text-2xl font-black text-blue-600">{pendingAi}</p>
         </div>
         <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 text-center transition-all hover:bg-slate-50">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Chờ giảng viên duyệt</p>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            Chờ giảng viên duyệt
+          </p>
           <p className="mt-1 text-2xl font-black text-amber-600">{ready}</p>
         </div>
         <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 text-center transition-all hover:bg-slate-50">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Đã có điểm chính thức</p>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            Đã có điểm chính thức
+          </p>
           <p className="mt-1 text-2xl font-black text-emerald-600">{official}</p>
         </div>
       </div>
 
-      {/* Submissions Table */}
+      {/* Submissions Table with STT & Sorting */}
       <div className="card overflow-hidden border border-slate-200/90 shadow-sm">
-        <table className="min-w-full divide-y divide-slate-200">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="table-th">Sinh viên</th>
-              <th className="table-th text-center">Lượt làm</th>
-              <th className="table-th">Thời gian nộp</th>
-              <th className="table-th text-center">Điểm tự động</th>
-              <th className="table-th text-center">Điểm dự kiến</th>
-              <th className="table-th text-center">Điểm chính thức</th>
-              <th className="table-th">Trạng thái</th>
-              <th className="table-th text-center">Giám sát</th>
-              <th className="table-th text-right">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {data.submissions.map((row) => {
-              const status = statusLabel(row)
-              const integrityCount = row.integrityEventCount ?? 0
-              return (
-                <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="table-td">
-                    <p className="font-bold text-slate-900">{row.student.fullName || row.student.username}</p>
-                    <p className="text-[11px] font-semibold text-slate-500">MSSV: {row.student.username}</p>
-                  </td>
-                  <td className="table-td text-center font-black text-slate-700">
-                    {row.attemptNumber}
-                  </td>
-                  <td className="table-td text-xs font-semibold text-slate-600">
-                    {row.submittedAt ? new Date(row.submittedAt).toLocaleString('vi-VN') : 'Chưa nộp'}
-                  </td>
-                  <td className="table-td text-center font-bold text-slate-700">
-                    {score(row.autoScore, data.assessment.totalPoints)}
-                  </td>
-                  <td className="table-td text-center">
-                    <span className="font-black text-teal-700">{score(row.predictedScore, data.assessment.totalPoints)}</span>
-                  </td>
-                  <td className="table-td text-center">
-                    <span className="font-black text-emerald-700">{score(row.officialScore, data.assessment.totalPoints)}</span>
-                  </td>
-                  <td className="table-td">
-                    <span className={status.className}>{status.label}</span>
-                  </td>
-                  <td className="table-td text-center">
-                    <span className={integrityCount > 0 ? 'badge-yellow font-bold' : 'badge-green font-bold'}>
-                      {integrityCount > 0 ? `${integrityCount} cảnh báo` : 'Không cảnh báo'}
-                    </span>
-                  </td>
-                  <td className="table-td text-right">
-                    {row.status !== 'in_progress' && (
-                      <Link
-                        to={`/instructor/assessment-sessions/${row.id}/review`}
-                        className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:border-primary/40 hover:bg-primary-50 hover:text-primary transition-colors shadow-2xs"
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-slate-200">
+            <thead className="bg-slate-50">
+              <tr>
+                <th
+                  onClick={() => toggleSort('index')}
+                  className="table-th text-center w-14 cursor-pointer select-none hover:bg-slate-100 transition-colors"
+                >
+                  STT {renderSortIndicator('index')}
+                </th>
+                <th
+                  onClick={() => toggleSort('student')}
+                  className="table-th cursor-pointer select-none hover:bg-slate-100 transition-colors"
+                >
+                  Sinh viên {renderSortIndicator('student')}
+                </th>
+                <th
+                  onClick={() => toggleSort('attempt')}
+                  className="table-th text-center cursor-pointer select-none hover:bg-slate-100 transition-colors"
+                >
+                  Lượt làm {renderSortIndicator('attempt')}
+                </th>
+                <th
+                  onClick={() => toggleSort('submittedAt')}
+                  className="table-th cursor-pointer select-none hover:bg-slate-100 transition-colors"
+                >
+                  Thời gian nộp {renderSortIndicator('submittedAt')}
+                </th>
+                <th
+                  onClick={() => toggleSort('autoScore')}
+                  className="table-th text-center cursor-pointer select-none hover:bg-slate-100 transition-colors"
+                >
+                  Điểm tự động {renderSortIndicator('autoScore')}
+                </th>
+                <th
+                  onClick={() => toggleSort('predictedScore')}
+                  className="table-th text-center cursor-pointer select-none hover:bg-slate-100 transition-colors"
+                >
+                  Điểm dự kiến {renderSortIndicator('predictedScore')}
+                </th>
+                <th
+                  onClick={() => toggleSort('officialScore')}
+                  className="table-th text-center cursor-pointer select-none hover:bg-slate-100 transition-colors"
+                >
+                  Điểm chính thức {renderSortIndicator('officialScore')}
+                </th>
+                <th
+                  onClick={() => toggleSort('status')}
+                  className="table-th cursor-pointer select-none hover:bg-slate-100 transition-colors"
+                >
+                  Trạng thái {renderSortIndicator('status')}
+                </th>
+                <th
+                  onClick={() => toggleSort('integrity')}
+                  className="table-th text-center cursor-pointer select-none hover:bg-slate-100 transition-colors"
+                >
+                  Giám sát {renderSortIndicator('integrity')}
+                </th>
+                <th className="table-th text-right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {sortedSubmissions.map((row, idx) => {
+                const status = statusLabel(row)
+                const integrityCount = row.integrityEventCount ?? 0
+                return (
+                  <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="table-td text-center font-bold text-slate-500 text-xs">
+                      {idx + 1}
+                    </td>
+                    <td className="table-td">
+                      <p className="font-bold text-slate-900">
+                        {row.student.fullName || row.student.username}
+                      </p>
+                      <p className="text-[11px] font-semibold text-slate-500">
+                        MSSV: {row.student.username}
+                      </p>
+                    </td>
+                    <td className="table-td text-center font-black text-slate-700">
+                      {row.attemptNumber}
+                    </td>
+                    <td className="table-td text-xs font-semibold text-slate-600">
+                      {row.submittedAt
+                        ? new Date(row.submittedAt).toLocaleString('vi-VN')
+                        : 'Chưa nộp'}
+                    </td>
+                    <td className="table-td text-center font-bold text-slate-700">
+                      {score(row.autoScore, data.assessment.totalPoints)}
+                    </td>
+                    <td className="table-td text-center">
+                      <span className="font-black text-teal-700">
+                        {score(row.predictedScore, data.assessment.totalPoints)}
+                      </span>
+                    </td>
+                    <td className="table-td text-center">
+                      <span className="font-black text-emerald-700">
+                        {score(row.officialScore, data.assessment.totalPoints)}
+                      </span>
+                    </td>
+                    <td className="table-td">
+                      <span className={status.className}>{status.label}</span>
+                    </td>
+                    <td className="table-td text-center">
+                      <span
+                        className={
+                          integrityCount > 0 ? 'badge-yellow font-bold' : 'badge-green font-bold'
+                        }
                       >
-                        Xem & chấm lại
-                      </Link>
-                    )}
+                        {integrityCount > 0 ? `${integrityCount} cảnh báo` : 'Không cảnh báo'}
+                      </span>
+                    </td>
+                    <td className="table-td text-right">
+                      {row.status !== 'in_progress' && (
+                        <Link
+                          to={`/instructor/assessment-sessions/${row.id}/review`}
+                          className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:border-primary/40 hover:bg-primary-50 hover:text-primary transition-colors shadow-2xs"
+                        >
+                          Xem & chấm lại
+                        </Link>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+              {sortedSubmissions.length === 0 && (
+                <tr>
+                  <td colSpan={10} className="p-12 text-center text-sm font-semibold text-slate-500">
+                    Chưa có sinh viên nào bắt đầu làm bài kiểm tra này.
                   </td>
                 </tr>
-              )
-            })}
-            {data.submissions.length === 0 && (
-              <tr>
-                <td colSpan={9} className="p-12 text-center text-sm font-semibold text-slate-500">
-                  Chưa có sinh viên nào bắt đầu làm bài kiểm tra này.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )
