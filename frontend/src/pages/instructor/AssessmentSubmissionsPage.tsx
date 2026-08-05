@@ -486,6 +486,7 @@ export function AssessmentSubmissionsPage() {
               type="button"
               onClick={() => void regradeAll()}
               disabled={regrading || approving || regradable === 0}
+              aria-label="Chấm lại toàn bộ bài nộp"
               title="Tính lại điểm trắc nghiệm và gửi câu tự luận vào hàng chờ AI"
               className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border px-3.5 text-xs font-bold shadow-2xs transition-all disabled:opacity-50 ${
                 regradeArmed
@@ -503,6 +504,7 @@ export function AssessmentSubmissionsPage() {
               type="button"
               onClick={() => void approveAll()}
               disabled={approving || ready === 0}
+              aria-label="Duyệt toàn bộ điểm dự kiến"
               title="Chuyển toàn bộ điểm dự kiến hiện tại thành Điểm chính thức"
               className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-teal-600 px-4 text-xs font-bold text-white shadow-2xs hover:bg-teal-700 transition-colors disabled:opacity-50"
             >
@@ -524,6 +526,11 @@ export function AssessmentSubmissionsPage() {
             </button>
           </div>
         </div>
+        {regradeArmed && (
+          <p className="text-right text-[11px] font-semibold text-amber-700 bg-amber-50 p-2 rounded-lg border border-amber-200">
+            Điểm chính thức cũ sẽ chuyển về dự kiến để GV duyệt lại.
+          </p>
+        )}
       </div>
 
       {/* Stat Cards */}
