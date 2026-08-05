@@ -519,7 +519,7 @@ export function StudentAssessmentPage() {
   useEffect(() => {
     if (!session) return
     const monitoringStartedAt = Date.now()
-    const outsideGracePeriod = () => Date.now() - monitoringStartedAt > 1800
+    const outsideGracePeriod = () => Date.now() - monitoringStartedAt > 6000
     fullscreenArmedRef.current = Boolean(document.fullscreenElement)
     setFullscreenRequired(!document.fullscreenElement)
 
@@ -983,11 +983,13 @@ export function StudentAssessmentPage() {
                   </ul>
                 </div>
 
-                <form
+                <div
                   className="space-y-3"
-                  onSubmit={(event) => {
-                    event.preventDefault()
-                    void start()
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault()
+                      void start()
+                    }
                   }}
                 >
                   {preflight.requiresPassword && (
@@ -997,6 +999,7 @@ export function StudentAssessmentPage() {
                       </label>
                       <input
                         id="assessment-access-password"
+                        name="exam_access_code"
                         type="password"
                         value={assessmentPassword}
                         onChange={(event) => {
@@ -1004,7 +1007,9 @@ export function StudentAssessmentPage() {
                           if (passwordError) setPasswordError(null)
                         }}
                         maxLength={100}
-                        autoComplete="off"
+                        autoComplete="new-password"
+                        data-lpignore="true"
+                        data-form-type="other"
                         autoFocus
                         className="input"
                         aria-invalid={Boolean(passwordError)}
@@ -1017,7 +1022,7 @@ export function StudentAssessmentPage() {
                         </p>
                       )}
                       <p className="mt-2 text-xs text-amber-800">
-                        Mật khẩu chỉ được gửi khi bạn bấm bắt đầu và không được lưu trên trình duyệt.
+                        Mật khẩu chỉ dùng cho lượt thi này và không lưu trên trình duyệt.
                       </p>
                     </div>
                   )}
@@ -1037,14 +1042,15 @@ export function StudentAssessmentPage() {
                     </div>
                   ) : (
                     <button
-                      type="submit"
+                      type="button"
+                      onClick={() => void start()}
                       disabled={starting}
                       className="btn-primary btn-lg w-full text-sm font-bold shadow-md hover:shadow-lg transition-all h-11"
                     >
                       {starting ? 'Đang khởi tạo bài thi...' : `Bắt đầu lượt ${preflight.attemptsUsed + 1}`}
                     </button>
                   )}
-                </form>
+                </div>
               </>
             )}
           </div>
