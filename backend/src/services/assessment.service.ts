@@ -1789,34 +1789,35 @@ const aiGradeJsonSchema = {
   ],
 };
 
+async function pauseAssessmentAiQueueUntil(until: string, database: Database) {
+  await database
+    .insert(systemConfig)
+    .values({
+      key: AI_QUEUE_PAUSE_KEY,
+      value: until,
+      validRange: "iso-datetime",
+      updatedAt: new Date().toISOString(),
+      updatedBy: null,
+    })
+    .onConflictDoUpdate({
+      target: systemConfig.key,
+      set: {
+        value: until,
+        validRange: "iso-datetime",
+        updatedAt: new Date().toISOString(),
+        updatedBy: null,
+      },
+    });
+  return until;
+}
+
 const AI_GRADING_LEASE_MS = 2 * 60_000;
 const AI_GRADING_MAX_ATTEMPTS = 4;
-const AI_GRADING_RETRY_BASE_MS = 15_000;
-const AI_GRADING_RATE_LIMIT_RETRY_BASE_MS = 60_000;
-const AI_GRADING_RATE_LIMIT_RETRY_MAX_MS = 30 * 60_000;
 const AI_QUEUE_PAUSE_KEY = "assessment_ai_queue_pause_until";
 const lastAssessmentProviderRequestAt: Partial<Record<"gemini" | "openrouter" | "nvidia", number>> = {};
 
-function configuredAssessmentRpm(provider: "gemini" | "openrouter" | "nvidia") {
-  const environmentKey = provider === "gemini"
-    ? "ASSESSMENT_AI_GEMINI_RPM"
-    : provider === "nvidia"
-      ? "ASSESSMENT_AI_NVIDIA_RPM"
-      : "ASSESSMENT_AI_OPENROUTER_RPM";
-  const configured = Number(process.env[environmentKey] || "12");
-  return Number.isFinite(configured) && configured >= 1 && configured <= 60
-    ? configured
-    : 12;
-}
-
-function assessmentProviderMinIntervalMs(provider: "gemini" | "openrouter" | "nvidia") {
-  const environmentKey = provider === "gemini"
-    ? "ASSESSMENT_AI_GEMINI_RPM"
-    : provider === "nvidia"
-      ? "ASSESSMENT_AI_NVIDIA_RPM"
-      : "ASSESSMENT_AI_OPENROUTER_RPM";
-  if (process.env.NODE_ENV === "test" && !process.env[environmentKey]) return 0;
-  return Math.ceil(60_000 / configuredAssessmentRpm(provider));
+export async function clearAssessmentAiQueuePause(database: Database = defaultDb) {
+  await database.delete(systemConfig).where(eq(systemConfig.key, AI_QUEUE_PAUSE_KEY));
 }
 
 async function readAssessmentAiQueuePause(database: Database): Promise<string | null> {
@@ -1826,30 +1827,6 @@ async function readAssessmentAiQueuePause(database: Database): Promise<string | 
   });
   if (!row?.value || Number.isNaN(Date.parse(row.value))) return null;
   return row.value;
-}
-
-async function pauseAssessmentAiQueueUntil(until: string, database: Database) {
-  const current = await readAssessmentAiQueuePause(database);
-  const effective = current && Date.parse(current) > Date.parse(until) ? current : until;
-  await database
-    .insert(systemConfig)
-    .values({
-      key: AI_QUEUE_PAUSE_KEY,
-      value: effective,
-      validRange: "iso-datetime",
-      updatedAt: new Date().toISOString(),
-      updatedBy: null,
-    })
-    .onConflictDoUpdate({
-      target: systemConfig.key,
-      set: {
-        value: effective,
-        validRange: "iso-datetime",
-        updatedAt: new Date().toISOString(),
-        updatedBy: null,
-      },
-    });
-  return effective;
 }
 
 function claimableAiRunCondition(now: string) {
@@ -1873,6 +1850,7 @@ function claimableAiRunCondition(now: string) {
 
 function isRetryableAiGradingError(code: string) {
   return new Set([
+    "AI_RATE_LIMITED",
     "AI_REQUEST_TIMEOUT",
     "AI_REQUEST_FAILED",
     "AI_PROVIDER_UNAVAILABLE",
@@ -1884,22 +1862,13 @@ function isRetryableAiGradingError(code: string) {
 }
 
 function nextAiRetryAt(attemptCount: number, minimumDelayMs = 0) {
-  const exponentialDelay = Math.min(
-    AI_GRADING_RETRY_BASE_MS * 2 ** Math.max(0, attemptCount - 1),
-    10 * 60_000
-  );
-  const jitter = Math.floor(Math.random() * Math.min(5_000, exponentialDelay / 4));
-  return new Date(Date.now() + Math.max(exponentialDelay, minimumDelayMs) + jitter).toISOString();
+  const delay = Math.min(3_000 * Math.max(1, attemptCount), 15_000);
+  return new Date(Date.now() + Math.max(delay, minimumDelayMs)).toISOString();
 }
 
-function nextRateLimitRetryAt(attemptCount: number, providerRetryAfterMs?: number) {
-  const exponentialDelay = Math.min(
-    AI_GRADING_RATE_LIMIT_RETRY_BASE_MS * 2 ** Math.max(0, attemptCount - 1),
-    AI_GRADING_RATE_LIMIT_RETRY_MAX_MS
-  );
-  const requestedDelay = Math.max(providerRetryAfterMs ?? 0, exponentialDelay);
-  const jitter = Math.floor(Math.random() * 5_000);
-  return new Date(Date.now() + requestedDelay + jitter).toISOString();
+function nextRateLimitRetryAt(_attemptCount: number, providerRetryAfterMs?: number) {
+  const requestedDelay = Math.min(Math.max(providerRetryAfterMs ?? 3_000, 3_000), 10_000);
+  return new Date(Date.now() + requestedDelay).toISOString();
 }
 
 async function processAiRun(runId: string, database: Database): Promise<boolean> {
@@ -2112,7 +2081,7 @@ async function handleAiRunError(
         .update(assessmentAnswers)
         .set({
           gradingState: "ai_queued",
-          aiFeedback: "AI đang tạm chờ quota và sẽ tự động chấm tiếp.",
+          aiFeedback: "AI đang chờ thử lại quota và chuyển nhà cung cấp tự động.",
         })
         .where(eq(assessmentAnswers.id, answer.id));
       await database
@@ -2134,15 +2103,12 @@ async function handleAiRunError(
 
   if (isRetryableAiGradingError(error.code) && run.attemptCount < AI_GRADING_MAX_ATTEMPTS) {
     const nextAttemptAt = nextAiRetryAt(run.attemptCount, error.retryAfterMs);
-    const effectiveNextAttemptAt = error.retryAfterMs
-      ? await pauseAssessmentAiQueueUntil(nextAttemptAt, database)
-      : nextAttemptAt;
     await database
       .update(assessmentAiGradingRuns)
       .set({
         status: "queued",
         provider: error.provider ?? run.provider,
-        nextAttemptAt: effectiveNextAttemptAt,
+        nextAttemptAt,
         lockedUntil: null,
         errorCode: error.code,
         errorMessage: error.message.slice(0, 1000),
@@ -2345,9 +2311,8 @@ export async function recoverAssessmentAiQueue(
   const now = Date.now();
   const recoveredRateLimited = recoverable.filter(isRateLimitedFailure).length;
   const recoveredInvalidResponse = recoverable.length - recoveredRateLimited;
-  const pausedUntil = recoveredRateLimited > 0
-    ? new Date(now + AI_GRADING_RATE_LIMIT_RETRY_BASE_MS).toISOString()
-    : null;
+  const pausedUntil = recoveredRateLimited > 0 ? new Date(now + 60_000).toISOString() : null;
+  const nextAttempt = new Date(now + 3_000).toISOString();
   await database.insert(assessmentAiGradingRuns).values(
     recoverable.map((failure, index) => ({
       id: crypto.randomUUID(),
@@ -2417,13 +2382,35 @@ export async function recoverAssessmentAiQueue(
         )
       );
   }
-  if (pausedUntil) await pauseAssessmentAiQueueUntil(pausedUntil, database);
+  await clearAssessmentAiQueuePause(database);
   return {
     recovered: recoverable.length,
     recoveredRateLimited,
     recoveredInvalidResponse,
     pausedUntil,
   };
+}
+
+function configuredAssessmentRpm(provider: "gemini" | "openrouter" | "nvidia") {
+  const environmentKey = provider === "gemini"
+    ? "ASSESSMENT_AI_GEMINI_RPM"
+    : provider === "nvidia"
+      ? "ASSESSMENT_AI_NVIDIA_RPM"
+      : "ASSESSMENT_AI_OPENROUTER_RPM";
+  const configured = Number(process.env[environmentKey] || "12");
+  return Number.isFinite(configured) && configured >= 1 && configured <= 60
+    ? configured
+    : 12;
+}
+
+function assessmentProviderMinIntervalMs(provider: "gemini" | "openrouter" | "nvidia") {
+  const environmentKey = provider === "gemini"
+    ? "ASSESSMENT_AI_GEMINI_RPM"
+    : provider === "nvidia"
+      ? "ASSESSMENT_AI_NVIDIA_RPM"
+      : "ASSESSMENT_AI_OPENROUTER_RPM";
+  if (process.env.NODE_ENV === "test" && !process.env[environmentKey]) return 0;
+  return Math.ceil(60_000 / configuredAssessmentRpm(provider));
 }
 
 export async function processPendingAssessmentAiRuns(
@@ -2447,6 +2434,10 @@ export async function processPendingAssessmentAiRuns(
   const nowMs = Date.now();
   const persistedPause = await readAssessmentAiQueuePause(database);
   const persistedPauseMs = persistedPause ? Date.parse(persistedPause) : 0;
+  if (persistedPauseMs && persistedPauseMs <= nowMs + 10_000) {
+    await clearAssessmentAiQueuePause(database);
+  }
+
   const intervalPauseMs = Math.max(
     0,
     ...constrainedProviders.map((provider) => {
@@ -2456,9 +2447,8 @@ export async function processPendingAssessmentAiRuns(
         : 0;
     })
   );
-  const pausedUntilMs = Math.max(persistedPauseMs, intervalPauseMs);
-  if (pausedUntilMs > nowMs) {
-    return { processed: 0, pausedUntil: new Date(pausedUntilMs).toISOString() };
+  if (intervalPauseMs > nowMs) {
+    return { processed: 0, pausedUntil: new Date(intervalPauseMs).toISOString() };
   }
 
   const now = new Date().toISOString();
@@ -2471,6 +2461,7 @@ export async function processPendingAssessmentAiRuns(
       asc(assessmentAiGradingRuns.createdAt)
     )
     .limit(constrainedProviders.length > 0 ? 1 : Math.max(1, Math.min(limit, 10)));
+
   let processed = 0;
   for (const run of runs) {
     for (const provider of constrainedProviders) {
@@ -2491,10 +2482,11 @@ export function startAssessmentAiWorker() {
     assessmentWorkerBusy = true;
     try {
       if (!assessmentQueueRecoveryComplete) {
+        await clearAssessmentAiQueuePause();
         await recoverAssessmentAiQueue();
         assessmentQueueRecoveryComplete = true;
       }
-      await processPendingAssessmentAiRuns(1);
+      await processPendingAssessmentAiRuns(3);
     } finally {
       assessmentWorkerBusy = false;
     }
@@ -3159,6 +3151,9 @@ export async function regradeAssessmentAssignment(
     result,
     database
   );
+  if (aiAnswersQueued > 0) {
+    await clearAssessmentAiQueuePause(database);
+  }
   return { data: result };
 }
 
@@ -3187,7 +3182,10 @@ export async function retryAssessmentAiGrade(
       inArray(assessmentAiGradingRuns.status, ["queued", "running"])
     ),
   });
-  if (running) return { data: running, alreadyQueued: true };
+  if (running) {
+    await clearAssessmentAiQueuePause(database);
+    return { data: running, alreadyQueued: true };
+  }
   const [run] = await database
     .insert(assessmentAiGradingRuns)
     .values({
@@ -3210,6 +3208,7 @@ export async function retryAssessmentAiGrade(
       .set({ status: "ai_grading", reviewStatus: "ai_queued", predictedScore: null })
       .where(eq(assessmentSessions.id, answer.sessionId));
   }
+  await clearAssessmentAiQueuePause(database);
   return { data: run };
 }
 

@@ -9,6 +9,10 @@ import {
   updateAiFallbackConfig,
   updateAiConfig,
 } from "../../services/ai-exercise.service.js";
+import {
+  clearAssessmentAiQueuePause,
+  processPendingAssessmentAiRuns,
+} from "../../services/assessment.service.js";
 
 const router = Router();
 
@@ -51,6 +55,8 @@ router.put("/", validate(updateAiConfigSchema), async (req: Request, res: Respon
       return;
     }
 
+    void clearAssessmentAiQueuePause();
+    void processPendingAssessmentAiRuns(5).catch(() => undefined);
     res.status(200).json({ data: result });
   } catch {
     res.status(500).json({
@@ -71,6 +77,8 @@ router.post("/test", async (req: Request, res: Response) => {
       return;
     }
 
+    void clearAssessmentAiQueuePause();
+    void processPendingAssessmentAiRuns(5).catch(() => undefined);
     res.status(200).json({ data: result });
   } catch {
     res.status(500).json({
@@ -103,6 +111,9 @@ router.put(
         res.status(400).json({ error: result.error });
         return;
       }
+
+      void clearAssessmentAiQueuePause();
+      void processPendingAssessmentAiRuns(5).catch(() => undefined);
       res.status(200).json({ data: result });
     } catch {
       res.status(500).json({
@@ -126,6 +137,9 @@ router.post("/fallback/:provider/test", async (req: Request, res: Response) => {
       res.status(400).json({ error: result.error });
       return;
     }
+
+    void clearAssessmentAiQueuePause();
+    void processPendingAssessmentAiRuns(5).catch(() => undefined);
     res.status(200).json({ data: result });
   } catch {
     res.status(500).json({
