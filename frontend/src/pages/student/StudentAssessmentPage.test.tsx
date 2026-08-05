@@ -494,7 +494,7 @@ describe('StudentAssessmentPage integrity controls', () => {
 
     renderPage()
 
-    const passwordInput = await screen.findByLabelText('🔒 Mật khẩu bài kiểm tra')
+    const passwordInput = await screen.findByLabelText('Mật khẩu bài kiểm tra')
     await user.click(screen.getByRole('button', { name: 'Bắt đầu lượt 1' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Vui lòng nhập mật khẩu bài kiểm tra.')
     expect(mockedApi.post).not.toHaveBeenCalledWith(
