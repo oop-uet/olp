@@ -243,6 +243,16 @@ export function AssessmentSubmissionsPage() {
       .replace(/^_+|_+$/g, '')
   }
 
+  function triggerDownload(content: string, fileName: string, type: string) {
+    const blob = new Blob([content], { type })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   async function exportEssayPack() {
     if (!assignmentId || !data) return
     setExportingEssay(true)
@@ -251,16 +261,44 @@ export function AssessmentSubmissionsPage() {
         `/api/instructor/assessments/assignments/${assignmentId}/export-essay-pack`
       )
       const packData = response.data.data
-      const jsonStr = JSON.stringify(packData, null, 2)
-      const blob = new Blob([jsonStr], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
       const cleanTitle = toUnaccentedAsciiSlug(data.assessment.title) || 'bai_kiem_tra'
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${cleanTitle}_bai_tu_luan.json`
-      a.click()
-      URL.revokeObjectURL(url)
-      toast.success('Đã tải xuống toàn bộ bài làm tự luận của sinh viên (file JSON).')
+
+      // 1. File dữ liệu JSON bài làm tự luận của sinh viên
+      const jsonStr = JSON.stringify(packData, null, 2)
+      triggerDownload(jsonStr, `${cleanTitle}_bai_tu_luan.json`, 'application/json')
+
+      // 2. File Prompt mẫu chỉ dẫn AI chấm thi
+      const promptTxt = [
+        '================================================================================',
+        `PROMPT CHẤM BÀI TỰ LUẬN AI: ${data.assessment.title.toUpperCase()}`,
+        '================================================================================',
+        packData.systemPromptForAI || '',
+        '--------------------------------------------------------------------------------',
+        'HƯỚNG DẪN THỰC HIỆN:',
+        '1. ĐÍNH KÈM HOẶC DÁN TOÀN BỘ FILE DỮ LIỆU JSON (file _bai_tu_luan.json) VÀO CHATBOT AI.',
+        '2. COPY TOÀN BỘ NỘI DUNG PROMPT NÀY VÀO LỜI NHẮC GỬI CHO AI (ChatGPT/Claude/DeepSeek/Gemini).',
+        '3. SAU KHI AI TRẢ VỀ KẾT QUẢ JSON, LƯU KẾT QUẢ THÀNH FILE .json VÀ IMPORT VÀO HỆ THỐNG.',
+        '================================================================================',
+      ].join('\n\n')
+      triggerDownload(promptTxt, `${cleanTitle}_prompt_cham_ai.txt`, 'text/plain;charset=utf-8')
+
+      // 3. File JSON mẫu kết quả chấm
+      const exampleJsonStr = JSON.stringify(
+        packData.exampleOutputJson || {
+          scores: [
+            {
+              answerId: 'dien_answer_id_va_diem_vao_day',
+              points: 5.0,
+              feedback: 'Nhận xét từ AI...',
+            },
+          ],
+        },
+        null,
+        2
+      )
+      triggerDownload(exampleJsonStr, `${cleanTitle}_mau_ket_qua_cham.json`, 'application/json')
+
+      toast.success('Đã tải bộ 3 file: Bài tự luận (JSON), Prompt chấm AI & File mẫu kết quả!')
     } catch (error: unknown) {
       toast.error(readApiError(error).message ?? 'Không thể tải gói bài tự luận.')
     } finally {
