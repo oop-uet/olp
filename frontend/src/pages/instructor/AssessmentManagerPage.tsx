@@ -262,14 +262,6 @@ export function AssessmentManagerPanel() {
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-teal-800 via-cyan-800 to-slate-900 p-6 sm:p-8 text-white shadow-md border-b-4 border-teal-500 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         <div className="absolute right-0 top-0 h-48 w-48 translate-x-12 -translate-y-12 rounded-full bg-white/10 blur-2xl pointer-events-none" />
         <div className="relative z-10 space-y-2 max-w-2xl">
-          <div className="flex items-center gap-2">
-            <span className="inline-block rounded-full bg-white/15 px-3 py-0.5 text-[11px] font-black uppercase tracking-wider text-cyan-100 backdrop-blur-xs">
-              Quản lý Giảng viên
-            </span>
-            <span className="inline-block rounded-full bg-teal-500/30 border border-teal-300/40 px-3 py-0.5 text-[11px] font-bold text-teal-100">
-              {items.length} Đề thi
-            </span>
-          </div>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
             Quản lý Bài kiểm tra
           </h1>
