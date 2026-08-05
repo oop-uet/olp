@@ -76,6 +76,7 @@ interface ResultPayload {
 
 interface ReviewQuestion extends Question {
   answer: Record<string, unknown>
+  correctAnswer?: Record<string, unknown> | null
   awardedPoints: number
   feedback: string | null
 }
@@ -1518,22 +1519,38 @@ function AssessmentSubmissionReview({
 }
 
 function ReviewQuestionCard({ question, number }: { question: ReviewQuestion; number: number }) {
+  const isCorrect = question.awardedPoints >= question.points && question.points > 0
+  const isWrong = question.awardedPoints === 0 && question.points > 0
+
   return (
     <article className="space-y-4 p-5 sm:p-6">
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 items-start gap-2.5 whitespace-pre-wrap break-words text-sm font-bold leading-relaxed text-slate-900">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs font-black text-teal-800">
+          <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-black ${
+            isCorrect
+              ? 'bg-emerald-100 text-emerald-800'
+              : isWrong
+              ? 'bg-rose-100 text-rose-800'
+              : 'bg-amber-100 text-amber-800'
+          }`}>
             {number}
           </span>
           <span>{assessmentText(question.prompt)}</span>
         </div>
-        <span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
+        <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-extrabold border ${
+          isCorrect
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+            : isWrong
+            ? 'bg-rose-50 border-rose-200 text-rose-700'
+            : 'bg-amber-50 border-amber-200 text-amber-800'
+        }`}>
+          {isCorrect ? '✓ ' : isWrong ? '✗ ' : ''}
           {formatAssessmentScore(question.awardedPoints)}/{formatAssessmentScore(question.points)} điểm
         </span>
       </div>
 
       <div className="pl-0 sm:pl-8">
-        <SubmittedAnswer question={question} />
+        <SubmittedAnswer question={question} isWrong={isWrong} isCorrect={isCorrect} />
       </div>
 
       {question.feedback && (
@@ -1546,39 +1563,102 @@ function ReviewQuestionCard({ question, number }: { question: ReviewQuestion; nu
   )
 }
 
-function SubmittedAnswer({ question }: { question: ReviewQuestion }) {
+function SubmittedAnswer({
+  question,
+  isWrong,
+  isCorrect,
+}: {
+  question: ReviewQuestion
+  isWrong: boolean
+  isCorrect: boolean
+}) {
   const answer = question.answer
+  const correctAnswer = question.correctAnswer
+
   if (question.type === 'true_false') {
-    if (typeof answer.value !== 'boolean') return <EmptyAnswer />
+    const userVal = typeof answer.value === 'boolean' ? answer.value : null
+    const correctVal = correctAnswer && typeof correctAnswer.value === 'boolean' ? correctAnswer.value : null
+
+    if (userVal === null) return <EmptyAnswer />
+
     return (
-      <div className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm font-bold text-teal-900">
-        Câu trả lời của bạn: {answer.value ? 'Đúng' : 'Sai'}
+      <div className="space-y-2">
+        <div
+          className={`rounded-xl border px-4 py-3 text-sm font-bold flex items-center justify-between gap-2 ${
+            isWrong
+              ? 'border-rose-300 bg-rose-50 text-rose-950'
+              : 'border-teal-300 bg-teal-50 text-teal-950'
+          }`}
+        >
+          <span>Câu trả lời của bạn: <strong>{userVal ? 'Đúng' : 'Sai'}</strong></span>
+          <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${
+            isWrong ? 'bg-rose-200 text-rose-900' : 'bg-teal-200 text-teal-900'
+          }`}>
+            {isWrong ? 'Sai' : 'Chính xác'}
+          </span>
+        </div>
+
+        {isWrong && correctVal !== null && (
+          <div className="rounded-xl border border-emerald-300 bg-emerald-50/90 px-4 py-2.5 text-xs font-bold text-emerald-950 flex items-center gap-2">
+            <span className="text-emerald-700">✓ Đáp án đúng:</span>
+            <strong className="text-emerald-900 font-extrabold">{correctVal ? 'Đúng' : 'Sai'}</strong>
+          </div>
+        )}
       </div>
     )
   }
 
   if (question.type === 'single_choice') {
     const selectedOptionId = typeof answer.optionId === 'string' ? answer.optionId : null
+    const correctOptionId = correctAnswer && typeof correctAnswer.optionId === 'string' ? correctAnswer.optionId : null
+
     return (
       <div className="space-y-2">
         {question.options.map((option, index) => {
           const selected = option.id === selectedOptionId
+          const isCorrectOpt = option.id === correctOptionId
+
+          let cardStyle = 'border-slate-200 bg-white text-slate-600'
+          if (selected && isWrong) {
+            cardStyle = 'border-rose-300 bg-rose-50 font-bold text-rose-950 ring-1 ring-rose-200'
+          } else if (isCorrectOpt) {
+            cardStyle = 'border-emerald-400 bg-emerald-50 font-bold text-emerald-950 ring-1 ring-emerald-300'
+          } else if (selected && isCorrect) {
+            cardStyle = 'border-teal-400 bg-teal-50 font-bold text-teal-950 ring-1 ring-teal-200'
+          }
+
           return (
             <div
               key={option.id}
-              className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${
-                selected
-                  ? 'border-teal-400 bg-teal-50 font-bold text-teal-950 ring-1 ring-teal-200'
-                  : 'border-slate-200 bg-white text-slate-600'
-              }`}
+              className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${cardStyle}`}
             >
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-slate-100 text-xs font-black text-slate-700">
+              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-xs font-black ${
+                isCorrectOpt
+                  ? 'bg-emerald-600 text-white'
+                  : selected && isWrong
+                  ? 'bg-rose-600 text-white'
+                  : 'bg-slate-100 text-slate-700'
+              }`}>
                 {String.fromCharCode(65 + index)}
               </span>
               <span className="flex-1 whitespace-pre-wrap break-words">
                 {assessmentText(option.content)}
               </span>
-              {selected && <span className="shrink-0 text-[10px] font-black uppercase text-teal-700">Đã chọn</span>}
+              {selected && isWrong && (
+                <span className="shrink-0 rounded bg-rose-200 px-2 py-0.5 text-[10px] font-black text-rose-900">
+                  Đã chọn (Sai)
+                </span>
+              )}
+              {isCorrectOpt && (
+                <span className="shrink-0 rounded bg-emerald-200 px-2 py-0.5 text-[10px] font-black text-emerald-900">
+                  ✓ Đáp án đúng
+                </span>
+              )}
+              {selected && isCorrect && !isCorrectOpt && (
+                <span className="shrink-0 rounded bg-teal-200 px-2 py-0.5 text-[10px] font-black text-teal-900">
+                  Đã chọn (Chính xác)
+                </span>
+              )}
             </div>
           )
         })}
@@ -1588,15 +1668,36 @@ function SubmittedAnswer({ question }: { question: ReviewQuestion }) {
   }
 
   const text = typeof answer.text === 'string' ? answer.text : ''
+  const correctText = correctAnswer && typeof correctAnswer.text === 'string' ? correctAnswer.text : ''
+  const correctKeywords = correctAnswer && Array.isArray(correctAnswer.keywords) ? correctAnswer.keywords : []
+
   if (!text.trim()) return <EmptyAnswer />
   return (
-    <pre
-      className={`overflow-x-auto whitespace-pre-wrap break-words rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-800 ${
-        question.type === 'code_analysis' ? 'font-mono' : 'font-sans'
-      }`}
-    >
-      {assessmentText(text)}
-    </pre>
+    <div className="space-y-2">
+      <pre
+        className={`overflow-x-auto whitespace-pre-wrap break-words rounded-xl border p-4 text-sm leading-6 ${
+          isWrong
+            ? 'border-rose-200 bg-rose-50/50 text-rose-950'
+            : 'border-slate-200 bg-slate-50 text-slate-800'
+        } ${
+          question.type === 'code_analysis' ? 'font-mono' : 'font-sans'
+        }`}
+      >
+        {assessmentText(text)}
+      </pre>
+
+      {isWrong && (correctText || correctKeywords.length > 0) && (
+        <div className="rounded-xl border border-emerald-300 bg-emerald-50/90 p-3.5 text-xs text-emerald-950 space-y-1">
+          <p className="font-extrabold text-emerald-800">✓ Đáp án tham khảo:</p>
+          {correctText && <p className="whitespace-pre-wrap font-medium">{correctText}</p>}
+          {correctKeywords.length > 0 && (
+            <p className="font-semibold text-emerald-900">
+              Từ khóa quan trọng: {correctKeywords.join(', ')}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 

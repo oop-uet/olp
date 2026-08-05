@@ -2589,6 +2589,18 @@ export async function getStudentAssessmentReview(
     .where(eq(assessmentAnswers.sessionId, sessionId));
   const answersByQuestion = new Map(answerRows.map((answer) => [answer.questionId, answer]));
 
+  const allQuestionIds = sections.flatMap((section) => section.questions.map((q) => q.id));
+  const answerKeysRows = allQuestionIds.length > 0
+    ? await database
+        .select({
+          questionId: assessmentAnswerKeys.questionId,
+          answerJson: assessmentAnswerKeys.answerJson,
+        })
+        .from(assessmentAnswerKeys)
+        .where(inArray(assessmentAnswerKeys.questionId, allQuestionIds))
+    : [];
+  const answerKeysByQuestion = new Map(answerKeysRows.map((ak) => [ak.questionId, parseJson(ak.answerJson, {})]));
+
   return {
     data: {
       id: context.session.id,
@@ -2615,6 +2627,7 @@ export async function getStudentAssessmentReview(
             orderIndex: question.orderIndex,
             options: question.options,
             answer: parseJson(answer?.answerJson, {}),
+            correctAnswer: answerKeysByQuestion.get(question.id) ?? null,
             awardedPoints: answer?.finalPoints ?? 0,
             feedback: answer?.finalFeedback ?? answer?.aiFeedback ?? null,
           };

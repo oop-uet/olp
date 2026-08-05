@@ -356,7 +356,7 @@ describe('StudentAssessmentPage integrity controls', () => {
     expect(await screen.findByText(/Bài nộp đã chấm/)).toBeInTheDocument()
     expect(screen.getByText('Phương thức nào được gọi?')).toBeInTheDocument()
     expect(screen.getByText('Phương án B')).toBeInTheDocument()
-    expect(screen.getByText('Đã chọn')).toBeInTheDocument()
+    expect(screen.getByText(/Đã chọn/)).toBeInTheDocument()
     expect(screen.getByText('Lập luận chính xác.')).toBeInTheDocument()
     expect(mockedApi.get).toHaveBeenCalledWith(
       '/api/students/assessments/sessions/session-1/review'
