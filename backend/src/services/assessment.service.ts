@@ -3455,3 +3455,111 @@ export async function importEssayScores(
     },
   };
 }
+
+export async function stopAssessmentAiGrading(
+  assignmentId: string,
+  instructorId: string,
+  database: Database = defaultDb
+) {
+  const assignment = await assertInstructorAssignmentAccess(assignmentId, instructorId, database);
+  if (!assignment) return serviceError("FORBIDDEN", "Bạn không có quyền thao tác trên ca thi này.");
+
+  const sessions = await database
+    .select({ id: assessmentSessions.id })
+    .from(assessmentSessions)
+    .where(eq(assessmentSessions.assignmentId, assignmentId));
+  const sessionIds = sessions.map((s) => s.id);
+  if (sessionIds.length === 0) {
+    return { data: { runsCancelled: 0, answersReset: 0, sessionsUpdated: 0 } };
+  }
+
+  const answers = await database
+    .select({ id: assessmentAnswers.id })
+    .from(assessmentAnswers)
+    .where(
+      and(
+        inArray(assessmentAnswers.sessionId, sessionIds),
+        inArray(assessmentAnswers.gradingState, ["ai_queued", "ai_running"])
+      )
+    );
+  const answerIds = answers.map((a) => a.id);
+
+  let runsCancelled = 0;
+  if (answerIds.length > 0) {
+    const cancelled = await database
+      .update(assessmentAiGradingRuns)
+      .set({
+        status: "failed",
+        errorCode: "CANCELLED_BY_INSTRUCTOR",
+        errorMessage: "Giảng viên đã chủ động dừng chấm bằng AI.",
+        finishedAt: new Date().toISOString(),
+        lockedUntil: null,
+        nextAttemptAt: null,
+      })
+      .where(
+        and(
+          inArray(assessmentAiGradingRuns.answerId, answerIds),
+          inArray(assessmentAiGradingRuns.status, ["queued", "running"])
+        )
+      )
+      .returning();
+    runsCancelled = cancelled.length;
+
+    await database
+      .update(assessmentAnswers)
+      .set({
+        gradingState: "ungraded",
+        aiFeedback: "Đã hủy lượt chấm AI theo yêu cầu của giảng viên.",
+      })
+      .where(
+        and(
+          inArray(assessmentAnswers.id, answerIds),
+          isNull(assessmentAnswers.finalPoints)
+        )
+      );
+  }
+
+  const aiSessions = await database
+    .select({ id: assessmentSessions.id })
+    .from(assessmentSessions)
+    .where(
+      and(
+        inArray(assessmentSessions.id, sessionIds),
+        or(
+          eq(assessmentSessions.status, "ai_grading"),
+          inArray(assessmentSessions.reviewStatus, ["ai_queued", "ai_running"])
+        )
+      )
+    );
+  const aiSessionIds = aiSessions.map((s) => s.id);
+
+  if (aiSessionIds.length > 0) {
+    await database
+      .update(assessmentSessions)
+      .set({
+        status: "graded",
+        reviewStatus: "pending_review",
+      })
+      .where(inArray(assessmentSessions.id, aiSessionIds));
+  }
+
+  await clearAssessmentAiQueuePause(database);
+
+  await writeAudit(
+    instructorId,
+    "assessment.assignment.stop_ai_grading",
+    "assessment_assignment",
+    assignmentId,
+    null,
+    { runsCancelled, answersReset: answerIds.length, sessionsUpdated: aiSessionIds.length },
+    database
+  );
+
+  return {
+    data: {
+      runsCancelled,
+      answersReset: answerIds.length,
+      sessionsUpdated: aiSessionIds.length,
+    },
+  };
+}

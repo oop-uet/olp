@@ -288,6 +288,26 @@ export function AssessmentSubmissionsPage() {
     }
   }
 
+  const [stoppingAi, setStoppingAi] = useState(false)
+
+  async function stopAiGrading() {
+    if (!assignmentId) return
+    if (!window.confirm('Bạn có chắc chắn muốn dừng toàn bộ tiến trình chấm bằng AI của ca thi này?')) return
+    setStoppingAi(true)
+    try {
+      const response = await api.post(
+        `/api/instructor/assessments/assignments/${assignmentId}/stop-ai-grading`
+      )
+      const result = response.data.data
+      toast.success(`Đã dừng chấm bằng AI cho ${result.answersReset} câu trả lời.`)
+      await load(false)
+    } catch (error: unknown) {
+      toast.error(readApiError(error).message ?? 'Không thể dừng chấm AI.')
+    } finally {
+      setStoppingAi(false)
+    }
+  }
+
   if (loading) return <PageLoader label="Đang tải bài nộp kiểm tra..." />
   if (!data)
     return (
@@ -374,6 +394,30 @@ export function AssessmentSubmissionsPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1m-4-8 4-4m0 0 4 4m-4-4v12" />
                   </svg>
                   Import điểm AI (JSON)
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => void stopAiGrading()}
+              disabled={stoppingAi || pendingAi === 0}
+              aria-label="Dừng chấm bằng AI"
+              title="Dừng toàn bộ các lượt chấm AI đang chờ hoặc đang chạy của ca thi này"
+              className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-rose-300/60 bg-rose-500/25 px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-rose-500/40 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {stoppingAi ? (
+                <>
+                  <svg aria-hidden="true" className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83" />
+                  </svg>
+                  Đang dừng...
+                </>
+              ) : (
+                <>
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="2">
+                    <rect x="6" y="6" width="12" height="12" rx="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  Dừng chấm AI {pendingAi > 0 ? `(${pendingAi})` : ''}
                 </>
               )}
             </button>

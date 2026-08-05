@@ -30,6 +30,7 @@ import {
   saveAssessmentAnswers,
   setAssessmentQuestionFlag,
   startAssessmentSession,
+  stopAssessmentAiGrading,
   submitAssessmentSession,
   type AssessmentDraftInput,
   updateAssessment,
@@ -1387,5 +1388,71 @@ describe("Assessment service", () => {
     const studentResult = await getStudentAssessmentResult(sessionId, studentId, db);
     expect((studentResult as any).data.reviewStatus).toBe("official");
     expect((studentResult as any).data.officialScore).toBe(9.5);
+  });
+
+  it("stops pending AI grading runs and resets answer states on instructor request", async () => {
+    const db = getDb();
+    const { instructorId, studentId, sectionId } = seedUsersAndSection();
+    const created = await createAssessment(validDraft(), instructorId, db);
+    const assessmentId = (created as any).data.id;
+    const assigned = await assignAssessment(
+      assessmentId,
+      {
+        sectionId,
+        opensAt: new Date(Date.now() - 60_000).toISOString(),
+        closesAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+      },
+      instructorId,
+      db
+    );
+    const assignmentId = (assigned as any).data.id;
+    const questions = (created as any).data.sections[0].questions;
+
+    const sessionId = crypto.randomUUID();
+    const answerId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    await db.insert(schema.assessmentSessions).values({
+      id: sessionId,
+      assignmentId,
+      studentId,
+      attemptNumber: 1,
+      status: "ai_grading",
+      reviewStatus: "ai_queued",
+      startedAt: now,
+      submittedAt: now,
+      expiresAt: new Date(Date.now() + 3600000).toISOString(),
+      autoScore: 5,
+    });
+    await db.insert(schema.assessmentAnswers).values({
+      id: answerId,
+      sessionId,
+      questionId: questions[1].id,
+      answerJson: JSON.stringify({ text: "Bài làm tự luận..." }),
+      gradingState: "ai_queued",
+      savedAt: now,
+    });
+    await db.insert(schema.assessmentAiGradingRuns).values({
+      id: crypto.randomUUID(),
+      answerId,
+      status: "queued",
+      promptVersion: "assessment-grading-v2",
+      attemptCount: 0,
+      needsHumanAttention: 0,
+      createdAt: now,
+    });
+
+    const stopped = await stopAssessmentAiGrading(assignmentId, instructorId, db);
+    expect(isAssessmentError(stopped)).toBe(false);
+    expect((stopped as any).data.runsCancelled).toBe(1);
+    expect((stopped as any).data.answersReset).toBe(1);
+
+    const answer = await db.query.assessmentAnswers.findFirst({
+      where: (answers: any, { eq }: any) => eq(answers.id, answerId),
+    });
+    expect(answer?.gradingState).toBe("ungraded");
+    const session = await db.query.assessmentSessions.findFirst({
+      where: (sessions: any, { eq }: any) => eq(sessions.id, sessionId),
+    });
+    expect(session?.reviewStatus).toBe("pending_review");
   });
 });

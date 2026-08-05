@@ -17,6 +17,7 @@ import {
   regradeAssessmentAssignment,
   retryAssessmentAiGrade,
   reviewAssessmentAnswer,
+  stopAssessmentAiGrading,
   updateAssessment,
   updateAssessmentAssignmentWindow,
 } from "../../services/assessment.service.js";
@@ -456,5 +457,13 @@ router.post(
     }
   }
 );
+
+router.post("/assignments/:assignmentId/stop-ai-grading", async (req: Request, res: Response) => {
+  try {
+    sendResult(res, await stopAssessmentAiGrading(req.params.assignmentId, req.user!.userId));
+  } catch {
+    res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Không thể dừng chấm AI." } });
+  }
+});
 
 export default router;
