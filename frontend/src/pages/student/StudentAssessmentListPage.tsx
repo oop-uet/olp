@@ -101,9 +101,37 @@ export function StudentAssessmentListPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header - Clean System Style */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-gray-800">Bài kiểm tra</h1>
+      {/* Signature Header Banner - Clean UI System */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-teal-800 via-cyan-800 to-slate-900 p-6 sm:p-8 text-white shadow-md border-b-4 border-teal-500 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+        <div className="absolute right-0 top-0 h-48 w-48 translate-x-12 -translate-y-12 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+        <div className="relative z-10 space-y-2 max-w-2xl">
+          <div className="flex items-center gap-2">
+            <span className="inline-block rounded-full bg-white/15 px-3 py-0.5 text-[11px] font-black uppercase tracking-wider text-cyan-100 backdrop-blur-xs">
+              Góc Sinh viên
+            </span>
+            <span className="inline-block rounded-full bg-teal-500/30 border border-teal-300/40 px-3 py-0.5 text-[11px] font-bold text-teal-100">
+              {stats.total} Bài kiểm tra
+            </span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
+            Danh sách Bài kiểm tra
+          </h1>
+          <p className="text-xs font-medium text-cyan-100/90 leading-relaxed">
+            Xem danh sách bài thi trắc nghiệm & tự luận, tham gia ca thi đúng giờ, xem kết quả chấm và lịch sử làm bài.
+          </p>
+        </div>
+
+        {/* Quick Summary Pill */}
+        <div className="relative z-10 flex items-center gap-3 shrink-0">
+          <div className="rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-center backdrop-blur-xs">
+            <p className="text-[10px] font-extrabold uppercase tracking-wider text-cyan-200">Đang mở</p>
+            <p className="text-lg font-black text-emerald-300">{stats.openCount}</p>
+          </div>
+          <div className="rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-center backdrop-blur-xs">
+            <p className="text-[10px] font-extrabold uppercase tracking-wider text-cyan-200">Sắp mở</p>
+            <p className="text-lg font-black text-cyan-200">{stats.upcomingCount}</p>
+          </div>
+        </div>
       </div>
 
       {/* Tabs & Search Filter */}

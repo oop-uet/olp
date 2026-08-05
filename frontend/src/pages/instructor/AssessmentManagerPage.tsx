@@ -258,29 +258,57 @@ export function AssessmentManagerPanel() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header - Clean System Style */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-gray-800">Quản lý bài kiểm tra</h1>
-        <div className="flex flex-wrap items-center gap-2">
+      {/* Signature Header Banner - Clean UI System */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-teal-800 via-cyan-800 to-slate-900 p-6 sm:p-8 text-white shadow-md border-b-4 border-teal-500 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+        <div className="absolute right-0 top-0 h-48 w-48 translate-x-12 -translate-y-12 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+        <div className="relative z-10 space-y-2 max-w-2xl">
+          <div className="flex items-center gap-2">
+            <span className="inline-block rounded-full bg-white/15 px-3 py-0.5 text-[11px] font-black uppercase tracking-wider text-cyan-100 backdrop-blur-xs">
+              Quản lý Giảng viên
+            </span>
+            <span className="inline-block rounded-full bg-teal-500/30 border border-teal-300/40 px-3 py-0.5 text-[11px] font-bold text-teal-100">
+              {items.length} Đề thi
+            </span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
+            Quản lý Bài kiểm tra
+          </h1>
+          <p className="text-xs font-medium text-cyan-100/90 leading-relaxed">
+            Tạo đề thi trắc nghiệm & tự luận, cấu hình ca thi theo lớp học phần, chấm điểm bằng AI và quản lý kết quả bài nộp của sinh viên.
+          </p>
+        </div>
+
+        <div className="relative z-10 flex shrink-0 items-center">
           <button
             onClick={() => navigate('/instructor/exercises/assessments/new')}
-            className="btn-primary"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-teal-500 hover:bg-teal-400 px-5 text-sm font-bold text-white shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5"
           >
-            Tạo bài kiểm tra
+            <span className="text-lg leading-none">+</span> Tạo bài kiểm tra mới
           </button>
         </div>
       </div>
 
       {/* Filter / Search Bar */}
       {items.length > 0 && (
-        <div className="flex items-center gap-3">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="input max-w-sm"
-            placeholder="Tìm theo tiêu đề đề thi hoặc tên lớp..."
-          />
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="relative w-full sm:w-96">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+              <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+              </svg>
+            </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 bg-slate-50/50 py-2 pl-9 pr-4 text-xs font-medium text-slate-800 placeholder-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500 transition-all"
+              placeholder="Tìm theo tiêu đề đề thi, mã lớp..."
+            />
+          </div>
+
+          <div className="text-xs font-bold text-slate-500">
+            Hiển thị <strong>{filteredItems.length}</strong> / <strong>{items.length}</strong> bài kiểm tra
+          </div>
         </div>
       )}
 

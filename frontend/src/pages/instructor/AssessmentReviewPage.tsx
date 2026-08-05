@@ -244,7 +244,7 @@ export function AssessmentReviewPage() {
       </Link>
 
       {/* Signature Gradient Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-teal-700 via-cyan-700 to-blue-800 p-6 sm:p-8 text-white shadow-md border-b-4 border-secondary flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-teal-800 via-cyan-800 to-slate-900 p-6 sm:p-8 text-white shadow-md border-b-4 border-teal-500 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="absolute right-0 top-0 h-44 w-44 translate-x-12 -translate-y-12 rounded-full bg-white/10 blur-2xl pointer-events-none" />
         <div className="relative z-10 space-y-1.5 min-w-0">
           <span className="inline-block rounded-full bg-white/15 px-3 py-0.5 text-[11px] font-black uppercase tracking-wider text-cyan-100 backdrop-blur-xs">
@@ -254,19 +254,19 @@ export function AssessmentReviewPage() {
             {data.assessment.title}
           </h1>
           <p className="text-xs font-bold text-cyan-100/90 mt-1">
-            Sinh viên: <span className="text-white">{data.student.fullName || data.student.username}</span> ({data.student.username}) · Lượt làm #{data.session.attemptNumber ?? 1}
+            Sinh viên: <span className="text-white font-black">{data.student.fullName || data.student.username}</span> ({data.student.username}) · Lượt làm #{data.session.attemptNumber ?? 1}
           </p>
         </div>
 
         {/* Header Scores */}
         <div className="relative z-10 flex items-center gap-3 shrink-0 self-start sm:self-center">
-          <div className="rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-center backdrop-blur-xs">
-            <p className="text-[10px] font-extrabold uppercase text-cyan-200">Điểm dự kiến</p>
+          <div className="rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-center backdrop-blur-xs">
+            <p className="text-[10px] font-extrabold uppercase tracking-wider text-cyan-200">Điểm dự kiến</p>
             <p className="text-lg font-black text-white">{data.session.predictedScore === null ? '—' : `${data.session.predictedScore}/${data.assessment.totalPoints}`}</p>
           </div>
-          <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/20 px-4 py-2 text-center backdrop-blur-xs">
-            <p className="text-[10px] font-extrabold uppercase text-emerald-200">Điểm chính thức</p>
-            <p className="text-lg font-black text-emerald-300">{data.session.officialScore === null ? '—' : `${data.session.officialScore}/${data.assessment.totalPoints}`}</p>
+          <div className="rounded-xl border border-teal-400/40 bg-teal-500/25 px-4 py-2.5 text-center backdrop-blur-xs">
+            <p className="text-[10px] font-extrabold uppercase tracking-wider text-teal-200">Điểm chính thức</p>
+            <p className="text-lg font-black text-teal-200">{data.session.officialScore === null ? '—' : `${data.session.officialScore}/${data.assessment.totalPoints}`}</p>
           </div>
         </div>
       </div>
