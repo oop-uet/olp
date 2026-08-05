@@ -792,24 +792,20 @@ export function StudentAssessmentPage() {
             {/* Stat Cards */}
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 text-center transition-all hover:bg-slate-50">
-                <span className="text-xl">⏱️</span>
-                <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">Thời lượng</p>
-                <p className="mt-0.5 text-lg font-black text-slate-900">{preflight.durationMinutes} phút</p>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Thời lượng</p>
+                <p className="mt-1 text-lg font-bold text-slate-900">{preflight.durationMinutes} phút</p>
               </div>
               <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 text-center transition-all hover:bg-slate-50">
-                <span className="text-xl">📝</span>
-                <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">Số câu hỏi</p>
-                <p className="mt-0.5 text-lg font-black text-slate-900">{preflight.questionCount} câu</p>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Số câu hỏi</p>
+                <p className="mt-1 text-lg font-bold text-slate-900">{preflight.questionCount} câu</p>
               </div>
               <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 text-center transition-all hover:bg-slate-50">
-                <span className="text-xl">🏆</span>
-                <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">Tổng điểm</p>
-                <p className="mt-0.5 text-lg font-black text-slate-900">{preflight.totalPoints} điểm</p>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Tổng điểm</p>
+                <p className="mt-1 text-lg font-bold text-slate-900">{preflight.totalPoints} điểm</p>
               </div>
               <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 text-center transition-all hover:bg-slate-50">
-                <span className="text-xl">🔁</span>
-                <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">Lượt làm</p>
-                <p className="mt-0.5 text-lg font-black text-slate-900">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Lượt làm</p>
+                <p className="mt-1 text-lg font-bold text-slate-900">
                   {preflight.attemptsUsed + 1}/{preflight.maxAttempts}
                 </p>
               </div>
@@ -817,50 +813,50 @@ export function StudentAssessmentPage() {
 
             {/* Instructions */}
             {preflight.instructions && (
-              <div className="rounded-xl border border-cyan-200/70 bg-cyan-50/30 p-4 text-xs sm:text-sm leading-relaxed text-slate-700 whitespace-pre-wrap font-medium">
-                <p className="text-xs font-bold uppercase tracking-wider text-cyan-800 mb-1.5">📌 Hướng dẫn làm bài</p>
+              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 text-xs sm:text-sm leading-relaxed text-slate-700 whitespace-pre-wrap font-medium">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Hướng dẫn làm bài</p>
                 {assessmentText(preflight.instructions)}
               </div>
             )}
 
             {/* Exam Rules & Notices */}
             <div className="space-y-2.5 rounded-xl border border-slate-200/80 bg-slate-50/50 p-4 text-xs sm:text-sm text-slate-700">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">📋 Quy chế & Lưu ý bài thi</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">Quy chế & Lưu ý bài thi</p>
               <ul className="space-y-2 text-xs sm:text-sm font-medium">
                 <li className="flex items-center gap-2.5">
-                  <span className="h-2 w-2 rounded-full bg-teal-500 shrink-0" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
                   <span>Thời gian mở: <strong className="text-slate-900">{new Date(preflight.opensAt).toLocaleString('vi-VN')}</strong></span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
                   <span>Thời gian đóng: <strong className="text-slate-900">{new Date(preflight.closesAt).toLocaleString('vi-VN')}</strong></span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="h-2 w-2 rounded-full bg-cyan-500 shrink-0" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
                   <span>Câu trả lời được tự động lưu; tải lại trang không làm mất bài thi.</span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="h-2 w-2 rounded-full bg-violet-500 shrink-0" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
                   <span>Bạn được làm tối đa <strong>{preflight.maxAttempts} lượt</strong>; đây là lượt {preflight.attemptsUsed + 1}.</span>
                 </li>
                 {preflight.showPredictedScore && (
                   <li className="flex items-center gap-2.5">
-                    <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
                     <span>Điểm LLM hiển thị trước dưới nhãn “dự kiến”; Giảng viên duyệt mới thành điểm chính thức.</span>
                   </li>
                 )}
                 {preflight.shuffleQuestions && (
                   <li className="flex items-center gap-2.5">
-                    <span className="h-2 w-2 rounded-full bg-blue-500 shrink-0" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
                     <span>Thứ tự các câu hỏi trắc nghiệm được trộn ngẫu nhiên riêng cho lượt thi này.</span>
                   </li>
                 )}
                 <li className="flex items-center gap-2.5">
-                  <span className="h-2 w-2 rounded-full bg-indigo-500 shrink-0" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
                   <span>Chế độ toàn màn hình là bắt buộc; chuyển tab, thu nhỏ hoặc mất focus sẽ ghi nhận cảnh báo.</span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
                   <span>Thao tác Sao chép (Copy), Dán (Paste), Chuột phải và Phím tắt DevTools bị khóa.</span>
                 </li>
               </ul>
@@ -870,8 +866,8 @@ export function StudentAssessmentPage() {
             {preflight.sessions && preflight.sessions.length > 0 && (
               <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                    <span>📝</span> Lịch sử các lượt nộp bài ({preflight.sessions.length})
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Lịch sử các lượt nộp bài ({preflight.sessions.length})
                   </h3>
                 </div>
 
@@ -913,15 +909,15 @@ export function StudentAssessmentPage() {
                             </td>
                             <td className="px-3.5 py-2.5 text-center">
                               {hasOfficial ? (
-                                <span className="inline-block rounded-md bg-teal-100 border border-teal-200 px-2 py-0.5 text-[10px] font-bold text-teal-800">
+                                <span className="inline-block rounded-md bg-teal-50 border border-teal-200/80 px-2 py-0.5 text-[10px] font-bold text-teal-800">
                                   Đã duyệt
                                 </span>
                               ) : s.reviewStatus === 'pending_review' ? (
-                                <span className="inline-block rounded-md bg-amber-100 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                                <span className="inline-block rounded-md bg-amber-50 border border-amber-200/80 px-2 py-0.5 text-[10px] font-bold text-amber-800">
                                   Chờ duyệt
                                 </span>
                               ) : (
-                                <span className="inline-block rounded-md bg-cyan-100 border border-cyan-200 px-2 py-0.5 text-[10px] font-bold text-cyan-800">
+                                <span className="inline-block rounded-md bg-cyan-50 border border-cyan-200/80 px-2 py-0.5 text-[10px] font-bold text-cyan-800">
                                   AI chấm
                                 </span>
                               )}
@@ -931,7 +927,7 @@ export function StudentAssessmentPage() {
                                 type="button"
                                 onClick={() => void loadReview(s.id)}
                                 disabled={reviewLoading}
-                                className="inline-flex h-7 items-center justify-center gap-1 rounded-md bg-teal-50 px-2.5 text-[11px] font-bold text-teal-700 hover:bg-teal-100 transition-colors border border-teal-200 disabled:opacity-50"
+                                className="inline-flex h-7 items-center justify-center gap-1 rounded-md bg-slate-100 hover:bg-slate-200 px-3 text-[11px] font-bold text-slate-700 transition-colors border border-slate-200/80 disabled:opacity-50"
                               >
                                 {reviewLoading ? 'Đang tải...' : 'Xem bài làm →'}
                               </button>
@@ -955,7 +951,7 @@ export function StudentAssessmentPage() {
               {preflight.requiresPassword && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4">
                   <label htmlFor="assessment-access-password" className="label text-amber-950">
-                    🔒 Mật khẩu bài kiểm tra
+                    Mật khẩu bài kiểm tra
                   </label>
                   <input
                     id="assessment-access-password"
@@ -984,22 +980,28 @@ export function StudentAssessmentPage() {
                 </div>
               )}
 
-              {/* Start CTA Button */}
-              <button
-                type="submit"
-                disabled={starting || notOpen || closed || noAttempts}
-                className="btn-primary btn-lg w-full text-sm font-bold shadow-md hover:shadow-lg transition-all h-12"
-              >
-                {notOpen
-                  ? 'Bài kiểm tra chưa mở'
-                  : closed
-                    ? 'Bài kiểm tra đã đóng'
-                    : noAttempts
-                      ? 'Đã sử dụng hết lượt làm'
-                      : starting
-                        ? 'Đang kiểm tra và khởi tạo bài thi...'
-                        : `Bắt đầu lượt ${preflight.attemptsUsed + 1}`}
-              </button>
+              {/* Start CTA or Status Notice */}
+              {noAttempts ? (
+                <div className="rounded-xl border border-slate-200 bg-slate-100/80 p-3.5 text-center text-xs sm:text-sm font-bold text-slate-600">
+                  Đã sử dụng hết lượt làm bài
+                </div>
+              ) : notOpen ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3.5 text-center text-xs sm:text-sm font-bold text-amber-800">
+                  Bài kiểm tra chưa mở
+                </div>
+              ) : closed ? (
+                <div className="rounded-xl border border-rose-200 bg-rose-50/80 p-3.5 text-center text-xs sm:text-sm font-bold text-rose-800">
+                  Bài kiểm tra đã đóng
+                </div>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={starting}
+                  className="btn-primary btn-lg w-full text-sm font-bold shadow-md hover:shadow-lg transition-all h-11"
+                >
+                  {starting ? 'Đang khởi tạo bài thi...' : `Bắt đầu lượt ${preflight.attemptsUsed + 1}`}
+                </button>
+              )}
             </form>
           </div>
         </div>
@@ -1410,7 +1412,7 @@ function AssessmentSubmissionReview({
           onClick={onBack}
           className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-teal-700 transition-colors hover:text-teal-900"
         >
-          <span aria-hidden="true">←</span> Quay lại kết quả
+          <span aria-hidden="true">←</span> Quay lại danh sách lượt nộp
         </button>
         <Link
           to="/student/assessments"
