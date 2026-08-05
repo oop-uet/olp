@@ -23,6 +23,17 @@ interface Preflight {
   requiresPassword: boolean
   questionCount: number
   session: { id: string; status: string; reviewStatus?: string; attemptNumber: number } | null
+  sessions?: Array<{
+    id: string
+    status: string
+    reviewStatus?: string
+    attemptNumber: number
+    autoScore?: number
+    predictedScore?: number | null
+    officialScore?: number | null
+    submittedAt?: string | null
+    officialAt?: string | null
+  }>
 }
 interface Question {
   id: string
@@ -854,6 +865,84 @@ export function StudentAssessmentPage() {
               </ul>
             </div>
 
+            {/* Submitted Attempts List Table */}
+            {preflight.sessions && preflight.sessions.length > 0 && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                    <span>📝</span> Lịch sử các lượt nộp bài ({preflight.sessions.length})
+                  </h3>
+                </div>
+
+                <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-2xs">
+                  <table className="min-w-full divide-y divide-slate-200 text-xs">
+                    <thead className="bg-slate-50 font-bold text-slate-700">
+                      <tr>
+                        <th className="px-3.5 py-2.5 text-center">Lượt</th>
+                        <th className="px-3.5 py-2.5 text-left">Thời gian nộp</th>
+                        <th className="px-3.5 py-2.5 text-center">Điểm trắc nghiệm</th>
+                        <th className="px-3.5 py-2.5 text-center">Điểm tổng kết</th>
+                        <th className="px-3.5 py-2.5 text-center">Trạng thái</th>
+                        <th className="px-3.5 py-2.5 text-right">Chi tiết</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium">
+                      {preflight.sessions.map((s) => {
+                        const hasOfficial = s.officialScore !== null
+                        const hasPredicted = s.predictedScore !== null
+                        return (
+                          <tr key={s.id} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="px-3.5 py-2.5 text-center font-bold text-slate-900">
+                              #{s.attemptNumber}
+                            </td>
+                            <td className="px-3.5 py-2.5 text-slate-600">
+                              {s.submittedAt ? new Date(s.submittedAt).toLocaleString('vi-VN') : 'Chưa nộp'}
+                            </td>
+                            <td className="px-3.5 py-2.5 text-center font-bold text-slate-700">
+                              {s.autoScore} / {preflight.totalPoints}
+                            </td>
+                            <td className="px-3.5 py-2.5 text-center font-bold">
+                              {hasOfficial ? (
+                                <span className="text-teal-700 font-black">{s.officialScore} / {preflight.totalPoints}</span>
+                              ) : hasPredicted ? (
+                                <span className="text-amber-700 font-bold">{s.predictedScore} / {preflight.totalPoints} (dự kiến)</span>
+                              ) : (
+                                <span className="text-slate-400">—</span>
+                              )}
+                            </td>
+                            <td className="px-3.5 py-2.5 text-center">
+                              {hasOfficial ? (
+                                <span className="inline-block rounded-md bg-teal-100 border border-teal-200 px-2 py-0.5 text-[10px] font-bold text-teal-800">
+                                  Đã duyệt
+                                </span>
+                              ) : s.reviewStatus === 'pending_review' ? (
+                                <span className="inline-block rounded-md bg-amber-100 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                                  Chờ duyệt
+                                </span>
+                              ) : (
+                                <span className="inline-block rounded-md bg-cyan-100 border border-cyan-200 px-2 py-0.5 text-[10px] font-bold text-cyan-800">
+                                  AI chấm
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-3.5 py-2.5 text-right">
+                              <button
+                                type="button"
+                                onClick={() => void loadResult(s.id)}
+                                className="inline-flex h-7 items-center justify-center gap-1 rounded-md bg-teal-50 px-2.5 text-[11px] font-bold text-teal-700 hover:bg-teal-100 transition-colors border border-teal-200"
+                              >
+                                Xem bài làm →
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             <form
               className="space-y-3"
               onSubmit={(event) => {
@@ -1203,12 +1292,21 @@ function AssessmentResult({
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
-      <Link
-        to="/student/assessments"
-        className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-teal-700 hover:text-teal-800 transition-colors"
-      >
-        <span>←</span> Quay lại danh sách bài kiểm tra
-      </Link>
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={onRetry}
+          className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-teal-700 hover:text-teal-900 transition-colors"
+        >
+          <span>←</span> Xem danh sách các lượt nộp bài
+        </button>
+        <Link
+          to="/student/assessments"
+          className="text-xs font-bold text-slate-500 hover:text-primary"
+        >
+          Danh sách tất cả bài kiểm tra
+        </Link>
+      </div>
 
       <div className="card overflow-hidden border border-slate-200/90 shadow-md">
         {/* Result Header */}

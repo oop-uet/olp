@@ -1117,6 +1117,17 @@ export async function getStudentAssessmentPreflight(
             attemptNumber: session.attemptNumber,
           }
         : null,
+      sessions: sessions.map((s) => ({
+        id: s.id,
+        status: s.status,
+        reviewStatus: s.reviewStatus,
+        attemptNumber: s.attemptNumber,
+        autoScore: s.autoScore,
+        predictedScore: s.predictedScore,
+        officialScore: s.officialScore,
+        submittedAt: s.submittedAt ? String(s.submittedAt) : null,
+        officialAt: s.officialAt ? String(s.officialAt) : null,
+      })),
     },
     serverNow: new Date().toISOString(),
   };
