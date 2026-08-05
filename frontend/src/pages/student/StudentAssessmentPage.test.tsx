@@ -210,7 +210,7 @@ describe('StudentAssessmentPage integrity controls', () => {
     expect(screen.getByText(/Đã lưu/)).toBeInTheDocument()
   })
 
-  it('does not show the submission review action before grading is official', async () => {
+  it('shows predicted score in session history list when configured', async () => {
     mockedApi.get.mockImplementation(async (url: string) => {
       if (url.endsWith('/preflight')) {
         return {
@@ -223,26 +223,19 @@ describe('StudentAssessmentPage integrity controls', () => {
               durationMinutes: 60,
               opensAt: new Date(Date.now() - 60_000).toISOString(),
               closesAt: new Date(Date.now() + 60 * 60_000).toISOString(),
-              session: { id: 'session-1', status: 'pending_review' },
-            },
-          },
-        }
-      }
-      if (url.endsWith('/sessions/session-1/result')) {
-        return {
-          data: {
-            data: {
-              id: 'session-1',
-              title: 'Kiểm tra OOP',
-              totalPoints: 2,
-              autoScore: 2,
-              reviewStatus: 'pending_review',
-              showPredictedScore: true,
-              predictedReady: true,
-              predictedScore: 2,
-              officialScore: null,
-              submittedAt: '2026-08-03T01:00:00.000Z',
-              answers: [],
+              session: { id: 'session-1', status: 'pending_review', attemptNumber: 1 },
+              sessions: [
+                {
+                  id: 'session-1',
+                  status: 'pending_review',
+                  reviewStatus: 'pending_review',
+                  attemptNumber: 1,
+                  autoScore: 2,
+                  predictedScore: 2,
+                  officialScore: null,
+                  submittedAt: '2026-08-03T01:00:00.000Z',
+                },
+              ],
             },
           },
         }
@@ -252,9 +245,7 @@ describe('StudentAssessmentPage integrity controls', () => {
 
     renderPage()
 
-    expect(await screen.findByText('Kết quả dự kiến')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Xem lại bài nộp' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Làm lượt tiếp theo' })).not.toBeInTheDocument()
+    expect(await screen.findByText(/dự kiến/)).toBeInTheDocument()
     expect(mockedApi.get).not.toHaveBeenCalledWith(
       '/api/students/assessments/sessions/session-1/review'
     )
@@ -278,6 +269,18 @@ describe('StudentAssessmentPage integrity controls', () => {
               opensAt: new Date(Date.now() - 60_000).toISOString(),
               closesAt: new Date(Date.now() + 60 * 60_000).toISOString(),
               session: { id: 'session-1', status: 'graded', attemptNumber: 1 },
+              sessions: [
+                {
+                  id: 'session-1',
+                  status: 'graded',
+                  reviewStatus: 'official',
+                  attemptNumber: 1,
+                  autoScore: 2,
+                  predictedScore: 2,
+                  officialScore: 2,
+                  submittedAt: '2026-08-03T01:00:00.000Z',
+                },
+              ],
             },
           },
         }
@@ -311,18 +314,18 @@ describe('StudentAssessmentPage integrity controls', () => {
               instructions: 'Không dùng tài liệu',
               totalPoints: 2,
               submittedAt: '2026-08-03T01:00:00.000Z',
-              officialAt: '2026-08-03T02:00:00.000Z',
+              officialAt: '2026-08-03T01:05:00.000Z',
               officialScore: 2,
               attemptNumber: 1,
               sections: [
                 {
-                  id: 'section-1',
-                  title: 'Một lựa chọn',
+                  id: 'sec-1',
+                  title: 'Phần 1',
                   introContent: null,
                   points: 2,
                   questions: [
                     {
-                      id: 'question-1',
+                      id: 'q1',
                       type: 'single_choice',
                       prompt: 'Phương thức nào được gọi?',
                       points: 2,
@@ -346,7 +349,7 @@ describe('StudentAssessmentPage integrity controls', () => {
 
     renderPage()
 
-    await user.click(await screen.findByRole('button', { name: 'Xem lại bài nộp' }))
+    await user.click(await screen.findByRole('button', { name: 'Xem bài làm →' }))
     expect(await screen.findByText(/Bài nộp đã chấm/)).toBeInTheDocument()
     expect(screen.getByText('Phương thức nào được gọi?')).toBeInTheDocument()
     expect(screen.getByText('Phương án B')).toBeInTheDocument()
@@ -358,7 +361,6 @@ describe('StudentAssessmentPage integrity controls', () => {
   })
 
   it('offers the next attempt while attempts and exam time remain', async () => {
-    const user = userEvent.setup()
     mockedApi.get.mockImplementation(async (url: string) => {
       if (url.endsWith('/preflight')) {
         return {
@@ -380,26 +382,18 @@ describe('StudentAssessmentPage integrity controls', () => {
               attemptsRemaining: 1,
               questionCount: 1,
               session: { id: 'session-1', status: 'pending_review', attemptNumber: 1 },
-            },
-          },
-        }
-      }
-      if (url.endsWith('/sessions/session-1/result')) {
-        return {
-          data: {
-            data: {
-              id: 'session-1',
-              title: 'Kiểm tra OOP',
-              totalPoints: 2,
-              autoScore: 2,
-              reviewStatus: 'pending_review',
-              showPredictedScore: true,
-              predictedReady: true,
-              predictedScore: 2,
-              officialScore: null,
-              attemptNumber: 1,
-              submittedAt: '2026-08-03T01:00:00.000Z',
-              answers: [],
+              sessions: [
+                {
+                  id: 'session-1',
+                  status: 'pending_review',
+                  reviewStatus: 'pending_review',
+                  attemptNumber: 1,
+                  autoScore: 2,
+                  predictedScore: 2,
+                  officialScore: null,
+                  submittedAt: '2026-08-03T01:00:00.000Z',
+                },
+              ],
             },
           },
         }
@@ -409,8 +403,7 @@ describe('StudentAssessmentPage integrity controls', () => {
 
     renderPage()
 
-    await user.click(await screen.findByRole('button', { name: 'Làm lượt tiếp theo' }))
-    expect(screen.getByRole('button', { name: 'Bắt đầu lượt 2' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Bắt đầu lượt 2' })).toBeInTheDocument()
     expect(screen.getByText('2/2')).toBeInTheDocument()
   })
 
