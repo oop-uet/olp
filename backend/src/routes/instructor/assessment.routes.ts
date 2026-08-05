@@ -131,21 +131,20 @@ function sendResult(res: Response, result: unknown, successStatus = 200) {
   res.status(successStatus).json(result);
 }
 
-function exportContentDisposition(title: string, extension: ".pdf" | ".docx"): string {
-  const baseName = String(title ?? "")
-    .normalize("NFC")
-    .trim()
-    .replace(/[<>:"/\\|?*;]/g, "-")
-    .replace(/\s+/g, " ")
-    .replace(/[. ]+$/g, "") || "Bài kiểm tra";
-  const fileName = `${baseName} - Đề và đáp án${extension}`;
-  const asciiBaseName = baseName
+function toUnaccentedAsciiSlug(text: string): string {
+  return String(text ?? "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^A-Za-z0-9._ -]/g, "-")
-    .replace(/\s+/g, " ")
-    .replace(/[. ]+$/g, "") || "assessment";
-  return `attachment; filename="${asciiBaseName} - De va dap an${extension}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
+    .replace(/[đ]/g, "d")
+    .replace(/[Đ]/g, "D")
+    .replace(/[^a-zA-Z0-9]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function exportContentDisposition(title: string, extension: ".pdf" | ".docx"): string {
+  const asciiBaseName = toUnaccentedAsciiSlug(title) || "bai_kiem_tra";
+  return `attachment; filename="${asciiBaseName}_de_va_dap_an${extension}"`;
 }
 
 const router = Router();
@@ -240,20 +239,14 @@ router.get("/assignments/:assignmentId/export-xlsx", async (req: Request, res: R
       submissions: SubmissionExportRow[];
     };
     const buffer = await createAssessmentResultsXlsx({ assessment, assignment, submissions });
-    const safeName = String(assessment.title ?? "")
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^A-Za-z0-9 _-]/g, "-")
-      .trim()
-      .replace(/\s+/g, "-") || "ket-qua";
-    const fileName = encodeURIComponent(`Kết quả - ${assessment.title}.xlsx`);
+    const safeName = toUnaccentedAsciiSlug(assessment.title) || "ket_qua_kiem_tra";
     res.setHeader(
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="${safeName}-ket-qua.xlsx"; filename*=UTF-8''${fileName}`
+      `attachment; filename="${safeName}_ket_qua.xlsx"`
     );
     res.send(buffer);
   } catch (error) {

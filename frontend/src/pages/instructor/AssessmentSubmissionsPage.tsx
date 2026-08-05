@@ -202,21 +202,15 @@ export function AssessmentSubmissionsPage() {
   }
 
   async function exportXlsx() {
-    if (!assignmentId) return
+    if (!assignmentId || !data) return
     setExporting(true)
     try {
       const response = await api.get(
         `/api/instructor/assessments/assignments/${assignmentId}/export-xlsx`,
         { responseType: 'blob' }
       )
-      const contentDisposition = response.headers['content-disposition'] as string | undefined
-      let fileName = `ket-qua-kiem-tra.xlsx`
-      if (contentDisposition) {
-        const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
-        const plainMatch = contentDisposition.match(/filename="([^"]+)"/i)
-        if (utf8Match?.[1]) fileName = decodeURIComponent(utf8Match[1])
-        else if (plainMatch?.[1]) fileName = plainMatch[1]
-      }
+      const cleanTitle = toUnaccentedAsciiSlug(data.assessment.title) || 'ket_qua_kiem_tra'
+      const fileName = `${cleanTitle}_ket_qua.xlsx`
       const url = URL.createObjectURL(
         new Blob([response.data as BlobPart], {
           type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
