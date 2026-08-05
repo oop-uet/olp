@@ -6,8 +6,10 @@ import {
   assignAssessment,
   createAssessment,
   deleteAssessment,
+  exportEssayGradingPack,
   getAssessmentReview,
   getInstructorAssessment,
+  importEssayScores,
   isAssessmentError,
   listAssessmentSubmissions,
   listInstructorAssessments,
@@ -417,5 +419,42 @@ router.post("/:id/assign", validate(assignSchema), async (req: Request, res: Res
     res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Không thể gán bài kiểm tra." } });
   }
 });
+
+router.get("/assignments/:assignmentId/export-essay-pack", async (req: Request, res: Response) => {
+  try {
+    sendResult(res, await exportEssayGradingPack(req.params.assignmentId, req.user!.userId));
+  } catch {
+    res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Không thể xuất gói bài tự luận." } });
+  }
+});
+
+const importEssayScoresSchema = z.object({
+  scores: z
+    .array(
+      z.object({
+        answerId: z.string().optional(),
+        sessionId: z.string().optional(),
+        questionId: z.string().optional(),
+        points: z.number().min(0),
+        feedback: z.string().max(5000).optional(),
+      })
+    )
+    .min(1),
+});
+
+router.post(
+  "/assignments/:assignmentId/import-essay-scores",
+  validate(importEssayScoresSchema),
+  async (req: Request, res: Response) => {
+    try {
+      sendResult(
+        res,
+        await importEssayScores(req.params.assignmentId, req.body.scores, req.user!.userId)
+      );
+    } catch {
+      res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Không thể nhập kết quả chấm tự luận." } });
+    }
+  }
+);
 
 export default router;

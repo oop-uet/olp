@@ -3231,3 +3231,227 @@ async function writeAudit(
     createdAt: new Date().toISOString(),
   });
 }
+
+export async function exportEssayGradingPack(
+  assignmentId: string,
+  instructorId: string,
+  database: Database = defaultDb
+) {
+  const assignment = await assertInstructorAssignmentAccess(assignmentId, instructorId, database);
+  if (!assignment) return serviceError("FORBIDDEN", "Bạn không có quyền truy cập ca thi này.");
+
+  const assessment = await database.query.assessments.findFirst({
+    where: eq(assessments.id, assignment.assessmentId),
+  });
+  if (!assessment) return serviceError("NOT_FOUND", "Không tìm thấy bài kiểm tra.");
+
+  const sections = await loadAssessmentContent(assessment.id, true, database);
+  const essayQuestions = sections
+    .flatMap((section) => section.questions)
+    .filter((q) => q.gradingMode !== "auto");
+
+  const essayQuestionIds = essayQuestions.map((q) => q.id);
+  const guides = essayQuestionIds.length
+    ? await database
+        .select()
+        .from(assessmentGradingGuides)
+        .where(inArray(assessmentGradingGuides.questionId, essayQuestionIds))
+    : [];
+  const guideByQuestionId = new Map(guides.map((g) => [g.questionId, g]));
+
+  const questionById = new Map(essayQuestions.map((q) => [q.id, q]));
+
+  const sessions = await database
+    .select()
+    .from(assessmentSessions)
+    .where(eq(assessmentSessions.assignmentId, assignmentId));
+
+  const eligibleSessions = sessions.filter(
+    (s) => s.status !== "in_progress" && s.status !== "voided"
+  );
+  const sessionIds = eligibleSessions.map((s) => s.id);
+
+  const studentUsers = await database
+    .select({
+      id: users.id,
+      username: users.username,
+      fullName: users.fullName,
+    })
+    .from(users);
+  const studentMap = new Map(studentUsers.map((u) => [u.id, u]));
+
+  const answers = sessionIds.length && essayQuestions.length
+    ? await database
+        .select()
+        .from(assessmentAnswers)
+        .where(
+          and(
+            inArray(assessmentAnswers.sessionId, sessionIds),
+            inArray(
+              assessmentAnswers.questionId,
+              essayQuestions.map((q) => q.id)
+            )
+          )
+        )
+    : [];
+
+  const answersBySession = new Map<string, typeof answers>();
+  for (const answer of answers) {
+    const list = answersBySession.get(answer.sessionId) || [];
+    list.push(answer);
+    answersBySession.set(answer.sessionId, list);
+  }
+
+  const submissions = eligibleSessions.map((session) => {
+    const student = studentMap.get(session.studentId);
+    const sessionAnswers = (answersBySession.get(session.id) || []).map((answer) => {
+      const question = questionById.get(answer.questionId);
+      const parsedContent = parseJson(answer.answerJson, {});
+      return {
+        answerId: answer.id,
+        questionId: answer.questionId,
+        questionPrompt: question?.prompt || "",
+        maxPoints: question?.points || 0,
+        studentAnswerText:
+          typeof parsedContent === "string"
+            ? parsedContent
+            : (parsedContent as Record<string, string>).text ||
+              (parsedContent as Record<string, string>).code ||
+              JSON.stringify(parsedContent),
+        currentPoints: answer.finalPoints ?? answer.aiSuggestedPoints ?? null,
+      };
+    });
+
+    return {
+      sessionId: session.id,
+      attemptNumber: session.attemptNumber,
+      studentId: session.studentId,
+      studentUsername: student?.username || "",
+      studentFullName: student?.fullName || student?.username || "",
+      answers: sessionAnswers,
+    };
+  });
+
+  return {
+    data: {
+      assignmentId,
+      assessmentId: assessment.id,
+      assessmentTitle: assessment.title,
+      totalPoints: assessment.totalPoints,
+      exportedAt: new Date().toISOString(),
+      instructionsForAI:
+        "Hãy chấm các câu trả lời tự luận theo rubric/đáp án gợi ý. Trả về đúng JSON format: { \"scores\": [ { \"answerId\": \"...\", \"points\": số_điểm, \"feedback\": \"nhận_xét\" } ] }",
+      questions: essayQuestions.map((q) => {
+        const guide = guideByQuestionId.get(q.id);
+        const rubric = guide?.rubricJson
+          ? parseJson<Array<{ id: string; criterion: string; points: number }>>(guide.rubricJson, [])
+          : [];
+        return {
+          questionId: q.id,
+          type: q.type,
+          prompt: q.prompt,
+          points: q.points,
+          referenceAnswer: guide?.referenceAnswer || "",
+          rubric,
+        };
+      }),
+      submissions,
+    },
+  };
+}
+
+export async function importEssayScores(
+  assignmentId: string,
+  scores: Array<{
+    answerId?: string;
+    sessionId?: string;
+    questionId?: string;
+    points: number;
+    feedback?: string;
+  }>,
+  instructorId: string,
+  database: Database = defaultDb
+) {
+  const assignment = await assertInstructorAssignmentAccess(assignmentId, instructorId, database);
+  if (!assignment) return serviceError("FORBIDDEN", "Bạn không có quyền nhập điểm cho ca thi này.");
+
+  if (!Array.isArray(scores) || scores.length === 0) {
+    return serviceError("VALIDATION_ERROR", "Dữ liệu điểm import không được để trống.");
+  }
+
+  let answersUpdated = 0;
+  const affectedSessionIds = new Set<string>();
+  const reviewedAt = new Date().toISOString();
+
+  for (const item of scores) {
+    if (typeof item.points !== "number" || item.points < 0) continue;
+
+    let targetAnswer: typeof assessmentAnswers.$inferSelect | undefined;
+
+    if (item.answerId) {
+      targetAnswer = await database.query.assessmentAnswers.findFirst({
+        where: eq(assessmentAnswers.id, item.answerId),
+      });
+    } else if (item.sessionId && item.questionId) {
+      targetAnswer = await database.query.assessmentAnswers.findFirst({
+        where: and(
+          eq(assessmentAnswers.sessionId, item.sessionId),
+          eq(assessmentAnswers.questionId, item.questionId)
+        ),
+      });
+    }
+
+    if (!targetAnswer) continue;
+
+    const question = await database.query.assessmentQuestions.findFirst({
+      where: eq(assessmentQuestions.id, targetAnswer.questionId),
+    });
+    if (!question || item.points > question.points) continue;
+
+    const finalPoints = roundScore(item.points);
+    const finalFeedback = item.feedback?.trim() || "Đã import từ file chấm AI.";
+
+    await database
+      .update(assessmentAnswers)
+      .set({
+        finalPoints,
+        finalFeedback,
+        gradingState: "human_adjusted",
+        reviewedBy: instructorId,
+        reviewedAt,
+      })
+      .where(eq(assessmentAnswers.id, targetAnswer.id));
+
+    answersUpdated += 1;
+    affectedSessionIds.add(targetAnswer.sessionId);
+  }
+
+  let sessionsOfficial = 0;
+  for (const sessionId of affectedSessionIds) {
+    await recomputeOfficialScore(sessionId, instructorId, database);
+    const refreshed = await database.query.assessmentSessions.findFirst({
+      where: eq(assessmentSessions.id, sessionId),
+    });
+    if (refreshed?.reviewStatus === "official") {
+      sessionsOfficial += 1;
+    }
+  }
+
+  await writeAudit(
+    instructorId,
+    "assessment.assignment.import_essay_scores",
+    "assessment_assignment",
+    assignmentId,
+    null,
+    { answersUpdated, sessionsOfficial, totalImported: scores.length },
+    database
+  );
+
+  return {
+    data: {
+      answersUpdated,
+      sessionsOfficial,
+      totalSessionsAffected: affectedSessionIds.size,
+    },
+  };
+}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useMemo } from 'react'
+import { useCallback, useEffect, useState, useMemo, useRef } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { readApiError } from '../../lib/apiError'
@@ -235,6 +235,59 @@ export function AssessmentSubmissionsPage() {
     }
   }
 
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [importingEssay, setImportingEssay] = useState(false)
+
+  async function exportEssayPack() {
+    if (!assignmentId || !data) return
+    try {
+      const response = await api.get(
+        `/api/instructor/assessments/assignments/${assignmentId}/export-essay-pack`
+      )
+      const packData = response.data.data
+      const jsonStr = JSON.stringify(packData, null, 2)
+      const blob = new Blob([jsonStr], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${data.assessment.title.replace(/[^a-zA-Z0-9_\-]/g, '_')}_bai_tu_luan.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success('Đã tải xuống toàn bộ bài làm tự luận của sinh viên (file JSON).')
+    } catch (error: unknown) {
+      toast.error(readApiError(error).message ?? 'Không thể tải gói bài tự luận.')
+    }
+  }
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !assignmentId) return
+    setImportingEssay(true)
+    try {
+      const text = await file.text()
+      const json = JSON.parse(text)
+      const scores = Array.isArray(json) ? json : json.scores
+      if (!Array.isArray(scores) || scores.length === 0) {
+        toast.error('File JSON không hợp lệ. Cần chứa mảng "scores" hoặc danh sách điểm.')
+        return
+      }
+      const response = await api.post(
+        `/api/instructor/assessments/assignments/${assignmentId}/import-essay-scores`,
+        { scores }
+      )
+      const result = response.data.data
+      toast.success(
+        `Đã import điểm cho ${result.answersUpdated} câu trả lời và ra ĐIỂM CHÍNH THỨC cho ${result.sessionsOfficial} bài thi!`
+      )
+      await load(false)
+    } catch (error: unknown) {
+      toast.error(readApiError(error).message ?? 'Không thể import file điểm chấm tự luận.')
+    } finally {
+      setImportingEssay(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
   if (loading) return <PageLoader label="Đang tải bài nộp kiểm tra..." />
   if (!data)
     return (
@@ -282,6 +335,48 @@ export function AssessmentSubmissionsPage() {
 
         <div className="relative z-10 flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
           <div className="flex flex-wrap justify-end gap-2">
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept=".json"
+              onChange={(e) => void handleImportFile(e)}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => void exportEssayPack()}
+              disabled={data.submissions.length === 0}
+              title="Tải toàn bộ đề, rubric và câu trả lời tự luận của sinh viên dưới dạng JSON để chấm AI bên ngoài"
+              className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-cyan-300/60 bg-cyan-500/20 px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-cyan-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1m-4-4-4 4m0 0-4-4m4 4V4" />
+              </svg>
+              Tải bài tự luận (JSON)
+            </button>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importingEssay || data.submissions.length === 0}
+              title="Tải lên file JSON chứa điểm AI chấm để cập nhật trực tiếp thành Điểm chính thức"
+              className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-purple-300/60 bg-purple-500/25 px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-purple-500/40 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {importingEssay ? (
+                <>
+                  <svg aria-hidden="true" className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83" />
+                  </svg>
+                  Đang import...
+                </>
+              ) : (
+                <>
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1m-4-8 4-4m0 0 4 4m-4-4v12" />
+                  </svg>
+                  Import điểm AI (JSON)
+                </>
+              )}
+            </button>
             <button
               type="button"
               onClick={() => void exportXlsx()}

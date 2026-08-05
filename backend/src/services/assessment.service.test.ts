@@ -9,8 +9,10 @@ import {
   assignAssessment,
   createAssessment,
   deleteAssessment,
+  exportEssayGradingPack,
   getAssessmentReview,
   getInstructorAssessment,
+  importEssayScores,
   getStudentAssessmentReview,
   getStudentAssessmentPreflight,
   getStudentAssessmentResult,
@@ -1302,5 +1304,88 @@ describe("Assessment service", () => {
     const loaded = await getInstructorAssessment(assessmentId, instructorId, db);
     expect(isAssessmentError(loaded)).toBe(true);
     expect((loaded as any).error.code).toBe("NOT_FOUND");
+  });
+
+  it("exports essay grading pack and imports AI scores to issue official results", async () => {
+    const db = getDb();
+    const { instructorId, studentId, sectionId } = seedUsersAndSection();
+    const created = await createAssessment(validDraft(), instructorId, db);
+    const assessmentId = (created as any).data.id;
+    const assigned = await assignAssessment(
+      assessmentId,
+      {
+        sectionId,
+        opensAt: new Date(Date.now() - 60_000).toISOString(),
+        closesAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+      },
+      instructorId,
+      db
+    );
+    const assignmentId = (assigned as any).data.id;
+    const questions = (created as any).data.sections[0].questions;
+
+    const sessionId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    await db.insert(schema.assessmentSessions).values({
+      id: sessionId,
+      assignmentId,
+      studentId,
+      attemptNumber: 1,
+      status: "graded",
+      reviewStatus: "pending_review",
+      startedAt: now,
+      submittedAt: now,
+      expiresAt: new Date(Date.now() + 3600000).toISOString(),
+      autoScore: 5,
+      predictedScore: 5,
+    });
+
+    await db.insert(schema.assessmentAnswers).values([
+      {
+        id: crypto.randomUUID(),
+        sessionId,
+        questionId: questions[0].id,
+        answerJson: JSON.stringify({ value: true }),
+        autoPoints: 5,
+        finalPoints: 5,
+        gradingState: "auto_graded",
+        savedAt: now,
+      },
+      {
+        id: crypto.randomUUID(),
+        sessionId,
+        questionId: questions[1].id,
+        answerJson: JSON.stringify({ text: "OOP gồm 4 tính chất chính." }),
+        autoPoints: 0,
+        gradingState: "ungraded",
+        savedAt: now,
+      },
+    ]);
+
+    const pack = await exportEssayGradingPack(assignmentId, instructorId, db);
+    expect(isAssessmentError(pack)).toBe(false);
+    expect((pack as any).data.submissions.length).toBe(1);
+    expect((pack as any).data.submissions[0].answers.length).toBe(1);
+
+    const answerId = (pack as any).data.submissions[0].answers[0].answerId;
+    const imported = await importEssayScores(
+      assignmentId,
+      [
+        {
+          answerId,
+          points: 4.5,
+          feedback: "Đã chấm AI xuất sắc.",
+        },
+      ],
+      instructorId,
+      db
+    );
+    expect(isAssessmentError(imported)).toBe(false);
+    expect((imported as any).data.answersUpdated).toBe(1);
+    expect((imported as any).data.sessionsOfficial).toBe(1);
+
+    const studentResult = await getStudentAssessmentResult(sessionId, studentId, db);
+    expect((studentResult as any).data.reviewStatus).toBe("official");
+    expect((studentResult as any).data.officialScore).toBe(9.5);
   });
 });
