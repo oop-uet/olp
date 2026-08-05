@@ -203,7 +203,7 @@ export function StudentAssessmentListPage() {
             return (
               <Link
                 key={item.id}
-                to={item.session ? `/student/assessments/${item.id}?view=history` : `/student/assessments/${item.id}`}
+                to={`/student/assessments/${item.id}`}
                 className="card group border-l-4 border-l-cyan-500 bg-white p-5 transition hover:-translate-y-0.5 hover:shadow-md"
               >
                 <div className="flex items-start justify-between gap-4">
@@ -250,10 +250,29 @@ export function StudentAssessmentListPage() {
                       {item.session?.reviewStatus === 'official' && item.session.officialScore !== null ? (
                         <div>
                           <strong className="text-emerald-700 font-extrabold">Chính thức: {item.session?.officialScore}/{item.totalPoints}</strong>
-                          <p className="mt-0.5 text-xs font-bold text-primary">Xem lại bài nộp →</p>
+                          <div>
+                            <Link
+                              to={`/student/assessments/${item.id}?view=history`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="mt-0.5 inline-block text-xs font-bold text-primary hover:underline"
+                            >
+                              Xem lại bài nộp →
+                            </Link>
+                          </div>
                         </div>
                       ) : item.session?.predictedScore !== null ? (
-                        <strong className="text-cyan-700 font-extrabold">Dự kiến: {item.session?.predictedScore}/{item.totalPoints}</strong>
+                        <div>
+                          <strong className="text-cyan-700 font-extrabold">Dự kiến: {item.session?.predictedScore}/{item.totalPoints}</strong>
+                          <div>
+                            <Link
+                              to={`/student/assessments/${item.id}?view=history`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="mt-0.5 inline-block text-xs font-bold text-primary hover:underline"
+                            >
+                              Xem lại bài nộp →
+                            </Link>
+                          </div>
+                        </div>
                       ) : (
                         <span className="text-slate-400 font-semibold">Chưa có điểm</span>
                       )}

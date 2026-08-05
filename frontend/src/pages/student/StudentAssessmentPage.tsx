@@ -136,6 +136,14 @@ export function StudentAssessmentPage() {
   const [preflightTab, setPreflightTab] = useState<'take' | 'history'>(
     searchParams.get('view') === 'history' ? 'history' : 'take'
   )
+
+  useEffect(() => {
+    if (searchParams.get('view') === 'history') {
+      setPreflightTab('history')
+    } else {
+      setPreflightTab('take')
+    }
+  }, [searchParams])
   const [preflight, setPreflight] = useState<Preflight | null>(null)
   const [session, setSession] = useState<SessionPayload | null>(null)
   const [result, setResult] = useState<ResultPayload | null>(null)
