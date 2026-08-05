@@ -116,9 +116,6 @@ export function StudentAssessmentListPage() {
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
             Danh sách Bài kiểm tra
           </h1>
-          <p className="text-xs font-medium text-cyan-100/90 leading-relaxed">
-            Xem danh sách bài thi trắc nghiệm & tự luận, tham gia ca thi đúng giờ, xem kết quả chấm và lịch sử làm bài.
-          </p>
         </div>
 
         {/* Quick Summary Pill */}

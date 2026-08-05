@@ -133,8 +133,6 @@ export function ExerciseLibrary() {
                   <span className={`ml-2 shrink-0 ${badge.className}`}>{badge.label}</span>
                 </div>
 
-                <p className="mb-3 line-clamp-2 text-xs text-gray-500">{exercise.description}</p>
-
                 <div className="mb-3 flex flex-wrap gap-1">
                   {exercise.oop_tags.map((tag) => (
                     <span key={tag} className="tag">

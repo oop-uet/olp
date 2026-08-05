@@ -155,9 +155,6 @@ export function StudentGuidePage() {
 
             return (
               <GuideSection key={sec.id} id={sec.id} title={sec.title}>
-                {sec.description && (
-                  <p className="mb-4 text-xs leading-relaxed text-slate-500 font-semibold">{sec.description}</p>
-                )}
                 {steps.length > 0 && (
                   <ol className="space-y-3.5">
                     {steps.map((item, index) => (

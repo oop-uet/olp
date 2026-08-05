@@ -615,7 +615,6 @@ export function ConfigPage() {
                 >
                   {param.label}
                 </label>
-                <p className="mt-0.5 text-xs text-gray-500">{param.description}</p>
                 {param.kind === 'number' && (
                   <p className="mt-1 text-xs text-gray-400">
                     Khoảng hợp lệ: {param.min}–{param.max} {param.unit} | Giá trị

@@ -273,9 +273,6 @@ export function AssessmentManagerPanel() {
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
             Quản lý Bài kiểm tra
           </h1>
-          <p className="text-xs font-medium text-cyan-100/90 leading-relaxed">
-            Tạo đề thi trắc nghiệm & tự luận, cấu hình ca thi theo lớp học phần, chấm điểm bằng AI và quản lý kết quả bài nộp của sinh viên.
-          </p>
         </div>
 
         <div className="relative z-10 flex shrink-0 items-center">
