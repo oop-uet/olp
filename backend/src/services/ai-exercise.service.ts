@@ -36,7 +36,7 @@ const DEFAULT_MODELS: Record<AiProvider, string> = {
   gemini: "gemini-2.5-flash",
   groq: "openai/gpt-oss-20b",
   openrouter: "openrouter/free",
-  nvidia: "qwen/qwen2.5-coder-32b-instruct",
+  nvidia: "meta/llama-3.3-70b-instruct",
 };
 const FALLBACK_PROVIDER_ORDER: AiProvider[] = [
   "gemini",

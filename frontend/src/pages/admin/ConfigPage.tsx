@@ -64,7 +64,7 @@ const FALLBACK_PROVIDER_DEFAULTS: Array<Pick<AiFallbackStatus, 'provider' | 'lab
   { provider: 'gemini', label: 'Google Gemini', model: 'gemini-2.5-flash' },
   { provider: 'groq', label: 'Groq', model: 'openai/gpt-oss-20b' },
   { provider: 'openrouter', label: 'OpenRouter (Free Models Router)', model: 'openrouter/free' },
-  { provider: 'nvidia', label: 'NVIDIA NIM', model: 'qwen/qwen2.5-coder-32b-instruct' },
+  { provider: 'nvidia', label: 'NVIDIA NIM', model: 'meta/llama-3.3-70b-instruct' },
   { provider: 'openai', label: 'OpenAI', model: 'gpt-4o-mini' },
   { provider: 'anthropic', label: 'Anthropic Claude', model: 'claude-sonnet-4-5' },
 ]
