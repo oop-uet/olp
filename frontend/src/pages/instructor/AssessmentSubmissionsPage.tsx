@@ -336,183 +336,193 @@ export function AssessmentSubmissionsPage() {
         <span>←</span> Quay lại danh sách bài kiểm tra
       </Link>
 
-      {/* Signature Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-teal-700 via-cyan-700 to-blue-800 p-6 sm:p-8 text-white shadow-md border-b-4 border-secondary flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="absolute right-0 top-0 h-44 w-44 translate-x-12 -translate-y-12 rounded-full bg-white/10 blur-2xl pointer-events-none" />
-        <div className="relative z-10 space-y-1.5">
-          <span className="inline-block rounded-full bg-white/15 px-3 py-0.5 text-[11px] font-black uppercase tracking-wider text-cyan-100 backdrop-blur-xs">
-            Danh sách bài nộp
-          </span>
+      {/* Header Banner - Clean & Focused */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-teal-800 via-cyan-800 to-slate-900 p-6 sm:p-8 text-white shadow-md border-b-4 border-teal-500 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+        <div className="absolute right-0 top-0 h-48 w-48 translate-x-12 -translate-y-12 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+        <div className="relative z-10 space-y-2 max-w-3xl">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-block rounded-full bg-white/15 px-3 py-0.5 text-[11px] font-black uppercase tracking-wider text-cyan-100 backdrop-blur-xs">
+              Danh sách bài nộp
+            </span>
+            <span className="inline-block rounded-full bg-teal-500/30 border border-teal-300/40 px-3 py-0.5 text-[11px] font-bold text-teal-100">
+              {data.submissions.length} Bài thi
+            </span>
+          </div>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
             {data.assessment.title}
           </h1>
-          <p className="text-xs font-bold text-cyan-100/90 mt-1">
-            Tổng điểm: {data.assessment.totalPoints} điểm · Khung thời gian:{' '}
-            {new Date(data.assignment.opensAt).toLocaleString('vi-VN')} –{' '}
-            {new Date(data.assignment.closesAt).toLocaleString('vi-VN')}
+          <p className="text-xs font-medium text-cyan-100/90 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span>Tổng điểm: <strong>{data.assessment.totalPoints} điểm</strong></span>
+            <span>•</span>
+            <span>
+              Thời gian:{' '}
+              <strong>
+                {new Date(data.assignment.opensAt).toLocaleString('vi-VN')} –{' '}
+                {new Date(data.assignment.closesAt).toLocaleString('vi-VN')}
+              </strong>
+            </span>
           </p>
         </div>
 
-        <div className="relative z-10 flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
-          <div className="flex flex-wrap justify-end gap-2">
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept=".json"
-              onChange={(e) => void handleImportFile(e)}
-              className="hidden"
-            />
+        {/* Quick Stats Box */}
+        <div className="relative z-10 flex shrink-0 items-center gap-3 rounded-xl bg-white/10 p-3.5 backdrop-blur-sm border border-white/10">
+          <div className="text-right">
+            <div className="text-2xl font-black text-white">{official} / {data.submissions.length}</div>
+            <div className="text-[11px] font-bold uppercase tracking-wider text-cyan-200">Đã công bố điểm</div>
+          </div>
+          <div className="h-9 w-9 rounded-lg bg-teal-400/20 flex items-center justify-center text-teal-200 font-bold text-lg">
+            ✓
+          </div>
+        </div>
+      </div>
+
+      {/* Dedicated Action Toolbar */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-4">
+        <input
+          type="file"
+          ref={fileInputRef}
+          accept=".json"
+          onChange={(e) => void handleImportFile(e)}
+          className="hidden"
+        />
+
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          {/* Group 1: Off-line & AI Grading Suite */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mr-1 hidden sm:inline">
+              Chấm AI & Offline:
+            </span>
             <button
               type="button"
               onClick={() => void exportEssayPack()}
               disabled={data.submissions.length === 0}
-              title="Tải toàn bộ đề, rubric và câu trả lời tự luận của sinh viên dưới dạng JSON để chấm AI bên ngoài"
-              className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-cyan-300/60 bg-cyan-500/20 px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-cyan-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+              title="Tải toàn bộ bài tự luận của sinh viên dưới dạng file JSON để chấm AI bên ngoài"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 hover:text-cyan-700 transition-colors disabled:opacity-50"
             >
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="2">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4 text-cyan-600" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1m-4-4-4 4m0 0-4-4m4 4V4" />
               </svg>
               Tải bài tự luận (JSON)
             </button>
+
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={importingEssay || data.submissions.length === 0}
-              title="Tải lên file JSON chứa điểm AI chấm để cập nhật trực tiếp thành Điểm chính thức"
-              className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-purple-300/60 bg-purple-500/25 px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-purple-500/40 disabled:cursor-not-allowed disabled:opacity-50"
+              title="Nhập file JSON chứa điểm AI để ra ĐIỂM CHÍNH THỨC trực tiếp"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-3 text-xs font-bold text-purple-700 shadow-2xs hover:bg-purple-100 transition-colors disabled:opacity-50"
             >
               {importingEssay ? (
                 <>
-                  <svg aria-hidden="true" className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg aria-hidden="true" className="h-4 w-4 animate-spin text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83" />
                   </svg>
                   Đang import...
                 </>
               ) : (
                 <>
-                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="2">
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4 text-purple-600" stroke="currentColor" strokeWidth="2">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1m-4-8 4-4m0 0 4 4m-4-4v12" />
                   </svg>
                   Import điểm AI (JSON)
                 </>
               )}
             </button>
-            <button
-              type="button"
-              onClick={() => void stopAiGrading()}
-              disabled={stoppingAi || pendingAi === 0}
-              aria-label="Dừng chấm bằng AI"
-              title="Dừng toàn bộ các lượt chấm AI đang chờ hoặc đang chạy của ca thi này"
-              className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-rose-300/60 bg-rose-500/25 px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-rose-500/40 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {stoppingAi ? (
-                <>
-                  <svg aria-hidden="true" className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83" />
-                  </svg>
-                  Đang dừng...
-                </>
-              ) : (
-                <>
-                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="2">
-                    <rect x="6" y="6" width="12" height="12" rx="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  Dừng chấm AI {pendingAi > 0 ? `(${pendingAi})` : ''}
-                </>
-              )}
-            </button>
+
+            {pendingAi > 0 && (
+              <button
+                type="button"
+                onClick={() => void stopAiGrading()}
+                disabled={stoppingAi}
+                title="Dừng ngay lập tức các lượt chấm AI đang trong hàng đợi"
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-bold text-rose-700 shadow-2xs hover:bg-rose-100 transition-colors disabled:opacity-50"
+              >
+                {stoppingAi ? (
+                  <>
+                    <svg aria-hidden="true" className="h-4 w-4 animate-spin text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83" />
+                    </svg>
+                    Đang dừng...
+                  </>
+                ) : (
+                  <>
+                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4 text-rose-600" stroke="currentColor" strokeWidth="2">
+                      <rect x="6" y="6" width="12" height="12" rx="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    Dừng chấm AI ({pendingAi})
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+
+          {/* Group 2: Management & Export Operations */}
+          <div className="flex flex-wrap items-center gap-2 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100">
             <button
               type="button"
               onClick={() => void exportXlsx()}
               disabled={exporting || data.submissions.length === 0}
-              aria-label="Xuất kết quả bài kiểm tra ra Excel"
-              title="Tải về file .xlsx chứa danh sách sinh viên và điểm"
-              className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-emerald-300/60 bg-emerald-500/20 px-4 text-xs font-bold text-white shadow-sm transition-all hover:bg-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+              title="Xuất danh sách điểm sinh viên ra file Excel"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 text-xs font-bold text-emerald-700 shadow-2xs hover:bg-emerald-100 transition-colors disabled:opacity-50"
             >
               {exporting ? (
                 <>
-                  <svg
-                    aria-hidden="true"
-                    className="h-4 w-4 animate-spin"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83"
-                    />
+                  <svg aria-hidden="true" className="h-4 w-4 animate-spin text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83" />
                   </svg>
                   Đang xuất...
                 </>
               ) : (
                 <>
-                  <svg
-                    aria-hidden="true"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    className="h-4 w-4"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M12 16v-8m0 8-3-3m3 3 3-3M3 17v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2"
-                    />
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4 text-emerald-600" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 16v-8m0 8-3-3m3 3 3-3M3 17v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2" />
                   </svg>
                   Xuất Excel
                 </>
               )}
             </button>
+
             <button
               type="button"
               onClick={() => void regradeAll()}
               disabled={regrading || approving || regradable === 0}
-              aria-label="Chấm lại toàn bộ bài nộp"
-              title="Tính lại điểm tự động và xếp hàng chấm AI; điểm chính thức cũ sẽ trở về điểm dự kiến"
-              className={`inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border px-4 text-xs font-bold shadow-sm transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
+              title="Tính lại điểm trắc nghiệm và gửi câu tự luận vào hàng chờ AI"
+              className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border px-3.5 text-xs font-bold shadow-2xs transition-all disabled:opacity-50 ${
                 regradeArmed
-                  ? 'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100'
-                  : 'border-white/40 bg-white/10 text-white hover:bg-white/20'
+                  ? 'border-amber-400 bg-amber-100 text-amber-900 hover:bg-amber-200'
+                  : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
               }`}
             >
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                fill="none"
-                className="h-4 w-4"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7"
-                />
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4 text-amber-600" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 12a8 8 0 0 1 14.93-4M20 12a8 8 0 0 1-14.93 4" />
               </svg>
-              {regrading
-                ? 'Đang xếp hàng...'
-                : regradeArmed
-                ? 'Bấm lần nữa để xác nhận'
-                : 'Chấm lại toàn bộ'}
+              {regrading ? 'Đang gửi...' : regradeArmed ? 'Bấm lần nữa để xác nhận' : 'Chấm lại toàn bộ'}
             </button>
+
             <button
+              type="button"
               onClick={() => void approveAll()}
-              disabled={approving || regrading || ready === 0}
-              className="btn-primary h-10 px-4 text-xs font-bold shadow-md hover:shadow-lg transition-all"
+              disabled={approving || ready === 0}
+              title="Chuyển toàn bộ điểm dự kiến hiện tại thành Điểm chính thức"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-teal-600 px-4 text-xs font-bold text-white shadow-2xs hover:bg-teal-700 transition-colors disabled:opacity-50"
             >
-              {approving ? 'Đang duyệt...' : 'Duyệt toàn bộ điểm dự kiến'}
+              {approving ? (
+                <>
+                  <svg aria-hidden="true" className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83" />
+                  </svg>
+                  Đang duyệt...
+                </>
+              ) : (
+                <>
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Duyệt toàn bộ điểm dự kiến {ready > 0 ? `(${ready})` : ''}
+                </>
+              )}
             </button>
           </div>
-
-          {regradeArmed && (
-            <p className="max-w-md text-right text-[11px] font-semibold text-amber-100">
-              Điểm chính thức cũ sẽ chuyển về dự kiến để GV duyệt lại.
-            </p>
-          )}
         </div>
       </div>
 
