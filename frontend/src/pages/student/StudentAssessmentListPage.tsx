@@ -105,7 +105,7 @@ export function StudentAssessmentListPage() {
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-teal-800 via-cyan-800 to-slate-900 p-6 sm:p-8 text-white shadow-md border-b-4 border-teal-500 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         <div className="absolute right-0 top-0 h-48 w-48 translate-x-12 -translate-y-12 rounded-full bg-white/10 blur-2xl pointer-events-none" />
         <div className="relative z-10 space-y-2 max-w-2xl">
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-normal text-white leading-snug">
             Danh sách Bài kiểm tra
           </h1>
         </div>

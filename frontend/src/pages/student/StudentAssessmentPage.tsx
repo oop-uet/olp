@@ -782,7 +782,7 @@ export function StudentAssessmentPage() {
           <div className="relative overflow-hidden rounded-t-xl bg-gradient-to-r from-teal-800 via-cyan-800 to-slate-900 p-6 sm:p-8 text-white shadow-sm border-b-4 border-teal-500">
             <div className="absolute right-0 top-0 h-44 w-44 translate-x-12 -translate-y-12 rounded-full bg-white/10 blur-2xl pointer-events-none" />
             <div className="relative z-10 space-y-2">
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-normal text-white leading-snug">
                 {preflight.title}
               </h1>
             </div>
@@ -1324,7 +1324,7 @@ function AssessmentResult({
             <span className="inline-block rounded-full bg-white/15 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-cyan-100 backdrop-blur-xs">
               {official ? 'Kết quả chính thức' : hasVisiblePredicted ? 'Kết quả dự kiến' : 'Bài đã nộp'}
             </span>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-normal text-white leading-snug">
               {result.title}
             </h1>
           </div>
@@ -1426,7 +1426,7 @@ function AssessmentSubmissionReview({
         </p>
         <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-black leading-tight sm:text-3xl">{review.title}</h1>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-normal text-white leading-snug">{review.title}</h1>
             <p className="mt-2 text-xs font-semibold text-emerald-100">
               Nộp lúc {new Date(review.submittedAt).toLocaleString('vi-VN')} · Chấm xong lúc{' '}
               {new Date(review.officialAt).toLocaleString('vi-VN')}
