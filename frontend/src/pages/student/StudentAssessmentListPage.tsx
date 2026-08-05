@@ -203,7 +203,7 @@ export function StudentAssessmentListPage() {
             return (
               <Link
                 key={item.id}
-                to={`/student/assessments/${item.id}`}
+                to={item.session ? `/student/assessments/${item.id}?view=history` : `/student/assessments/${item.id}`}
                 className="card group border-l-4 border-l-cyan-500 bg-white p-5 transition hover:-translate-y-0.5 hover:shadow-md"
               >
                 <div className="flex items-start justify-between gap-4">

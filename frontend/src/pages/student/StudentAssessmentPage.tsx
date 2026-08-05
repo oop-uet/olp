@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { readApiError } from '../../lib/apiError'
 import { PageLoader } from '../../components/ui'
@@ -132,6 +132,10 @@ const CodeBlock = ({ content, className, 'data-assessment-protected-text': dataP
 
 export function StudentAssessmentPage() {
   const { assignmentId } = useParams<{ assignmentId: string }>()
+  const [searchParams] = useSearchParams()
+  const [preflightTab, setPreflightTab] = useState<'take' | 'history'>(
+    searchParams.get('view') === 'history' ? 'history' : 'take'
+  )
   const [preflight, setPreflight] = useState<Preflight | null>(null)
   const [session, setSession] = useState<SessionPayload | null>(null)
   const [result, setResult] = useState<ResultPayload | null>(null)
@@ -788,86 +792,41 @@ export function StudentAssessmentPage() {
             </div>
           </div>
 
+          {/* Sub Navigation Tabs */}
+          {preflight.sessions && preflight.sessions.length > 0 && (
+            <div className="flex border-b border-slate-200 bg-slate-50/80 px-6 pt-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setPreflightTab('take')}
+                className={`pb-3 px-4 text-xs font-bold transition-all border-b-2 ${
+                  preflightTab === 'take'
+                    ? 'border-teal-600 text-teal-800 font-extrabold'
+                    : 'border-transparent text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Vào làm bài thi
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreflightTab('history')}
+                className={`pb-3 px-4 text-xs font-bold transition-all border-b-2 ${
+                  preflightTab === 'history'
+                    ? 'border-teal-600 text-teal-800 font-extrabold'
+                    : 'border-transparent text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Lịch sử nộp bài ({preflight.sessions.length})
+              </button>
+            </div>
+          )}
+
           <div className="space-y-6 p-6 sm:p-8 bg-white">
-            {/* Stat Cards */}
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 text-center transition-all hover:bg-slate-50">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Thời lượng</p>
-                <p className="mt-1 text-lg font-bold text-slate-900">{preflight.durationMinutes} phút</p>
-              </div>
-              <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 text-center transition-all hover:bg-slate-50">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Số câu hỏi</p>
-                <p className="mt-1 text-lg font-bold text-slate-900">{preflight.questionCount} câu</p>
-              </div>
-              <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 text-center transition-all hover:bg-slate-50">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Tổng điểm</p>
-                <p className="mt-1 text-lg font-bold text-slate-900">{preflight.totalPoints} điểm</p>
-              </div>
-              <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 text-center transition-all hover:bg-slate-50">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Lượt làm</p>
-                <p className="mt-1 text-lg font-bold text-slate-900">
-                  {preflight.attemptsUsed + 1}/{preflight.maxAttempts}
-                </p>
-              </div>
-            </div>
-
-            {/* Instructions */}
-            {preflight.instructions && (
-              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 text-xs sm:text-sm leading-relaxed text-slate-700 whitespace-pre-wrap font-medium">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Hướng dẫn làm bài</p>
-                {assessmentText(preflight.instructions)}
-              </div>
-            )}
-
-            {/* Exam Rules & Notices */}
-            <div className="space-y-2.5 rounded-xl border border-slate-200/80 bg-slate-50/50 p-4 text-xs sm:text-sm text-slate-700">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">Quy chế & Lưu ý bài thi</p>
-              <ul className="space-y-2 text-xs sm:text-sm font-medium">
-                <li className="flex items-center gap-2.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
-                  <span>Thời gian mở: <strong className="text-slate-900">{new Date(preflight.opensAt).toLocaleString('vi-VN')}</strong></span>
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
-                  <span>Thời gian đóng: <strong className="text-slate-900">{new Date(preflight.closesAt).toLocaleString('vi-VN')}</strong></span>
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
-                  <span>Câu trả lời được tự động lưu; tải lại trang không làm mất bài thi.</span>
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
-                  <span>Bạn được làm tối đa <strong>{preflight.maxAttempts} lượt</strong>; đây là lượt {preflight.attemptsUsed + 1}.</span>
-                </li>
-                {preflight.showPredictedScore && (
-                  <li className="flex items-center gap-2.5">
-                    <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
-                    <span>Điểm LLM hiển thị trước dưới nhãn “dự kiến”; Giảng viên duyệt mới thành điểm chính thức.</span>
-                  </li>
-                )}
-                {preflight.shuffleQuestions && (
-                  <li className="flex items-center gap-2.5">
-                    <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
-                    <span>Thứ tự các câu hỏi trắc nghiệm được trộn ngẫu nhiên riêng cho lượt thi này.</span>
-                  </li>
-                )}
-                <li className="flex items-center gap-2.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
-                  <span>Chế độ toàn màn hình là bắt buộc; chuyển tab, thu nhỏ hoặc mất focus sẽ ghi nhận cảnh báo.</span>
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
-                  <span>Thao tác Sao chép (Copy), Dán (Paste), Chuột phải và Phím tắt DevTools bị khóa.</span>
-                </li>
-              </ul>
-            </div>
-
-            {/* Submitted Attempts List Table */}
-            {preflight.sessions && preflight.sessions.length > 0 && (
-              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-3">
+            {preflightTab === 'history' && preflight.sessions && preflight.sessions.length > 0 ? (
+              /* TAB 2: HISTORY ONLY */
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                    Lịch sử các lượt nộp bài ({preflight.sessions.length})
+                    Danh sách bài nộp ({preflight.sessions.length} lượt)
                   </h3>
                 </div>
 
@@ -939,70 +898,146 @@ export function StudentAssessmentPage() {
                   </table>
                 </div>
               </div>
-            )}
-
-            <form
-              className="space-y-3"
-              onSubmit={(event) => {
-                event.preventDefault()
-                void start()
-              }}
-            >
-              {preflight.requiresPassword && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4">
-                  <label htmlFor="assessment-access-password" className="label text-amber-950">
-                    Mật khẩu bài kiểm tra
-                  </label>
-                  <input
-                    id="assessment-access-password"
-                    type="password"
-                    value={assessmentPassword}
-                    onChange={(event) => {
-                      setAssessmentPassword(event.target.value)
-                      if (passwordError) setPasswordError(null)
-                    }}
-                    maxLength={100}
-                    autoComplete="off"
-                    autoFocus
-                    className="input"
-                    aria-invalid={Boolean(passwordError)}
-                    aria-describedby={passwordError ? 'assessment-password-error' : undefined}
-                    placeholder="Nhập mật khẩu do giảng viên cung cấp"
-                  />
-                  {passwordError && (
-                    <p id="assessment-password-error" role="alert" className="mt-2 text-xs font-semibold text-rose-700">
-                      {passwordError}
+            ) : (
+              /* TAB 1: TAKE EXAM PREFLIGHT */
+              <>
+                {/* Stat Cards */}
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 text-center transition-all hover:bg-slate-50">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Thời lượng</p>
+                    <p className="mt-1 text-lg font-bold text-slate-900">{preflight.durationMinutes} phút</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 text-center transition-all hover:bg-slate-50">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Số câu hỏi</p>
+                    <p className="mt-1 text-lg font-bold text-slate-900">{preflight.questionCount} câu</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 text-center transition-all hover:bg-slate-50">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Tổng điểm</p>
+                    <p className="mt-1 text-lg font-bold text-slate-900">{preflight.totalPoints} điểm</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 text-center transition-all hover:bg-slate-50">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Lượt làm</p>
+                    <p className="mt-1 text-lg font-bold text-slate-900">
+                      {preflight.attemptsUsed + 1}/{preflight.maxAttempts}
                     </p>
-                  )}
-                  <p className="mt-2 text-xs text-amber-800">
-                    Mật khẩu chỉ được gửi khi bạn bấm bắt đầu và không được lưu trên trình duyệt.
-                  </p>
+                  </div>
                 </div>
-              )}
 
-              {/* Start CTA or Status Notice */}
-              {noAttempts ? (
-                <div className="rounded-xl border border-slate-200 bg-slate-100/80 p-3.5 text-center text-xs sm:text-sm font-bold text-slate-600">
-                  Đã sử dụng hết lượt làm bài
+                {/* Instructions */}
+                {preflight.instructions && (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 text-xs sm:text-sm leading-relaxed text-slate-700 whitespace-pre-wrap font-medium">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Hướng dẫn làm bài</p>
+                    {assessmentText(preflight.instructions)}
+                  </div>
+                )}
+
+                {/* Exam Rules & Notices */}
+                <div className="space-y-2.5 rounded-xl border border-slate-200/80 bg-slate-50/50 p-4 text-xs sm:text-sm text-slate-700">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">Quy chế & Lưu ý bài thi</p>
+                  <ul className="space-y-2 text-xs sm:text-sm font-medium">
+                    <li className="flex items-center gap-2.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
+                      <span>Thời gian mở: <strong className="text-slate-900">{new Date(preflight.opensAt).toLocaleString('vi-VN')}</strong></span>
+                    </li>
+                    <li className="flex items-center gap-2.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
+                      <span>Thời gian đóng: <strong className="text-slate-900">{new Date(preflight.closesAt).toLocaleString('vi-VN')}</strong></span>
+                    </li>
+                    <li className="flex items-center gap-2.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
+                      <span>Câu trả lời được tự động lưu; tải lại trang không làm mất bài thi.</span>
+                    </li>
+                    <li className="flex items-center gap-2.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
+                      <span>Bạn được làm tối đa <strong>{preflight.maxAttempts} lượt</strong>; đây là lượt {preflight.attemptsUsed + 1}.</span>
+                    </li>
+                    {preflight.showPredictedScore && (
+                      <li className="flex items-center gap-2.5">
+                        <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
+                        <span>Điểm LLM hiển thị trước dưới nhãn “dự kiến”; Giảng viên duyệt mới thành điểm chính thức.</span>
+                      </li>
+                    )}
+                    {preflight.shuffleQuestions && (
+                      <li className="flex items-center gap-2.5">
+                        <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
+                        <span>Thứ tự các câu hỏi trắc nghiệm được trộn ngẫu nhiên riêng cho lượt thi này.</span>
+                      </li>
+                    )}
+                    <li className="flex items-center gap-2.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
+                      <span>Chế độ toàn màn hình là bắt buộc; chuyển tab, thu nhỏ hoặc mất focus sẽ ghi nhận cảnh báo.</span>
+                    </li>
+                    <li className="flex items-center gap-2.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
+                      <span>Thao tác Sao chép (Copy), Dán (Paste), Chuột phải và Phím tắt DevTools bị khóa.</span>
+                    </li>
+                  </ul>
                 </div>
-              ) : notOpen ? (
-                <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3.5 text-center text-xs sm:text-sm font-bold text-amber-800">
-                  Bài kiểm tra chưa mở
-                </div>
-              ) : closed ? (
-                <div className="rounded-xl border border-rose-200 bg-rose-50/80 p-3.5 text-center text-xs sm:text-sm font-bold text-rose-800">
-                  Bài kiểm tra đã đóng
-                </div>
-              ) : (
-                <button
-                  type="submit"
-                  disabled={starting}
-                  className="btn-primary btn-lg w-full text-sm font-bold shadow-md hover:shadow-lg transition-all h-11"
+
+                <form
+                  className="space-y-3"
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    void start()
+                  }}
                 >
-                  {starting ? 'Đang khởi tạo bài thi...' : `Bắt đầu lượt ${preflight.attemptsUsed + 1}`}
-                </button>
-              )}
-            </form>
+                  {preflight.requiresPassword && (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+                      <label htmlFor="assessment-access-password" className="label text-amber-950">
+                        Mật khẩu bài kiểm tra
+                      </label>
+                      <input
+                        id="assessment-access-password"
+                        type="password"
+                        value={assessmentPassword}
+                        onChange={(event) => {
+                          setAssessmentPassword(event.target.value)
+                          if (passwordError) setPasswordError(null)
+                        }}
+                        maxLength={100}
+                        autoComplete="off"
+                        autoFocus
+                        className="input"
+                        aria-invalid={Boolean(passwordError)}
+                        aria-describedby={passwordError ? 'assessment-password-error' : undefined}
+                        placeholder="Nhập mật khẩu do giảng viên cung cấp"
+                      />
+                      {passwordError && (
+                        <p id="assessment-password-error" role="alert" className="mt-2 text-xs font-semibold text-rose-700">
+                          {passwordError}
+                        </p>
+                      )}
+                      <p className="mt-2 text-xs text-amber-800">
+                        Mật khẩu chỉ được gửi khi bạn bấm bắt đầu và không được lưu trên trình duyệt.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Start CTA or Status Notice */}
+                  {noAttempts ? (
+                    <div className="rounded-xl border border-slate-200 bg-slate-100/80 p-3.5 text-center text-xs sm:text-sm font-bold text-slate-600">
+                      Đã sử dụng hết lượt làm bài
+                    </div>
+                  ) : notOpen ? (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3.5 text-center text-xs sm:text-sm font-bold text-amber-800">
+                      Bài kiểm tra chưa mở
+                    </div>
+                  ) : closed ? (
+                    <div className="rounded-xl border border-rose-200 bg-rose-50/80 p-3.5 text-center text-xs sm:text-sm font-bold text-rose-800">
+                      Bài kiểm tra đã đóng
+                    </div>
+                  ) : (
+                    <button
+                      type="submit"
+                      disabled={starting}
+                      className="btn-primary btn-lg w-full text-sm font-bold shadow-md hover:shadow-lg transition-all h-11"
+                    >
+                      {starting ? 'Đang khởi tạo bài thi...' : `Bắt đầu lượt ${preflight.attemptsUsed + 1}`}
+                    </button>
+                  )}
+                </form>
+              </>
+            )}
           </div>
         </div>
       </div>

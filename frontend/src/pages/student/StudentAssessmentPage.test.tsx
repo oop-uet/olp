@@ -211,6 +211,7 @@ describe('StudentAssessmentPage integrity controls', () => {
   })
 
   it('shows predicted score in session history list when configured', async () => {
+    const user = userEvent.setup()
     mockedApi.get.mockImplementation(async (url: string) => {
       if (url.endsWith('/preflight')) {
         return {
@@ -245,6 +246,7 @@ describe('StudentAssessmentPage integrity controls', () => {
 
     renderPage()
 
+    await user.click(await screen.findByRole('button', { name: /Lịch sử nộp bài/ }))
     expect(await screen.findByText(/dự kiến/)).toBeInTheDocument()
     expect(mockedApi.get).not.toHaveBeenCalledWith(
       '/api/students/assessments/sessions/session-1/review'
@@ -349,6 +351,7 @@ describe('StudentAssessmentPage integrity controls', () => {
 
     renderPage()
 
+    await user.click(await screen.findByRole('button', { name: /Lịch sử nộp bài/ }))
     await user.click(await screen.findByRole('button', { name: 'Xem bài làm →' }))
     expect(await screen.findByText(/Bài nộp đã chấm/)).toBeInTheDocument()
     expect(screen.getByText('Phương thức nào được gọi?')).toBeInTheDocument()
