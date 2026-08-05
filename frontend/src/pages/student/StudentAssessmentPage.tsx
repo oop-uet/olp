@@ -877,15 +877,15 @@ export function StudentAssessmentPage() {
                             </td>
                             <td className="px-3.5 py-2.5 text-center">
                               {hasOfficial ? (
-                                <span className="inline-block rounded-md bg-teal-50 border border-teal-200/80 px-2 py-0.5 text-[10px] font-bold text-teal-800">
+                                <span className="badge-green">
                                   Đã duyệt
                                 </span>
                               ) : s.reviewStatus === 'pending_review' ? (
-                                <span className="inline-block rounded-md bg-amber-50 border border-amber-200/80 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                                <span className="badge-yellow">
                                   Chờ duyệt
                                 </span>
                               ) : (
-                                <span className="inline-block rounded-md bg-cyan-50 border border-cyan-200/80 px-2 py-0.5 text-[10px] font-bold text-cyan-800">
+                                <span className="badge-blue">
                                   AI chấm
                                 </span>
                               )}
