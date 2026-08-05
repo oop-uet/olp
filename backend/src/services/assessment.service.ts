@@ -2312,7 +2312,6 @@ export async function recoverAssessmentAiQueue(
   const recoveredRateLimited = recoverable.filter(isRateLimitedFailure).length;
   const recoveredInvalidResponse = recoverable.length - recoveredRateLimited;
   const pausedUntil = recoveredRateLimited > 0 ? new Date(now + 60_000).toISOString() : null;
-  const nextAttempt = new Date(now + 3_000).toISOString();
   await database.insert(assessmentAiGradingRuns).values(
     recoverable.map((failure, index) => ({
       id: crypto.randomUUID(),
