@@ -237,9 +237,21 @@ export function AssessmentSubmissionsPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [importingEssay, setImportingEssay] = useState(false)
+  const [exportingEssay, setExportingEssay] = useState(false)
+
+  function toUnaccentedAsciiSlug(text: string): string {
+    return text
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[đĐ]/g, (match) => (match === 'đ' ? 'd' : 'D'))
+      .replace(/[^a-zA-Z0-9]/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_+|_+$/g, '')
+  }
 
   async function exportEssayPack() {
     if (!assignmentId || !data) return
+    setExportingEssay(true)
     try {
       const response = await api.get(
         `/api/instructor/assessments/assignments/${assignmentId}/export-essay-pack`
@@ -248,14 +260,17 @@ export function AssessmentSubmissionsPage() {
       const jsonStr = JSON.stringify(packData, null, 2)
       const blob = new Blob([jsonStr], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
+      const cleanTitle = toUnaccentedAsciiSlug(data.assessment.title) || 'bai_kiem_tra'
       const a = document.createElement('a')
       a.href = url
-      a.download = `${data.assessment.title.replace(/[^a-zA-Z0-9_\-]/g, '_')}_bai_tu_luan.json`
+      a.download = `${cleanTitle}_bai_tu_luan.json`
       a.click()
       URL.revokeObjectURL(url)
       toast.success('Đã tải xuống toàn bộ bài làm tự luận của sinh viên (file JSON).')
     } catch (error: unknown) {
       toast.error(readApiError(error).message ?? 'Không thể tải gói bài tự luận.')
+    } finally {
+      setExportingEssay(false)
     }
   }
 
@@ -395,14 +410,25 @@ export function AssessmentSubmissionsPage() {
             <button
               type="button"
               onClick={() => void exportEssayPack()}
-              disabled={data.submissions.length === 0}
+              disabled={exportingEssay || data.submissions.length === 0}
               title="Tải toàn bộ bài tự luận của sinh viên dưới dạng file JSON để chấm AI bên ngoài"
               className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 hover:text-cyan-700 transition-colors disabled:opacity-50"
             >
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4 text-cyan-600" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1m-4-4-4 4m0 0-4-4m4 4V4" />
-              </svg>
-              Tải bài tự luận (JSON)
+              {exportingEssay ? (
+                <>
+                  <svg aria-hidden="true" className="h-4 w-4 animate-spin text-cyan-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83" />
+                  </svg>
+                  Đang chuẩn bị file...
+                </>
+              ) : (
+                <>
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4 text-cyan-600" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1m-4-4-4 4m0 0-4-4m4 4V4" />
+                  </svg>
+                  Tải bài tự luận (JSON)
+                </>
+              )}
             </button>
 
             <button
