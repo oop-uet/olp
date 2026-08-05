@@ -220,9 +220,8 @@ export function StudentAssessmentPage() {
           : null,
       }
       setPreflight(next)
-      if (next.session) {
-        if (next.session.status === 'in_progress') await loadSession(next.session.id)
-        else await loadResult(next.session.id)
+      if (next.session && next.session.status === 'in_progress') {
+        await loadSession(next.session.id)
       }
     } catch (error: unknown) {
       toast.error(readApiError(error).message ?? 'Không thể tải bài kiểm tra.')
@@ -377,7 +376,8 @@ export function StudentAssessmentPage() {
           if (document.fullscreenElement) {
             await document.exitFullscreen().catch(() => undefined)
           }
-          await loadResult(sessionId)
+          await loadReview(sessionId)
+          await loadInitial()
           toast.error(`Bài đã tự nộp sau ${eventResult.warningCount} vi phạm quy chế.`)
         }
       } catch {
@@ -477,7 +477,8 @@ export function StudentAssessmentPage() {
         await api.post(`/api/students/assessments/sessions/${session.session.id}/submit`)
         suppressFullscreenExitRef.current = true
         if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined)
-        await loadResult(session.session.id)
+        await loadReview(session.session.id)
+        await loadInitial()
         toast.success('Đã nộp bài kiểm tra.')
       } catch (error: unknown) {
         toast.error(readApiError(error).message ?? 'Không thể nộp bài.')
@@ -928,10 +929,11 @@ export function StudentAssessmentPage() {
                             <td className="px-3.5 py-2.5 text-right">
                               <button
                                 type="button"
-                                onClick={() => void loadResult(s.id)}
-                                className="inline-flex h-7 items-center justify-center gap-1 rounded-md bg-teal-50 px-2.5 text-[11px] font-bold text-teal-700 hover:bg-teal-100 transition-colors border border-teal-200"
+                                onClick={() => void loadReview(s.id)}
+                                disabled={reviewLoading}
+                                className="inline-flex h-7 items-center justify-center gap-1 rounded-md bg-teal-50 px-2.5 text-[11px] font-bold text-teal-700 hover:bg-teal-100 transition-colors border border-teal-200 disabled:opacity-50"
                               >
-                                Xem bài làm →
+                                {reviewLoading ? 'Đang tải...' : 'Xem bài làm →'}
                               </button>
                             </td>
                           </tr>
