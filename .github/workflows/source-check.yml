@@ -29,11 +29,6 @@ on:
         required: false
         default: "70"
         type: string
-  schedule:
-    # Wake up every 5 minutes; the script reads the admin-configured
-    # Asia/Ho_Chi_Minh schedule from /api/source-check/settings and exits
-    # immediately when the configured day/time is not due.
-    - cron: "*/5 * * * *"
 
 permissions:
   contents: read
