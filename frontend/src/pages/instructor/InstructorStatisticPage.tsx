@@ -144,7 +144,7 @@ async function downloadExcel(
       { col: 4, val: student.email, align: 'left', bold: false },
       { col: 5, val: student.totalScore, align: 'right', numFmt: '#,##0.00', bold: false },
       { col: 6, val: student.totalPossible, align: 'right', numFmt: '#,##0', bold: false },
-      { col: 7, val: student.completedExercises, align: 'center', numFmt: '#,##0', bold: false },
+      { col: 7, val: student.attemptedExercises, align: 'center', numFmt: '#,##0', bold: false },
       { col: 8, val: score10, align: 'right', numFmt: '0.00', bold: true, color: 'FF047857' },
     ]
 
@@ -262,7 +262,7 @@ export function InstructorStatisticPage() {
 
   const selectedSection = sections.find((section) => section.id === selectedSectionId)
   
-  const [sortField, setSortField] = useState<'studentId' | 'fullName' | 'completionPercent' | 'totalScore' | 'completedExercises' | 'attemptCount' | ''>('fullName')
+  const [sortField, setSortField] = useState<'studentId' | 'fullName' | 'completionPercent' | 'totalScore' | 'attemptedExercises' | 'completedExercises' | 'attemptCount' | ''>('fullName')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
@@ -301,7 +301,7 @@ export function InstructorStatisticPage() {
 
   const totalPages = Math.ceil(sortedStudents.length / pageSize)
 
-  const toggleSort = (field: 'studentId' | 'fullName' | 'completionPercent' | 'totalScore' | 'completedExercises' | 'attemptCount') => {
+  const toggleSort = (field: 'studentId' | 'fullName' | 'completionPercent' | 'totalScore' | 'attemptedExercises' | 'completedExercises' | 'attemptCount') => {
     setCurrentPage(1)
     if (sortField === field) {
       setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
@@ -444,10 +444,10 @@ export function InstructorStatisticPage() {
                               Điểm SV/Tổng {sortField === 'totalScore' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                             </th>
                             <th
-                              onClick={() => toggleSort('completedExercises')}
+                              onClick={() => toggleSort('attemptedExercises')}
                               className="px-4 py-3 text-center w-28 cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-700"
                             >
-                              Số bài {sortField === 'completedExercises' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                              Số bài {sortField === 'attemptedExercises' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                             </th>
                             <th
                               onClick={() => toggleSort('completionPercent')}
@@ -480,7 +480,7 @@ export function InstructorStatisticPage() {
                                 {student.totalScore.toFixed(0)}/{student.totalPossible}
                               </td>
                               <td className="px-4 py-3 text-center font-semibold text-slate-600">
-                                {student.completedExercises}
+                                {student.attemptedExercises}
                               </td>
                               <td className="px-4 py-3 text-center font-black text-emerald-700">
                                 {((student.totalPossible > 0 ? (student.totalScore / student.totalPossible) * 10 : 0)).toFixed(2)}
