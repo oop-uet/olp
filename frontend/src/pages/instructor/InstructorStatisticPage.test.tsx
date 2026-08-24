@@ -99,9 +99,14 @@ describe('InstructorStatisticPage', () => {
     expect(exportBtn).toBeInTheDocument()
     expect(exportBtn).not.toBeDisabled()
 
-    // Check table headers: "Điểm (thang 10)" is present
-    expect(screen.getByText(/Điểm \(thang 10\)/)).toBeInTheDocument()
-    expect(screen.queryByText(/Tỉ lệ hoàn thành/)).not.toBeInTheDocument()
+    // Check table headers
+    expect(screen.getByText(/% hoàn thành/)).toBeInTheDocument()
+    expect(screen.getByText(/Số bài/)).toBeInTheDocument()
+    expect(screen.getByText(/Điểm quy đổi/)).toBeInTheDocument()
+
+    // Check completion percent
+    expect(screen.getByText('95.00%')).toBeInTheDocument()
+    expect(screen.getByText('87.50%')).toBeInTheDocument()
 
     // Check student scores on 10-point scale
     // 95/100 -> 9.50

@@ -90,7 +90,7 @@ async function downloadExcel(
   sheet.getRow(2).height = 20
 
   // ── Row 3: Header bảng ───────────────────────────────────────────────────
-  const headers = ['STT', 'MSSV', 'Họ và tên', 'Email', 'Điểm đạt', 'Tổng điểm', 'Lượt nộp', 'Điểm']
+  const headers = ['STT', 'MSSV', 'Họ và tên', 'Email', 'Điểm đạt', 'Tổng điểm', 'Số bài', 'Điểm quy đổi']
   const headerRow = sheet.getRow(3)
   headerRow.height = 28
   headers.forEach((h, i) => {
@@ -114,8 +114,8 @@ async function downloadExcel(
   sheet.getColumn(4).width = 28 // Email
   sheet.getColumn(5).width = 14 // Điểm đạt
   sheet.getColumn(6).width = 14 // Tổng điểm
-  sheet.getColumn(7).width = 12 // Lượt nộp
-  sheet.getColumn(8).width = 14 // Điểm
+  sheet.getColumn(7).width = 12 // Số bài
+  sheet.getColumn(8).width = 16 // Điểm quy đổi
 
   // ── Dữ liệu sinh viên ─────────────────────────────────────────────────────
   rows.forEach((student, idx) => {
@@ -144,7 +144,7 @@ async function downloadExcel(
       { col: 4, val: student.email, align: 'left', bold: false },
       { col: 5, val: student.totalScore, align: 'right', numFmt: '#,##0.00', bold: false },
       { col: 6, val: student.totalPossible, align: 'right', numFmt: '#,##0', bold: false },
-      { col: 7, val: student.attemptCount, align: 'center', numFmt: '#,##0', bold: false },
+      { col: 7, val: student.completedExercises, align: 'center', numFmt: '#,##0', bold: false },
       { col: 8, val: score10, align: 'right', numFmt: '0.00', bold: true, color: 'FF047857' },
     ]
 
@@ -262,7 +262,7 @@ export function InstructorStatisticPage() {
 
   const selectedSection = sections.find((section) => section.id === selectedSectionId)
   
-  const [sortField, setSortField] = useState<'studentId' | 'fullName' | 'completionPercent' | 'totalScore' | 'attemptCount' | ''>('fullName')
+  const [sortField, setSortField] = useState<'studentId' | 'fullName' | 'completionPercent' | 'totalScore' | 'completedExercises' | 'attemptCount' | ''>('fullName')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
@@ -301,7 +301,7 @@ export function InstructorStatisticPage() {
 
   const totalPages = Math.ceil(sortedStudents.length / pageSize)
 
-  const toggleSort = (field: 'studentId' | 'fullName' | 'completionPercent' | 'totalScore' | 'attemptCount') => {
+  const toggleSort = (field: 'studentId' | 'fullName' | 'completionPercent' | 'totalScore' | 'completedExercises' | 'attemptCount') => {
     setCurrentPage(1)
     if (sortField === field) {
       setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
@@ -432,22 +432,28 @@ export function InstructorStatisticPage() {
                               Sinh viên {sortField === 'fullName' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                             </th>
                             <th
+                              onClick={() => toggleSort('completionPercent')}
+                              className="px-4 py-3 text-center w-36 cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-700"
+                            >
+                              % hoàn thành {sortField === 'completionPercent' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                            </th>
+                            <th
                               onClick={() => toggleSort('totalScore')}
                               className="px-4 py-3 text-center w-36 cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-700"
                             >
                               Điểm SV/Tổng {sortField === 'totalScore' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                             </th>
                             <th
-                              onClick={() => toggleSort('attemptCount')}
+                              onClick={() => toggleSort('completedExercises')}
                               className="px-4 py-3 text-center w-28 cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-700"
                             >
-                              Lượt nộp {sortField === 'attemptCount' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                              Số bài {sortField === 'completedExercises' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                             </th>
                             <th
                               onClick={() => toggleSort('completionPercent')}
-                              className="px-4 py-3 text-center w-32 cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-700"
+                              className="px-4 py-3 text-center w-36 cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-700"
                             >
-                              Điểm (thang 10) {sortField === 'completionPercent' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                              Điểm quy đổi {sortField === 'completionPercent' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                             </th>
                           </tr>
                         </thead>
@@ -467,11 +473,14 @@ export function InstructorStatisticPage() {
                                 </Link>
                                 <p className="mt-0.5 text-xs text-slate-400">{student.email}</p>
                               </td>
+                              <td className="px-4 py-3 text-center font-semibold text-slate-700">
+                                {student.completionPercent.toFixed(2)}%
+                              </td>
                               <td className="px-4 py-3 text-center font-bold text-primary">
                                 {student.totalScore.toFixed(0)}/{student.totalPossible}
                               </td>
                               <td className="px-4 py-3 text-center font-semibold text-slate-600">
-                                {student.attemptCount}
+                                {student.completedExercises}
                               </td>
                               <td className="px-4 py-3 text-center font-black text-emerald-700">
                                 {((student.totalPossible > 0 ? (student.totalScore / student.totalPossible) * 10 : 0)).toFixed(2)}
