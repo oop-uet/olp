@@ -5,6 +5,7 @@ import bcrypt from "bcrypt";
 import { db } from "../../db/index.js";
 import { classSections, sectionEnrollments, users, exerciseAssignments, exercises, submissions, sectionInstructors } from "../../db/schema.js";
 import { getSectionDetail, unassignExercise, isSectionError, listSectionsForInstructor, userCanAccessSection } from "../../services/section.service.js";
+import { isProjectExercise } from "../../services/leaderboard.service.js";
 import { getStudentProgress } from "../../services/submission.service.js";
 import { registerScheduleRoutes } from "../schedule.helper.js";
 import { importStudents, exportStudents, parseFile } from "../../services/import.service.js";
@@ -572,17 +573,20 @@ router.get("/:id/stats", async (req: Request, res: Response) => {
       .where(eq(sectionEnrollments.sectionId, sectionId));
     const totalStudents = enrollments.length;
 
-    // Get all assigned exercises
-    const assigned = await db
+    // Get all assigned exercises (excluding project exercises which do not have automated testcases/scores)
+    const rawAssigned = await db
       .select({
         assignmentId: exerciseAssignments.id,
         exerciseId: exerciseAssignments.exerciseId,
         title: exercises.title,
         difficulty: exercises.difficulty,
+        oopTags: exercises.oopTags,
       })
       .from(exerciseAssignments)
       .innerJoin(exercises, eq(exerciseAssignments.exerciseId, exercises.id))
       .where(eq(exerciseAssignments.sectionId, sectionId));
+
+    const assigned = rawAssigned.filter((ex) => !isProjectExercise(ex.title, ex.oopTags));
 
     // For each exercise, calculate attempts and completion
     const sectionSubmissions = await db
@@ -708,17 +712,20 @@ async function getStudentProfileHandler(req: Request, res: Response) {
       return;
     }
 
-    const assigned = await db
+    const rawAssigned = await db
       .select({
         exerciseId: exerciseAssignments.exerciseId,
         title: exercises.title,
         difficulty: exercises.difficulty,
+        oopTags: exercises.oopTags,
         week: exerciseAssignments.week,
         deadline: exerciseAssignments.deadline,
       })
       .from(exerciseAssignments)
       .innerJoin(exercises, eq(exerciseAssignments.exerciseId, exercises.id))
       .where(eq(exerciseAssignments.sectionId, sectionId));
+
+    const assigned = rawAssigned.filter((ex) => !isProjectExercise(ex.title, ex.oopTags));
 
     const allSectionSubmissions = await db
       .select({

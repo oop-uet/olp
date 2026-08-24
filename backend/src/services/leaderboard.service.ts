@@ -202,7 +202,7 @@ function normalizeProjectMarker(value: string): string {
     .toLowerCase();
 }
 
-function isProjectExercise(title: string | undefined, tags: string | null | undefined): boolean {
+export function isProjectExercise(title: string | undefined, tags: string | null | undefined): boolean {
   const normalizedTitle = normalizeProjectMarker(title ?? "");
   if (
     normalizedTitle.includes("bai tap lon") ||
