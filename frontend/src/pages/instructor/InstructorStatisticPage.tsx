@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import ExcelJS from 'exceljs'
 import { cachedGet } from '../../lib/api'
 import { PageLoader, Spinner } from '../../components/ui'
 import { toast } from '../../stores/toast.store'
@@ -52,26 +53,137 @@ function getDifficultyBadge(difficulty: string) {
   return DIFFICULTY_BADGE[difficulty] ?? { className: 'badge-gray', label: difficulty }
 }
 
-function downloadCsv(fileName: string, rows: StudentStat[]) {
-  const header = ['STT', 'MSSV', 'Sinh viên', 'Email', 'Tỉ lệ hoàn thành', 'Điểm', 'Tổng điểm', 'Lượt nộp']
-  const body = rows.map((student, index) => [
-    index + 1,
-    student.studentId,
-    student.fullName,
-    student.email,
-    student.completionPercent,
-    student.totalScore,
-    student.totalPossible,
-    student.attemptCount,
-  ])
-  const csv = [header, ...body]
-    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-    .join('\n')
-  const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' })
+async function downloadExcel(
+  fileName: string,
+  sectionName: string,
+  semester: string,
+  rows: StudentStat[]
+) {
+  const workbook = new ExcelJS.Workbook()
+  workbook.creator = 'UET OLP'
+  workbook.created = new Date()
+
+  const sheet = workbook.addWorksheet('Thống kê', {
+    properties: { tabColor: { argb: 'FF0D9488' } },
+    views: [{ state: 'frozen', ySplit: 3, xSplit: 0 }],
+  })
+
+  const LAST_COL = 8
+
+  // ── Row 1: Tiêu đề ────────────────────────────────────────────────────────
+  sheet.mergeCells(1, 1, 1, LAST_COL)
+  const titleCell = sheet.getCell('A1')
+  titleCell.value = `BẢNG THỐNG KÊ TIẾN ĐỘ HỌC TẬP - ${sectionName.toUpperCase()}`
+  titleCell.font = { bold: true, size: 13, color: { argb: 'FFFFFFFF' } }
+  titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0D9488' } }
+  titleCell.alignment = { horizontal: 'center', vertical: 'middle' }
+  sheet.getRow(1).height = 30
+
+  // ── Row 2: Thông tin bổ sung ───────────────────────────────────────────────
+  sheet.mergeCells(2, 1, 2, LAST_COL)
+  const metaCell = sheet.getCell('A2')
+  const dateStr = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })
+  metaCell.value = `Lớp: ${sectionName}${semester ? ` · Học kỳ: ${semester}` : ''} · Tổng số sinh viên: ${rows.length} · Xuất lúc: ${dateStr}`
+  metaCell.font = { italic: true, size: 9, color: { argb: 'FF475569' } }
+  metaCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } }
+  metaCell.alignment = { horizontal: 'center', vertical: 'middle' }
+  sheet.getRow(2).height = 20
+
+  // ── Row 3: Header bảng ───────────────────────────────────────────────────
+  const headers = ['STT', 'MSSV', 'Họ và tên', 'Email', 'Điểm đạt', 'Tổng điểm', 'Lượt nộp', 'Điểm']
+  const headerRow = sheet.getRow(3)
+  headerRow.height = 28
+  headers.forEach((h, i) => {
+    const cell = headerRow.getCell(i + 1)
+    cell.value = h
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F766E' } }
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
+    cell.border = {
+      top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+      bottom: { style: 'medium', color: { argb: 'FF0D9488' } },
+      left: { style: 'thin', color: { argb: 'FF134E4A' } },
+      right: { style: 'thin', color: { argb: 'FF134E4A' } },
+    }
+  })
+
+  // ── Độ rộng cột ─────────────────────────────────────────────────────────
+  sheet.getColumn(1).width = 7  // STT
+  sheet.getColumn(2).width = 16 // MSSV
+  sheet.getColumn(3).width = 28 // Họ và tên
+  sheet.getColumn(4).width = 28 // Email
+  sheet.getColumn(5).width = 14 // Điểm đạt
+  sheet.getColumn(6).width = 14 // Tổng điểm
+  sheet.getColumn(7).width = 12 // Lượt nộp
+  sheet.getColumn(8).width = 14 // Điểm
+
+  // ── Dữ liệu sinh viên ─────────────────────────────────────────────────────
+  rows.forEach((student, idx) => {
+    const rowNum = idx + 4
+    const row = sheet.getRow(rowNum)
+    row.height = 22
+
+    const score10 = student.totalPossible > 0
+      ? Math.round(((student.totalScore / student.totalPossible) * 10) * 100) / 100
+      : 0
+
+    const isEven = idx % 2 === 1
+    const rowBgColor = isEven ? 'FFF8FAFC' : 'FFFFFFFF'
+
+    const cellData: Array<{
+      col: number
+      val: string | number
+      align: ExcelJS.Alignment['horizontal']
+      numFmt?: string
+      bold?: boolean
+      color?: string
+    }> = [
+      { col: 1, val: idx + 1, align: 'center', bold: false },
+      { col: 2, val: student.studentId, align: 'center', numFmt: '@', bold: false },
+      { col: 3, val: student.fullName, align: 'left', bold: true },
+      { col: 4, val: student.email, align: 'left', bold: false },
+      { col: 5, val: student.totalScore, align: 'right', numFmt: '#,##0.00', bold: false },
+      { col: 6, val: student.totalPossible, align: 'right', numFmt: '#,##0', bold: false },
+      { col: 7, val: student.attemptCount, align: 'center', numFmt: '#,##0', bold: false },
+      { col: 8, val: score10, align: 'right', numFmt: '0.00', bold: true, color: 'FF047857' },
+    ]
+
+    cellData.forEach(({ col, val, align, numFmt, bold, color }) => {
+      const cell = row.getCell(col)
+      cell.value = val
+      cell.alignment = { horizontal: align, vertical: 'middle' }
+      cell.font = {
+        name: 'Segoe UI',
+        size: 10,
+        bold: bold ?? false,
+        color: color ? { argb: color } : { argb: 'FF1E293B' },
+      }
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: rowBgColor },
+      }
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+      }
+      if (numFmt) {
+        cell.numFmt = numFmt
+      }
+    })
+  })
+
+  // Write buffer and download
+  const buffer = await workbook.xlsx.writeBuffer()
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = fileName
+  link.download = fileName.endsWith('.xlsx') ? fileName : `${fileName}.xlsx`
   link.click()
   URL.revokeObjectURL(url)
 }
@@ -82,6 +194,7 @@ export function InstructorStatisticPage() {
   const [loadingSections, setLoadingSections] = useState(true)
   const [stats, setStats] = useState<StatsReport | null>(null)
   const [loadingStats, setLoadingStats] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [query, setQuery] = useState('')
 
   useEffect(() => {
@@ -124,6 +237,26 @@ export function InstructorStatisticPage() {
       toast.error('Không thể tải báo cáo thống kê.')
     } finally {
       setLoadingStats(false)
+    }
+  }
+
+  async function handleExportExcel() {
+    if (!stats || filteredStudents.length === 0) return
+    setExporting(true)
+    try {
+      const safeSectionName = selectedSection?.name ?? 'lop'
+      const fileName = `thong-ke-${safeSectionName}.xlsx`
+      await downloadExcel(
+        fileName,
+        normalizePreviewSectionName(selectedSection?.name ?? 'Lớp học', selectedSection?.semester ?? ''),
+        selectedSection?.semester ?? '',
+        filteredStudents
+      )
+      toast.success('Đã xuất file Excel thành công.')
+    } catch {
+      toast.error('Có lỗi xảy ra khi xuất file Excel.')
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -209,11 +342,17 @@ export function InstructorStatisticPage() {
             </select>
             <button
               type="button"
-              onClick={() => stats && downloadCsv(`thong-ke-${selectedSection?.name ?? 'lop'}.csv`, filteredStudents)}
-              disabled={!stats || filteredStudents.length === 0}
-              className="h-10 rounded-md bg-rose-500 px-4 text-sm font-bold text-white transition hover:bg-rose-600 disabled:opacity-50"
+              onClick={() => void handleExportExcel()}
+              disabled={exporting || !stats || filteredStudents.length === 0}
+              className="h-10 rounded-md bg-emerald-600 px-4 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center gap-1.5 shadow-sm"
             >
-              Xuất CSV
+              {exporting ? (
+                <>
+                  <Spinner /> Đang xuất...
+                </>
+              ) : (
+                'Xuất Excel'
+              )}
             </button>
           </div>
         </div>
@@ -293,12 +432,6 @@ export function InstructorStatisticPage() {
                               Sinh viên {sortField === 'fullName' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                             </th>
                             <th
-                              onClick={() => toggleSort('completionPercent')}
-                              className="px-4 py-3 text-center w-40 cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-700"
-                            >
-                              Tỉ lệ hoàn thành {sortField === 'completionPercent' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
-                            </th>
-                            <th
                               onClick={() => toggleSort('totalScore')}
                               className="px-4 py-3 text-center w-36 cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-700"
                             >
@@ -309,6 +442,12 @@ export function InstructorStatisticPage() {
                               className="px-4 py-3 text-center w-28 cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-700"
                             >
                               Lượt nộp {sortField === 'attemptCount' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                            </th>
+                            <th
+                              onClick={() => toggleSort('completionPercent')}
+                              className="px-4 py-3 text-center w-32 cursor-pointer hover:bg-slate-100 transition-colors select-none text-slate-700"
+                            >
+                              Điểm (thang 10) {sortField === 'completionPercent' ? (sortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
                             </th>
                           </tr>
                         </thead>
@@ -328,14 +467,14 @@ export function InstructorStatisticPage() {
                                 </Link>
                                 <p className="mt-0.5 text-xs text-slate-400">{student.email}</p>
                               </td>
-                              <td className="px-4 py-3 text-center font-semibold text-slate-700">
-                                {student.completionPercent.toFixed(2)}%
-                              </td>
                               <td className="px-4 py-3 text-center font-bold text-primary">
                                 {student.totalScore.toFixed(0)}/{student.totalPossible}
                               </td>
                               <td className="px-4 py-3 text-center font-semibold text-slate-600">
                                 {student.attemptCount}
+                              </td>
+                              <td className="px-4 py-3 text-center font-black text-emerald-700">
+                                {((student.totalPossible > 0 ? (student.totalScore / student.totalPossible) * 10 : 0)).toFixed(2)}
                               </td>
                             </tr>
                           ))}
