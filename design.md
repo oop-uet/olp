@@ -17,34 +17,103 @@ The platform implements a dense, table-driven administrative and workspace UI ba
 
 ## 2. Architecture & Data Flow
 
+### 2.1 Current baseline and target state
+
+The deployed baseline is GitHub Pages + a Node.js API on Render + Turso/libSQL. The
+**target** is the phased Hybrid Cloudflare design in
+[`docs/hybrid-cloudflare-architecture.md`](docs/hybrid-cloudflare-architecture.md):
+Cloudflare Pages serves the SPA, R2 stores artifacts, and Queues optionally dispatches AI
+grading. Turso and the transactional Node.js API remain authoritative until their explicit
+migration gates are met. This is a migration plan, not a claim that every component below
+is already live.
+
 ```mermaid
 graph TB
-    subgraph StudentDevice[Student Client machine]
+    subgraph StudentDevice[Student client machine]
       Browser[React SPA / Vite]
       ExecutorAgent[Local Java Executor WS Server<br/>localhost:9876]
       JDK17[JDK 17 / java / javac]
     end
 
-    subgraph Hosting[Production Deployment]
-      FrontendPages[GitHub Pages CDN]
-      APIHost[Render Node.js API Web Service]
-      Database[(Turso / SQLite via Drizzle ORM)]
+    subgraph Cloudflare[Cloudflare edge and managed services]
+      Pages[Pages<br/>static SPA + preview deploy]
+      Edge[DNS/CDN/TLS<br/>headers and Turnstile]
+      R2[R2<br/>private import/export artifacts]
+      Queue[Queues<br/>AI grading batch delivery]
+      Consumer[Worker consumer<br/>provider rate control]
     end
 
-    Browser -->|Fetches Static Assets| FrontendPages
-    Browser -->|REST API over JWT| APIHost
-    Browser -->|WebSocket Connection| ExecutorAgent
-    ExecutorAgent -->|Local Compilation & Run| JDK17
-    APIHost -->|Queries & Updates| Database
+    subgraph TransactionalCore[Authoritative transactional core]
+      API[Node.js API<br/>auth, autosave, submit, audit]
+      Database[(Turso / libSQL<br/>source of truth)]
+      JavaRunner[Compatible Java/Checkstyle runner<br/>not Workers Free]
+    end
+
+    subgraph External[External AI providers]
+      Providers[Gemini / OpenRouter / NVIDIA]
+    end
+
+    Browser -->|static assets| Pages
+    Pages --- Edge
+    Browser -->|REST API over JWT| API
+    Browser -->|WebSocket connection| ExecutorAgent
+    ExecutorAgent -->|local compilation & run| JDK17
+    API -->|queries & transactions| Database
+    API -->|presigned URL / object metadata| R2
+    API -->|enqueue only IDs| Queue
+    Queue --> Consumer
+    Consumer -->|claim/complete via service-auth API| API
+    Consumer -->|provider-specific RPM limits| Providers
+    API --> JavaRunner
 ```
 
-### Architectural Rules
-1. **Course Section Centric:** Almost all endpoints and frontend views are parameterized by a `course_id`. Access control is validated against course enrollment/assignment.
-2. **Assignments vs. Exercises:** An `Exercise` is a reusable library entity. An `Assignment` binds an `Exercise` to a `Course Section` for a specific `Week`, setting a `deadline`, `visibility`, `submission permissions`, and `assessment mode`.
-3. **Single Student Section:** A Student account has exactly one active enrollment. Student pages resolve the current section from that enrollment and do not show section-switching controls.
-4. **Local Code Execution:** Student code compiles and runs locally on their computer using the `Local Executor` WebSocket agent, protecting the backend server from compiling untrusted Java code. The final score evaluation is authoritative on the backend.
-5. **Immutable Runs:** Once submitted, a submission's code, attempt counter, score, and test outcomes are archived immutably.
-6. **Anti-Cheat Monitoring:** Enabled exclusively for assignments marked as `assessment`. A student’s warning events (fullscreen exits, tab shifts, window blurs) are written to the database. Reaching the warning threshold locks the assessment workspace and registers a 0-score attempt.
+### 2.2 Architectural rules
+
+1. **Course section centric:** Almost all endpoints and frontend views are parameterized by
+   a `course_id`/`section_id`. Access control is always validated against enrollment or
+   instructor assignment at the transactional API.
+2. **Exercises vs. assessments:** An `Exercise` is a reusable programming problem bound by
+   an `exercise_assignment`. A real mixed-question exam is a separate `Assessment` domain
+   with versions, assignments, sessions, answers, grading runs and audit; see
+   [`docs/exam-feature-design.md`](docs/exam-feature-design.md). The legacy
+   `is_assessment` assignment flag only denotes a monitored coding exercise.
+3. **Single student section:** A student account has exactly one active enrollment. Student
+   pages resolve the current section from that enrollment and do not show section switching.
+4. **Authoritative write path:** Login, assessment start/resume, autosave, integrity events
+   and submit are direct API/database transactions. A queue or LLM outage must never prevent
+   a submission from being committed.
+5. **Local Java execution:** Student code compiles/runs with the Local Executor on the
+   student's computer by default. No browser-facing endpoint may dispatch untrusted Java
+   source to a shared server runner.
+6. **Immutable attempts and audit:** Once a programming submission or assessment session is
+   submitted, its source/answers, attempt number, score inputs and outcomes are preserved.
+   Grade changes create audit records rather than erasing the prior decision.
+7. **Edge is not business authority:** Pages, Workers and CDN caches must never serve an
+   answer key or make a final authorization/grading decision from cached state. The API is
+   the authority for JWT validation, role checks, score calculation and visibility.
+8. **Queue messages are minimal:** Queue delivery is at-least-once. Messages contain IDs and
+   correlation metadata only; consumers atomically claim database jobs and validate provider
+   output before the API stores it.
+9. **Metered services have guardrails:** Free-tier quotas are monitored with headroom and
+   alerts. No route is moved to Workers/D1 merely because it works locally; the load and
+   rollback gates in the hybrid architecture document are mandatory.
+10. **Anti-cheat signals are evidence, not proof:** Fullscreen, focus, copy/paste and tab
+    events are recorded with context and reviewed under policy. Client-side controls cannot
+    guarantee that every browser extension or second device is prevented.
+
+### 2.3 Availability, caching and deployment rules
+
+- Cloudflare Pages may cache immutable static assets. API responses containing a session,
+  assessment visibility, deadline, password requirement, score or authorization result are
+  `no-store` unless a route has an explicit, reviewed cache policy.
+- All server time used for assessment timers comes from the transactional API. Browser time
+  and CDN time are display aids only.
+- The SPA deployment is independent from the API deployment. A frontend release must remain
+  compatible with the previous API contract during a rollback window.
+- Deployments, schema migrations, provider changes and routing changes are frozen during an
+  active assessment window except through an approved incident procedure.
+- R2 is object storage, not a relational database. Files are private by default and must
+  have lifecycle/retention policies appropriate to imports, exports and audit artifacts.
 
 ---
 
@@ -124,9 +193,11 @@ Links an exercise to a section for a specific week.
 * `exercise_id`: `text`, foreign key to `exercises(id)`, cascade delete.
 * `week`: `integer` (1 to 15).
 * `deadline`: `text` (ISO Timestamp, nullable).
-* `is_visible`: `integer` (boolean, default 1).
+* `is_visible`: `integer` (boolean, default 0). New assignments are hidden until an
+  instructor explicitly exposes them to students.
 * `allow_submit`: `integer` (boolean, default 1).
-* `is_assessment`: `integer` (boolean, default 0).
+* `is_assessment`: `integer` (boolean, default 0). Legacy flag for a monitored coding
+  exercise only; it is not a mixed-question assessment/exam.
 * `max_submissions`: `integer` (default 10).
 * *Unique constraint:* `(section_id, exercise_id)`.
 
@@ -221,6 +292,21 @@ Stores suspicious pairs found by a source check run.
 * `similarity`: `real`.
 * `review_status`: `text` (enum: `'new'`, `'reviewed'`, `'false_positive'`, `'confirmed'`).
 
+### 3.13 Assessment domain and AI-grading job state
+
+The exam schema is maintained in [`docs/exam-feature-design.md`](docs/exam-feature-design.md)
+because it has versioned questions, answer keys and review states that do not belong to
+programming exercises. Its important operational invariant is that
+`assessment_ai_grading_runs` is the durable source of job state:
+
+* a run starts as `queued`, is atomically leased as `running`, then ends in `succeeded`,
+  `failed` or `invalid`; the associated answer/session moves to manual review when needed;
+* queue messages only reference a session/run-group and correlation ID; they do not replace
+  the row state and cannot reveal grading material;
+* the attempt, provider, request metadata, normalized result, failure reason and audit
+  relationship are persisted so a worker restart or duplicate delivery is recoverable;
+* score suggestions remain separate from the instructor-approved final score.
+
 ---
 
 ## 4. Backend REST API Contracts
@@ -293,6 +379,30 @@ Stores suspicious pairs found by a source check run.
 * **`GET /api/source-check/reports`**
   - Query parameters: `exercise_id`, `section_id`, `status`, `page`, `limit`.
   - Response: List of anti-cheat logs logged during the submission window.
+
+### 4.6 Planned internal assessment AI consumer contract
+
+These are service-to-service endpoints for the Cloudflare Queue consumer described in the
+hybrid architecture. They are **not** public browser APIs and are introduced behind a
+feature flag during the queue canary.
+
+* **`POST /api/internal/assessment-ai/run-groups/:id/claim`**
+  - Authentication: service HMAC with timestamp, nonce, audience and correlation ID.
+  - Request: `{ "consumerId": "cf-queue-consumer", "leaseSeconds": 120 }`.
+  - Behavior: atomically claims eligible `queued`/expired runs; returns only the minimum
+    grading input for the claimed batch and never a student-facing DTO.
+  - Idempotency: repeated claims for an active lease do not create another provider attempt.
+* **`POST /api/internal/assessment-ai/run-groups/:id/complete`**
+  - Authentication: same service identity; requires the active lease token.
+  - Request: `{ "leaseToken": "...", "provider": "...", "attempt": 1,
+    "results": [...], "correlationId": "..." }`.
+  - Behavior: validates output schema/range and persists suggestion/audit atomically. Invalid
+    output is recorded as provider failure/manual review, never accepted as a score.
+  - Idempotency: a duplicate completion returns the previously finalized result and does not
+    append a second final score.
+
+Neither endpoint accepts a user JWT. Request/response logging must redact answer text,
+answer keys, rubric prompts, passwords and provider credentials.
 
 ---
 

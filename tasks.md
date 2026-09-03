@@ -2,7 +2,18 @@
 
 ## Overview
 
-This plan implements a zero-cost OOP learning platform for UET-VNU students. The architecture consists of a React + TypeScript frontend (GitHub Pages), Node.js + Express backend (Render), Turso database (Drizzle ORM), Cloudflare R2 storage, and a local Java executor agent. Tasks are ordered by dependency: infrastructure → database → backend → frontend → integration → testing → deployment.
+This plan began with a zero-cost OOP learning platform for UET-VNU students: React +
+TypeScript frontend on GitHub Pages, Node.js + Express backend on Render, Turso database
+(Drizzle ORM), Cloudflare R2 storage, and a local Java executor agent. Those completed tasks
+record the historical baseline.
+
+The target architecture is now the phased Hybrid Cloudflare design in
+[`docs/hybrid-cloudflare-architecture.md`](docs/hybrid-cloudflare-architecture.md):
+Cloudflare Pages for the SPA, R2 for artifacts, Queues for asynchronous AI-grading delivery,
+and Turso/transactional API retained until explicit D1/Workers/runner migration gates pass.
+Tasks remain ordered by dependency: observability → reversible edge changes → queue canary →
+load/rollback approval → optional database or compute migration. "Free" is a cost constraint,
+not an availability guarantee for a real assessment.
 
 ## Tasks
 
@@ -401,6 +412,94 @@ This plan implements a zero-cost OOP learning platform for UET-VNU students. The
 - [x] 20. Final checkpoint - Full integration verification
   - Ensure all components are wired together, all tests pass, CI/CD pipelines are configured, and the platform is ready for deployment. Ask the user if questions arise.
 
+- [ ] 21. Hybrid Cloudflare migration - gated operational rollout
+  - This work follows [`docs/hybrid-cloudflare-architecture.md`](docs/hybrid-cloudflare-architecture.md).
+    It is intentionally separate from the completed GitHub Pages/Render setup: no task below
+    authorizes a big-bang rewrite or a database cutover during an active assessment.
+
+  - [ ] 21.1 Establish capacity baseline and operational runbook
+    - Record p50/p95/p99 and error rate for login, assessment preflight, start/resume,
+      autosave, integrity events, submit, grading review and file export.
+    - Add metrics for Turso rows read/write, API request rate, R2 object/operation use,
+      provider RPM/error/retry, grading-run states and queue backlog/oldest message.
+    - Agree the approved concurrent-student target per assessment type; create a reproducible
+      load-test scenario for start burst, autosave, reconnect, submit burst and AI outage.
+    - Write and rehearse backup, restore, incident contact, feature-flag and rollback runbooks.
+    - _Requirements: 11.2, 11.7, 11.10_
+
+  - [ ] 21.2 Move the static SPA to Cloudflare Pages safely
+    - Add Pages build/deploy configuration and preview deployment for pull requests.
+    - Configure the production/custom domain, HTTPS, SPA deep-link fallback, security headers,
+      CSP and explicit `VITE_API_URL`; do not put secrets in Pages variables exposed to Vite.
+    - Update API CORS allow-list and verify login, refresh, direct navigation, file downloads
+      and logout from both preview and production domains.
+    - Keep a tested prior artifact/DNS rollback path until one release cycle is stable.
+    - _Requirements: 11.1, 11.8_
+
+  - [ ] 21.3 Harden Cloudflare R2 artifact lifecycle
+    - Classify object prefixes for temporary imports, generated exports, assessment template
+      files, source-check reports and retained audit artifacts.
+    - Enforce private-by-default access, authorization-checked presigned URLs, short expiry
+      and content-disposition/filename sanitization.
+    - Configure lifecycle cleanup and a deletion audit; test that students cannot obtain an
+      instructor export, answer key or another section's artifact by changing an object key.
+    - _Requirements: 2.2, 2.3, 11.6_
+
+  - [ ] 21.4 Add quota forecasts and release guards
+    - Extend the admin quota view and alerts with reset time, forecast, warning/critical
+      thresholds, queue backlog, provider circuit state and a per-assessment usage breakdown.
+    - Fail a pre-assessment readiness check when a planned load exceeds documented headroom or
+      required telemetry/backup proof is absent; do not fail student submit merely because an
+      optional analytics request is unavailable.
+    - Make thresholds configurable rather than encoding provider free-tier figures in routes.
+    - _Requirements: 11.7, 11.10_
+
+  - [ ] 21.5 Define the durable AI-grading queue contract
+    - Keep `assessment_ai_grading_runs` as the source of truth; introduce run groups/batches
+      so a queue unit represents one submitted assessment attempt, not an autosave or keystroke.
+    - Implement atomic claim lease, idempotent completion, retry classification, stale lease
+      recovery, provider attempt history and manual-review fallback.
+    - Define a versioned minimal queue payload containing only IDs/correlation metadata.
+    - Design HMAC timestamp/nonce service authentication for internal consumer callbacks;
+      redact grading material and credentials from logs.
+    - _Requirements: 11.2, 11.4, 11.5, 11.8_
+
+  - [ ] 21.6 Implement a feature-flagged Cloudflare Queue consumer
+    - Deploy a Worker consumer with bounded batch/concurrency and a separate rate limiter,
+      circuit breaker and fallback order for every configured AI provider.
+    - The consumer must claim grading input only after service authentication, validate no score
+      itself, and return output to the transactional API for schema/range/audit validation.
+    - Add dead-letter/retry observability and a kill switch that stops enqueueing while leaving
+      submitted sessions and manual grading available.
+    - _Requirements: 11.2, 11.4, 11.5, 11.7_
+
+  - [ ] 21.7 Canary and assessment readiness approval
+    - Run the queue path on a non-critical assessment first; compare result correctness,
+      latency, retry rate, provider quota and manual-review behavior with the existing worker.
+    - Run the approved load scenario with queue/provider unavailable and verify every submit
+      remains idempotently committed, with no duplicate score/audit under duplicate delivery.
+    - Publish a readiness report and obtain an explicit go/no-go before enabling the path for a
+      real exam.
+    - _Requirements: 11.2, 11.5, 11.7, 11.10_
+
+  - [ ] 21.8 Evaluate D1 only after decision gates pass
+    - Create an anonymized migration rehearsal, index plan, query compatibility suite,
+      backup/restore proof and Turso fallback routing plan.
+    - Measure D1 read/write peak with at least fivefold incident headroom; review daily reset
+      behavior, index-write overhead and transaction/concurrency semantics.
+    - Do not dual-write or cut over a live assessment. If a decision gate fails, retain Turso
+      and record why rather than forcing the migration.
+    - _Requirements: 11.3, 11.7, 11.10_
+
+  - [ ] 21.9 Evaluate API and JVM compute separately
+    - Pilot only low-risk read/edge endpoints on Workers after contract tests; keep bcrypt,
+      autosave, submit, document generation and authoritative grading on compatible compute
+      until their CPU/runtime requirements are demonstrated.
+    - Compare the current Java/Checkstyle runner with Cloudflare Containers Paid on isolation,
+      CPU/memory cost, cold start, cancellation, logging and recovery. Do not expose a server
+      Java runner directly to untrusted browser code.
+    - _Requirements: 6.3, 7.3, 11.9_
+
 ## Notes
 
 - Tasks marked with `*` are optional and can be skipped for faster MVP
@@ -411,6 +510,9 @@ This plan implements a zero-cost OOP learning platform for UET-VNU students. The
 - All backend APIs use consistent error response format defined in the design
 - Frontend uses Zustand for state management and Axios with JWT interceptors for API calls
 - Database migrations should be run before any backend testing
+- Task 21 uses feature flags and rollback gates. It must not be marked complete solely because
+  a Cloudflare component deploys successfully; the listed load, outage and recovery evidence
+  is required.
 
 ## Task Dependency Graph
 
@@ -440,7 +542,13 @@ This plan implements a zero-cost OOP learning platform for UET-VNU students. The
     { "id": 20, "tasks": ["16.2"] },
     { "id": 21, "tasks": ["16.3", "17.1"] },
     { "id": 22, "tasks": ["18.1", "18.2", "18.3"] },
-    { "id": 23, "tasks": ["19.2", "19.3", "19.4"] }
+    { "id": 23, "tasks": ["19.2", "19.3", "19.4"] },
+    { "id": 24, "tasks": ["21.1"] },
+    { "id": 25, "tasks": ["21.2", "21.3", "21.4"] },
+    { "id": 26, "tasks": ["21.5"] },
+    { "id": 27, "tasks": ["21.6"] },
+    { "id": 28, "tasks": ["21.7"] },
+    { "id": 29, "tasks": ["21.8", "21.9"] }
   ]
 }
 ```

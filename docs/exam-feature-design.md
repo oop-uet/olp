@@ -456,10 +456,44 @@ hiển thị ngay tổng **điểm dự kiến** cho sinh viên nếu ca thi b�
 `review_low_confidence`/`spot_check` về sau. Khi chạy lại LLM, run cũ vẫn được giữ và
 điểm đã được giảng viên xác nhận không tự động bị thay đổi.
 
-MVP có thể dùng chính `assessment_ai_grading_runs` làm hàng đợi bền vững trong database.
-Worker của backend claim nguyên tử `queued -> running`, giới hạn concurrency, retry job
-stale sau restart và không tạo hai run đang chạy cho cùng answer. Nếu service AI tắt hoặc
-hết quota, các answer vẫn ở trạng thái có thể chấm thủ công.
+`assessment_ai_grading_runs` luôn là hàng đợi bền vững trong database. API claim nguyên tử
+`queued -> running`, giới hạn concurrency, retry job stale sau restart và không tạo hai run
+đang chạy cho cùng answer. Nếu service AI tắt hoặc hết quota, các answer vẫn ở trạng thái
+có thể chấm thủ công.
+
+### 6.7 Điều phối chấm AI theo Hybrid Cloudflare
+
+Thiết kế runtime chi tiết tuân theo
+[`hybrid-cloudflare-architecture.md`](hybrid-cloudflare-architecture.md). Cloudflare Queues
+được dùng như lớp **delivery** cho công việc chấm, không thay thế transaction database và
+không tham gia vào đường `submit` đồng bộ.
+
+`runGroupId` là ID logic ổn định cho batch chấm của một session và grading revision (có thể
+được suy ra từ hai ID này, không bắt buộc tạo thêm bảng). Trước khi bật queue, backend phải
+quy định cách tạo ID này và đảm bảo retry cùng batch luôn dùng đúng ID cũ.
+
+1. API chốt session/đáp án/điểm tự động trước, tạo các `assessment_ai_grading_runs` ở
+   trạng thái `queued`, rồi mới enqueue một message cho **batch của một lượt nộp**.
+2. Message chỉ gồm `sessionId`, `runGroupId`, `schemaVersion`, `correlationId` và số lần
+   giao. Không mang đáp án sinh viên, answer key, rubric, password đề, token API hoặc
+   prompt.
+3. Worker consumer xác thực với API nội bộ bằng HMAC có timestamp + nonce, claim lease
+   nguyên tử cho batch, rồi mới nhận grading input tối thiểu cho các run đã claim.
+4. Consumer gọi pool provider theo rate limit riêng từng provider. Thứ tự fallback do
+   admin cấu hình; ví dụ Gemini → OpenRouter → NVIDIA. Provider/model không được hard-code
+   trong payload queue.
+5. Consumer gửi completion theo `runId` + `leaseToken`. API validate JSON, điểm/rubric,
+   revision và idempotency trước khi lưu suggestion/audit. Completion lặp hoặc giao message
+   lặp không tạo score hay audit final lần thứ hai.
+6. Khi Queue/Worker/AI provider lỗi, run vẫn còn trong database để backend worker, retry
+   có kiểm soát hoặc giảng viên tiếp tục chấm tay. Không tự cho 0 điểm và không rollback
+   session đã submit.
+
+Với quota Free, 10.000 queue operations/ngày và retention 24 giờ là giới hạn để đánh giá
+chi phí, không phải năng lực mặc định để mở một kỳ thi. Vì delivery bình thường tốn ít nhất
+write/read/delete, hệ thống phải gộp batch, cảnh báo backlog từ sớm, và dừng enqueue công
+việc không khẩn cấp trước khi có nguy cơ chạm quota. Mọi ca thi thật chỉ dùng queue sau khi
+qua tiêu chí tải/quota ở tài liệu hybrid.
 
 Request duyệt nên có dạng rõ ràng:
 
@@ -718,6 +752,22 @@ gian lận; cũng không ngăn điện thoại hoặc thiết bị thứ hai. Kh
 3. UI so sánh ảnh gốc và câu đã nhận dạng, đánh dấu confidence thấp.
 4. Ngân hàng câu hỏi, mã đề và randomization có seed/audit.
 
+### Mốc 5 - Hybrid Cloudflare và vận hành ca thi
+
+1. Chuyển SPA sang Cloudflare Pages với preview deploy, custom domain, CSP/CORS và
+   rollback artifact đã diễn tập; không đổi public API contract trong cùng đợt.
+2. Chuẩn hóa R2 cho file import/export/template/artifact: object key, private bucket,
+   URL có hạn dùng, lifecycle và kiểm thử truy cập chéo lớp.
+3. Bổ sung metrics cho start/autosave/submit: request rate, p50/p95/p99, database rows
+   read/write, retry, integrity event, queue backlog và provider RPM/error rate.
+4. Triển khai Queue consumer dưới feature flag, với endpoint `claim/complete` nội bộ,
+   HMAC/nonce, atomic lease, idempotent completion, provider circuit breaker và fallback
+   manual.
+5. Canary trên đề không trọng yếu. Chỉ bật cho ca thi thật sau load test có simulated
+   start/submit burst, mất mạng, duplicate delivery và toàn bộ provider AI outage.
+6. Đánh giá D1/Workers API/Containers theo decision gate; không chuyển Turso hoặc Java
+   runner trong ngày thi và không mặc định coi Workers Free là compute cho bcrypt/JVM/PDF.
+
 ## 12. Chiến lược kiểm thử
 
 ### Unit/property
@@ -742,9 +792,15 @@ gian lận; cũng không ngăn điện thoại hoặc thiết bị thứ hai. Kh
 - Instructor không phụ trách lớp không thể xem bài/chấm điểm.
 - Submit thành công ngay cả khi provider LLM đang lỗi.
 - Một answer không tạo hai run đang chạy khi worker nhận job trùng.
+- Queue message không chứa answer, answer key, rubric, password hay secret; consumer chỉ
+  nhận dữ liệu sau `claim` service-authenticated.
+- Queue consumer giao lặp, callback giao lặp và lease hết hạn đều không tạo hai suggestion
+  hoặc hai audit final cho cùng provider attempt.
 - Output LLM sai schema/range bị từ chối và fallback đúng chính sách.
 - Student answer chứa prompt injection không thể thay đổi system rubric hoặc schema.
 - Mỗi thao tác accept/adjust/rerun đều có actor và audit record.
+- Submit vẫn thành công và có thể chấm tay khi queue hoặc toàn bộ provider AI không sẵn
+  sàng; queue backlog được quan sát và có kịch bản recovery.
 
 ### Frontend/E2E
 
@@ -753,6 +809,8 @@ gian lận; cũng không ngăn điện thoại hoặc thiết bị thứ hai. Kh
 - Timer 0 tự nộp và hiện biên nhận.
 - Nộp khi còn câu trống có cảnh báo nhưng vẫn cho xác nhận.
 - Navigation bàn phím, focus visible, code block và tiếng Việt hiển thị đúng.
+- Load test mô phỏng số sinh viên đồng thời đã phê duyệt: start burst, autosave, submit
+  burst, reconnect và provider outage; ghi lại p95/p99, database quota và queue backlog.
 
 ## 13. Tiêu chí hoàn thành MVP với đề mẫu
 
@@ -773,6 +831,8 @@ MVP được xem là hoàn thành khi:
 10. Mọi sự kiện integrity và mọi sửa điểm đều có audit.
 11. Test phân quyền, thời gian, autosave, scoring, LLM fallback và answer-key leakage đều
     chạy qua.
+12. Submit vẫn được chốt khi Queue/LLM bị ngắt trong test; queue retry không làm trùng điểm
+    hoặc trùng audit và dashboard thể hiện đủ quota/backlog trước giờ mở đề.
 
 ## 14. Dạng JSON import đề xuất
 

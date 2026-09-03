@@ -23,7 +23,9 @@ The platform’s core goal is to faithfully reproduce all teaching workflows, ad
 - **Submission Reviews & Manual Grading:** Detailed submission logs with search inputs, per-column filters, and manual error classification checkboxes (SE/PE/CE).
 - **Course-wide Rankings:** A grid-based leaderboard showing students' ranks, IDs, names, total scores, and week-by-week exercise completions.
 - **Plagiarism Checker:** Side-by-side similarity highlighting to investigate source code copying.
-- **Quota & Status Dashboard:** Quota usage warnings (Supabase, Render, Cloudflare R2) to stay within free-tier limits.
+- **Quota & Status Dashboard:** Usage, headroom, reset time and alerting for Turso,
+  Cloudflare Workers/Queues/R2 and any remaining API compute, so a free-tier limit never
+  silently interrupts a class or an assessment.
 
 ### Out of Scope
 - Generic multi-language online judging (restricted exclusively to Java OOP).
@@ -145,7 +147,9 @@ The platform’s core goal is to faithfully reproduce all teaching workflows, ad
 7. **Audit Trail:** Scheduled/manual runs must record status, start/end time, provider, threshold, scope, suspicious pair count, and artifact URL.
 
 ### Requirement 9: Anti-Cheating Assessment Monitor
-1. **Assessment Mode:** Instructors can flag any assigned exercise as an "Assessment" (Exam).
+1. **Assessment Mode:** A real mixed-question exam is represented by the dedicated
+   `Assessment` domain. The legacy `exercise_assignments.is_assessment` flag is retained
+   only for a monitored coding exercise and must not be used to model an entire exam.
 2. **Locking & Monitoring:**
    - Starting the exam forces Fullscreen Mode via the Fullscreen API. Denial blocks the workspace.
    - Listens for: Fullscreen exit, Visibility change (tab switches), and Window blur (leaves editor focus).
@@ -159,6 +163,55 @@ The platform’s core goal is to faithfully reproduce all teaching workflows, ad
    - Tie-breaker: Earliest completion timestamp, followed by alphanumeric Student ID.
    - Table details: Rank, Student Name, Student ID, Total Score, Completed Exercises count.
    - Renders exercise columns horizontally, allowing instructors to scan scores week-by-week.
+
+### Requirement 11: Hybrid Cloudflare Operations & Reliability
+
+The platform must follow the phased hybrid architecture defined in
+[`docs/hybrid-cloudflare-architecture.md`](docs/hybrid-cloudflare-architecture.md).
+This requirement is deliberately an operational requirement: it protects the ability to
+start, save and submit an assessment under burst traffic; it is not a mandate to rewrite
+all existing services at once.
+
+1. **Frontend delivery:** The production SPA must be deployable on Cloudflare Pages with
+   immutable build artifacts, preview deployments, HTTPS, SPA deep-link fallback, explicit
+   API base URL and a tested rollback to the prior artifact. No secret, answer key, grading
+   rubric or privileged configuration may be included in the frontend build.
+2. **Authoritative transactional path:** Login, assessment start/resume, autosave,
+   integrity-event recording and submit must use an authoritative transactional API and
+   database. `submit` must be idempotent and must succeed even when every AI provider or
+   queue consumer is unavailable.
+3. **Database decision gate:** Turso/libSQL remains the source of truth until a D1
+   migration passes the documented load, index, backup/restore, compatibility and rollback
+   gates. The system must not dual-write Turso and D1 during a real assessment.
+4. **Asynchronous AI grading:** AI grading must use a durable job state in the database and
+   may use Cloudflare Queues for delivery. A queue message carries only identifiers and a
+   correlation ID; it never contains student answers, answer keys, grading rubrics, exam
+   passwords or provider credentials. A provider failure must lead to retry/fallback or
+   manual review, never loss of a submitted answer.
+5. **Queue idempotency and rate control:** A grading queue unit represents a bounded batch
+   for one submitted assessment attempt, never keystrokes or an autosave operation. Consumers
+   must claim jobs atomically, use per-provider rate limits/circuit breakers, tolerate
+   at-least-once delivery and make completion idempotent.
+6. **File storage:** Import sheets, generated PDF/Word/Excel documents and source-check
+   artifacts must be stored in Cloudflare R2 or an equivalent object store with object
+   lifecycle rules. Private resources are accessed only through an authorization-checked,
+   time-limited URL; a local service filesystem is not durable storage.
+7. **Quota safety:** Admins must see usage, reset time, forecast, backlog and threshold
+   alerts for all metered dependencies. Deployment of a new dependency to a live assessment
+   is blocked until the planned peak load has documented headroom; a quota hard-limit is not
+   treated as an acceptable overload strategy.
+8. **Security at the edge:** TLS, CORS allow-list, security headers and rate limits are
+   enforced. Turnstile may protect public/high-risk forms such as login and password reset,
+   but it must not interrupt authenticated autosave or submit. Internal queue callbacks use
+   service authentication with replay protection, not a student or instructor token.
+9. **Compute boundaries:** Cloudflare Workers Free must not be the only execution path for
+   bcrypt-heavy authentication, document generation, Java/Checkstyle tooling or untrusted
+   Java execution. Such work stays in a compatible runner until a paid container/sandbox
+   decision is approved.
+10. **Assessment readiness:** Before a real assessment, the team must complete a documented
+    load test for the approved concurrent-student target, demonstrate successful submit during
+    AI/queue outage, rehearse backup restore and rollback, and freeze infrastructure/schema
+    changes throughout the assessment window.
 
 ---
 
@@ -181,4 +234,4 @@ The platform must enforce the following exact route configurations for visual co
 | Stud | `/#/submissions_detail/:id` | Submission Detail | Read-only code editor, test case results |
 | Admin | `/#/sections` | Admin Sections | Section CRUD lists, instructor dropdowns |
 | Admin | `/#/config` | System Config | Warning threshold inputs, defaults configurations |
-| Admin | `/#/quota` | Quota Status | Supabase/Render/R2 resource graphs |
+| Admin | `/#/quota` | Quota Status | Turso, Workers, Queues, R2 and API compute usage/headroom |
