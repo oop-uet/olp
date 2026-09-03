@@ -92,9 +92,22 @@ flowchart TB
 
 ### 3.2 Trạng thái chuyển đổi
 
-Kiến trúc triển khai hiện tại vẫn là GitHub Pages + Render + Turso. Sơ đồ trên là **đích
-được triển khai từng phần**, không được hiểu là đã vận hành. Trong mỗi giai đoạn, API
-public giữ URL và JSON contract hiện có để frontend không cần big-bang rewrite.
+Kiến trúc production hiện vẫn là GitHub Pages + Render + Turso. Repository hiện đã có
+**foundation code, nhưng chưa có Cloudflare resource/secret nào tự được bật**:
+
+- Workflow Pages chỉ chạy khi repository variable `CLOUDFLARE_PAGES_ENABLED=true`; GitHub
+  Pages vẫn là artifact rollback trong giai đoạn canary.
+- API chỉ cho phép origin Pages của đúng `CLOUDFLARE_PAGES_PROJECT`, không mở wildcard
+  `*.pages.dev`; build Pages phải nhận `VITE_API_URL` công khai.
+- R2 đã có interface provider, key chuẩn hóa theo prefix và URL ký bị giới hạn 15 phút
+  cho export roster. Các loại artifact còn lại phải chuyển dần, có kiểm thử phân quyền.
+- Queue bridge, Worker config, HMAC và DLQ đã có trong repository, nhưng mặc định
+  `ASSESSMENT_AI_QUEUE_DELIVERY_MODE=durable_db`. Chỉ canary mới được đổi sang
+  `cloudflare_queue` sau runbook và readiness check.
+
+Vì thế sơ đồ vẫn là **đích được triển khai từng phần**, không được hiểu là Cloudflare đã
+vận hành. Trong mỗi giai đoạn, API public giữ URL và JSON contract hiện có để frontend
+không cần big-bang rewrite.
 
 ## 4. Luồng ca thi và chấm AI
 
@@ -149,6 +162,20 @@ Quy tắc bắt buộc:
   limit từng provider và circuit breaker. Provider thất bại không làm retry vô hạn.
 - Kết quả chỉ là `suggestedScore`; điểm chính thức vẫn tuân thủ workflow duyệt/chấm lại
   của giảng viên.
+
+#### Cầu nối triển khai đầu tiên
+
+Lần triển khai đầu tiên dùng Worker như **delivery bridge**: API tạo run trong Turso trước,
+gửi message ID-only có HMAC đến `/enqueue`; Worker đưa message vào Queue rồi gọi callback
+nội bộ có chữ ký để backend claim/xử lý chính run đó. Backend worker cũ vẫn chạy như cơ chế
+recovery. Đây là chủ đích để giữ toàn bộ provider key do admin cấu hình, validator JSON và
+audit ở authority hiện tại trong lúc canary.
+
+Không bật flag chỉ vì Worker deploy thành công. Giai đoạn sau mới tách đầy đủ
+`claim -> provider -> complete` để Worker gọi provider bằng secret riêng, sau khi xác nhận
+được đồng bộ cấu hình provider, quota, recovery và khả năng rollback. Cầu nối hiện tại đã
+an toàn với delivery lặp vì lease database là điểm quyết định duy nhất, nhưng chưa được xem
+là bước thay thế backend chấm AI.
 
 ## 5. Chiến lược database: giữ Turso trước, đánh giá D1 sau
 

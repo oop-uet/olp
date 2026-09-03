@@ -1,0 +1,3 @@
+# Cloudflare Pages serves static files first, then rewrites SPA deep links.
+# GitHub Pages ignores this file, preserving the existing rollback artifact.
+/* /index.html 200

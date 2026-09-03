@@ -4,7 +4,7 @@ import {
   importStudents,
   exportStudents,
 } from "../../services/import.service.js";
-import { StorageService } from "../../services/storage.service.js";
+import { createR2ArtifactKey, MAX_PRESIGNED_URL_SECONDS, StorageService } from "../../services/storage.service.js";
 
 // ─── R2 Storage Helper ───────────────────────────────────────────────────────
 
@@ -90,8 +90,13 @@ router.post("/:id/import-students", async (req: Request, res: Response) => {
     if (storage) {
       try {
         const timestamp = Date.now();
-        const safeName = filename || "import-file";
-        const r2Key = `imports/${sectionId}/${timestamp}-${safeName}`;
+        const r2Key = createR2ArtifactKey({
+          environment: process.env.DEPLOYMENT_ENVIRONMENT || process.env.NODE_ENV || "development",
+          resource: "imports",
+          scope: `section-${sectionId}`,
+          timestamp,
+          filename: filename || "import-file",
+        });
         const contentType = filename?.toLowerCase().endsWith(".xlsx")
           ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           : "text/csv";
@@ -170,12 +175,18 @@ router.get("/:id/export-students", async (req: Request, res: Response) => {
     // Attempt to store export in R2 and generate presigned URL
     const storage = getStorageService();
     let downloadUrl: string | null = null;
-    const expiresIn = 3600; // 1 hour
+    const expiresIn = MAX_PRESIGNED_URL_SECONDS;
 
     if (storage) {
       try {
         const timestamp = Date.now();
-        const r2Key = `exports/${sectionId}/${timestamp}-students.csv`;
+        const r2Key = createR2ArtifactKey({
+          environment: process.env.DEPLOYMENT_ENVIRONMENT || process.env.NODE_ENV || "development",
+          resource: "exports",
+          scope: `section-${sectionId}`,
+          timestamp,
+          filename: "students.csv",
+        });
         await storage.upload(r2Key, Buffer.from(result.csv, "utf-8"), "text/csv");
         downloadUrl = await storage.generatePresignedUrl(r2Key, expiresIn);
       } catch {

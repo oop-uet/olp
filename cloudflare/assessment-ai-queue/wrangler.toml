@@ -1,0 +1,19 @@
+name = "oop-assessment-ai-queue"
+main = "src/index.ts"
+compatibility_date = "2026-09-03"
+workers_dev = true
+
+# One active consumer, bounded concurrency, and a DLQ prevent a temporary API
+# failure from amplifying a burst of submissions.
+[[queues.producers]]
+binding = "ASSESSMENT_AI_QUEUE"
+queue = "oop-assessment-ai"
+
+[[queues.consumers]]
+queue = "oop-assessment-ai"
+max_batch_size = 5
+max_batch_timeout = 10
+max_retries = 3
+retry_delay = 60
+max_concurrency = 1
+dead_letter_queue = "oop-assessment-ai-dlq"

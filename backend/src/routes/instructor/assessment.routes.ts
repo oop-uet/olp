@@ -261,7 +261,7 @@ router.post("/assignments/:assignmentId/regrade-all", async (req: Request, res: 
   try {
     sendResult(
       res,
-      await regradeAssessmentAssignment(req.params.assignmentId, req.user!.userId),
+      await regradeAssessmentAssignment(req.params.assignmentId, req.user!.userId, undefined, req.requestId),
       202
     );
   } catch (error) {
@@ -316,7 +316,7 @@ router.put("/answers/:answerId/review", validate(reviewSchema), async (req: Requ
 
 router.post("/answers/:answerId/ai-grade", async (req: Request, res: Response) => {
   try {
-    const result = await retryAssessmentAiGrade(req.params.answerId, req.user!.userId);
+    const result = await retryAssessmentAiGrade(req.params.answerId, req.user!.userId, undefined, req.requestId);
     sendResult(res, result, 202);
   } catch {
     res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Không thể xếp hàng chấm AI." } });

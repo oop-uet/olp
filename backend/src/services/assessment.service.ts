@@ -28,6 +28,7 @@ import {
   isAiServiceError,
   type AiServiceError,
 } from "./ai-exercise.service.js";
+import { queueAssessmentAiDelivery } from "./assessment-ai-queue-delivery.service.js";
 
 type Database = typeof defaultDb;
 
@@ -1577,7 +1578,8 @@ export async function submitAssessmentSession(
   sessionId: string,
   studentId: string,
   reason: "student" | "timeout" | "integrity" = "student",
-  database: Database = defaultDb
+  database: Database = defaultDb,
+  correlationId?: string
 ) {
   const context = await loadSessionContext(sessionId, database);
   if (!context || context.session.studentId !== studentId) {
@@ -1742,6 +1744,17 @@ export async function submitAssessmentSession(
     .where(and(eq(assessmentSessions.id, sessionId), eq(assessmentSessions.status, "in_progress")))
     .returning();
   const resultSession = updated ?? context.session;
+  // The grading-run insert is the source of truth. Queue delivery is
+  // intentionally post-commit and best-effort, so a Cloudflare outage can
+  // never reject a student's otherwise valid submission.
+  if (updated && queuedAnswers.length > 0) {
+    queueAssessmentAiDelivery({
+      sessionId,
+      runIds: queuedAnswers.map((answer) => answer.id),
+      promptVersion: "assessment-grading-v2",
+      correlationId,
+    });
+  }
   return {
     data: {
       ...resultSession,
@@ -1825,7 +1838,24 @@ async function pauseAssessmentAiQueueUntil(until: string, database: Database) {
 const AI_GRADING_LEASE_MS = 2 * 60_000;
 const AI_GRADING_MAX_ATTEMPTS = 4;
 const AI_QUEUE_PAUSE_KEY = "assessment_ai_queue_pause_until";
-const lastAssessmentProviderRequestAt: Partial<Record<"gemini" | "openrouter" | "nvidia", number>> = {};
+type AssessmentAiProvider = "openai" | "anthropic" | "gemini" | "groq" | "openrouter" | "nvidia";
+const ASSESSMENT_AI_PROVIDERS: AssessmentAiProvider[] = [
+  "openai",
+  "anthropic",
+  "gemini",
+  "groq",
+  "openrouter",
+  "nvidia",
+];
+const ASSESSMENT_AI_RPM_ENV_KEYS: Record<AssessmentAiProvider, string> = {
+  openai: "ASSESSMENT_AI_OPENAI_RPM",
+  anthropic: "ASSESSMENT_AI_ANTHROPIC_RPM",
+  gemini: "ASSESSMENT_AI_GEMINI_RPM",
+  groq: "ASSESSMENT_AI_GROQ_RPM",
+  openrouter: "ASSESSMENT_AI_OPENROUTER_RPM",
+  nvidia: "ASSESSMENT_AI_NVIDIA_RPM",
+};
+const lastAssessmentProviderRequestAt: Partial<Record<AssessmentAiProvider, number>> = {};
 
 export async function clearAssessmentAiQueuePause(database: Database = defaultDb) {
   await database.delete(systemConfig).where(eq(systemConfig.key, AI_QUEUE_PAUSE_KEY));
@@ -2401,32 +2431,43 @@ export async function recoverAssessmentAiQueue(
   };
 }
 
-function configuredAssessmentRpm(provider: "gemini" | "openrouter" | "nvidia") {
-  const environmentKey = provider === "gemini"
-    ? "ASSESSMENT_AI_GEMINI_RPM"
-    : provider === "nvidia"
-      ? "ASSESSMENT_AI_NVIDIA_RPM"
-      : "ASSESSMENT_AI_OPENROUTER_RPM";
-  const configured = Number(process.env[environmentKey] || "12");
+function isAssessmentAiProvider(value: string): value is AssessmentAiProvider {
+  return ASSESSMENT_AI_PROVIDERS.includes(value as AssessmentAiProvider);
+}
+
+function configuredAssessmentRpm(
+  provider: AssessmentAiProvider,
+  environment: NodeJS.ProcessEnv = process.env
+) {
+  const configured = Number(environment[ASSESSMENT_AI_RPM_ENV_KEYS[provider]] || "12");
   return Number.isFinite(configured) && configured >= 1 && configured <= 60
     ? configured
     : 12;
 }
 
-function assessmentProviderMinIntervalMs(provider: "gemini" | "openrouter" | "nvidia") {
-  const environmentKey = provider === "gemini"
-    ? "ASSESSMENT_AI_GEMINI_RPM"
-    : provider === "nvidia"
-      ? "ASSESSMENT_AI_NVIDIA_RPM"
-      : "ASSESSMENT_AI_OPENROUTER_RPM";
+function assessmentProviderMinIntervalMs(provider: AssessmentAiProvider) {
+  const environmentKey = ASSESSMENT_AI_RPM_ENV_KEYS[provider];
   if (process.env.NODE_ENV === "test" && !process.env[environmentKey]) return 0;
   return Math.ceil(60_000 / configuredAssessmentRpm(provider));
 }
 
-export async function processPendingAssessmentAiRuns(
+/** Safe-to-expose configuration, for operational readiness only (never API keys). */
+export function getAssessmentAiProviderRpmLimits(environment: NodeJS.ProcessEnv = process.env) {
+  return ASSESSMENT_AI_PROVIDERS.map((provider) => ({
+    provider,
+    rpm: configuredAssessmentRpm(provider, environment),
+  }));
+}
+
+async function processAssessmentAiRuns(
   limit = 1,
-  database: Database = defaultDb
+  database: Database = defaultDb,
+  requestedRunIds?: string[]
 ) {
+  const runIds = requestedRunIds
+    ? Array.from(new Set(requestedRunIds.map((id) => id.trim()).filter(Boolean)))
+    : null;
+  if (runIds && runIds.length === 0) return { processed: 0, pausedUntil: null };
   const aiStatus = await getAiConfigStatus(database);
   const constrainedProviders = Array.from(
     new Set(
@@ -2436,8 +2477,7 @@ export async function processPendingAssessmentAiRuns(
           .filter((fallback) => fallback.enabled)
           .map((fallback) => fallback.provider),
       ].filter(
-        (provider): provider is "gemini" | "openrouter" =>
-          provider === "gemini" || provider === "openrouter"
+        (provider): provider is AssessmentAiProvider => isAssessmentAiProvider(provider)
       )
     )
   );
@@ -2465,7 +2505,11 @@ export async function processPendingAssessmentAiRuns(
   const runs = await database
     .select({ id: assessmentAiGradingRuns.id })
     .from(assessmentAiGradingRuns)
-    .where(claimableAiRunCondition(now))
+    .where(
+      runIds
+        ? and(claimableAiRunCondition(now), inArray(assessmentAiGradingRuns.id, runIds))
+        : claimableAiRunCondition(now)
+    )
     .orderBy(
       asc(assessmentAiGradingRuns.nextAttemptAt),
       asc(assessmentAiGradingRuns.createdAt)
@@ -2480,6 +2524,27 @@ export async function processPendingAssessmentAiRuns(
     if (await processAiRun(run.id, database)) processed += 1;
   }
   return { processed, pausedUntil: null };
+}
+
+/** Processes the next eligible run(s) from the durable database queue. */
+export async function processPendingAssessmentAiRuns(
+  limit = 1,
+  database: Database = defaultDb
+) {
+  return processAssessmentAiRuns(limit, database);
+}
+
+/**
+ * Entry point for the Cloudflare Queue bridge. Claiming remains atomic in the
+ * same durable table used by the local worker, so duplicate Queue delivery or
+ * a concurrent Render instance cannot produce duplicate grading writes.
+ */
+export async function processAssessmentAiRunGroup(
+  runIds: string[],
+  database: Database = defaultDb
+) {
+  const safeLimit = Math.max(1, Math.min(runIds.length, 10));
+  return processAssessmentAiRuns(safeLimit, database, runIds);
 }
 
 let assessmentWorkerTimer: ReturnType<typeof setInterval> | null = null;
@@ -2962,7 +3027,8 @@ export async function approveAllPredictedScores(
 export async function regradeAssessmentAssignment(
   assignmentId: string,
   instructorId: string,
-  database: Database = defaultDb
+  database: Database = defaultDb,
+  correlationId?: string
 ) {
   const assignment = await assertInstructorAssignmentAccess(assignmentId, instructorId, database);
   if (!assignment) return serviceError("FORBIDDEN", "Bạn không có quyền chấm lại ca thi này.");
@@ -2994,6 +3060,7 @@ export async function regradeAssessmentAssignment(
   let aiAnswersQueued = 0;
   let previousAiRunsSuperseded = 0;
   const now = new Date().toISOString();
+  const deliveryGroups: Array<{ sessionId: string; runIds: string[] }> = [];
 
   for (const session of eligibleSessions) {
     let answers = await database
@@ -3138,6 +3205,10 @@ export async function regradeAssessmentAssignment(
         }))
       );
       aiAnswersQueued += queuedRuns.length;
+      deliveryGroups.push({
+        sessionId: session.id,
+        runIds: queuedRuns.map((run) => run.id),
+      });
     }
 
     const predictedScore =
@@ -3176,6 +3247,13 @@ export async function regradeAssessmentAssignment(
   );
   if (aiAnswersQueued > 0) {
     await clearAssessmentAiQueuePause(database);
+    for (const group of deliveryGroups) {
+      queueAssessmentAiDelivery({
+        ...group,
+        promptVersion: "assessment-grading-v2",
+        correlationId,
+      });
+    }
   }
   return { data: result };
 }
@@ -3183,7 +3261,8 @@ export async function regradeAssessmentAssignment(
 export async function retryAssessmentAiGrade(
   answerId: string,
   instructorId: string,
-  database: Database = defaultDb
+  database: Database = defaultDb,
+  correlationId?: string
 ) {
   const answer = await database.query.assessmentAnswers.findFirst({
     where: eq(assessmentAnswers.id, answerId),
@@ -3232,6 +3311,12 @@ export async function retryAssessmentAiGrade(
       .where(eq(assessmentSessions.id, answer.sessionId));
   }
   await clearAssessmentAiQueuePause(database);
+  queueAssessmentAiDelivery({
+    sessionId: answer.sessionId,
+    runIds: [run.id],
+    promptVersion: "assessment-grading-v2",
+    correlationId,
+  });
   return { data: run };
 }
 

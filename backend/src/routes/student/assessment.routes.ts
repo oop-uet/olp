@@ -186,7 +186,9 @@ router.post("/sessions/:sessionId/submit", async (req: Request, res: Response) =
     const result = await submitAssessmentSession(
       req.params.sessionId,
       req.user!.userId,
-      "student"
+      "student",
+      undefined,
+      req.requestId
     );
     sendResult(res, result);
   } catch {

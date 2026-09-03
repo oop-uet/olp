@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { StorageService, loadStorageConfig, createR2Client } from './storage.service.js';
+import {
+  StorageService,
+  loadStorageConfig,
+  createR2ArtifactKey,
+  createR2Client,
+  MAX_PRESIGNED_URL_SECONDS,
+} from './storage.service.js';
 
 // Mock the AWS SDK modules
 vi.mock('@aws-sdk/client-s3', () => {
@@ -167,7 +173,7 @@ describe('StorageService', () => {
       expect(getSignedUrl).toHaveBeenCalledWith(
         expect.anything(),
         expect.anything(),
-        { expiresIn: 3600 }
+        { expiresIn: MAX_PRESIGNED_URL_SECONDS }
       );
     });
 
@@ -190,6 +196,20 @@ describe('StorageService', () => {
 
       await expect(service.generatePresignedUrl('key')).rejects.toThrow('Signing failed');
     });
+  });
+});
+
+describe('R2 artifact keys', () => {
+  it('keeps untrusted scope and filename within the intended object prefix', () => {
+    expect(
+      createR2ArtifactKey({
+        environment: 'production',
+        resource: 'imports',
+        scope: 'section-../other',
+        timestamp: 1,
+        filename: '../students 2026.xlsx',
+      })
+    ).toBe('production/imports/section-..-other/1-..-students-2026.xlsx');
   });
 });
 

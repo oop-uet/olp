@@ -42,6 +42,7 @@ describe('Access Control Integration Tests', () => {
       { method: 'post' as const, path: '/api/admin/sections' },
       { method: 'get' as const, path: '/api/admin/config' },
       { method: 'get' as const, path: '/api/admin/quota-status' },
+      { method: 'get' as const, path: '/api/admin/assessment-operations' },
     ];
 
     describe('Students get 403 on admin endpoints', () => {
@@ -96,6 +97,15 @@ describe('Access Control Integration Tests', () => {
       it('GET /api/admin/quota-status returns non-403 for admin', async () => {
         const res = await request(app)
           .get('/api/admin/quota-status')
+          .set('Authorization', authBearer('admin'));
+
+        expect(res.status).not.toBe(403);
+        expect(res.status).not.toBe(401);
+      });
+
+      it('GET /api/admin/assessment-operations returns non-403 for admin', async () => {
+        const res = await request(app)
+          .get('/api/admin/assessment-operations')
           .set('Authorization', authBearer('admin'));
 
         expect(res.status).not.toBe(403);

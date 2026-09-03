@@ -30,6 +30,47 @@ export interface StorageConfig {
   bucketName: string;
 }
 
+/** Provider boundary used by import/export services; R2 is the current implementation. */
+export interface StorageProvider {
+  upload(key: string, body: Buffer, contentType?: string): Promise<UploadResult>;
+  download(key: string): Promise<DownloadResult>;
+  deleteObject(key: string): Promise<void>;
+  generatePresignedUrl(key: string, expiresInSeconds?: number): Promise<string>;
+}
+
+export const MAX_PRESIGNED_URL_SECONDS = 15 * 60;
+
+/**
+ * Keep untrusted filenames and IDs from changing an object prefix. Object keys
+ * are not browser-visible paths, but predictable prefixes are still a security
+ * boundary for lifecycle rules and future authorization checks.
+ */
+export function sanitizeStorageKeySegment(value: string, fallback = "file") {
+  const normalized = value
+    .normalize("NFKD")
+    .replace(/[\\/\0]/g, "-")
+    .replace(/[^A-Za-z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 160);
+  return normalized || fallback;
+}
+
+export function createR2ArtifactKey(input: {
+  environment: string;
+  resource: "imports" | "exports" | "templates" | "source-check" | "assessment-exports";
+  scope: string;
+  timestamp: number;
+  filename: string;
+}) {
+  return [
+    sanitizeStorageKeySegment(input.environment, "development"),
+    input.resource,
+    sanitizeStorageKeySegment(input.scope, "unknown"),
+    `${input.timestamp}-${sanitizeStorageKeySegment(input.filename)}`,
+  ].join("/");
+}
+
 /**
  * Load storage configuration from environment variables.
  * Throws if any required variable is missing.
@@ -74,7 +115,7 @@ export interface DownloadResult {
   contentType?: string;
 }
 
-export class StorageService {
+export class StorageService implements StorageProvider {
   private client: S3Client;
   private bucketName: string;
 
@@ -166,14 +207,15 @@ export class StorageService {
    * @param expiresInSeconds - URL expiration time in seconds (default: 3600 = 1 hour)
    * @returns A presigned URL string
    */
-  async generatePresignedUrl(key: string, expiresInSeconds: number = 3600): Promise<string> {
+  async generatePresignedUrl(key: string, expiresInSeconds: number = MAX_PRESIGNED_URL_SECONDS): Promise<string> {
     const command = new GetObjectCommand({
       Bucket: this.bucketName,
       Key: key,
     });
 
+    const boundedExpiry = Math.max(1, Math.min(MAX_PRESIGNED_URL_SECONDS, Math.floor(expiresInSeconds)));
     const url = await getSignedUrl(this.client, command, {
-      expiresIn: expiresInSeconds,
+      expiresIn: boundedExpiry,
     });
 
     return url;

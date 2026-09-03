@@ -35,6 +35,9 @@ import { db } from './db/index.js';
 import { ensureDatabaseCompatibility } from './db/compat.js';
 import { createCorsOrigin } from './config/cors.js';
 import { startAssessmentAiWorker } from './services/assessment.service.js';
+import assessmentOperationsRoutes from './routes/admin/assessment-operations.routes.js';
+import { requestCorrelationMiddleware } from './middleware/request-correlation.middleware.js';
+import internalAssessmentAiQueueRoutes from './routes/internal/assessment-ai-queue.routes.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -44,7 +47,19 @@ app.use(cors({
   origin: createCorsOrigin(),
   credentials: true,
 }));
-app.use(express.json({ limit: '6mb' }));
+app.use(requestCorrelationMiddleware);
+app.use(express.json({
+  limit: '6mb',
+  verify: (req, _res, buffer) => {
+    // Retain raw bytes only for the signed Worker callback. Keeping raw answers
+    // or passwords for all requests would add unnecessary sensitive data to
+    // memory and diagnostics.
+    const expressRequest = req as express.Request;
+    if (expressRequest.originalUrl.startsWith('/api/internal/assessment-ai/')) {
+      expressRequest.rawBodyForSignature = buffer.toString('utf8');
+    }
+  },
+}));
 
 // Health check route
 app.get('/api/health', (_req, res) => {
@@ -54,6 +69,7 @@ app.get('/api/health', (_req, res) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/help-guide', helpRoutes);
+app.use('/api/internal', internalAssessmentAiQueueRoutes);
 app.use('/api/admin/help-guide', authMiddleware(), requireRole('admin'), adminHelpRoutes);
 app.use('/api/admin/sections', authMiddleware(), requireRole('admin'), sectionRoutes);
 app.use('/api/admin/sections', authMiddleware(), requireRole('admin'), importRoutes);
@@ -62,6 +78,7 @@ app.use('/api/admin/users', authMiddleware(), requireRole('admin'), userRoutes);
 app.use('/api/admin/exercises', authMiddleware(), requireRole('admin'), adminExerciseRoutes);
 app.use('/api/admin/config', authMiddleware(), requireRole('admin'), configRoutes);
 app.use('/api/admin/ai-config', authMiddleware(), requireRole('admin'), aiConfigRoutes);
+app.use('/api/admin', authMiddleware(), requireRole('admin'), assessmentOperationsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/source-check', sourceCheckRoutes);
 
