@@ -1,5 +1,5 @@
 import { useState, FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, Navigate } from 'react-router-dom'
 import { api, cachedGet, startProactiveTokenRefresh } from '../lib/api'
 
 import { useAuthStore } from '../stores/auth.store'
@@ -9,6 +9,10 @@ import { Spinner } from '../components/ui'
 import { AxiosError } from 'axios'
 
 export function LoginPage() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const user = useAuthStore((s) => s.user)
+  const clearIntendedDestination = useRedirectStore((s) => s.clearIntendedDestination)
+
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -16,7 +20,12 @@ export function LoginPage() {
 
   const navigate = useNavigate()
   const login = useAuthStore((s) => s.login)
-  const clearIntendedDestination = useRedirectStore((s) => s.clearIntendedDestination)
+
+  if (isAuthenticated && user) {
+    const intendedDestination = clearIntendedDestination()
+    const redirectPath = intendedDestination || getRoleDashboardPath(user.role)
+    return <Navigate to={redirectPath} replace />
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()

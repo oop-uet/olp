@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { api } from '../../lib/api'
 import { PageLoader } from '../../components/ui'
+import { useAuthStore } from '../../stores/auth.store'
+import { getRoleDashboardPath } from '../../router/AuthGuard'
 
 interface HelpItem {
   id: string
@@ -59,6 +61,7 @@ function renderContent(text: string) {
 export function StudentGuidePage() {
   const [sections, setSections] = useState<HelpSection[]>([])
   const [loading, setLoading] = useState(true)
+  const { isAuthenticated, user } = useAuthStore()
 
   useEffect(() => {
     api.get('/api/help-guide')
@@ -82,13 +85,14 @@ export function StudentGuidePage() {
   }
 
   const checklistItems = sections.flatMap((sec) => sec.items || []).filter((it) => it.type === 'checklist')
+  const homePath = isAuthenticated && user ? getRoleDashboardPath(user.role) : '/'
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
       <header className="bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 text-white shadow-md border-b border-white/10">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-inner overflow-hidden p-1 select-none shrink-0">
+          <Link to={homePath} className="flex items-center gap-3 group transition-opacity hover:opacity-95">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-inner overflow-hidden p-1 select-none shrink-0 group-hover:scale-105 transition-transform">
               <img
                 src={`${import.meta.env.BASE_URL}logo-final.png`}
                 alt="UET Logo"
@@ -101,13 +105,35 @@ export function StudentGuidePage() {
               </h1>
               <p className="text-xs text-white/80 font-medium">Hướng dẫn sử dụng dành cho sinh viên Lập trình hướng đối tượng với Java</p>
             </div>
-          </div>
-          <Link
-            to="/login"
-            className="px-4 py-2 text-xs font-bold text-teal-600 bg-white hover:bg-slate-50 active:scale-[0.98] transition-all rounded-lg shadow-sm cursor-pointer"
-          >
-            Đăng nhập
           </Link>
+          {isAuthenticated && user ? (
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:flex flex-col text-right">
+                <span className="text-xs font-bold text-white leading-tight">
+                  {user.fullName || user.username}
+                </span>
+                <span className="text-[10px] text-white/70 font-medium">
+                  {user.role === 'student' ? 'Sinh viên' : user.role === 'instructor' ? 'Giảng viên' : 'Quản trị viên'}
+                </span>
+              </div>
+              <Link
+                to={getRoleDashboardPath(user.role)}
+                className="px-4 py-2 text-xs font-bold text-teal-700 bg-white hover:bg-slate-50 active:scale-[0.98] transition-all rounded-lg shadow-sm cursor-pointer inline-flex items-center gap-1.5"
+              >
+                <span>{user.role === 'student' ? 'Vào lớp học' : 'Vào hệ thống'}</span>
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
+              </Link>
+            </div>
+          ) : (
+            <Link
+              to="/login"
+              className="px-4 py-2 text-xs font-bold text-teal-600 bg-white hover:bg-slate-50 active:scale-[0.98] transition-all rounded-lg shadow-sm cursor-pointer"
+            >
+              Đăng nhập
+            </Link>
+          )}
         </div>
       </header>
 
