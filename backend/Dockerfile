@@ -12,7 +12,7 @@ WORKDIR /app
 RUN apk add --no-cache python3 make g++
 
 # npm workspaces needs each workspace manifest to resolve the root lockfile.
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json tsconfig.base.json ./
 COPY backend/package.json ./backend/package.json
 COPY frontend/package.json ./frontend/package.json
 COPY shared/package.json ./shared/package.json
