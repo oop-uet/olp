@@ -5,12 +5,17 @@ Runbook này thực thi ADR-005 theo từng pha có thể rollback. Nó không c
 
 ## 1. Sự thật vận hành và điều kiện dừng
 
-- Zeabur Free có auto-sleep và không có SLA. Không coi Free Plan là hạ tầng
-  luôn sẵn sàng cho ca thi quan trọng nếu chưa có kết quả tải và rollback đã
-  ghi nhận.
+- Nếu account được cấp Free/shared compute, Zeabur có thể auto-sleep và không có SLA.
+  Không coi nó là hạ tầng luôn sẵn sàng cho ca thi quan trọng nếu chưa có kết quả tải
+  và rollback đã ghi nhận.
 - Chỉ dashboard Zeabur tại thời điểm tạo project mới là nguồn sự thật về region,
   xác minh tài khoản, quota và build/runtime resource. Không suy diễn các giá
   trị đó từ tài liệu kiến trúc.
+- Trước khi tạo project, xác nhận account có nguồn compute hợp lệ. Zeabur đang
+  chuyển project mới sang server/cluster; nếu dashboard yêu cầu server trả phí,
+  credit hoặc phương thức thanh toán thì đây là **điểm dừng cần phê duyệt**, không
+  phải lỗi kỹ thuật để tự ý vượt qua. Lần kiểm tra 04/09/2026 của account canary
+  chưa có project, server hoặc credit.
 - Render giữ nguyên trong suốt canary và tối thiểu bảy ngày sau cutover ổn định.
 - Turso là nguồn sự thật duy nhất. Không đổi schema trong thời gian dual-host.
 
@@ -30,17 +35,21 @@ Repository đã chuẩn bị các thành phần sau:
 
 Không chép `.env` lên Git, Pages hoặc log CI.
 
-## 3. Tạo service và chọn build đúng trong Zeabur
+## 3. Xác nhận eligibility, tạo service và chọn build đúng trong Zeabur
 
-1. Tạo một project/service tại region APAC gần người dùng nhất **mà dashboard
-   thực sự cho phép**. Ghi lại region và generated HTTPS domain vào ticket.
-2. Kết nối GitHub repository `oop-uet/olp`, branch `main`.
-3. Để **Root Directory trống / repository root**, vì `package-lock.json` nằm ở
+1. Trong Dashboard > Servers/Projects, xác nhận một trong các nguồn compute:
+   server Zeabur đã được phê duyệt, server/cluster tự quản đã bind, hoặc lựa chọn
+   shared compute mà account thực sự được cấp. Không chọn mua server hay nạp credit
+   trong lúc thực hiện runbook nếu chưa được phê duyệt chi phí.
+2. Tạo một project/service tại region APAC gần người dùng nhất **mà dashboard
+   thực sự cho phép**. Ghi lại region, nguồn compute và generated HTTPS domain vào ticket.
+3. Kết nối GitHub repository `oop-uet/olp`, branch `main`.
+4. Để **Root Directory trống / repository root**, vì `package-lock.json` nằm ở
    root. Không đặt `backend` làm root directory.
-4. Giữ `zbpack.json` trong repo; hoặc nếu dashboard yêu cầu khai báo, đặt
+5. Giữ `zbpack.json` trong repo; hoặc nếu dashboard yêu cầu khai báo, đặt
    `ZBPACK_DOCKERFILE_PATH=backend/Dockerfile`. Không cấu hình cả Dockerfile
    path khác hoặc `ZBPACK_IGNORE_DOCKERFILE`.
-5. Watch paths (theo cú pháp ignore-style của Zeabur):
+6. Watch paths (theo cú pháp ignore-style của Zeabur):
 
    ```text
    /backend/**
@@ -50,7 +59,7 @@ Không chép `.env` lên Git, Pages hoặc log CI.
    /.dockerignore
    ```
 
-6. Trong Settings > Health Check, dùng HTTP path `/api/health`. Chỉ tiếp tục
+7. Trong Settings > Health Check, dùng HTTP path `/api/health`. Chỉ tiếp tục
    khi Zeabur báo deployment healthy và URL trả HTTP 200.
 
 Zeabur Git integration là nguồn deploy duy nhất sau khi cấu hình xong; workflow
@@ -145,7 +154,7 @@ Rollback:
 DNS/cache propagation không có thời gian bảo đảm; chỉ kết thúc cutover khi các
 client thực tế nhận đúng API và observability xác nhận trạng thái ổn định.
 
-## 8. Thủ tục ca thi trên Free Plan
+## 8. Thủ tục ca thi trên compute không có SLA
 
 - Trước giờ mở đề 15 phút, gọi `/api/health`, login canary và xác nhận DB/R2.
 - Theo dõi trực tiếp dashboard Zeabur, Turso, Cloudflare và AI provider trong

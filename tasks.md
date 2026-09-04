@@ -8,8 +8,9 @@ TypeScript frontend on GitHub Pages, Node.js + Express backend on Render, Turso 
 record the historical baseline.
 
 Under [ADR-005](docs/adr-005-zeabur-backend-migration.md), the backend API has a staged
-Zeabur (Free Plan) migration target. Region, latency, cold start, quota and cost are canary
-measurements, not promises; Render remains the rollback host until the migration is approved.
+Zeabur migration target only after account eligibility and an approved compute source.
+Region, latency, cold start, quota and cost are canary measurements, not promises; Render
+remains the rollback host until the migration is approved.
 
 The target architecture is now the phased Hybrid Cloudflare design in
 [`docs/hybrid-cloudflare-architecture.md`](docs/hybrid-cloudflare-architecture.md):
@@ -504,10 +505,16 @@ not an availability guarantee for a real assessment.
       Java runner directly to untrusted browser code.
     - _Requirements: 6.3, 7.3, 11.9_
 
-- [ ] 22. Backend migration from Render to Zeabur (Free Plan) - ADR-005
+- [ ] 22. Backend migration from Render to Zeabur - ADR-005
   - This migration executes [`docs/adr-005-zeabur-backend-migration.md`](docs/adr-005-zeabur-backend-migration.md).
     It moves the transactional Node.js API only after the canary proves a measurable benefit
     and a tested rollback; it does not promise a Free Plan latency, cold start or SLA.
+
+  - [ ] 22.0 Confirm Zeabur account eligibility and approved compute source
+    - Verify the account can create a project using an existing server/cluster or a shared
+      compute option actually shown by the dashboard
+    - If Zeabur requires a paid server, credit or payment method, stop and obtain explicit
+      cost approval; do not create paid infrastructure implicitly
 
   - [ ] 22.1 Verify optimized Dockerfile and ignore rules for Zeabur deployment
     - Multi-stage Dockerfile: Node 22 Alpine builder + OpenJDK 17 headless runtime

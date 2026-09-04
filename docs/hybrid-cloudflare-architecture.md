@@ -18,7 +18,7 @@ Hệ thống không chuyển toàn bộ sang Cloudflare Free trong một lần. 
 | Cloudflare Queues | Hàng đợi bền vững cho công việc chấm AI bất đồng bộ | Bổ sung sau khi có quan sát quota |
 | Cloudflare Worker | Consumer chấm AI và các endpoint edge ngắn, không giữ state nghiệp vụ | Pilot có giới hạn; không thay API ngay |
 | Turso/libSQL | Cơ sở dữ liệu giao dịch và nguồn sự thật hiện tại | Giữ nguyên trong các giai đoạn đầu |
-| Node.js API hiện tại | Xác thực, phân quyền, autosave, submit, chấm điểm và audit | Target Zeabur Free theo canary/rollback trong [ADR-005](adr-005-zeabur-backend-migration.md); Render là rollback cho đến khi cutover được chứng minh |
+| Node.js API hiện tại | Xác thực, phân quyền, autosave, submit, chấm điểm và audit | Target Zeabur theo canary/rollback trong [ADR-005](adr-005-zeabur-backend-migration.md), chỉ sau khi account có compute được phê duyệt; Render là rollback cho đến khi cutover được chứng minh |
 | Java/Checkstyle runner | Công việc cần JVM/Linux hoặc CPU đáng kể | Không chạy trên Workers Free; chạy qua Dockerfile trên Zeabur hoặc máy sinh viên |
 
 Mục tiêu của quyết định này là loại bỏ hạn chế static hosting của GitHub Pages và tối ưu
@@ -340,7 +340,7 @@ Các quota có thể thay đổi; kiểm tra lại dashboard trước mỗi quy�
 - [Cloudflare Containers](https://developers.cloudflare.com/containers/) — Containers yêu
   cầu Workers Paid.
 - [Turso pricing](https://turso.tech/pricing) — quota free libSQL hiện hành.
-- [Zeabur Free Plan](https://zeabur.com/docs/en-US/pricing/free-plan) — auto-sleep và không có SLA; kiểm tra quota/region thực tế trong dashboard.
+- [Zeabur Free Plan](https://zeabur.com/docs/en-US/pricing/free-plan) — auto-sleep và không có SLA; kiểm tra quyền tạo project, nguồn compute, quota/region thực tế trong dashboard.
 - [ADR-005: Chuyển đổi Backend API sang Zeabur](adr-005-zeabur-backend-migration.md) và [runbook](zeabur-migration-runbook.md) — thiết kế, canary và rollback.
 - [Render Free limitations](https://render.com/docs/free) — free web service spin down sau
   idle, latency cao từ Việt Nam.

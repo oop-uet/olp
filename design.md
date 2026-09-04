@@ -20,9 +20,10 @@ The platform implements a dense, table-driven administrative and workspace UI ba
 ### 2.1 Current baseline and target state
 
 The historical baseline was GitHub Pages + a Node.js API on Render + Turso/libSQL. Under
-[ADR-005](docs/adr-005-zeabur-backend-migration.md), the Node.js API has a staged **Zeabur
-(Free Plan)** target. Region, latency, cold-start and cost are acceptance measurements from
-the canary, not guarantees or evidence that production has already moved.
+[ADR-005](docs/adr-005-zeabur-backend-migration.md), the Node.js API has a staged **Zeabur**
+target subject to account eligibility and an approved compute source. Region, latency,
+cold-start and cost are acceptance measurements from the canary, not guarantees or evidence
+that production has already moved.
 
 The **target** is the phased Hybrid Cloudflare design in
 [`docs/hybrid-cloudflare-architecture.md`](docs/hybrid-cloudflare-architecture.md):

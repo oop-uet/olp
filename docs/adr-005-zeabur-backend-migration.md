@@ -1,6 +1,6 @@
-# ADR-005: Chuyển đổi Backend API từ Render sang Zeabur (Free Plan)
+# ADR-005: Đánh giá chuyển Backend API từ Render sang Zeabur
 
-- **Trạng thái:** Được chấp thuận làm phương án mục tiêu; chưa hoàn tất cutover.
+- **Trạng thái:** Phương án canary có điều kiện; chưa có project/service Zeabur hay cutover.
 - **Ngày cập nhật:** 04/09/2026.
 - **Phạm vi:** Hosting backend Node.js/Express API, môi trường Java/Checkstyle runner, cơ chế CI/CD, chiến lược xử lý cold-start / auto-sleep, và tích hợp mạng trong kiến trúc Hybrid Cloudflare của OOP Learning Platform.
 
@@ -8,15 +8,17 @@
 
 ## 1. Tóm tắt quyết định
 
-Hệ thống quyết định di chuyển **Node.js/Express Transactional API** từ **Render (Free Plan)** sang **Zeabur (Free Plan)**:
+Hệ thống đánh giá việc di chuyển **Node.js/Express Transactional API** từ **Render (Free Plan)**
+sang **Zeabur**. "Free Plan" là ràng buộc chi phí cần xác minh, không phải tiền đề rằng
+Zeabur có sẵn compute miễn phí cho project mới:
 
 | Thành phần | Trước khi chuyển đổi (Render Free) | Mục tiêu sau canary Zeabur | Tiêu chí chấp thuận |
 |---|---|---|---|
 | **Vị trí địa lý (Region)** | Đo latency thực tế hiện tại trước rollout. | Chọn region APAC gần UET nhất mà dashboard cho phép. | Đo p50/p95/p99 từ mạng mục tiêu, không dùng con số ước tính. |
-| **Auto-sleep & cold start** | Render là baseline rollback. | Free Plan vẫn auto-sleep và không có SLA. | Pre-warm, first-request và luồng submit đạt SLO canary đã ghi nhận. |
+| **Auto-sleep & cold start** | Render là baseline rollback. | Nếu account được cấp Free/shared compute, xác minh auto-sleep và không có SLA. | Pre-warm, first-request và luồng submit đạt SLO canary đã ghi nhận. |
 | **Build/runtime resource** | Có thể OOM ở môi trường cũ. | Docker multi-stage đóng gói Node 22 + JRE 17. | Build thành công và runtime resource/quota được đọc từ dashboard. |
 | **Java/Checkstyle** | Có thể tải JRE/JAR lúc start. | JRE/JAR có sẵn trong image; runtime cấm download. | Checkstyle chạy được ngay sau healthcheck, không cần outbound download. |
-| **Chi phí/độ tin cậy** | Nền tảng miễn phí có giới hạn. | Chỉ dùng Free Plan sau khi xác minh điều kiện tài khoản/quota. | Không coi $0, latency hoặc availability là cam kết cho ca thi thật. |
+| **Chi phí/độ tin cậy** | Nền tảng miễn phí có giới hạn. | Chỉ dùng Zeabur sau khi xác minh quyền tạo project và nguồn compute/server. | Không coi $0, latency hoặc availability là cam kết cho ca thi thật. |
 
 ---
 
@@ -26,8 +28,9 @@ OOP Learning Platform ban đầu sử dụng Render Free Web Service làm nơi c
 
 1. **Độ trễ và cold start cần được đo:** mọi số liệu Render/Zeabur trong ticket là
    baseline đo được, không phải giả định theo vị trí nhà cung cấp.
-2. **Free Plan không phải production SLA:** Zeabur công bố auto-sleep và không
-   có SLA trên Free Plan; ca thi cần pre-warm, observability và rollback đã thử.
+2. **Không suy diễn Free compute/SLA:** nếu account được cấp Free/shared compute,
+   Zeabur công bố auto-sleep và không có SLA; ca thi cần pre-warm, observability
+   và rollback đã thử.
 3. **Build phải tái lập:** monorepo có một root lockfile, vì vậy image phải build
    từ repository root thay vì tạo lockfile thứ hai trong `backend/`.
 4. **Không tải runtime khi cold start:** Java/Checkstyle phải là artifact image,
@@ -35,7 +38,9 @@ OOP Learning Platform ban đầu sử dụng Render Free Web Service làm nơi c
 
 Zeabur hỗ trợ Git integration, Dockerfile và custom health check. Region, điều
 kiện xác minh tài khoản và resource phải được xác nhận trong dashboard khi tạo
-service; chúng thay đổi theo plan/thời điểm.
+service; chúng thay đổi theo plan/thời điểm. Tại thời điểm rà soát 04/09/2026,
+tài khoản canary chưa có server/project/credit; không được mua server hoặc tạo
+compute trả phí chỉ để vượt qua bước này nếu chưa có phê duyệt chi phí rõ ràng.
 
 ---
 
@@ -90,12 +95,12 @@ flowchart TB
 
 ## 4. Phân tích kỹ thuật & Các biện pháp xử lý đặc thù
 
-### 4.1 Cơ chế Auto-Sleep trên Zeabur Free và Chiến lược Keep-Warm
+### 4.1 Auto-sleep (nếu dùng Free/shared compute) và Chiến lược Keep-Warm
 
 #### Bản chất Auto-Sleep của Zeabur:
-Free Plan tự đưa service idle vào trạng thái sleep và không có SLA. Lần request
-đầu có thể chịu cold-start; không ghi một thời lượng hay mức availability cố định
-vào thiết kế. `/api/health` chỉ trả 200 sau migration và compatibility DB hoàn tất.
+Free/shared compute có thể đưa service idle vào trạng thái sleep và không có SLA.
+Lần request đầu có thể chịu cold-start; không ghi một thời lượng hay mức availability
+cố định vào thiết kế. `/api/health` chỉ trả 200 sau migration và compatibility DB hoàn tất.
 
 #### Chiến lược Keep-Warm trong các ca thi (Assessment Sessions):
 Trong kỳ thi thực tế, không thể chấp nhận rủi ro sinh viên gặp độ trễ cold start hoặc bị nghẽn lúc đồng loạt nhấn nộp bài. Giải pháp được áp dụng:
@@ -224,7 +229,7 @@ sequenceDiagram
 
 ## 8. Kết luận
 
-Zeabur Free Plan là phương án canary để cải thiện vị trí triển khai và build
-reproducibility, không phải bảo đảm latency, uptime hay chi phí mãi mãi. Chỉ khi
-runbook đạt health, smoke, tải nhẹ, observability và rollback mới ghi nhận API
-production đã chuyển từ Render sang Zeabur.
+Zeabur chỉ là phương án canary nếu account có compute được phê duyệt; nó không
+bảo đảm latency, uptime hay chi phí mãi mãi. Chỉ khi runbook đạt eligibility,
+health, smoke, tải nhẹ, observability và rollback mới ghi nhận API production
+đã chuyển từ Render sang Zeabur.
