@@ -19,18 +19,14 @@ The platform implements a dense, table-driven administrative and workspace UI ba
 
 ### 2.1 Current baseline and target state
 
-The historical baseline was GitHub Pages + a Node.js API on Render + Turso/libSQL. Under
-[ADR-005](docs/adr-005-zeabur-backend-migration.md), the Node.js API has a staged **Zeabur**
-target subject to account eligibility and an approved compute source. Region, latency,
-cold-start and cost are acceptance measurements from the canary, not guarantees or evidence
-that production has already moved.
+The deployed baseline is Cloudflare Pages + a Node.js API on Render + Turso/libSQL.
 
 The **target** is the phased Hybrid Cloudflare design in
 [`docs/hybrid-cloudflare-architecture.md`](docs/hybrid-cloudflare-architecture.md):
 Cloudflare Pages serves the SPA, R2 stores artifacts, and Queues optionally dispatches AI
-grading. Turso remains authoritative; the transactional Node.js API changes host only after
-its explicit Zeabur migration gates are met. This is a migration plan, not a claim that every
-component below is already live.
+grading. Turso and the transactional Node.js API remain authoritative until their explicit
+migration gates are met. This is a migration plan, not a claim that every component below
+is already live.
 
 ```mermaid
 graph TB
@@ -49,7 +45,7 @@ graph TB
     end
 
     subgraph TransactionalCore[Authoritative transactional core]
-      API[Node.js API on Zeabur<br/>auth, autosave, submit, audit]
+      API[Node.js API<br/>auth, autosave, submit, audit]
       Database[(Turso / libSQL<br/>source of truth)]
       JavaRunner[Compatible Java/Checkstyle runner<br/>not Workers Free]
     end

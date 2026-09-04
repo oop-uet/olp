@@ -7,15 +7,10 @@ TypeScript frontend on GitHub Pages, Node.js + Express backend on Render, Turso 
 (Drizzle ORM), Cloudflare R2 storage, and a local Java executor agent. Those completed tasks
 record the historical baseline.
 
-Under [ADR-005](docs/adr-005-zeabur-backend-migration.md), the backend API has a staged
-Zeabur migration target only after account eligibility and an approved compute source.
-Region, latency, cold start, quota and cost are canary measurements, not promises; Render
-remains the rollback host until the migration is approved.
-
 The target architecture is now the phased Hybrid Cloudflare design in
 [`docs/hybrid-cloudflare-architecture.md`](docs/hybrid-cloudflare-architecture.md):
 Cloudflare Pages for the SPA, R2 for artifacts, Queues for asynchronous AI-grading delivery,
-and Turso/transactional API retained until explicit Zeabur/D1/Workers/runner migration gates pass.
+and Turso/transactional API retained until explicit D1/Workers/runner migration gates pass.
 Tasks remain ordered by dependency: observability → reversible edge changes → queue canary →
 load/rollback approval → optional database or compute migration. "Free" is a cost constraint,
 not an availability guarantee for a real assessment.
@@ -504,43 +499,6 @@ not an availability guarantee for a real assessment.
       CPU/memory cost, cold start, cancellation, logging and recovery. Do not expose a server
       Java runner directly to untrusted browser code.
     - _Requirements: 6.3, 7.3, 11.9_
-
-- [ ] 22. Backend migration from Render to Zeabur - ADR-005
-  - This migration executes [`docs/adr-005-zeabur-backend-migration.md`](docs/adr-005-zeabur-backend-migration.md).
-    It moves the transactional Node.js API only after the canary proves a measurable benefit
-    and a tested rollback; it does not promise a Free Plan latency, cold start or SLA.
-
-  - [ ] 22.0 Confirm Zeabur account eligibility and approved compute source
-    - Verify the account can create a project using an existing server/cluster or a shared
-      compute option actually shown by the dashboard
-    - If Zeabur requires a paid server, credit or payment method, stop and obtain explicit
-      cost approval; do not create paid infrastructure implicitly
-
-  - [ ] 22.1 Verify optimized Dockerfile and ignore rules for Zeabur deployment
-    - Multi-stage Dockerfile: Node 22 Alpine builder + OpenJDK 17 headless runtime
-    - Bake and verify Checkstyle 10.26.1 JAR during image build; runtime download is disabled
-    - Build from repository root with root workspaces lockfile, `zbpack.json` and `.dockerignore`
-    - Mark complete only after Zeabur Docker build, healthcheck and Checkstyle smoke test pass
-
-  - [ ] 22.2 Setup Zeabur service and configure environment variables
-    - Create project in the nearest APAC region actually available in dashboard
-    - Add environment variables: `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `JWT_SECRET`,
-      `JWT_REFRESH_SECRET`, `AI_SECRET_ENCRYPTION_KEY`, `CORS_ORIGIN`, `R2_*`, etc.
-    - Record the dashboard's actual verification, quota and resource limits; Free has no SLA
-
-  - [ ] 22.3 Configure CI/CD and deployment triggers
-    - Set up Zeabur native Git integration with root context and all required watch paths
-    - Keep GitHub Actions as verification only; do not run a second competing CLI deploy
-
-  - [ ] 22.4 Verify health check and establish exam keep-warm procedure
-    - Verify `GET /api/health` returns `200 OK` on Zeabur domain
-    - Optionally configure a scheduled keep-alive ping; it is not an availability guarantee
-    - Document pre-warm step (15 minutes before exam) in operational runbook
-
-  - [ ] 22.5 Canary verification and DNS cutover with rollback standby
-    - Test student login, autosave, submission, Checkstyle analysis, and PDF export on Zeabur
-    - Update frontend `VITE_API_URL` and/or CNAME `api.uetcodehub.xyz` to Zeabur
-    - Keep Render service active as rollback for at least 7 days
 
 ## Notes
 

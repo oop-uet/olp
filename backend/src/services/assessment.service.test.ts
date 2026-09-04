@@ -17,7 +17,6 @@ import {
   getStudentAssessmentPreflight,
   getStudentAssessmentResult,
   getStudentAssessmentSession,
-  isAssessmentAiWorkerEnabled,
   isAssessmentError,
   listAssessmentSubmissions,
   listInstructorAssessments,
@@ -43,15 +42,6 @@ function getDb() {
 }
 
 const ORIGINAL_JWT_SECRET = process.env.JWT_SECRET;
-
-describe("Assessment AI worker runtime switch", () => {
-  it("keeps the worker enabled by default and permits an explicit canary disable", () => {
-    expect(isAssessmentAiWorkerEnabled({})).toBe(true);
-    expect(isAssessmentAiWorkerEnabled({ ASSESSMENT_AI_WORKER_ENABLED: "false" })).toBe(false);
-    expect(isAssessmentAiWorkerEnabled({ ASSESSMENT_AI_WORKER_ENABLED: "FALSE" })).toBe(false);
-    expect(isAssessmentAiWorkerEnabled({ ASSESSMENT_AI_WORKER_ENABLED: "true" })).toBe(true);
-  });
-});
 
 function seedUsersAndSection() {
   const sqlite = getTestSqlite();

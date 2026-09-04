@@ -14,15 +14,6 @@ on:
       - 'cloudflare/**'
       - '.github/workflows/deploy-cloudflare-pages.yml'
   workflow_dispatch:
-    inputs:
-      api_url:
-        description: 'Optional HTTPS API URL for a one-off preview/canary build. Empty uses VITE_API_URL.'
-        required: false
-        type: string
-      deployment_branch:
-        description: 'Optional Cloudflare Pages branch for a one-off preview. Empty uses main/current PR branch.'
-        required: false
-        type: string
 
 permissions:
   contents: read
@@ -41,8 +32,8 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT }}
-      VITE_API_URL: ${{ inputs.api_url || vars.VITE_API_URL }}
-      DEPLOY_BRANCH: ${{ inputs.deployment_branch || (github.event_name == 'pull_request' && github.head_ref || 'main') }}
+      VITE_API_URL: ${{ vars.VITE_API_URL }}
+      DEPLOY_BRANCH: ${{ github.event_name == 'pull_request' && github.head_ref || 'main' }}
     steps:
       - uses: actions/checkout@v6
 
@@ -57,10 +48,6 @@ jobs:
           test -n "$CLOUDFLARE_ACCOUNT_ID" || (echo "Missing CLOUDFLARE_ACCOUNT_ID secret" && exit 1)
           test -n "$CLOUDFLARE_PAGES_PROJECT" || (echo "Missing CLOUDFLARE_PAGES_PROJECT repository variable" && exit 1)
           test -n "$VITE_API_URL" || (echo "Missing VITE_API_URL repository variable" && exit 1)
-          case "$VITE_API_URL" in
-            https://*) ;;
-            *) echo "VITE_API_URL must be an HTTPS API root" && exit 1 ;;
-          esac
 
       - run: npm ci
 

@@ -1,4 +1,4 @@
-name: Verify Backend for Zeabur
+name: Deploy Backend
 
 on:
   push:
@@ -6,27 +6,19 @@ on:
       - main
     paths:
       - 'backend/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'zbpack.json'
-      - '.dockerignore'
-      - '.github/workflows/deploy-backend.yml'
 
 jobs:
-  build-test:
+  build-test-deploy:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      # Keep CI on the same Node major version as backend/Dockerfile. A passing
-      # TypeScript build on a newer runner is not sufficient evidence that the
-      # production image will run correctly.
-      - name: Set up Node.js 22
+      - name: Set up Node.js 24
         uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
@@ -40,11 +32,13 @@ jobs:
         run: npx vitest run
         working-directory: backend
 
-      - name: Build the Zeabur production image
-        run: docker build --file backend/Dockerfile --tag oop-platform-backend:ci .
-
-      - name: Zeabur deployment boundary
+      - name: Deploy to Render
+        if: success()
+        env:
+          DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
         run: |
-          echo "Zeabur Git integration owns deployment for matching pushes."
-          echo "This workflow verifies the same commit but is not a deployment gate."
-          echo "Do not configure a Render deploy hook in this workflow."
+          if [ -n "$DEPLOY_HOOK" ]; then
+            curl -X POST "$DEPLOY_HOOK"
+          else
+            echo "RENDER_DEPLOY_HOOK_URL secret not configured, skipping deploy"
+          fi
