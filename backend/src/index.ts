@@ -34,13 +34,16 @@ import { migrate } from 'drizzle-orm/libsql/migrator';
 import { db } from './db/index.js';
 import { ensureDatabaseCompatibility } from './db/compat.js';
 import { createCorsOrigin } from './config/cors.js';
-import { startAssessmentAiWorker } from './services/assessment.service.js';
+import { startAssessmentAiWorker, stopAssessmentAiWorker } from './services/assessment.service.js';
 import assessmentOperationsRoutes from './routes/admin/assessment-operations.routes.js';
 import { requestCorrelationMiddleware } from './middleware/request-correlation.middleware.js';
 import internalAssessmentAiQueueRoutes from './routes/internal/assessment-ai-queue.routes.js';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = Number.parseInt(process.env.PORT ?? '3000', 10) || 3000;
+const HOST = process.env.HOST?.trim() || '0.0.0.0';
+let activeServer: ReturnType<typeof app.listen> | null = null;
+let shuttingDown = false;
 
 // Middleware
 app.use(cors({
@@ -204,8 +207,8 @@ async function startServer() {
     startAssessmentAiWorker();
 
 
-    app.listen(PORT, () => {
-      console.log(`[server] Backend running on port ${PORT}`);
+    activeServer = app.listen(PORT, HOST, () => {
+      console.log(`[server] Backend running on http://${HOST}:${PORT}`);
     });
   } catch (error) {
     console.error('[server] Database initialization failed; server was not started.', error);
@@ -216,6 +219,23 @@ async function startServer() {
 // Start accepting requests only after all required tables are ready.
 if (process.env.NODE_ENV !== 'test') {
   void startServer();
+  process.once('SIGTERM', () => shutdown('SIGTERM'));
+  process.once('SIGINT', () => shutdown('SIGINT'));
+}
+
+function shutdown(signal: 'SIGTERM' | 'SIGINT') {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.info(`[server] Received ${signal}; stopping HTTP traffic gracefully.`);
+  stopAssessmentAiWorker();
+
+  if (!activeServer) return;
+  activeServer.close((error) => {
+    if (error) {
+      console.error('[server] Graceful shutdown encountered an error.', error);
+      process.exitCode = 1;
+    }
+  });
 }
 
 export default app;

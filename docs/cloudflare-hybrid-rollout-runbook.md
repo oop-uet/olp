@@ -6,8 +6,9 @@ rollback độc lập; không dùng runbook này để thay đổi hạ tầng t
 
 ## 1. Trạng thái mặc định an toàn
 
-- API giao dịch: Render/Node + Turso/libSQL.
-- Frontend production: GitHub Pages cho đến khi Pages canary được phê duyệt.
+- API giao dịch: Render/Node + Turso/libSQL cho đến khi cutover Zeabur hoàn tất theo [ADR-005](adr-005-zeabur-backend-migration.md) và [runbook](zeabur-migration-runbook.md).
+- Frontend: Cloudflare Pages là đường deploy SPA; giữ GitHub Pages như artifact rollback
+  tạm thời cho đến khi custom-domain/canary Pages được xác nhận trong dashboard.
 - AI grading: `assessment_ai_grading_runs` trong Turso và backend worker hiện hữu.
 - Queue delivery: `ASSESSMENT_AI_QUEUE_DELIVERY_MODE=durable_db`.
 
@@ -84,8 +85,8 @@ npx wrangler secret put INTERNAL_API_BASE_URL
 npx wrangler secret put QUEUE_SHARED_SECRET
 ```
 
-`INTERNAL_API_BASE_URL` phải là API HTTPS; `QUEUE_SHARED_SECRET` là giá trị ngẫu nhiên ít
-nhất 32 ký tự. Đặt cùng secret trong Render API:
+`INTERNAL_API_BASE_URL` phải là API HTTPS (ví dụ domain Zeabur `https://api.uetcodehub.xyz` hoặc `https://<app>.zeabur.app`); `QUEUE_SHARED_SECRET` là giá trị ngẫu nhiên ít
+nhất 32 ký tự. Đặt cùng secret trong biến môi trường Zeabur API:
 
 ```text
 CLOUDFLARE_ASSESSMENT_QUEUE_PRODUCER_URL=https://<worker>/enqueue

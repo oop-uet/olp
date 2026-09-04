@@ -24,6 +24,8 @@ const COMMON_JAVA_COMMANDS = [
   "java",
   "/usr/bin/java",
   "/usr/local/bin/java",
+  "/usr/lib/jvm/java-17-openjdk/bin/java",
+  "/usr/lib/jvm/default-jvm/bin/java",
   "/usr/lib/jvm/java-17-openjdk-amd64/bin/java",
   "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
   "/opt/render/project/.jdk/bin/java",

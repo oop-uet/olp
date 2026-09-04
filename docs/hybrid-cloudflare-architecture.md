@@ -18,12 +18,12 @@ Hệ thống không chuyển toàn bộ sang Cloudflare Free trong một lần. 
 | Cloudflare Queues | Hàng đợi bền vững cho công việc chấm AI bất đồng bộ | Bổ sung sau khi có quan sát quota |
 | Cloudflare Worker | Consumer chấm AI và các endpoint edge ngắn, không giữ state nghiệp vụ | Pilot có giới hạn; không thay API ngay |
 | Turso/libSQL | Cơ sở dữ liệu giao dịch và nguồn sự thật hiện tại | Giữ nguyên trong các giai đoạn đầu |
-| Node.js API hiện tại | Xác thực, phân quyền, autosave, submit, chấm điểm và audit | Giữ nguyên cho đến khi pilot Workers đạt tiêu chí |
-| Java/Checkstyle runner | Công việc cần JVM/Linux hoặc CPU đáng kể | Không chạy trên Workers Free |
+| Node.js API hiện tại | Xác thực, phân quyền, autosave, submit, chấm điểm và audit | Target Zeabur Free theo canary/rollback trong [ADR-005](adr-005-zeabur-backend-migration.md); Render là rollback cho đến khi cutover được chứng minh |
+| Java/Checkstyle runner | Công việc cần JVM/Linux hoặc CPU đáng kể | Không chạy trên Workers Free; chạy qua Dockerfile trên Zeabur hoặc máy sinh viên |
 
-Mục tiêu của quyết định này là loại bỏ hạn chế static hosting của GitHub Pages và giảm
-phụ thuộc vào Render cho các việc có thể tách ra, **không đánh đổi tính toàn vẹn của ca
-thi lấy chi phí bằng 0**.
+Mục tiêu của quyết định này là loại bỏ hạn chế static hosting của GitHub Pages và tối ưu
+backend với Zeabur APAC nếu canary chứng minh cải thiện so với baseline Render,
+**không đánh đổi tính toàn vẹn của ca thi lấy chi phí bằng 0**.
 
 ## 2. Bối cảnh và các ràng buộc
 
@@ -92,8 +92,9 @@ flowchart TB
 
 ### 3.2 Trạng thái chuyển đổi
 
-Kiến trúc production hiện vẫn là GitHub Pages + Render + Turso. Repository hiện đã có
-**foundation code, nhưng chưa có Cloudflare resource/secret nào tự được bật**:
+Repository hiện có foundation Cloudflare và Zeabur. Chỉ ghi nhận production là Zeabur sau
+khi [runbook migration](zeabur-migration-runbook.md) hoàn tất; trước thời điểm đó Render là
+API production/rollback. Repository hiện có các rào chắn sau:
 
 - Workflow Pages chỉ chạy khi repository variable `CLOUDFLARE_PAGES_ENABLED=true`; GitHub
   Pages vẫn là artifact rollback trong giai đoạn canary.
@@ -339,7 +340,9 @@ Các quota có thể thay đổi; kiểm tra lại dashboard trước mỗi quy�
 - [Cloudflare Containers](https://developers.cloudflare.com/containers/) — Containers yêu
   cầu Workers Paid.
 - [Turso pricing](https://turso.tech/pricing) — quota free libSQL hiện hành.
+- [Zeabur Free Plan](https://zeabur.com/docs/en-US/pricing/free-plan) — auto-sleep và không có SLA; kiểm tra quota/region thực tế trong dashboard.
+- [ADR-005: Chuyển đổi Backend API sang Zeabur](adr-005-zeabur-backend-migration.md) và [runbook](zeabur-migration-runbook.md) — thiết kế, canary và rollback.
 - [Render Free limitations](https://render.com/docs/free) — free web service spin down sau
-  idle, không phù hợp làm giả định availability cho ca thi.
+  idle, latency cao từ Việt Nam.
 - [GitHub Pages limits](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits)
   — giới hạn và khuyến cáo về sensitive transactions.

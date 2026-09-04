@@ -2550,7 +2550,22 @@ export async function processAssessmentAiRunGroup(
 let assessmentWorkerTimer: ReturnType<typeof setInterval> | null = null;
 let assessmentWorkerBusy = false;
 let assessmentQueueRecoveryComplete = false;
+
+/**
+ * A Zeabur canary may share Turso with the current API. Keep the canary from
+ * consuming a second, independent AI-provider rate-limit budget until the
+ * traffic cutover is approved. Database run claiming remains the authority,
+ * so turning this off never changes submit/autosave durability.
+ */
+export function isAssessmentAiWorkerEnabled(environment: NodeJS.ProcessEnv = process.env) {
+  return environment.ASSESSMENT_AI_WORKER_ENABLED?.trim().toLowerCase() !== "false";
+}
+
 export function startAssessmentAiWorker() {
+  if (!isAssessmentAiWorkerEnabled()) {
+    console.info("[assessment-ai] In-process worker disabled by ASSESSMENT_AI_WORKER_ENABLED.");
+    return;
+  }
   if (assessmentWorkerTimer) return;
   const run = async () => {
     if (assessmentWorkerBusy) return;
@@ -2569,6 +2584,14 @@ export function startAssessmentAiWorker() {
   void run().catch(() => undefined);
   assessmentWorkerTimer = setInterval(() => void run().catch(() => undefined), 2000);
   assessmentWorkerTimer.unref?.();
+}
+
+/** Stop polling before a rolling deployment closes its HTTP listener. */
+export function stopAssessmentAiWorker() {
+  if (!assessmentWorkerTimer) return;
+  clearInterval(assessmentWorkerTimer);
+  assessmentWorkerTimer = null;
+  assessmentQueueRecoveryComplete = false;
 }
 
 export async function getStudentAssessmentResult(

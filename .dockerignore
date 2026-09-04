@@ -1,0 +1,37 @@
+# Docker build context for the Zeabur backend image. The image is built from
+# the repository root so that npm can use the single workspaces lockfile.
+.git
+.github
+.agents
+.codex
+
+**/node_modules
+**/dist
+**/coverage
+**/.cache
+**/.java
+**/*.tsbuildinfo
+**/*.log
+
+**/.env
+**/.env.*
+credentials.txt
+*credentials*
+
+*.db
+*.db-journal
+*.docx
+*.pdf
+audit_all_exams.py
+generate_*.py
+update_*.py
+Đề thi
+local-executor
+docs
+
+# The backend does not use these workspaces at runtime, but npm needs their
+# manifests to resolve the root workspaces lockfile.
+frontend/*
+!frontend/package.json
+shared/*
+!shared/package.json
